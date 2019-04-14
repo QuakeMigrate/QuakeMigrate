@@ -23,7 +23,7 @@ Please contact lead authors for corresponding collaboration.
 ## Authors
 
 * **Jonathan Smith** - *Project Leaders* - *Induced Seismicity, Geomechanics and Mitigating Geohazard* [Link](https://www.esc.cam.ac.uk/directory/jonathan-smith)
-* **Tom Hudson** - *Project Leaders* - *Glacioseismology and Icedyanmics* [Link](https://www.esc.cam.ac.uk/directory/tom-s-hudson)
+* **Tom Hudson** - *Project Leaders* - *Glacioseismology and Icedynamics* [Link](https://www.esc.cam.ac.uk/directory/tom-s-hudson)
 * **Tom Winder** - *Project Leaders* - *Volcanoseismology and Earthquake Triggering* [Link](https://www.esc.cam.ac.uk/directory/tom-winder)
 * **Conor Bacon** - *Project Leaders* - *Volcanoseismology and Earthquake Triggering* [Link](https://www.esc.cam.ac.uk/directory/conor-bacon)
 * **Tim Greenfield** - *Project Leaders* - *Volcanoseismology and Earthquake Triggering* [Link](https://www.esc.cam.ac.uk/directory/tim-greenfield)

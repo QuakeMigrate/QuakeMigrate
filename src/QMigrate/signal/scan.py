@@ -7,7 +7,6 @@ Module to produce gridded traveltime velocity models
 __version__ = "0.1"
 __author__ = ""
 
-import re
 import os
 import pathlib
 import time
@@ -116,7 +115,7 @@ def gaussian_3d(nx, ny, nz, sgm):
     x = np.linspace(-nx2, nx2, nx)
     y = np.linspace(-ny2, ny2, ny)
     z = np.linspace(-nz2, nz2, nz)
-    ix, iy, iz = np.meshgrid(x, y, z, indexing='ij')
+    ix, iy, iz = np.meshgrid(x, y, z, indexing="ij")
     if np.isscalar(sgm):
         sgm = np.repeat(sgm, 3)
     sx, sy, sz = sgm
@@ -209,7 +208,7 @@ def filter(sig, srate, lc, hc, order=3):
 
     """
 
-    b1, a1 = butter(order, [2.0*lc/srate, 2.0*hc/srate], btype='band')
+    b1, a1 = butter(order, [2.0*lc/srate, 2.0*hc/srate], btype="band")
     nchan, nsamp = sig.shape
     fsig = np.copy(sig)
     # sig = detrend(sig)
@@ -264,7 +263,7 @@ class SeisOutFile:
 
     SCAN_COLS = ["DT", "COA", "X", "Y", "Z"]
 
-    def __init__(self, path='', name=None):
+    def __init__(self, path="", name=None):
         """
         Class initialisation method
 
@@ -278,7 +277,7 @@ class SeisOutFile:
 
         path = pathlib.Path(path)
         if name is None:
-            name = datetime.now().strftime('RUN_%Y%m%d_%H%M%S')
+            name = datetime.now().strftime("RUN_%Y%m%d_%H%M%S")
         self.path = path / name
         print("Path = {}, Name = {}".format(str(path), name))
 
@@ -329,23 +328,23 @@ class SeisOutFile:
         df["DT"] = df["DT"].apply(UTCDateTime)
 
         if self.file_sample_rate is not None:
-            df = df.set_index(df['DT'])
-            df = df.resample('{}L'.format(self.file_sample_rate)).mean()
+            df = df.set_index(df["DT"])
+            df = df.resample("{}L".format(self.file_sample_rate)).mean()
             df = df.reset_index()
             df = df.rename(columns={"index": "DT"})
 
-        df['DT'] = df['DT'].astype(str)
+        df["DT"] = df["DT"].astype(str)
 
         if fname.exists():
-            mode = 'a'  # append if already exists
+            mode = "a"  # append if already exists
         else:
-            mode = 'w'  # make a new file if not
+            mode = "w"  # make a new file if not
 
         array = np.array(df)
 
         with fname.open(mode=mode) as f:
             for i in range(array.shape[0]):
-                f.write('{},{},{},{},{}\n'.format(array[i, 0],
+                f.write("{},{},{},{},{}\n".format(array[i, 0],
                                                   array[i, 1],
                                                   array[i, 2],
                                                   array[i, 3],
@@ -359,7 +358,7 @@ class SeisOutFile:
 
         fname = self.path.with_suffix(".scn")
         if fname.exists():
-            print('Filename {} already exists - deleting.'.format(str(fname)))
+            print("Filename {} already exists - deleting.".format(str(fname)))
             fname.unlink()
 
     def read_coal4D(self, fname):
@@ -475,15 +474,15 @@ class SeisOutFile:
                    "sampling_rate": sampling_rate,
                    "starttime": starttime}
 
-        st = Stream(Trace(data=(np.array(data['COA']) * 1e8).astype(np.int32),
+        st = Stream(Trace(data=(np.array(data["COA"]) * 1e8).astype(np.int32),
                           header=stats_COA))
         st += Stream(Trace(data=(np.array(data["COA_NORM"]) * 1e8).astype(np.int32),
                            header=stats_COA_NORM))
-        st += Stream(Trace(data=(np.array(data['X']) * 1e6).astype(np.int32),
+        st += Stream(Trace(data=(np.array(data["X"]) * 1e6).astype(np.int32),
                            header=stats_X))
-        st += Stream(Trace(data=(np.array(data['Y']) * 1e6).astype(np.int32),
+        st += Stream(Trace(data=(np.array(data["Y"]) * 1e6).astype(np.int32),
                            header=stats_Y))
-        st += Stream(Trace(data=np.array(data['Z']).astype(np.int32),
+        st += Stream(Trace(data=np.array(data["Z"]).astype(np.int32),
                            header=stats_Z))
 
         if original_dataset is not None:
@@ -508,7 +507,7 @@ class SeisOutFile:
 
         fname = self.path.with_suffix(".log")
         with fname.open(mode="a") as f:
-            f.write(message + '\n')
+            f.write(message + "\n")
 
     def cut_mseed(self, data, event_name):
         """
@@ -525,7 +524,7 @@ class SeisOutFile:
 
         fname = (self.path / "_{}".format(event_name)).with_suffix(".mseed")
         st = data.st
-        st.write(str(fname), format='MSEED')
+        st.write(str(fname), format="MSEED")
 
     def write_coal_video(self, map_, lut, data, event_coa_val, event_name):
         """
@@ -549,9 +548,9 @@ class SeisOutFile:
 
         SeisPLT = SeisPlot(lut, map_, data, event_coa_val)
 
-        SeisPLT.CoalescenceVideo(output_file='{}_{}'.format(fname,
+        SeisPLT.CoalescenceVideo(output_file="{}_{}".format(fname,
                                                             event_name))
-        SeisPLT.CoalescenceMarginal(output_file='{}_{}'.format(fname,
+        SeisPLT.CoalescenceMarginal(output_file="{}_{}".format(fname,
                                                                event_name))
 
     def write_station_file(self, station_picks, event_name):
@@ -632,24 +631,19 @@ class SeisPlot:
 
     Methods
     -------
+    coalescence_video()
+        Generate a video of coalescence over the period of earthquake location
+    coalescence_location()
+        Location plot
 
     """
 
     logo = (pathlib.Path(__file__) / "QuakeMigrate").with_suffix(".png")
-    '''
-         Seismic plotting for QuakeMigrate outputs. Functions include:
-            CoalescenceVideo - A script used to generate a coalescence
-            video over the period of earthquake location
 
-            CoalescenceLocation - Location plot
-
-            CoalescenceMarginalizeLocation -
-
-    '''
     def __init__(self, lut, map_, coa_map, data, event, station_pick,
                  marginal_window, options=None):
         """
-        Class initialisation method
+        Initialisation of SeisPlot object
 
         Parameters
         ----------
@@ -672,9 +666,6 @@ class SeisPlot:
 
         """
 
-        '''
-            This is the initial variatiables
-        '''
         self.lut = lut
         self.map = map_
         self.data = data
@@ -687,17 +678,17 @@ class SeisPlot:
         if options is None:
             self.trace_scale = 1
             self.cmap = "hot_r"
-            self.LineStationColor = "black"
+            self.line_station_color = "black"
             self.plot_stats = True
             self.filtered_signal = True
             self.xy_files = None
         else:
             try:
                 self.trace_scale = options.TraceScaling
-                self.CMAP = options.MAPColor
-                self.LineStationColor = options.LineStationColor
-                self.Plot_Stations = options.Plot_Stations
-                self.FilteredSignal = options.FilteredSignal
+                self.cmap = options.MAPColor
+                self.line_station_color = options.line_station_color
+                self.plot_stats = options.Plot_Stations
+                self.filtered_signal = options.FilteredSignal
                 self.xy_files = options.xy_files
 
             except AttributeError:
@@ -708,414 +699,162 @@ class SeisPlot:
                         self.data.end_time + self.data.sample_size,
                         self.data.sample_size)
         self.times = [x.datetime for x in tmp]
+        # Convert event["DT"] to python datetime object
+        self.event["DT"] = pd.as_datetime(self.event["DT"])
         self.event = self.event[(self.event["DT"] > self.times[0])
                                 & (self.event["DT"] < self.event[-1])]
 
-        self.MAPmax = np.max(map_)
+        self.map_max = np.max(map_)
 
-        self.CoaTraceVLINE = None
-        self.CoaValVLINE = None
+        self.coal_trace_vline = None
+        self.coal_val_vline = None
+        self.xy_plot = None
+        self.yz_plot = None
+        self.xz_plot = None
+        self.xy_vline = None
+        self.xy_hline = None
+        self.yz_vline = None
+        self.yz_hline = None
+        self.xz_vline = None
+        self.xz_hline = None
+        self.tp_arrival = None
+        self.ts_arrival = None
 
-        self.CoaXYPlt = None
-        self.CoaYZPlt = None
-        self.CoaXZPlt = None
-        self.CoaXYPlt_VLINE = None
-        self.CoaXYPlt_HLINE = None
-        self.CoaYZPlt_VLINE = None
-        self.CoaYZPlt_HLINE = None
-        self.CoaXZPlt_VLINE = None
-        self.CoaXZPlt_HLINE = None
-        self.CoaArriavalTP = None
-        self.CoaArriavalTS = None
+    def coalescence_trace(self, output_file=None):
+        """
+        Plots a figure showing the behaviour of the coalescence value through
+        time as a trace
 
-    def _plot_coa_trace(self, trace, x, y, st_idx, color):
-        trace.plot(x,
-                   y / np.max(abs(y)) * self.trace_scale + (st_idx + 1),
-                   linecolor=color,
-                   linewidth=0.5)
+        Parameters
+        ----------
+        output_file : str, optional
+            Directory to output PDF of figure (figure displayed by default)
 
-    def _coalescence_image(self, tslice_idx):
-        '''
-            Takes the outputted coalescence values to plot a video over time
-        '''
+        """
 
-        tslice = self.times[tslice_idx]
-        index = np.where(self.event['DT'] == tslice)[0][0]
-        indexVal = self.lut.coord2loc(np.array([[self.event['X'].iloc[index],
-                                                 self.event['Y'].iloc[index],
-                                                 self.event['Z'].iloc[index]]])
-                                      ).astype(int)[0]
-        indexCoord = np.array([[self.event['X'].iloc[index],
-                                self.event['Y'].iloc[index],
-                                self.event['Z'].iloc[index]]])[0, :]
+        # Determining the marginal window value from the coalescence function
+        map_ = self.coa_map
+        loc = np.where(map_ == np.max(map_))
+        point = np.array([loc[0][0],
+                          loc[1][0],
+                          loc[2][0]])
 
-        # ----------------  Defining the Plot Area -------------------
-        fig = plt.figure(figsize=(30, 15))
-        fig.patch.set_facecolor('white')
-        Coa_XYSlice = plt.subplot2grid((3, 5), (0, 0), colspan=2, rowspan=2)
-        Coa_YZSlice = plt.subplot2grid((3, 5), (2, 0), colspan=2)
-        Coa_XZSlice = plt.subplot2grid((3, 5), (0, 2), rowspan=2)
-        trace = plt.subplot2grid((3, 5), (0, 3), colspan=2, rowspan=2)
-        logo = plt.subplot2grid((3, 5), (2, 2))
-        Coa_CoaVal = plt.subplot2grid((3, 5), (2, 3), colspan=2)
-
-        # ---------------- Plotting the Traces -----------
-        STIn = np.where(self.times == self.event['DT'].iloc[0])[0][0]
-        ENIn = np.where(self.times == self.event['DT'].iloc[-1])[0][0]
-
-        # ------------ Defining the stations in alphabetical order --------
-        if self.range_order:
-            ttp = self.lut.get_value_at('TIME_P',
-                                        np.array([indexVal[0],
-                                                  indexVal[1],
-                                                  indexVal[2]]))[0]
-            StaInd = np.argsort(ttp)[::-1]
-        else:
-            StaInd = np.argsort(self.data.stations)[::-1]
-
-        # ------------ Defining the stations in alphabetical order --------
-        for i in range(self.data.signal.shape[1]):
-            tmp = np.arange(self.data.start_time,
-                            self.data.end_time + self.data.sample_size,
-                            self.data.sample_size)
-            times = [x.datetime for x in tmp]
-            if not self.filtered_signal:
-                self._plot_coa_trace(trace, times,
-                                     self.data.signal[0, i, :],
-                                     StaInd[i], color='r')
-                self._plot_coa_trace(trace, times,
-                                     self.data.signal[1, i, :],
-                                     StaInd[i], color='b')
-                self._plot_coa_trace(trace, times,
-                                     self.data.signal[2, i, :],
-                                     StaInd[i], color='g')
-            else:
-                self._plot_coa_trace(trace, times,
-                                     self.data.filtered_signal[0, i, :],
-                                     StaInd[i], color='r')
-                self._plot_coa_trace(trace, times,
-                                     self.data.filtered_signal[1, i, :],
-                                     StaInd[i], color='b')
-                self._plot_coa_trace(trace, times,
-                                     self.data.filtered_signal[2, i, :],
-                                     StaInd[i], color='g')
-
-        # ---------------- Plotting the Station Travel Times -----------
-        for i in range(self.lut.get_value_at('TIME_P',
-                                             np.array([indexVal[0],
-                                                       indexVal[1],
-                                                       indexVal[2]])
-                                             )[0].shape[0]):
-            tp = self.event['DT'].iloc[np.argmax(self.event['COA'])] \
-                 + self.lut.get_value_at('TIME_P',
-                                         np.array([indexVal[0],
-                                                   indexVal[1],
-                                                   indexVal[2]]))[0][i]
-
-            ts = self.event['DT'].iloc[np.argmax(self.event['COA'])] \
-                 + self.lut.get_value_at('TIME_S',
-                                         np.array([indexVal[0],
-                                                   indexVal[1],
-                                                   indexVal[2]]))[0][i]
-
-            if i == 0:
-                TP = tp
-                TS = ts
-            else:
-                TP = np.append(TP, tp)
-                TS = np.append(TS, ts)
-
-        self.CoaArriavalTP = trace.scatter(TP, (StaInd+1), 40, 'pink', marker='v')
-        self.CoaArriavalTS = trace.scatter(TS, (StaInd+1), 40, 'purple', marker='v')
-
-        # trace.set_ylim([0,ii+2])
-        trace.set_xlim([self.data.start_time + 1.6, np.max(TS)])
-        # trace.get_xaxis().set_ticks([])
-        trace.yaxis.tick_right()
-        trace.yaxis.set_ticks(StaInd+1)
-        trace.yaxis.set_ticklabels(self.data.stations)
-        self.CoaTraceVLINE = trace.axvline(self.event['DT'].iloc[np.argmax(self.event['COA'])],0,1000,linestyle='--',linewidth=2,color='r')
-
-        # ------------- Plotting the Coalescence Function -----------
-        Coa_CoaVal.plot(self.EVENT['DT'],self.EVENT['COA'])
-        Coa_CoaVal.set_ylabel('Coalescence Value')
-        Coa_CoaVal.set_xlabel('Date-Time')
-        Coa_CoaVal.yaxis.tick_right()
-        Coa_CoaVal.yaxis.set_label_position("right")
-        Coa_CoaVal.set_xlim([self.EVENT['DT'].iloc[0],self.EVENT['DT'].iloc[-1]])
-        Coa_CoaVal.format_xdate = mdates.DateFormatter('%Y-%m-%d')  #FIX - Not working
-        for tick in Coa_CoaVal.get_xticklabels():
-            tick.set_rotation(45)
-        self.CoaValVLINE = Coa_CoaVal.axvline(tslice, 0, 1000,
-                                              linestyle='--',
-                                              linewidth=2,
-                                              color='r')
-
-        #  ------------- Plotting the Coalescence Value Slices -----------
-        gridX, gridY = np.mgrid[min(self.lut.xyz2coord(self.lut.get_grid_xyz())[:, 0]):max(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,0]):(max(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,0]) - min(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,0]))/self.LUT.cell_count[0], min(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,1]):max(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,1]):(max(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,1]) - min(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,1]))/self.LUT.cell_count[1]]
-        self.CoaXYPlt = Coa_XYSlice.pcolormesh(gridX,gridY,self.MAP[:,:,int(indexVal[2]),int(tslice_idx-STIn)]/self.MAPmax,vmin=0,vmax=1,cmap=self.CMAP)
-        Coa_XYSlice.set_xlim([min(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,0]),max(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,0])])
-        Coa_XYSlice.set_ylim([min(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,1]),max(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,1])])
-        self.CoaXYPlt_VLINE = Coa_XYSlice.axvline(x=indexCoord[0],linestyle='--',linewidth=2,color='k')
-        self.CoaXYPlt_HLINE = Coa_XYSlice.axhline(y=indexCoord[1],linestyle='--',linewidth=2,color='k')
-
-        gridX,gridY = np.mgrid[min(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,0]):max(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,0]):(max(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,0]) - min(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,0]))/self.LUT.cell_count[0], min(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,2]):max(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,2]):(max(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,2]) - min(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,2]))/self.LUT.cell_count[2]]
-        self.CoaYZPlt = Coa_YZSlice.pcolormesh(gridX,gridY,self.MAP[:,int(indexVal[1]),:,int(tslice_idx-STIn)]/self.MAPmax,vmin=0,vmax=1,cmap=self.CMAP)
-        Coa_YZSlice.set_xlim([min(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,0]),max(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,0])])
-        Coa_YZSlice.set_ylim([max(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,2]),min(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,2])])
-        self.CoaYZPlt_VLINE = Coa_YZSlice.axvline(x=indexCoord[0],linestyle='--',linewidth=2,color='k')
-        self.CoaYZPlt_HLINE = Coa_YZSlice.axhline(y=indexCoord[2],linestyle='--',linewidth=2,color='k')
-        Coa_YZSlice.invert_yaxis()
-
-        gridX,gridY = np.mgrid[min(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,2]):max(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,2]):(max(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,2]) - min(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,2]))/self.LUT.cell_count[2], min(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,1]):max(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,1]):(max(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,1]) - min(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,1]))/self.LUT.cell_count[1]]
-        self.CoaXZPlt = Coa_XZSlice.pcolormesh(gridX,gridY,np.transpose(self.MAP[int(indexVal[0]),:,:,int(tslice_idx-STIn)])/self.MAPmax,vmin=0,vmax=1,cmap=self.CMAP)
-        Coa_XZSlice.set_xlim([max(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,2]),min(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,2])])
-        Coa_XZSlice.set_ylim([min(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,1]),max(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,1])])
-        self.CoaXZPlt_VLINE = Coa_XZSlice.axvline(x=indexCoord[2],linestyle='--',linewidth=2,color='k')
-        self.CoaXZPlt_HLINE = Coa_XZSlice.axhline(y=indexCoord[1],linestyle='--',linewidth=2,color='k')
-
-        #  ------------- Plotting the station Locations -----------
-        Coa_XYSlice.scatter(self.LUT.station_data['Longitude'],self.LUT.station_data['Latitude'],15,'k',marker='^')
-        Coa_YZSlice.scatter(self.LUT.station_data['Longitude'],self.LUT.station_data['Elevation'],15,'k',marker='^')
-        Coa_XZSlice.scatter(self.LUT.station_data['Elevation'],self.LUT.station_data['Latitude'],15,'k',marker='<')
-        for i,txt in enumerate(self.LUT.station_data['Name']):
-            Coa_XYSlice.annotate(txt,[self.LUT.station_data['Longitude'][i],self.LUT.station_data['Latitude'][i]])
-
-        #  ------------- Plotting the xy_files -----------
-        if self.xy_files is not None:
-            xy_files = pd.read_csv(self.xy_files,
-                                   names=['File', 'Color',
-                                          'Linewidth', 'Linestyle'])
-            c = 0
-            for ff in xy_files['File']:
-                XYF = pd.read_csv(ff,names=['X', 'Y'])
-                Coa_XYSlice.plot(XYF['X'], XYF['Y'],
-                                 linestyle=xy_files['Linestyle'].iloc[c],
-                                 linewidth=xy_files['Linewidth'].iloc[c],
-                                 color=xy_files['Color'].iloc[c])
-                c += 1
-
-        #  ------------- Plotting the station Locations -----------
-        try:
-            logo.axis('off')
-            im = mpimg.imread(str(self.logo))
-            logo.imshow(im)
-            logo.text(150, 200, r'CoalescenceVideo', fontsize=14,style='italic')
-        except:
-            'Logo not plotting'
-
-        return fig
-
-    def _CoalescenceVideo_update(self,frame):
-        frame = int(frame)
-        STIn = np.where(self.times == self.EVENT['DT'].iloc[0])[0][0]
-        TimeSlice  = self.times[int(frame)]
-        index      = np.where(self.EVENT['DT'] == TimeSlice)[0][0]
-        indexVal = self.LUT.coord2loc(np.array([[self.EVENT['X'].iloc[index],self.EVENT['Y'].iloc[index],self.EVENT['Z'].iloc[index]]])).astype(int)[0]
-        indexCoord = np.array([[self.EVENT['X'].iloc[index],self.EVENT['Y'].iloc[index],self.EVENT['Z'].iloc[index]]])[0,:]
-
-        # Updating the Coalescence Value and Trace Lines
-        self.CoaTraceVLINE.set_xdata(TimeSlice)
-        self.CoaValVLINE.set_xdata(TimeSlice)
-
-        # Updating the Coalescence Maps
-        self.CoaXYPlt.set_array((self.MAP[:,:,indexVal[2],int(STIn-frame)]/self.MAPmax)[:-1,:-1].ravel())
-        self.CoaYZPlt.set_array((self.MAP[:,indexVal[1],:,int(STIn-frame)]/self.MAPmax)[:-1,:-1].ravel())
-        self.CoaXZPlt.set_array((np.transpose(self.MAP[indexVal[0],:,:,int(STIn-frame)])/self.MAPmax)[:-1,:-1].ravel())
-
-        # Updating the Coalescence Lines
-        self.CoaXYPlt_VLINE.set_xdata(indexCoord[0])
-        self.CoaXYPlt_HLINE.set_ydata(indexCoord[1])
-        self.CoaYZPlt_VLINE.set_xdata(indexCoord[0])
-        self.CoaYZPlt_HLINE.set_ydata(indexCoord[2])
-        self.CoaXZPlt_VLINE.set_xdata(indexCoord[2])
-        self.CoaXZPlt_HLINE.set_ydata(indexCoord[1])
-
-        # Updating the station travel-times
-        for i in range(self.LUT.get_value_at('TIME_P',np.array([indexVal]))[0].shape[0]):
-            try:
-                tp = np.argmin(abs((self.times.astype(datetime) - (TimeSlice.astype(datetime) + timedelta(seconds=self.LUT.get_value_at('TIME_P',np.array([indexVal]))[0][i])))/timedelta(seconds=1)))
-                ts = np.argmin(abs((self.times.astype(datetime) - (TimeSlice.astype(datetime) + timedelta(seconds=self.LUT.get_value_at('TIME_S',np.array([indexVal]))[0][i])))/timedelta(seconds=1)))
-            except:
-                tp=0
-                ts=0
-
-            if i == 0:
-                TP = tp
-                TS = ts
-            else:
-                TP = np.append(TP,tp)
-                TS = np.append(TS,ts)
-
-        self.CoaArriavalTP.set_offsets(np.c_[TP,(np.arange(self.DATA.signal.shape[1])+1)])
-        self.CoaArriavalTS.set_offsets(np.c_[TS,(np.arange(self.DATA.signal.shape[1])+1)])
-
-        # # Updating the station travel-times
-        # self.CoaArriavalTP.remove()
-        # self.CoaArriavalTS.remove()
-        # self.CoaArriavalTS = None
-        # self.CoaArriavalTP = None
-        # for i in range(self.LUT.get_value_at('TIME_P',np.array([indexVal]))[0].shape[0]):
-        #     if i == 0:
-        #         TP = TimeSlice + timedelta(seconds=self.LUT.get_value_at('TIME_P',np.array([indexVal]))[0][i])
-        #         TS = TimeSlice + timedelta(seconds=self.LUT.get_value_at('TIME_S',np.array([indexVal]))[0][i])
-        #     else:
-        #         TP = np.append(TP,(TimeSlice + timedelta(seconds=self.LUT.get_value_at('TIME_P',np.array([indexVal]))[0][i])))
-        #         TS = np.append(TS,(TimeSlice + timedelta(seconds=self.LUT.get_value_at('TIME_S',np.array([indexVal]))[0][i])))
-
-        # self.CoaArriavalTP = trace.scatter(TP,(np.arange(self.DATA.signal.shape[1])+1),15,'r',marker='v')
-        # self.CoaArriavalTS = trace.scatter(TS,(np.arange(self.DATA.signal.shape[1])+1),15,'b',marker='v')
-
-    def CoalescenceTrace(self, output_file=None):
-
-        # Determining the maginal window value from the coalescence function
-        mMAP = self.CoaMAP
-        # mMAP = np.log(np.sum(np.exp(mMAP),axis=-1))
-        # mMAP = mMAP/np.max(mMAP)
-        # mMAP_Cutoff = np.percentile(mMAP,95)
-        # mMAP[mMAP < mMAP_Cutoff] = mMAP_Cutoff
-        # mMAP = mMAP - mMAP_Cutoff
-        # mMAP = mMAP/np.max(mMAP)
-        indexVal = np.where(mMAP == np.max(mMAP))
-        indexCoord = self.LUT.xyz2coord(self.LUT.xyz2loc(np.array([[indexVal[0][0],indexVal[1][0],indexVal[2][0]]]), inverse=True))
+        # Get P- and S-traveltimes at this location
+        ptt = self.lut.get_value_at("TIME_P", point)[0]
+        stt = self.lut.get_value_at("TIME_S", point)[0]
 
         # Looping through all stations
-        ii = 0
-        while ii < self.data.signal.shape[1]:
+        for i in range(self.data.signal.shape[1]):
+            station = self.lut.station_data["Name"][i]
+            gau_p = self.stat_pick["GAU_P"][i]
+            gau_s = self.stat_pick["GAU_S"][i]
             fig = plt.figure(figsize=(30, 15))
 
             # Defining the plot
-            fig.patch.set_facecolor('white')
-            XTrace_Seis  =  plt.subplot(322)
-            YTrace_Seis  =  plt.subplot(324)
-            ZTrace_Seis  =  plt.subplot(321)
-            P_Onset      =  plt.subplot(323)
-            S_Onset      =  plt.subplot(326)
+            fig.patch.set_facecolor("white")
+            x_trace = plt.subplot(322)
+            y_trace = plt.subplot(324)
+            z_trace = plt.subplot(321)
+            p_onset = plt.subplot(323)
+            s_onset = plt.subplot(326)
 
-            # --- If trace is blank then remove and don't plot ---
-
-            # Plotting the X-trace
-            tmp = np.arange(self.data.start_time,
-                            self.data.end_time + self.data.sample_size,
-                            self.data.sample_size)
-            times = [x.datetime for x in tmp]
-            XTrace_Seis.plot(times,
-                             (self.data.filtered_signal[0, ii, :]
-                              / np.max(abs(self.data.filtered_signal[0, ii, :])))
-                             * self.trace_scale, 'r', linewidth=0.5)
-            YTrace_Seis.plot(times,
-                             (self.data.filtered_signal[1, ii, :]
-                              / np.max(abs(self.data.filtered_signal[1, ii, :])))
-                             * self.trace_scale, 'b', linewidth=0.5)
-            ZTrace_Seis.plot(times,
-                             (self.data.filtered_signal[2, ii, :]
-                              / np.max(abs(self.data.filtered_signal[2, ii, :])))
-                             * self.trace_scale, 'g', linewidth=0.5)
-            P_Onset.plot(times, self.data.p_onset[ii, :], 'r', linewidth=0.5)
-            S_Onset.plot(times, self.data.s_onset[ii, :], 'b', linewidth=0.5)
+            # Plotting the traces
+            self._plot_coa_trace(x_trace, self.times,
+                                 self.data.filtered_signal[0, i, :], -1, "r")
+            self._plot_coa_trace(y_trace, self.times,
+                                 self.data.filtered_signal[1, i, :], -1, "b")
+            self._plot_coa_trace(z_trace, self.times,
+                                 self.data.filtered_signal[2, i, :], -1, "g")
+            p_onset.plot(self.times, self.data.p_onset[i, :], "r", linewidth=0.5)
+            s_onset.plot(self.times, self.data.s_onset[i, :], "b", linewidth=0.5)
 
             # Defining Pick and Error
-            PICKS_df = self.StationPick['Pick']
-            STATION_pick = PICKS_df[PICKS_df['Name'] == self.LUT.station_data['Name'][ii]].reset_index(drop=True)
-            if len(STATION_pick) > 0:
-                STATION_pick = STATION_pick.replace('-1.0',np.nan)
+            picks = self.stat_pick["Pick"]
+            stat_pick = picks[picks["Name"] == station].reset_index(drop=True)
 
-                for jj in range(len(STATION_pick)):
-                    if np.isnan(STATION_pick['PickError'].iloc[jj]):
-                        continue
+            if len(stat_pick) > 0:
+                stat_pick = stat_pick.replace("-1.0", np.nan)
 
-                    if STATION_pick['Phase'].iloc[jj] == 'P':
-                        ZTrace_Seis.axvline(pd.to_datetime(STATION_pick['PickTime'].iloc[jj])+timedelta(seconds=-STATION_pick['PickError'].iloc[jj]/2),linestyle='--')
-                        ZTrace_Seis.axvline(pd.to_datetime(STATION_pick['PickTime'].iloc[jj])+timedelta(seconds=+STATION_pick['PickError'].iloc[jj]/2),linestyle='--')
-                        ZTrace_Seis.axvline(pd.to_datetime(STATION_pick['PickTime'].iloc[jj]))
+            for j, pick in stat_pick.iterrows():
+                if np.isnan(pick["PickError"]):
+                    continue
 
-                        # S_Onset.axvline(pd.to_datetime(STATION_pick['PickTime'].iloc[jj])+timedelta(seconds=-STATION_pick['PickError'].iloc[jj]/2),linestyle='--')
-                        # S_Onset.axvline(pd.to_datetime(STATION_pick['PickTime'].iloc[jj])+timedelta(seconds=+STATION_pick['PickError'].iloc[jj]/2),linestyle='--')
-                        # S_Onset.axvline(pd.to_datetime(STATION_pick['PickTime'].iloc[jj]))
+                pick_time = pick["PickTime"]
+                pick_err = pick["PickError"]
 
-                        yy = gaussian_1d(self.StationPick['GAU_P'][ii]['xdata'],self.StationPick['GAU_P'][ii]['popt'][0],self.StationPick['GAU_P'][ii]['popt'][1],self.StationPick['GAU_P'][ii]['popt'][2])
-                        P_Onset.plot(self.StationPick['GAU_P'][ii]['xdata_dt'],yy)
-                        P_Onset.axvline(pd.to_datetime(STATION_pick['PickTime'].iloc[jj])+timedelta(seconds=-STATION_pick['PickError'].iloc[jj]/2),linestyle='--')
-                        P_Onset.axvline(pd.to_datetime(STATION_pick['PickTime'].iloc[jj])+timedelta(seconds=+STATION_pick['PickError'].iloc[jj]/2),linestyle='--')
-                        P_Onset.axvline(pd.to_datetime(STATION_pick['PickTime'].iloc[jj]))
+                if pick["Phase"] == "P":
+                    self._pick_vlines(z_trace, pick_time, pick_err)
 
-                    else:
-                        YTrace_Seis.axvline(pd.to_datetime(STATION_pick['PickTime'].iloc[jj])+timedelta(seconds=-STATION_pick['PickError'].iloc[jj]/2),linestyle='--')
-                        YTrace_Seis.axvline(pd.to_datetime(STATION_pick['PickTime'].iloc[jj])+timedelta(seconds=+STATION_pick['PickError'].iloc[jj]/2),linestyle='--')
-                        YTrace_Seis.axvline(pd.to_datetime(STATION_pick['PickTime'].iloc[jj]))
+                    yy = gaussian_1d(gau_p["xdata"],
+                                     gau_p["popt"][0],
+                                     gau_p["popt"][1],
+                                     gau_p["popt"][2])
+                    p_onset.plot(gau_p["xdata_dt"], yy)
+                    self._pick_vlines(p_onset, pick_time, pick_err)
+                else:
+                    self._pick_vlines(y_trace, pick_time, pick_err)
+                    self._pick_vlines(x_trace, pick_time, pick_err)
 
-                        XTrace_Seis.axvline(pd.to_datetime(STATION_pick['PickTime'].iloc[jj])+timedelta(seconds=-STATION_pick['PickError'].iloc[jj]/2),linestyle='--')
-                        XTrace_Seis.axvline(pd.to_datetime(STATION_pick['PickTime'].iloc[jj])+timedelta(seconds=+STATION_pick['PickError'].iloc[jj]/2),linestyle='--')
-                        XTrace_Seis.axvline(pd.to_datetime(STATION_pick['PickTime'].iloc[jj]))
+                    yy = gaussian_1d(gau_s["xdata"],
+                                     gau_s["popt"][0],
+                                     gau_s["popt"][1],
+                                     gau_s["popt"][2])
+                    s_onset.plot(gau_s["xdata_dt"], yy)
+                    self._pick_vlines(s_onset, pick_time, pick_err)
 
-                        yy = gaussian_1d(self.StationPick['GAU_S'][ii]['xdata'],self.StationPick['GAU_S'][ii]['popt'][0],self.StationPick['GAU_S'][ii]['popt'][1],self.StationPick['GAU_S'][ii]['popt'][2])
-                        S_Onset.plot(self.StationPick['GAU_S'][ii]['xdata_dt'],yy)
+            dt_max = self.event["DT"].iloc[np.argmax(self.event["COA"])]
+            dt_max = UTCDateTime(dt_max)
+            self._ttime_vlines(self, z_trace, dt_max, ptt[i])
+            self._ttime_vlines(self, p_onset, dt_max, ptt[i])
+            self._ttime_vlines(self, y_trace, dt_max, stt[i])
+            self._ttime_vlines(self, x_trace, dt_max, stt[i])
+            self._ttime_vlines(self, s_onset, dt_max, stt[i])
 
-                        S_Onset.axvline(pd.to_datetime(STATION_pick['PickTime'].iloc[jj])+timedelta(seconds=-STATION_pick['PickError'].iloc[jj]/2),linestyle='--')
-                        S_Onset.axvline(pd.to_datetime(STATION_pick['PickTime'].iloc[jj])+timedelta(seconds=+STATION_pick['PickError'].iloc[jj]/2),linestyle='--')
-                        S_Onset.axvline(pd.to_datetime(STATION_pick['PickTime'].iloc[jj]))
-
-            ZTrace_Seis.axvline(self.EVENT['DT'].iloc[np.argmax(self.EVENT['COA'])] + timedelta(seconds=self.LUT.get_value_at('TIME_P',np.array([indexVal[0][0],indexVal[1][0],indexVal[2][0]]))[0][ii] ),color='red')
-            ZTrace_Seis.axvline(self.EVENT['DT'].iloc[np.argmax(self.EVENT['COA'])] + timedelta(seconds=(self.LUT.get_value_at('TIME_P',np.array([indexVal[0][0],indexVal[1][0],indexVal[2][0]]))[0][ii] - self.marginal_window - 0.1*self.LUT.get_value_at('TIME_P',np.array([indexVal[0][0],indexVal[1][0],indexVal[2][0]]))[0][ii])),color='red',linestyle='--')
-            ZTrace_Seis.axvline(self.EVENT['DT'].iloc[np.argmax(self.EVENT['COA'])] + timedelta(seconds=(self.LUT.get_value_at('TIME_P',np.array([indexVal[0][0],indexVal[1][0],indexVal[2][0]]))[0][ii] + self.marginal_window + 0.1*self.LUT.get_value_at('TIME_P',np.array([indexVal[0][0],indexVal[1][0],indexVal[2][0]]))[0][ii])),color='red',linestyle='--')
-            P_Onset.axvline(self.EVENT['DT'].iloc[np.argmax(self.EVENT['COA'])] + timedelta(seconds=self.LUT.get_value_at('TIME_P',np.array([indexVal[0][0],indexVal[1][0],indexVal[2][0]]))[0][ii]),color='red')
-            P_Onset.axvline(self.EVENT['DT'].iloc[np.argmax(self.EVENT['COA'])] + timedelta(seconds=(self.LUT.get_value_at('TIME_P',np.array([indexVal[0][0],indexVal[1][0],indexVal[2][0]]))[0][ii] - self.marginal_window - 0.1*self.LUT.get_value_at('TIME_P',np.array([indexVal[0][0],indexVal[1][0],indexVal[2][0]]))[0][ii])),color='red',linestyle='--')
-            P_Onset.axvline(self.EVENT['DT'].iloc[np.argmax(self.EVENT['COA'])] + timedelta(seconds=(self.LUT.get_value_at('TIME_P',np.array([indexVal[0][0],indexVal[1][0],indexVal[2][0]]))[0][ii] + self.marginal_window + 0.1*self.LUT.get_value_at('TIME_P',np.array([indexVal[0][0],indexVal[1][0],indexVal[2][0]]))[0][ii])),color='red',linestyle='--')
-
-            YTrace_Seis.axvline(self.EVENT['DT'].iloc[np.argmax(self.EVENT['COA'])] + timedelta(seconds=self.LUT.get_value_at('TIME_S',np.array([indexVal[0][0],indexVal[1][0],indexVal[2][0]]))[0][ii]),color='red')
-            YTrace_Seis.axvline(self.EVENT['DT'].iloc[np.argmax(self.EVENT['COA'])] + timedelta(seconds=(self.LUT.get_value_at('TIME_S',np.array([indexVal[0][0],indexVal[1][0],indexVal[2][0]]))[0][ii] - self.marginal_window - 0.1*self.LUT.get_value_at('TIME_S',np.array([indexVal[0][0],indexVal[1][0],indexVal[2][0]]))[0][ii])),color='red',linestyle='--')
-            YTrace_Seis.axvline(self.EVENT['DT'].iloc[np.argmax(self.EVENT['COA'])] + timedelta(seconds=(self.LUT.get_value_at('TIME_S',np.array([indexVal[0][0],indexVal[1][0],indexVal[2][0]]))[0][ii] + self.marginal_window + 0.1*self.LUT.get_value_at('TIME_S',np.array([indexVal[0][0],indexVal[1][0],indexVal[2][0]]))[0][ii])),color='red',linestyle='--')
-
-            XTrace_Seis.axvline(self.EVENT['DT'].iloc[np.argmax(self.EVENT['COA'])] + timedelta(seconds=self.LUT.get_value_at('TIME_S',np.array([indexVal[0][0],indexVal[1][0],indexVal[2][0]]))[0][ii]),color='red')
-            XTrace_Seis.axvline(self.EVENT['DT'].iloc[np.argmax(self.EVENT['COA'])] + timedelta(seconds=(self.LUT.get_value_at('TIME_S',np.array([indexVal[0][0],indexVal[1][0],indexVal[2][0]]))[0][ii] - self.marginal_window - 0.1*self.LUT.get_value_at('TIME_S',np.array([indexVal[0][0],indexVal[1][0],indexVal[2][0]]))[0][ii])),color='red')
-            XTrace_Seis.axvline(self.EVENT['DT'].iloc[np.argmax(self.EVENT['COA'])] + timedelta(seconds=(self.LUT.get_value_at('TIME_S',np.array([indexVal[0][0],indexVal[1][0],indexVal[2][0]]))[0][ii] + self.marginal_window + 0.1*self.LUT.get_value_at('TIME_S',np.array([indexVal[0][0],indexVal[1][0],indexVal[2][0]]))[0][ii])),color='red')
-
-            S_Onset.axvline(self.EVENT['DT'].iloc[np.argmax(self.EVENT['COA'])] + timedelta(seconds=self.LUT.get_value_at('TIME_S',np.array([indexVal[0][0],indexVal[1][0],indexVal[2][0]]))[0][ii]),color='red')
-            S_Onset.axvline(self.EVENT['DT'].iloc[np.argmax(self.EVENT['COA'])] + timedelta(seconds=(self.LUT.get_value_at('TIME_S',np.array([indexVal[0][0],indexVal[1][0],indexVal[2][0]]))[0][ii] - self.marginal_window - 0.1*self.LUT.get_value_at('TIME_S',np.array([indexVal[0][0],indexVal[1][0],indexVal[2][0]]))[0][ii])),color='red',linestyle='--')
-            S_Onset.axvline(self.EVENT['DT'].iloc[np.argmax(self.EVENT['COA'])] + timedelta(seconds=(self.LUT.get_value_at('TIME_S',np.array([indexVal[0][0],indexVal[1][0],indexVal[2][0]]))[0][ii] + self.marginal_window + 0.1*self.LUT.get_value_at('TIME_S',np.array([indexVal[0][0],indexVal[1][0],indexVal[2][0]]))[0][ii])),color='red',linestyle='--')
-
-            P_Onset.axhline(self.StationPick['GAU_P'][ii]['PickThreshold'])
-            S_Onset.axhline(self.StationPick['GAU_S'][ii]['PickThreshold'])
+            p_onset.axhline(gau_p["PickThreshold"])
+            s_onset.axhline(gau_s["PickThreshold"])
 
             # Refining the window as around the pick time
-            MINT = pd.to_datetime(self.EVENT['DT'].iloc[np.argmax(self.EVENT['COA'])] + timedelta(seconds=0.5*self.LUT.get_value_at('TIME_P',np.array([indexVal[0][0],indexVal[1][0],indexVal[2][0]]))[0][ii]))
-            MAXT = pd.to_datetime(self.EVENT['DT'].iloc[np.argmax(self.EVENT['COA'])] + timedelta(seconds=1.5*self.LUT.get_value_at('TIME_S',np.array([indexVal[0][0],indexVal[1][0],indexVal[2][0]]))[0][ii]))
+            min_t = (dt_max + 0.5 * ptt[i]).datetime
+            max_t = (dt_max + 1.5 * stt[i]).datetime
 
-            XTrace_Seis.set_xlim([MINT, MAXT])
-            YTrace_Seis.set_xlim([MINT, MAXT])
-            ZTrace_Seis.set_xlim([MINT, MAXT])
-            P_Onset.set_xlim([MINT, MAXT])
-            S_Onset.set_xlim([MINT, MAXT])
+            x_trace.set_xlim([min_t, max_t])
+            y_trace.set_xlim([min_t, max_t])
+            z_trace.set_xlim([min_t, max_t])
+            p_onset.set_xlim([min_t, max_t])
+            s_onset.set_xlim([min_t, max_t])
 
-            fig.suptitle('Trace for Station {} - PPick = {}, SPick = {}'.format(self.LUT.station_data['Name'][ii],self.StationPick['GAU_P'][ii]['PickValue'],self.StationPick['GAU_S'][ii]['PickValue']))
+            suptitle = "Trace for Station {} - PPick = {}, SPick = {}"
+            suptitle = suptitle.format(station, gau_p["PickValue"], gau_s["PickValue"])
+
+            fig.suptitle(suptitle)
 
             if output_file is None:
                 plt.show()
             else:
-                plt.savefig('{}_CoalescenceTrace_{}.pdf'.format(output_file,self.LUT.station_data['Name'][ii]))
+                fname = "{}_CoalescenceTrace_{}.pdf"
+                fname = fname.format(output_file, station)
+                plt.savefig(fname)
                 plt.close("all")
 
-            ii += 1
-
     def coalescence_video(self, output_file=None):
-        idx0 = np.where(self.times == self.EVENT['DT'].iloc[0])[0][0]
-        idx1 = np.where(self.times == self.EVENT['DT'].iloc[-1])[0][0]
+        idx0 = np.where(self.times == self.event["DT"].iloc[0])[0][0]
+        idx1 = np.where(self.times == self.event["DT"].iloc[-1])[0][0]
 
-        Writer = animation.writers['ffmpeg']
-        writer = Writer(fps=4, metadata=dict(artist='Ulvetanna'), bitrate=1800)
+        Writer = animation.writers["ffmpeg"]
+        writer = Writer(fps=4, metadata=dict(artist="Ulvetanna"), bitrate=1800)
 
         fig = self._coalescence_image(idx0)
-        ani = animation.FuncAnimation(fig, self._CoalescenceVideo_update,
+        ani = animation.FuncAnimation(fig, self._video_update,
                                       frames=np.linspace(idx0, idx1 - 1, 200),
                                       blit=False, repeat=False)
 
         if output_file is None:
             plt.show()
         else:
-            ani.save('{}_CoalescenceVideo.mp4'.format(output_file),
+            ani.save("{}_CoalescenceVideo.mp4".format(output_file),
                      writer=writer)
 
-    def CoalescenceMarginal(self, output_file=None, earthquake=None):
+    def coalescence_marginal(self, output_file=None, earthquake=None):
         """
         Generate a marginal window about the event to determine the error
 
@@ -1128,204 +867,531 @@ class SeisPlot:
         TO-DO
         -----
         Redefine the marginal as instead of the whole coalescence period,
-        Gaussian fit to the coalescence value then take the 1st std to 
+        Gaussian fit to the coalescence value then take the 1st std to
         define the time window and use this
 
         """
 
-        t_slice_idx = np.where(self.times == self.event['DT'].iloc[np.argmax(self.event['COA'])])[0][0]
-        t_slice = self.times[t_slice_idx]
-        idx = np.where(self.EVENT['DT'] == t_slice)[0][0]
-        indexVal1 = self.lut.coord2loc(np.array([[self.event['X'].iloc[idx],
-                                                  self.event['Y'].iloc[idx],
-                                                  self.event['Z'].iloc[idx]]])).astype(int)[0]
-        idx_coord = np.array([[self.event['X'].iloc[idx],
-                               self.event['Y'].iloc[idx],
-                               self.event['Z'].iloc[idx]]])[0, :]
+        # Event is only in first line of earthquake, reduces chars later on
+        if earthquake is not None:
+            eq = earthquake.iloc[0]
+        else:
+            msg = "No event specified."
+            print(msg)
+            return
 
-        # Determining the maginal window value from the coalescence function
-        mMAP = self.coa_map
-        indexVal = np.where(mMAP == np.max(mMAP))
-        xyz = self.lut.xyz2loc(np.array([[indexVal[0][0],
-                                          indexVal[1][0],
-                                          indexVal[2][0]]]), inverse=True)
-        indexCoord = self.lut.xyz2coord(xyz)
+        dt_max = self.event["DT"].iloc[np.argmax(self.event["COA"])]
+        tslice_idx = np.where(self.times == dt_max)[0][0]
+        tslice = self.times[tslice_idx]
+
+        # Determining the marginal window value from the coalescence function
+        map_ = self.coa_map
+        loc = np.where(map_ == np.max(map_))
+        point = np.array([[loc[0][0],
+                           loc[1][0],
+                           loc[2][0]]])
+        crd = self.lut.coord2loc(point, inverse=True)
 
         # Defining the plots to be represented
         fig = plt.figure(figsize=(30, 15))
-        fig.patch.set_facecolor('white')
+        fig.patch.set_facecolor("white")
+        xy_slice = plt.subplot2grid((3, 5), (0, 0), colspan=2, rowspan=2)
+        xz_slice = plt.subplot2grid((3, 5), (2, 0), colspan=2)
+        yz_slice = plt.subplot2grid((3, 5), (0, 2), rowspan=2)
+        trace = plt.subplot2grid((3, 5), (0, 3), colspan=2, rowspan=2)
+        logo = plt.subplot2grid((3, 5), (2, 2))
+        coal_val = plt.subplot2grid((3, 5), (2, 3), colspan=2)
+
+        # --- Ordering by distance to event ---
+        if self.range_order:
+            ttp = self.lut.get_value_at("TIME_P", point[0])[0]
+            sidx = abs(np.argsort(np.argsort(ttp))
+                       - np.max(np.argsort(np.argsort(ttp))))
+        else:
+            sidx = np.argsort(self.data.stations)[::-1]
+
+        for i in range(self.data.signal.shape[1]):
+            if not self.filtered_signal:
+                self._plot_coa_trace(trace, self.times,
+                                     self.data.signal[0, i, :],
+                                     sidx[i], color="r")
+                self._plot_coa_trace(trace, self.times,
+                                     self.data.signal[1, i, :],
+                                     sidx[i], color="b")
+                self._plot_coa_trace(trace, self.times,
+                                     self.data.signal[2, i, :],
+                                     sidx[i], color="g")
+            else:
+                self._plot_coa_trace(trace, self.times,
+                                     self.data.filtered_signal[0, i, :],
+                                     sidx[i], color="r")
+                self._plot_coa_trace(trace, self.times,
+                                     self.data.filtered_signal[1, i, :],
+                                     sidx[i], color="b")
+                self._plot_coa_trace(trace, self.times,
+                                     self.data.filtered_signal[2, i, :],
+                                     sidx[i], color="g")
+
+        # --- Plotting the Station Travel Times ---
+        ttime_range = self.lut.get_value_at("TIME_P", point[0])[0].shape[0]
+        tps = np.zeros(ttime_range)
+        tss = np.zeros(ttime_range)
+        dt_max = UTCDateTime(dt_max)
+        tmp_p = self.lut.get_value_at("TIME_P", point[0])
+        tmp_s = self.lut.get_value_at("TIME_S", point[0])
+        for i in range(ttime_range):
+            tps[i] = (dt_max + tmp_p[0][i]).datetime
+            tss[i] = (dt_max + tmp_s[0][i]).datetime
+
+        del tmp_p, tmp_s
+
+        self.tp_arrival = trace.scatter(tps, (sidx + 1), 50, "pink",
+                                        marker="v", zorder=4, linewidth=0.1,
+                                        edgecolors="black")
+        self.ts_arrival = trace.scatter(tss, (sidx + 1), 50, "purple",
+                                        marker="v", zorder=5, linewidth=0.1,
+                                        edgecolors="black")
+
+        # Set coalescence trace limits
+        # trace.set_ylim([0, i + 2])
+        trace.set_xlim([(self.data.start_time + 1.6).datetime, np.max(tss)])
+        # trace.get_xaxis().set_ticks([])
+        trace.yaxis.tick_right()
+        trace.yaxis.set_ticks(sidx + 1)
+        trace.yaxis.set_ticklabels(self.data.stations)
+        self.coal_trace_vline = trace.axvline(dt_max.datetime, 0, 1000,
+                                              linestyle="--", linewidth=2,
+                                              color="r")
+
+        # --- Plotting the Coalescence Function ---
+        self._plot_coal(coal_val, tslice)
+
+        # --- Determining Error ellipse for Covariance ---
+        cells = self.lut.cell_count
+        xcells = cells[0]
+        ycells = cells[1]
+        zcells = cells[2]
+        cov_x = int(eq["Covariance_ErrX"] / xcells)
+        cov_y = int(eq["Covariance_ErrY"] / ycells)
+        cov_z = int(eq["Covariance_ErrZ"] / zcells)
+        dCo = abs(crd - self.lut.coord2loc(np.array([[loc[0][0] + cov_x,
+                                                      loc[1][0] + cov_y,
+                                                      loc[2][0] + cov_z]]),
+                                           inverse=True))
+
+        ellipse_XY = patches.Ellipse((eq["Covariance_X"], eq["Covariance_Y"]),
+                                     2 * dCo[0][0], 2 * dCo[0][1], angle=0,
+                                     linewidth=2, fill=False)
+        ellipse_YZ = patches.Ellipse((eq["Covariance_X"], eq["Covariance_Z"]),
+                                     2 * dCo[0][2], 2 * dCo[0][1], angle=0,
+                                     linewidth=2, fill=False)
+        ellipse_XZ = patches.Ellipse((eq["Covariance_Z"], eq["Covariance_Y"]),
+                                     2 * dCo[0][1], 2 * dCo[0][2], angle=0,
+                                     linewidth=2, fill=False)
+
+        # ------ Spatial Function ------
+        # --- Plotting the marginal window ---
+        crd_crnrs = self.lut.xyz2coord(self.lut.grid_corners)
+        xmin = min(crd_crnrs[:, 0])
+        xmax = max(crd_crnrs[:, 0])
+        ymin = min(crd_crnrs[:, 1])
+        ymax = max(crd_crnrs[:, 1])
+        zmin = min(crd_crnrs[:, 2])
+        zmax = max(crd_crnrs[:, 2])
+
+        # xy_slice
+        grid1, grid2 = np.mgrid[xmin:xmax:(xmax - xmin) / xcells,
+                                ymin:ymax:(ymax - ymin) / ycells]
+        rect = Rectangle((np.min(grid1), np.min(grid2)),
+                         np.max(grid1) - np.min(grid1),
+                         np.max(grid2) - np.min(grid2))
+        pc = PatchCollection([rect], facecolor="k")
+        xy_slice.add_collection(pc)
+        xy_slice.pcolormesh(grid1, grid2, map_[:, :, int(loc[2][0])],
+                            cmap=self.cmap, edgecolors="face")
+        # CS = xy_slice.contour(grid1, grid2, map_[:, :, int(loc[2][0])],
+        #                       levels=[0.65, 0.75, 0.95],
+        #                       colors=("g", "m", "k"))
+        # xy_slice.clabel(CS, inline=1, fontsize=10)
+        xy_slice.set_xlim([xmin, xmax])
+        xy_slice.set_ylim([ymin, ymax])
+        xy_slice.axvline(x=crd[0][0], linestyle="--", linewidth=2,
+                         color=self.line_station_color)
+        xy_slice.axhline(y=crd[0][1], linestyle="--", linewidth=2,
+                         color=self.line_station_color)
+        xy_slice.scatter(eq["Gaussian_X"], eq["Gaussian_Y"], 150, c="pink",
+                         marker="*")
+        xy_slice.scatter(eq["Covariance_X"], eq["Covariance_Y"], 150, c="blue",
+                         marker="*")
+        xy_slice.add_patch(ellipse_XY)
+
+        # xz_slice
+        grid1, grid2 = np.mgrid[xmin:xmax:(xmax - xmin) / xcells,
+                                zmin:zmax:(zmax - zmin) / zcells]
+        rect = Rectangle((np.min(grid1), np.min(grid2)),
+                         np.max(grid1) - np.min(grid1),
+                         np.max(grid2) - np.min(grid2))
+        pc = PatchCollection([rect], facecolor="k")
+        xz_slice.add_collection(pc)
+        xz_slice.pcolormesh(grid1, grid2, map_[:, int(loc[1][0]), :],
+                            cmap=self.cmap, edgecolors="face")
+        # CS = xz_slice.contour(grid1, grid2, map_[:, int(loc[1][0]), :],
+        #                       levels=[0.65, 0.75, 0.95],
+        #                       colors=("g", "m", "k"))
+        # xz_slice.clabel(CS, inline=1, fontsize=10)
+        xz_slice.set_xlim([xmin, xmax])
+        xz_slice.set_ylim([zmax, zmin])
+        xz_slice.axvline(x=crd[0][0], linestyle="--", linewidth=2,
+                         color=self.line_station_color)
+        xz_slice.axhline(y=crd[0][2], linestyle="--", linewidth=2,
+                         color=self.line_station_color)
+        xz_slice.scatter(eq["Gaussian_X"], eq["Gaussian_Z"], 150, c="pink",
+                         marker="*")
+        xz_slice.scatter(eq["Covariance_X"], eq["Covariance_Z"], 150, c="blue",
+                         marker="*")
+        xz_slice.add_patch(ellipse_XZ)
+        xz_slice.invert_yaxis()
+
+        # yz_slice
+        grid1, grid2 = np.mgrid[zmin:zmax:(zmax - zmin) / zcells,
+                                ymin:ymax:(ymax - ymin) / ycells]
+        rect = Rectangle((np.min(grid1), np.min(grid2)),
+                         np.max(grid1) - np.min(grid1),
+                         np.max(grid2) - np.min(grid2))
+        pc = PatchCollection([rect], facecolor="k")
+        yz_slice.add_collection(pc)
+        yz_slice.pcolormesh(grid1, grid2, map_[int(loc[0][0]), :, :].transpose(),
+                            cmap=self.cmap, edgecolors="face")
+        # CS = xz_slice.contour(grid1, grid2, map_[int(loc[0][0]), :, :].transpose(),
+        #                       levels=[0.65, 0.75, 0.95],
+        #                       colors=("g", "m", "k"))
+        yz_slice.set_xlim([zmax, zmin])
+        yz_slice.set_ylim([ymin, ymax])
+        yz_slice.axvline(x=crd[0][2], linestyle="--", linewidth=2,
+                         color=self.line_station_color)
+        yz_slice.axhline(y=crd[0][1], linestyle="--", linewidth=2,
+                         color=self.line_station_color)
+        yz_slice.scatter(eq["Gaussian_Z"], eq["Gaussian_Y"], 150, c="pink",
+                         marker="*")
+        yz_slice.scatter(eq["Covariance_Z"], eq["Covariance_Y"], 150, c="blue",
+                         marker="*")
+        yz_slice.add_patch(ellipse_YZ)
+
+        # --- Plotting the station locations ---
+        xy_slice.scatter(self.lut.station_data["Longitude"],
+                         self.lut.station_data["Latitude"],
+                         15, marker="^", color=self.line_station_color)
+        xz_slice.scatter(self.lut.station_data["Longitude"],
+                         self.lut.station_data["Elevation"],
+                         15, marker="^", color=self.line_station_color)
+        yz_slice.scatter(self.lut.station_data["Elevation"],
+                         self.lut.station_data["Latitude"],
+                         15, marker="<", color=self.line_station_color)
+        for i, txt in enumerate(self.lut.station_data["Name"]):
+            xy_slice.annotate(txt, [self.lut.station_data["Longitude"][i],
+                                    self.lut.station_data["Latitude"][i]],
+                              color=self.line_station_color)
+
+        # --- Plotting the xy_files ---
+        self._plot_xy_files(xy_slice)
+
+        # --- Plotting the logo ---
+        self._plot_logo(logo, r"Earthquake Location Error", 10)
+
+        if output_file is None:
+            plt.show()
+        else:
+            plt.savefig("{}_EventLocationError.pdf".format(output_file),
+                        dpi=400)
+            plt.close("all")
+
+    def _plot_coa_trace(self, trace, x, y, st_idx, color):
+        trace.plot(x, y / np.max(abs(y)) * self.trace_scale + (st_idx + 1),
+                   linecolor=color, linewidth=0.5)
+
+    def _coalescence_image(self, tslice_idx):
+        """
+        Plots a frame of a coalescence video at a particular time.
+
+        Parameters
+        ----------
+        tslice_idx : int
+            Index for the current time slice
+
+        """
+
+        tslice = self.times[tslice_idx]
+        idx = np.where(self.event["DT"] == tslice)[0][0]
+        loc = self.lut.coord2loc(np.array([[self.event["X"].iloc[idx],
+                                            self.event["Y"].iloc[idx],
+                                            self.event["Z"].iloc[idx]]])
+                                 ).astype(int)[0]
+        point = np.array([loc[0],
+                          loc[1],
+                          loc[2]])
+        crd = np.array([[self.event["X"].iloc[idx],
+                         self.event["Y"].iloc[idx],
+                         self.event["Z"].iloc[idx]]])[0, :]
+
+        # --- Defining the plot area ---
+        fig = plt.figure(figsize=(30, 15))
+        fig.patch.set_facecolor("white")
         xy_slice = plt.subplot2grid((3, 5), (0, 0), colspan=2, rowspan=2)
         yz_slice = plt.subplot2grid((3, 5), (2, 0), colspan=2)
         xz_slice = plt.subplot2grid((3, 5), (0, 2), rowspan=2)
         trace = plt.subplot2grid((3, 5), (0, 3), colspan=2, rowspan=2)
         logo = plt.subplot2grid((3, 5), (2, 2))
-        Coa_CoaVal = plt.subplot2grid((3, 5), (2, 3), colspan=2)
+        coal_val = plt.subplot2grid((3, 5), (2, 3), colspan=2)
 
-        # ---------------- Plotting the Traces -----------
-        STIn = np.where(self.times == self.EVENT['DT'].iloc[0])[0][0]
-        ENIn = np.where(self.times == self.EVENT['DT'].iloc[-1])[0][0]
+        # --- Plotting the Traces ---
+        idx0 = np.where(self.times == self.event["DT"].iloc[0])[0][0]
 
-        # --------------- Ordering by distance to event --------------
+        # --- Defining the stations in alphabetical order ---
         if self.range_order:
-            ttp = self.lut.get_value_at('TIME_P',
-                                        np.array([indexVal[0][0],
-                                                  indexVal[1][0],
-                                                  indexVal[2][0]]))[0]
-            StaInd = abs(np.argsort(np.argsort(ttp))
-                         - np.max(np.argsort(np.argsort(ttp))))
+            ttp = self.lut.get_value_at("TIME_P", point)[0]
+            sidx = np.argsort(ttp)[::-1]
         else:
-            StaInd = np.argsort(self.data.stations)[::-1]
+            sidx = np.argsort(self.data.stations)[::-1]
 
         for i in range(self.data.signal.shape[1]):
-            tmp = np.arange(self.data.start_time,
-                            self.data.end_time + self.data.sample_size,
-                            self.data.sample_size)
-            times = [x.datetime for x in tmp]
             if not self.filtered_signal:
-                self._plot_coa_trace(trace, times,
+                self._plot_coa_trace(trace, self.times,
                                      self.data.signal[0, i, :],
-                                     StaInd[i], color='r')
-                self._plot_coa_trace(trace, times,
+                                     sidx[i], color="r")
+                self._plot_coa_trace(trace, self.times,
                                      self.data.signal[1, i, :],
-                                     StaInd[i], color='b')
-                self._plot_coa_trace(trace, times,
+                                     sidx[i], color="b")
+                self._plot_coa_trace(trace, self.times,
                                      self.data.signal[2, i, :],
-                                     StaInd[i], color='g')
+                                     sidx[i], color="g")
             else:
-                self._plot_coa_trace(trace, times,
+                self._plot_coa_trace(trace, self.times,
                                      self.data.filtered_signal[0, i, :],
-                                     StaInd[i], color='r')
-                self._plot_coa_trace(trace, times,
+                                     sidx[i], color="r")
+                self._plot_coa_trace(trace, self.times,
                                      self.data.filtered_signal[1, i, :],
-                                     StaInd[i], color='b')
-                self._plot_coa_trace(trace, times,
+                                     sidx[i], color="b")
+                self._plot_coa_trace(trace, self.times,
                                      self.data.filtered_signal[2, i, :],
-                                     StaInd[i], color='g')
+                                     sidx[i], color="g")
 
-        # ---------------- Plotting the Station Travel Times -----------
-        for i in range(self.lut.get_value_at('TIME_P',np.array([indexVal[0][0],indexVal[1][0],indexVal[2][0]]))[0].shape[0]):
-            tp = self.event['DT'].iloc[np.argmax(self.EVENT['COA'])] + self.lut.get_value_at('TIME_P',np.array([indexVal[0][0],indexVal[1][0],indexVal[2][0]]))[0][i]
-            ts = self.event['DT'].iloc[np.argmax(self.EVENT['COA'])] + self.lut.get_value_at('TIME_S',np.array([indexVal[0][0],indexVal[1][0],indexVal[2][0]]))[0][i]
+        # --- Plotting the Station Travel Times ---
+        ttime_range = self.lut.get_value_at("TIME_P", point)[0].shape[0]
+        tps = np.zeros(ttime_range)
+        tss = np.zeros(ttime_range)
+        dt_max = self.event["DT"].iloc[np.argmax(self.event["COA"])]
+        dt_max = UTCDateTime(dt_max)
+        tmp_p = self.lut.get_value_at("TIME_P", point)[0]
+        tmp_s = self.lut.get_value_at("TIME_S", point)[0]
+        for i in range(ttime_range):
+            tps[i] = (dt_max + tmp_p[i]).datetime
+            tss[i] = (dt_max + tmp_s[i]).datetime
 
-            if i == 0:
-                TP = tp
-                TS = ts
-            else:
-                TP = np.append(TP,tp)
-                TS = np.append(TS,ts)
+        del tmp_p, tmp_s
 
-        self.CoaArriavalTP = trace.scatter(TP, (StaInd+1), 50, 'pink',
-                                           marker='v', zorder=4, linewidth=0.1,
-                                           edgecolors='black')
-        self.CoaArriavalTS = trace.scatter(TS, (StaInd+1),50,'purple',marker='v',zorder=5,linewidth=0.1,edgecolors='black')
+        self.tp_arrival = trace.scatter(tps, (sidx + 1), 40,
+                                        "pink", marker="v")
+        self.ts_arrival = trace.scatter(tss, (sidx + 1), 40,
+                                        "purple", marker="v")
 
-        # trace.set_ylim([0,ii+2])
-        trace.set_xlim([self.data.start_time + 1.6, np.max(TS)])
+        # Set coalescence trace limits
+        # trace.set_ylim([0, i + 2])
+        trace.set_xlim([(self.data.start_time + 1.6).datetime, np.max(tss)])
         # trace.get_xaxis().set_ticks([])
         trace.yaxis.tick_right()
-        trace.yaxis.set_ticks(StaInd+1)
+        trace.yaxis.set_ticks(sidx + 1)
         trace.yaxis.set_ticklabels(self.data.stations)
-        self.CoaTraceVLINE = trace.axvline(self.EVENT['DT'].iloc[np.argmax(self.EVENT['COA'])],0,1000,linestyle='--',linewidth=2,color='r')
+        self.coal_trace_vline = trace.axvline(dt_max.datetime, 0, 1000,
+                                              linestyle="--", linewidth=2,
+                                              color="r")
 
-        # ------------- Plotting the Coalescence Function ----------- 
-        Coa_CoaVal.plot(self.EVENT['DT'],self.EVENT['COA'])
-        Coa_CoaVal.set_ylabel('Coalescence Value')
-        Coa_CoaVal.set_xlabel('Date-Time')
-        Coa_CoaVal.yaxis.tick_right()
-        Coa_CoaVal.yaxis.set_label_position("right")
-        Coa_CoaVal.set_xlim([self.EVENT['DT'].iloc[0],self.EVENT['DT'].iloc[-1]])
-        Coa_CoaVal.format_xdate = mdates.DateFormatter('%Y-%m-%d') #FIX - Not working
-        for tick in Coa_CoaVal.get_xticklabels():
-                tick.set_rotation(45)
-        self.CoaValVLINE   = Coa_CoaVal.axvline(TimeSlice,0,1000,linestyle='--',linewidth=2,color='r')
+        # --- Plotting the Coalescence Function ---
+        self._plot_coal(coal_val, tslice)
 
-        # -------------- Determining Error ellipse for Covariance -----------
-        dCo = abs(indexCoord - self.LUT.xyz2coord(self.LUT.xyz2loc(np.array([[indexVal[0][0] + int(earthquake['Covariance_ErrX'].iloc[0]/self.LUT.cell_size[0]),indexVal[1][0] + int(earthquake['Covariance_ErrY'].iloc[0]/self.LUT.cell_size[1]),indexVal[2][0] + int(Earthquake['Covariance_ErrZ'].iloc[0]/self.LUT.cell_size[2])]]), inverse=True)))
+        # --- Plotting the Coalescence Value Slices ---
+        crd_crnrs = self.lutxyz2coord(self.lut.grid_corners)
+        cells = self.lut.cell_count
+        xmin = min(crd_crnrs[:, 0])
+        xmax = max(crd_crnrs[:, 0])
+        xcells = cells[0]
+        ymin = min(crd_crnrs[:, 1])
+        ymax = max(crd_crnrs[:, 1])
+        ycells = cells[1]
+        zmin = min(crd_crnrs[:, 2])
+        zmax = max(crd_crnrs[:, 2])
+        zcells = cells[2]
 
-        ellipse_XY = patches.Ellipse((earthquake['Covariance_X'].iloc[0], earthquake['Covariance_Y'].iloc[0]), 2*dCo[0][0], 2*dCo[0][1], angle=0, linewidth=2, fill=False)
-        ellipse_YZ = patches.Ellipse((earthquake['Covariance_X'].iloc[0], earthquake['Covariance_Z'].iloc[0]), 2*dCo[0][0], 2*dCo[0][2], angle=0, linewidth=2, fill=False)
-        ellipse_XZ = patches.Ellipse((earthquake['Covariance_Z'].iloc[0], earthquake['Covariance_Y'].iloc[0]), 2*dCo[0][2], 2*dCo[0][1], angle=0, linewidth=2, fill=False)
+        # xy_slice
+        grid1, grid2 = np.mgrid[xmin:xmax:(xmax - xmin) / xcells,
+                                ymin:ymax:(ymax - ymin) / ycells]
+        self.xy_plot = xy_slice.pcolormesh(grid1, grid2,
+                                           (self.map[:, :, int(loc[2]),
+                                                     int(tslice_idx - idx0)]
+                                            / self.map_max),
+                                           vmin=0, vmax=1, cmap=self.cmap)
+        xy_slice.set_xlim([xmin, xmax])
+        xy_slice.set_ylim([ymin, ymax])
+        self.xy_vline = xy_slice.axvline(x=crd[0], linestyle="--", linewidth=2,
+                                         color="k")
+        self.xy_hline = xy_slice.axhline(y=crd[1], linestyle="--", linewidth=2,
+                                         color="k")
 
-        # ------------- Spatial Function  ----------- 
+        # xz_slice
+        grid1, grid2 = np.mgrid[xmin:xmax:(xmax - xmin) / xcells,
+                                zmin:zmax:(zmax - zmin) / zcells]
+        self.xz_plot = xz_slice.pcolormesh(grid1, grid2,
+                                           (self.map[:, int(loc[1]), :,
+                                                     int(tslice_idx - idx0)]
+                                            / self.map_max),
+                                           vmin=0, vmax=1, cmap=self.cmap)
+        xz_slice.set_xlim([xmin, xmax])
+        xz_slice.set_ylim([zmax, zmin])
+        self.xz_vline = xz_slice.axvline(x=crd[0], linestyle="--", linewidth=2,
+                                         color="k")
+        self.xz_hline = xz_slice.axhline(y=crd[2], linestyle="--", linewidth=2,
+                                         color="k")
+        xz_slice.invert_yaxis()
 
-        # Plotting the marginal window
-        gridX,gridY = np.mgrid[min(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,0]):max(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,0]):(max(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,0]) - min(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,0]))/self.LUT.cell_count[0], min(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,1]):max(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,1]):(max(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,1]) - min(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,1]))/self.LUT.cell_count[1]]
-        rect = Rectangle((np.min(gridX), np.min(gridY)), np.max(gridX)-np.min(gridX),np.max(gridY)-np.min(gridY))
-        pc = PatchCollection([rect], facecolor='k')
-        Coa_XYSlice.add_collection(pc)
-        Coa_XYSlice.pcolormesh(gridX,gridY,mMAP[:,:,int(indexVal[2][0])],cmap=self.CMAP,edgecolors='face')
-        #CS = Coa_XYSlice.contour(gridX,gridY,mMAP[:,:,int(indexVal[2][0])],levels=[0.65,0.75,0.95],colors=('g','m','k'))
-        #Coa_XYSlice.clabel(CS, inline=1, fontsize=10)
-        Coa_XYSlice.set_xlim([min(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,0]),max(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,0])])
-        Coa_XYSlice.set_ylim([min(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,1]),max(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,1])])
-        Coa_XYSlice.axvline(x=indexCoord[0][0],linestyle='--',linewidth=2,color=self.LineStationColor)
-        Coa_XYSlice.axhline(y=indexCoord[0][1],linestyle='--',linewidth=2,color=self.LineStationColor)
-        Coa_XYSlice.scatter(earthquake['Gaussian_X'].iloc[0],earthquake['Gaussian_Y'].iloc[0],150,c='pink',marker='*')
-        Coa_XYSlice.scatter(earthquake['Covariance_X'].iloc[0],earthquake['Covariance_Y'].iloc[0],150,c='blue',marker='*')
-        Coa_XYSlice.add_patch(ellipse_XY)
+        # yz_slice
+        grid1, grid2 = np.mgrid[zmin:zmax:(zmax - zmin) / zcells,
+                                ymin:ymax:(ymax - ymin) / ycells]
+        self.yz_plot = xz_slice.pcolormesh(grid1, grid2,
+                                           (np.transpose(self.map[int(loc[0]), :, :,
+                                                                  int(tslice_idx - idx0)])
+                                            / self.map_max),
+                                           vmin=0, vmax=1, cmap=self.cmap)
+        yz_slice.set_xlim([zmax, zmin])
+        yz_slice.set_ylim([ymin, ymax])
+        self.yz_vline = yz_slice.axvline(x=crd[2], linestyle="--", linewidth=2,
+                                         color="k")
+        self.yz_hline = yz_slice.axhline(y=crd[1], linestyle="--", linewidth=2,
+                                         color="k")
 
+        # --- Plotting the station locations ---
+        xy_slice.scatter(self.lut.station_data["Longitude"],
+                         self.lut.station_data["Latitude"], 15, "k", marker="^")
+        xz_slice.scatter(self.lut.station_data["Longitude"],
+                         self.lut.station_data["Elevation"], 15, "k", marker="^")
+        yz_slice.scatter(self.lut.station_data["Elevation"],
+                         self.lut.station_data["Latitude"], 15, "k", marker="<")
+        for i, txt in enumerate(self.lut.station_data["Name"]):
+            xy_slice.annotate(txt, [self.lut.station_data["Longitude"][i],
+                                    self.lut.station_data["Latitude"][i]])
 
-        gridX,gridY = np.mgrid[min(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,0]):max(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,0]):(max(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,0]) - min(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,0]))/self.LUT.cell_count[0], min(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,2]):max(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,2]):(max(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,2]) - min(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,2]))/self.LUT.cell_count[2]]
-        rect = Rectangle((np.min(gridX), np.min(gridY)), np.max(gridX)-np.min(gridX),np.max(gridY)-np.min(gridY))
-        pc = PatchCollection([rect], facecolor='k')
-        Coa_YZSlice.add_collection(pc)
-        Coa_YZSlice.pcolormesh(gridX,gridY,mMAP[:,int(indexVal[1][0]),:],cmap=self.CMAP,edgecolors='face')
-        #CS = Coa_YZSlice.contour(gridX,gridY,mMAP[:,int(indexVal[1][0]),:], levels=[0.65,0.75,0.95],colors=('g','m','k'))
-        #Coa_YZSlice.clabel(CS, inline=1, fontsize=10)
-        Coa_YZSlice.set_xlim([min(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,0]),max(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,0])])
-        Coa_YZSlice.set_ylim([max(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,2]),min(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,2])])
-        Coa_YZSlice.axvline(x=indexCoord[0][0],linestyle='--',linewidth=2,color=self.LineStationColor)
-        Coa_YZSlice.axhline(y=indexCoord[0][2],linestyle='--',linewidth=2,color=self.LineStationColor)
-        Coa_YZSlice.scatter(earthquake['Gaussian_X'].iloc[0],earthquake['Gaussian_Z'].iloc[0],150,c='pink',marker='*')
-        Coa_YZSlice.scatter(earthquake['Covariance_X'].iloc[0],earthquake['Covariance_Z'].iloc[0],150,c='blue',marker='*')
-        Coa_YZSlice.add_patch(ellipse_YZ)
-        Coa_YZSlice.invert_yaxis()
+        # --- Plotting the xy_files ---
+        self._plot_xy_files(xy_slice)
 
-        gridX,gridY = np.mgrid[min(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,2]):max(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,2]):(max(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,2]) - min(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,2]))/self.LUT.cell_count[2], min(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,1]):max(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,1]):(max(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,1]) - min(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,1]))/self.LUT.cell_count[1]]
-        rect = Rectangle((np.min(gridX), np.min(gridY)), np.max(gridX)-np.min(gridX),np.max(gridY)-np.min(gridY))
-        pc = PatchCollection([rect], facecolor='k')
-        Coa_XZSlice.add_collection(pc)
-        Coa_XZSlice.pcolormesh(gridX,gridY,mMAP[int(indexVal[0][0]),:,:].transpose(),cmap=self.CMAP,edgecolors='face')
-        #CS = Coa_XZSlice.contour(gridX,gridY,mMAP[int(indexVal[0][0]),:,:].transpose(),levels =[0.65,0.75,0.95],colors=('g','m','k'))
-        Coa_XZSlice.set_xlim([max(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,2]),min(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,2])])
-        Coa_XZSlice.set_ylim([min(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,1]),max(self.LUT.xyz2coord(self.LUT.get_grid_xyz())[:,1])])
-        Coa_XZSlice.axvline(x=indexCoord[0][2],linestyle='--',linewidth=2,color=self.LineStationColor)
-        Coa_XZSlice.axhline(y=indexCoord[0][1],linestyle='--',linewidth=2,color=self.LineStationColor)
-        Coa_XZSlice.scatter(earthquake['Gaussian_Z'].iloc[0],earthquake['Gaussian_Y'].iloc[0],150,c='pink',marker='*')
-        Coa_XZSlice.scatter(earthquake['Covariance_Z'].iloc[0],earthquake['Covariance_Y'].iloc[0],150,c='blue',marker='*')
-        Coa_XZSlice.add_patch(ellipse_XZ)
+        # --- Plotting the logo ---
+        self._plot_logo(logo, r"Coalescence Video", 14)
 
-        # Plotting the station locations
-        Coa_XYSlice.scatter(self.LUT.station_data['Longitude'],self.LUT.station_data['Latitude'],15,marker='^',color=self.LineStationColor)
-        Coa_YZSlice.scatter(self.LUT.station_data['Longitude'],self.LUT.station_data['Elevation'],15,marker='^',color=self.LineStationColor)
-        Coa_XZSlice.scatter(self.LUT.station_data['Elevation'],self.LUT.station_data['Latitude'],15,marker='<',color=self.LineStationColor)
-        for i,txt in enumerate(self.LUT.station_data['Name']):
-            Coa_XYSlice.annotate(txt,[self.LUT.station_data['Longitude'][i],self.LUT.station_data['Latitude'][i]],color=self.LineStationColor)
+        return fig
 
-        # Plotting the xy_files
-        if self.xy_files != None:
-           xy_files = pd.read_csv(self.xy_files,names=['File','Color','Linewidth','Linestyle'])
-           c=0
-           for ff in xy_files['File']:
-                XYF = pd.read_csv(ff,names=['X','Y'])       
-                Coa_XYSlice.plot(XYF['X'],XYF['Y'],linestyle=xy_files['Linestyle'].iloc[c],linewidth=xy_files['Linewidth'].iloc[c],color=xy_files['Color'].iloc[c])
-                c+=1
+    def _video_update(self, frame):
+        frame = int(frame)
+        idx0 = np.where(self.times == self.event["DT"].iloc[0])[0][0]
+        tslice = self.times[int(frame)]
+        idx = np.where(self.event["DT"] == tslice)[0][0]
+        crd = np.array([[self.event["X"].iloc[idx],
+                         self.event["Y"].iloc[idx],
+                         self.event["Z"].iloc[idx]]])
+        loc = self.lut.coord2loc(crd).astype(int)[0]
+        crd = crd[0, :]
 
-        # Plotting the logo
+        # Updating the Coalescence Value and Trace Lines
+        self.coal_trace_vline.set_xdata(tslice)
+        self.coal_val_vline.set_xdata(tslice)
+
+        # Updating the Coalescence Maps
+        self.xy_plot.set_array((self.map[:, :, loc[2], int(idx0 - frame)]
+                                / self.map_max)[:-1, :-1].ravel())
+        self.xz_plot.set_array((self.map[:, loc[1], :, int(idx0 - frame)]
+                                / self.map_max)[:-1, :-1].ravel())
+        self.yz_plot.set_array((np.transpose(self.map[loc[0], :, :, int(idx0 - frame)])
+                                / self.map_max)[:-1, :-1].ravel())
+
+        # Updating the coalescence lines
+        self.xy_vline.set_xdata(crd[0])
+        self.xy_hline.set_ydata(crd[1])
+        self.yz_vline.set_xdata(crd[2])
+        self.yz_hline.set_ydata(crd[1])
+        self.xz_vline.set_xdata(crd[0])
+        self.xz_hline.set_ydata(crd[2])
+
+        # Get P- and S-traveltimes at this location
+        ptt = self.lut.get_value_at("TIME_P", np.array([loc]))[0]
+        stt = self.lut.get_value_at("TIME_S", np.array([loc]))[0]
+
+        tps = np.zeros(ptt.shape[0])
+        tss = np.zeros(ptt.shape[0])
+
+        # Updating the station travel-times
+        for i in range(ptt.shape[0]):
+            try:
+                tps[i] = np.argmin(abs((self.times
+                                        - (tslice.astype(datetime)
+                                           + timedelta(seconds=ptt[i]))) / timedelta(seconds=1)))
+                tss[i] = np.argmin(abs((self.times
+                                        - (tslice.astype(datetime)
+                                           + timedelta(seconds=stt[i]))) / timedelta(seconds=1)))
+            except:
+                continue
+
+        self.tp_arrival.set_offsets(np.c_[tps,
+                                    (np.arange(self.data.signal.shape[1]) + 1)])
+        self.ts_arrival.set_offsets(np.c_[tss,
+                                    (np.arange(self.data.signal.shape[1]) + 1)])
+
+    def _pick_vlines(self, trace, pick_time, pick_err):
+        trace.axvline(pd.to_datetime(pick_time)
+                      + timedelta(seconds=-pick_err / 2),
+                      linestyle="--")
+        trace.axvline(pd.to_datetime(pick_time)
+                      + timedelta(seconds=pick_err / 2),
+                      linestyle="--")
+        trace.axvline(pd.to_datetime(pick_time))
+
+    def _ttime_vlines(self, trace, dt_max, ttime):
+        trace.axvline((dt_max + ttime).datetime, color="red")
+        trace.axvline((dt_max + 0.9 * ttime - self.marginal_window).datetime,
+                      color="red", linestyle="--")
+        trace.axvline((dt_max + 1.1 * ttime + self.marginal_window).datetime,
+                      color="red", linestyle="--")
+
+    def _plot_xy_files(self, slice_):
+        if self.xy_files is not None:
+            xy_files = pd.read_csv(self.xy_files,
+                                   names=["File", "Color",
+                                          "Linewidth", "Linestyle"])
+            for i, f in xy_files.iterrows():
+                xy_file = pd.read_csv(f["File"], names=["X", "Y"])
+                slice_.plot(xy_file["X"], xy_file["Y"],
+                            linestyle=xy_file["Linestyle"],
+                            linewidth=xy_file["Linewidth"],
+                            color=xy_file["Color"])
+
+    def _plot_logo(self, plot, txt, fontsize):
         try:
-            logo.axis('off')
+            plot.axis("off")
             im = mpimg.imread(str(self.logo))
-            logo.imshow(im)
-            logo.text(150, 200, r'Earthquake Location Error', fontsize=10,style='italic')
+            plot.imshow(im)
+            plot.text(150, 200, txt,
+                      fontsize=fontsize, style="italic")
         except:
-            'Logo not plotting'
+            print("Logo not plotting")
 
-        if output_file is None:
-            plt.show()
-
-        else:
-            plt.savefig('{}_EventLocationError.pdf'.format(output_file),dpi=400)
-            plt.close('all')
+    def _plot_coal(self, plot, tslice):
+        # --- Plotting the Coalescence Function ---
+        plot.plot(self.event["DT"], self.event["COA"])
+        plot.set_ylabel("Coalescence value")
+        plot.set_xlabel("Date-Time")
+        plot.yaxis.tick_right()
+        plot.yaxis.set_label_position("right")
+        plot.set_xlim([self.event["DT"].iloc[0], self.event["DT"].iloc[-1]])
+        plot.format_xdate = mdates.DateFormatter("%Y-%m-%d")  # FIX - Not working
+        for tick in plot.get_xticklabels():
+            tick.set_rotation(45)
+        self.coal_val_vline = plot.axvline(tslice, 0, 1000, linestyle="--",
+                                           linewidth=2, color="r")
 
 
 class SeisScanParam:
@@ -1334,12 +1400,9 @@ class SeisScanParam:
 
     Reads in a user defined parameter file, specifying the scan parameters.
 
-    """
-
-    '''
       _set_param - Definition of the path for the Parameter file to be read
 
-    '''
+    """
 
     def __init__(self, param=None):
         self.lookup_table = None
@@ -1362,7 +1425,7 @@ class SeisScanParam:
         self.decimate = [1, 1, 1]
 
         if param is not None:
-            with open(param, 'r') as f:
+            with open(param, "r") as f:
                 params = json.load(f)
             self._set_param(params)
 
@@ -1390,7 +1453,7 @@ class SeisScanParam:
 
         # Defining the Seimsic Data to load the information from
         type_ = _find(param, ("SEISMIC", "Type"))
-        if (type_ == 'MSEED'):
+        if (type_ == "MSEED"):
             path = _find(param, ("SEISMIC", "Path"))
             if path:
                 self.seis_reader = mload.mseed_reader(path)
@@ -1405,9 +1468,9 @@ class SeisScanParam:
             self.end_datetime = _find(scn, "End_DateTime",
                                       self.end_datetime)
             self.start_datetime = datetime.strptime(self.start_datetime,
-                                                    '%Y-%m-%dT%H:%M:%S.%f')
+                                                    "%Y-%m-%dT%H:%M:%S.%f")
             self.end_datetime = datetime.strptime(self.end_datetime,
-                                                  '%Y-%m-%dT%H:%M:%S.%f')
+                                                  "%Y-%m-%dT%H:%M:%S.%f")
 
         # Defining the Parameters for the Coalescence
         scn = _find(param, ("PARAM"))
@@ -1442,8 +1505,8 @@ class SeisScan:
     """
     QuakeMigrate scanning class
 
-    Forms the core of the QuakeMigrate method, providing wrapping functions for the
-    C-compiled methods.
+    Forms the core of the QuakeMigrate method, providing wrapping functions for
+    the C-compiled methods.
 
     Attributes
     ----------
@@ -1742,8 +1805,8 @@ class SeisScan:
 
             tic()
             # Determining the Seismic event location
-            w_beg = event['MinTime'] - self.pre_pad
-            w_end = event['MaxTime'] + self.post_pad
+            w_beg = event["MinTime"] - self.pre_pad
+            w_end = event["MaxTime"] + self.post_pad
             self.data.read_mseed(w_beg, w_end, self.sampling_rate)
 
             daten, dsnr, dloc, map_ = self._compute(w_beg, w_end,
@@ -1755,19 +1818,19 @@ class SeisScan:
                                                    dcoord[:, 0],
                                                    dcoord[:, 1],
                                                    dcoord[:, 2])).transpose(),
-                                         columns=['DT', 'COA', 'X', 'Y', 'Z'])
-            event_coa_val['DT'] = event_coa_val['DT'].apply(UTCDateTime)
+                                         columns=["DT", "COA", "X", "Y", "Z"])
+            event_coa_val["DT"] = event_coa_val["DT"].apply(UTCDateTime)
             event = event_coa_val
-            event_max = event.iloc[event_coa_val['COA'].idxmax()]
+            event_max = event.iloc[event_coa_val["COA"].idxmax()]
 
             # Determining the hypocentral location from the maximum over
             # the marginal window.
             picks, GAUP, GAUS = self._arrival_trigger(event_max, evt_id)
 
             station_pick = {}
-            station_pick['Pick'] = picks
-            station_pick['GAU_P'] = GAUP
-            station_pick['GAU_S'] = GAUS
+            station_pick["Pick"] = picks
+            station_pick["GAU_P"] = GAUP
+            station_pick["GAU_S"] = GAUS
             toc()
 
             # Determining earthquake location error
@@ -1781,13 +1844,13 @@ class SeisScan:
                                            loc_cov[0], loc_cov[1], loc_cov[2],
                                            loc_err_cov[0], loc_err_cov[1],
                                            loc_err_cov[2]])],
-                               columns=['DT', 'COA', 'X', 'Y', 'Z',
-                                        'Gaussian_X', 'Gaussian_Y',
-                                        'Gaussian_Z', 'Gaussian_ErrX',
-                                        'Gaussian_ErrY', 'Gaussian_ErrZ',
-                                        'Covariance_X', 'Covariance_Y',
-                                        'Covariance_Z', 'Covariance_ErrX',
-                                        'Covariance_ErrY', 'Covariance_ErrZ'])
+                               columns=["DT", "COA", "X", "Y", "Z",
+                                        "Gaussian_X", "Gaussian_Y",
+                                        "Gaussian_Z", "Gaussian_ErrX",
+                                        "Gaussian_ErrY", "Gaussian_ErrZ",
+                                        "Covariance_X", "Covariance_Y",
+                                        "Covariance_Z", "Covariance_ErrX",
+                                        "Covariance_ErrY", "Covariance_ErrZ"])
             self.output.write_event(evt, event["EventID"])
 
             if cut_mseed:
@@ -1800,7 +1863,7 @@ class SeisScan:
             # Outputting coalescence grids and triggered events
             if self.plot_coal_trace:
                 tic()
-                print('Creating Station Traces')
+                print("Creating Station Traces")
                 seis_plot = SeisPlot(self.lut,
                                      map_,
                                      self.coa_map,
@@ -1808,18 +1871,18 @@ class SeisScan:
                                      event,
                                      station_pick,
                                      self.marginal_window)
-                seis_plot.CoalescenceTrace(output_file=output_file)
+                seis_plot.coalescence_trace(output_file=output_file)
                 toc()
 
             if self.plot_coal_grid:
                 tic()
-                print('Creating 4D Coalescence Grids')
+                print("Creating 4D Coalescence Grids")
                 self.output.write_coal4D(map_, evt_id, w_beg, w_end)
                 toc()
 
             if self.plot_coal_video:
                 tic()
-                print('Creating Seismic Videos')
+                print("Creating Seismic Videos")
                 seis_plot = SeisPlot(self.lut,
                                      map_,
                                      self.coa_map,
@@ -1827,12 +1890,12 @@ class SeisScan:
                                      event,
                                      station_pick,
                                      self.marginal_window)
-                seis_plot.CoalescenceVideo(output_file=output_file)
+                seis_plot.coalescence_video(output_file=output_file)
                 toc()
 
             if self.plot_coal_picture:
                 tic()
-                print('Creating Seismic Picture')
+                print("Creating Seismic Picture")
                 seis_plot = SeisPlot(self.lut,
                                      map_,
                                      self.coa_map,
@@ -1840,8 +1903,8 @@ class SeisScan:
                                      event,
                                      station_pick,
                                      self.marginal_window)
-                seis_plot.CoalescenceMarginal(output_file=output_file,
-                                              earthquake=evt)
+                seis_plot.coalescence_marginal(output_file=output_file,
+                                               earthquake=evt)
                 toc()
 
             del map_, event, station_pick
@@ -1878,10 +1941,10 @@ class SeisScan:
             # Loading the .scn file
             data = pd.read_csv(str(fname), names=["DT", "COA", "COA_NORM",
                                                   "X", "Y", "Z"])
-            data['DT'] = data['DT'].apply(UTCDateTime)
+            data["DT"] = pd.as_datetime(data["DT"])
 
             fig = plt.figure(figsize=(30, 15))
-            fig.patch.set_facecolor('white')
+            fig.patch.set_facecolor("white")
             coa = plt.subplot2grid((6, 16), (0, 0), colspan=9, rowspan=3)
             coa_norm = plt.subplot2grid((6, 16), (3, 0), colspan=9, rowspan=3,
                                         sharex=coa)
@@ -1908,13 +1971,13 @@ class SeisScan:
                 for plot in [coa, coa_norm]:
                     plot.axvspan(event["MinTime"].datetime - self.min_repeat,
                                  event["MaxTime"].datetime + self.min_repeat,
-                                 label=label1, alpha=0.5, color='red')
+                                 label=label1, alpha=0.5, color="red")
                     plot.axvline(event["CoaTime"].datetime - self.marginal_window,
-                                 label=label2, c='m', linestyle='--', linewidth=1.75)
+                                 label=label2, c="m", linestyle="--", linewidth=1.75)
                     plot.axvline(event["CoaTime"].datetime + self.marginal_window,
-                                 c='m', linestyle='--', linewidth=1.75)
+                                 c="m", linestyle="--", linewidth=1.75)
                     plot.axvline(event["CoaTime"].datetime, label=label3,
-                                 c='m', linewidth=1.75)
+                                 c="m", linewidth=1.75)
 
             props = {"boxstyle": "round",
                      "facecolor": "white",
@@ -2170,10 +2233,10 @@ class SeisScan:
         stw = int(stw * sampling_rate) + 1
         ltw = int(ltw * sampling_rate) + 1
         sig_z = self._preprocess_p(sig_z, sampling_rate)
-        self.filt_data['sigz'] = sig_z
+        self.filt_data["sigz"] = sig_z
         p_onset_raw, p_onset = onset(sig_z, stw, ltw,
                                      centred=self.onset_centred)
-        self.onset_data['sigz'] = p_onset
+        self.onset_data["sigz"] = p_onset
 
         return p_onset_raw, p_onset
 
@@ -2227,17 +2290,17 @@ class SeisScan:
         stw = int(stw * sampling_rate) + 1
         ltw = int(ltw * sampling_rate) + 1
         sig_e, sig_n = self._preprocess_s(sig_e, sig_n, sampling_rate)
-        self.filt_data['sige'] = sig_e
-        self.filt_data['sign'] = sig_n
+        self.filt_data["sige"] = sig_e
+        self.filt_data["sign"] = sig_n
         s_e_onset_raw, s_e_onset = onset(sig_e, stw, ltw,
                                          centred=self.onset_centred)
         s_n_onset_raw, s_n_onset = onset(sig_n, stw, ltw,
                                          centred=self.onset_centred)
-        self.onset_data['sige'] = s_e_onset
-        self.onset_data['sign'] = s_n_onset
+        self.onset_data["sige"] = s_e_onset
+        self.onset_data["sign"] = s_n_onset
         s_onset = np.sqrt((s_e_onset ** 2 + s_n_onset ** 2) / 2.)
         s_onset_raw = np.sqrt((s_e_onset_raw ** 2 + s_n_onset_raw ** 2) / 2.)
-        self.onset_data['sigs'] = s_onset
+        self.onset_data["sigs"] = s_onset
 
         return s_onset_raw, s_onset
 
@@ -2286,8 +2349,8 @@ class SeisScan:
             self._no_events = True
             return
 
-        event_cols = ['EventNum', 'CoaTime', 'COA_V', 'COA_X', 'COA_Y',
-                      'COA_Z', 'MinTime', 'MaxTime']
+        event_cols = ["EventNum", "CoaTime", "COA_V", "COA_X", "COA_Y",
+                      "COA_Z", "MinTime", "MaxTime"]
 
         ss = 1 / self.sampling_rate
 
@@ -2307,22 +2370,22 @@ class SeisScan:
 
             min_idx = c
             max_idx = d
-            val_idx = np.argmax(coa_val['COA'].iloc[np.arange(c, d + 1)])
+            val_idx = np.argmax(coa_val["COA"].iloc[np.arange(c, d + 1)])
 
             # Determining the times for min, max and max coalescence value
-            t_min = coa_val['DT'].iloc[min_idx]
-            t_max = coa_val['DT'].iloc[max_idx]
-            t_val = coa_val['DT'].iloc[val_idx]
+            t_min = coa_val["DT"].iloc[min_idx]
+            t_max = coa_val["DT"].iloc[max_idx]
+            t_val = coa_val["DT"].iloc[val_idx]
 
-            COA_V = coa_val['COA'].iloc[val_idx]
-            COA_X = coa_val['X'].iloc[val_idx]
-            COA_Y = coa_val['Y'].iloc[val_idx]
-            COA_Z = coa_val['Z'].iloc[val_idx]
+            COA_V = coa_val["COA"].iloc[val_idx]
+            COA_X = coa_val["X"].iloc[val_idx]
+            COA_Y = coa_val["Y"].iloc[val_idx]
+            COA_Z = coa_val["Z"].iloc[val_idx]
 
             if (t_val - t_min) < self.min_repeat:
-                t_min = coa_val['DT'].iloc[min_idx] - self.min_repeat
+                t_min = coa_val["DT"].iloc[min_idx] - self.min_repeat
             if (t_max - t_val) < self.min_repeat:
-                t_max = coa_val['DT'].iloc[max_idx] + self.min_repeat
+                t_max = coa_val["DT"].iloc[max_idx] + self.min_repeat
 
             tmp = pd.DataFrame([[e, t_val,
                                 COA_V, COA_X, COA_Y, COA_Z,
@@ -2342,20 +2405,20 @@ class SeisScan:
             if (i + 1 < n_evts) and ((event["MaxTime"]
                                       - init_events["MinTime"].iloc[i + 1]) < 0):
                 count += 1
-        init_events['EventNum'] = evt_num
+        init_events["EventNum"] = evt_num
 
         events = pd.DataFrame(columns=event_cols)
         for i in range(1, count + 1):
-            tmp = init_events[init_events['EventNum'] == i]
+            tmp = init_events[init_events["EventNum"] == i]
             tmp = tmp.reset_index(drop=True)
             j = np.argmax(tmp["COA_V"])
-            event = pd.DataFrame([[i, tmp['CoaTime'].iloc[j],
-                                   tmp['COA_V'].iloc[j],
-                                   tmp['COA_X'].iloc[j],
-                                   tmp['COA_X'].iloc[j],
-                                   tmp['COA_X'].iloc[j],
-                                   tmp['CoaTime'].iloc[j] - self.marginal_window,
-                                   tmp['CoaTime'].iloc[j] + self.marginal_window]],
+            event = pd.DataFrame([[i, tmp["CoaTime"].iloc[j],
+                                   tmp["COA_V"].iloc[j],
+                                   tmp["COA_X"].iloc[j],
+                                   tmp["COA_X"].iloc[j],
+                                   tmp["COA_X"].iloc[j],
+                                   tmp["CoaTime"].iloc[j] - self.marginal_window,
+                                   tmp["CoaTime"].iloc[j] + self.marginal_window]],
                                  columns=event_cols)
             events = events.append(event, ignore_index=True)
 
@@ -2447,7 +2510,7 @@ class SeisScan:
                             else:
                                 onset_gaussian[np.where((gau_onset_num[i, :] == j))[0]] = tmp_gau
                         except:
-                            print('Error with {}'.format(j))
+                            print("Error with {}".format(j))
 
                     else:
                         continue
@@ -2519,7 +2582,7 @@ class SeisScan:
         S_idxmax_new = int(st_idx + int((self.marginal_window + ps_ttime)
                                         * sampling_rate))
 
-        # Setting so the search region can't be bigger than P-S/2.
+        # Setting so the search region can"t be bigger than P-S/2.
         P_idxmin = np.max([pmin_idx, P_idxmin_new])
         P_idxmax = np.min([pmax_idx, P_idxmax_new])
         S_idxmin = np.max([smin_idx, S_idxmin_new])
@@ -2711,7 +2774,7 @@ class SeisScan:
             shp = vol.shape
         nx, ny, nz = shp
         flt = gaussian_3d(nx, ny, nz, sgm)
-        return fftconvolve(vol, flt, mode='same')
+        return fftconvolve(vol, flt, mode="same")
 
     def _mask3d(self, n, i, win):
         """
@@ -3023,8 +3086,8 @@ class SeisScan:
 #         self.prob_P = None
 #         self.prob_N = None
 
-#         self.models_path = '/raid1/jds70/PhaseLink/generalized-phase-detection/model_pol.json'
-#         self.weights_path = '/raid1/jds70/PhaseLink/generalized-phase-detection/model_pol_best.hdf5'
+#         self.models_path = "/raid1/jds70/PhaseLink/generalized-phase-detection/model_pol.json"
+#         self.weights_path = "/raid1/jds70/PhaseLink/generalized-phase-detection/model_pol_best.hdf5"
 
 #         self.PhaseProbability()
 
@@ -3107,10 +3170,10 @@ class SeisScan:
 #     def PhaseProbability(self):
 
 #         # load json and create model
-#         json_file = open(self.models_path, 'r')
+#         json_file = open(self.models_path, "r")
 #         loaded_model_json = json_file.read()
 #         json_file.close()
-#         model = model_from_json(loaded_model_json, custom_objects={'tf': tf})
+#         model = model_from_json(loaded_model_json, custom_objects={"tf": tf})
 
 #         # load weights into new model
 #         model.load_weights(self.weights_path)
@@ -3159,7 +3222,7 @@ class SeisScan:
 #             NN[np.isnan(NN)] = 0.0
 
 #             # plt.plot(ts[:,0])
-#             # plt.savefig('TEST.pdf')
+#             # plt.savefig("TEST.pdf")
 
 #             self.prob_S[ii, :] = SS
 #             self.prob_P[ii, :] = PP

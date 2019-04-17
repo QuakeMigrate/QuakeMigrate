@@ -183,16 +183,16 @@ def scan(sig, tt, fsmp, lsmp, nsamp, map4d, threads):
 
     tt : 
 
-    fsmp : 
-
-    lsmp : 
-
-    nsamp : 
-
+    fsmp : int
+        First sample in array to scan from
+    lsmp : int
+        Last sample in array to scan to
+    nsamp : int
+        Number of samples in array to scan over
     map4d : 
 
-    threads : 
-
+    threads : int
+        Number of threads to perform the scan on
     Raises
     ------
     ValueError

@@ -415,7 +415,7 @@ class SeisOutFile:
                         td)
         data["DT"] = [x.datetime for x in tmp]
         data["COA"] = coa.select(station="COA")[0].data / 1e8
-        data["COA_NORM"] = coa.select(station="COA_N")[0].data / 1e8
+        data["COA_N"] = coa.select(station="COA_N")[0].data / 1e8
         data["X"] = coa.select(station="X")[0].data / 1e6
         data["Y"] = coa.select(station="Y")[0].data / 1e6
         data["Z"] = coa.select(station="Z")[0].data
@@ -441,10 +441,12 @@ class SeisOutFile:
         data["DT"] = daten
         data["DT"] = data["DT"].apply(UTCDateTime)
         data["COA"] = dsnr
-        data["COA_NORM"] = dsnr_norm
+        data["COA_N"] = dsnr_norm
         data["X"] = dloc[:, 0]
         data["Y"] = dloc[:, 1]
         data["Z"] = dloc[:, 2]
+
+        print(data)
 
         npts = len(data)
         starttime = data.iloc[0][0]
@@ -453,11 +455,11 @@ class SeisOutFile:
                      "npts": npts,
                      "sampling_rate": sampling_rate,
                      "starttime": starttime}
-        stats_COA_NORM = {"network": "NW",
-                          "station": "COA_N",
-                          "npts": npts,
-                          "sampling_rate": sampling_rate,
-                          "starttime": starttime}
+        stats_COA_N = {"network": "NW",
+                       "station": "COA_N",
+                       "npts": npts,
+                       "sampling_rate": sampling_rate,
+                       "starttime": starttime}
         stats_X = {"network": "NW",
                    "station": "X",
                    "npts": npts,
@@ -476,8 +478,8 @@ class SeisOutFile:
 
         st = Stream(Trace(data=(np.array(data["COA"]) * 1e8).astype(np.int32),
                           header=stats_COA))
-        st += Stream(Trace(data=(np.array(data["COA_NORM"]) * 1e8).astype(np.int32),
-                           header=stats_COA_NORM))
+        st += Stream(Trace(data=(np.array(data["COA_N"]) * 1e8).astype(np.int32),
+                           header=stats_COA_N))
         st += Stream(Trace(data=(np.array(data["X"]) * 1e6).astype(np.int32),
                            header=stats_X))
         st += Stream(Trace(data=(np.array(data["Y"]) * 1e6).astype(np.int32),
@@ -1939,7 +1941,7 @@ class SeisScan:
 
         if fname.exists():
             # Loading the .scn file
-            data = pd.read_csv(str(fname), names=["DT", "COA", "COA_NORM",
+            data = pd.read_csv(str(fname), names=["DT", "COA", "COA_N",
                                                   "X", "Y", "Z"])
             data["DT"] = pd.as_datetime(data["DT"])
 
@@ -1957,7 +1959,7 @@ class SeisScan:
             coa.plot(data["DT"], data["COA"], color="blue",
                      label="Maximum coalescence", linewidth=1.0)
             coa.get_xaxis().set_ticks([])
-            coa_norm.plot(self.data["DT"], self.data["COA_NORM"], color="blue",
+            coa_norm.plot(self.data["DT"], self.data["COA_N"], color="blue",
                           label="Maximum coalescence", linewidth=1.0)
 
             for i, event in events.iterrows():
@@ -2335,7 +2337,7 @@ class SeisScan:
     def _trigger_scn(self, coa_val, start_time, end_time):
 
         if self.normalise_coalescence is True:
-            coa_val["COA"] = coa_val["COA_NORM"]
+            coa_val["COA"] = coa_val["COA_N"]
 
         coa_val = coa_val[coa_val["COA"] >= self.detection_threshold]
         coa_val = coa_val[(coa_val["DT"] >= start_time) &

@@ -12,27 +12,7 @@ import QMigrate.core.model as cmod
 import numpy as np
 
 
-def _downsample(stream, sr):
-    """
-    Downsample the MSEED to the designated sampling rate
 
-    Parameters
-    ----------
-    stream : obspy Stream object
-        Contains list of Trace objects to be downsampled
-    sr : int
-        Designated sample rate
-
-    """
-
-    for trace in stream:
-        if sr != trace.stats.sampling_rate:
-            trace.filter("lowpass", freq=float(sr) / 2.000001,
-                         corners=2, zerophase=True)
-            trace.decimate(factor=int(trace.stats.sampling_rate / sr),
-                           strict_length=False, no_filter=True)
-
-    return stream
 
 
 class MSEED():
@@ -63,11 +43,46 @@ class MSEED():
         self.signal = None
         self.filtered_signal = None
 
+        self.resample = False
+
         lut = cmod.LUT()
         lut.load(LUT)
         self.stations = lut.station_data["Name"]
         del lut
         self.st = None
+
+
+    def _downsample(self,stream, sr):
+        """
+        Downsample the MSEED to the designated sampling rate
+
+        Parameters
+        ----------
+        stream : obspy Stream object
+            Contains list of Trace objects to be downsampled
+        sr : int
+            Designated sample rate
+
+        """
+
+        for trace in stream:
+            if sr != trace.stats.sampling_rate:
+
+                if (trace.stats.sampling_rate % sr) == 0:
+                    trace.filter("lowpass", freq=float(sr) / 2.000001,
+                                 corners=2, zerophase=True)
+                    trace.decimate(factor=int(trace.stats.sampling_rate / sr),
+                                   strict_length=False, no_filter=True)
+                elif ((trace.stats.sampling_rate % sr) != 0) and self.resample == True:
+                    trace.filter("lowpass", freq=float(sr) / 2.000001,
+                                 corners=2, zerophase=True)
+                    trace.resample(sr,
+                                   strict_length=False, no_filter=True)
+                else:
+                    print('Error! Seismic data cannot be decimated as the sample rate is not divisible. Resampling can be forced using .resample = True.')
+
+
+        return stream
 
     def path_structure(self, path_type='YEAR/JD/STATION'):
         """
@@ -103,7 +118,7 @@ class MSEED():
             Sampling rate in hertz
 
         """
-
+        self.sampling_rate = sampling_rate
         self.start_time = start_time
         self.end_time = end_time
         samples = int((end_time - start_time) * sampling_rate + 1)
@@ -135,7 +150,7 @@ class MSEED():
                 # Combining the mseed and determining station availability
                 st.detrend("linear")
                 st.detrend("demean")
-                st = _downsample(st, sampling_rate)
+                st = self._downsample(st, sampling_rate)
 
                 signal, availability = self._station_availability(st, samples)
         else:

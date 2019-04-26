@@ -1829,24 +1829,25 @@ class SeisScan:
             tic()
 
             # Determining the Seismic event location
-            w_beg = event['CoaTime'] - 2*self.marginal_window - self.pre_pad
-            w_end = event['CoaTime'] + 2*self.marginal_window + self.post_pad
+            w_beg = event["CoaTime"] - 2*self.marginal_window - self.pre_pad
+            w_end = event["CoaTime"] + 2*self.marginal_window + self.post_pad
             self.data.read_mseed(w_beg, w_end, self.sampling_rate)
-            daten, dsnr, dsnr_norm, dloc, map_ = self._compute(w_beg, w_end,
-                                                     self.data.signal,
-                                                     self.data.availability)
+            daten, dsnr, dsnr_norm, dloc, map_ = self._compute(
+                                                    w_beg, w_end,
+                                                    self.data.signal,
+                                                    self.data.availability)
             dcoord = self.lut.xyz2coord(np.array(dloc).astype(int))
             event_coa_val = pd.DataFrame(np.array((daten, dsnr,
                                                    dcoord[:, 0],
                                                    dcoord[:, 1],
                                                    dcoord[:, 2])).transpose(),
-                                         columns=['DT', 'COA', 'X', 'Y', 'Z'])
-            event_coa_val['DT'] = event_coa_val['DT'].apply(UTCDateTime)
-            event_coa_val_dtmax = event_coa_val['DT'].iloc[event_coa_val['COA'].astype('float').idxmax()]
+                                         columns=["DT", "COA", "X", "Y", "Z"])
+            event_coa_val["DT"] = event_coa_val["DT"].apply(UTCDateTime)
+            event_coa_val_dtmax = event_coa_val["DT"].iloc[event_coa_val["COA"].astype("float").idxmax()]
             w_beg_mw = event_coa_val_dtmax - self.marginal_window
             w_end_mw = event_coa_val_dtmax + self.marginal_window
 
-            if (event_coa_val_dtmax >= event['CoaTime'] - self.marginal_window) and (event_coa_val_dtmax <= event['CoaTime'] + self.marginal_window):
+            if (event_coa_val_dtmax >= event["CoaTime"] - self.marginal_window) and (event_coa_val_dtmax <= event["CoaTime"] + self.marginal_window):
                 w_beg_mw = event_coa_val_dtmax - self.marginal_window
                 w_end_mw = event_coa_val_dtmax + self.marginal_window
             else:
@@ -1860,10 +1861,10 @@ class SeisScan:
                 continue
 
             event = event_coa_val
-            event = event[(event['DT'] >= w_beg_mw) & (event['DT'] <= w_end_mw)]
+            event = event[(event["DT"] >= w_beg_mw) & (event["DT"] <= w_end_mw)]
             map_ = map_[:, :, :, event.index[0]:event.index[-1]]
             event = event.reset_index(drop=True)
-            event_max = event.iloc[event['COA'].astype('float').idxmax()]
+            event_max = event.iloc[event["COA"].astype("float").idxmax()]
 
             # Determining the hypocentral location from the maximum over
             # the marginal window.
@@ -2086,8 +2087,7 @@ class SeisScan:
 
             # Saving figure if defined
             if savefig:
-                out = self.output.path / "{}_Trigger"
-                out = out.format(self.output.name)
+                out = self.output.path / "{}_Trigger".format(self.output.name)
                 out = out.with_suffix(".pdf")
                 plt.savefig(out)
             else:

@@ -1902,7 +1902,8 @@ class SeisScan:
                 self.output.cut_mseed(self.data, evt_id)
                 toc()
 
-            out = self.output.path / "{}_{}".format(self.output.name, evt_id)
+            out = str(self.output.path / "{}_{}".format(self.output.name,
+                                                        evt_id))
             # Outputting coalescence grids and triggered events
             if self.plot_coal_trace:
                 tic()

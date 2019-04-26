@@ -1960,7 +1960,7 @@ class SeisScan:
 
     def plot_scn(self, events, start_time, end_time, stations=None, savefig=False):
         """
-        Plots the data from a .scn file
+        Plots the data from a .scnmseed file
 
         Parameters
         ----------
@@ -1981,7 +1981,7 @@ class SeisScan:
 
         """
 
-        fname = (self.output.path / self.output.name).with_suffix(".scn")
+        fname = (self.output.path / self.output.name).with_suffix(".scnmseed")
 
         if fname.exists():
             # Loading the .scn file

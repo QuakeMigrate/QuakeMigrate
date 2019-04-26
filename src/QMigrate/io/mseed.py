@@ -158,6 +158,7 @@ class MSEED():
             availability = np.zeros((len(self.stations), 1))
             signal = np.zeros((3, len(self.stations), int(samples)))
 
+        self.st     = st
         self.signal = signal
         self.filtered_signal = np.empty((self.signal.shape))
         self.filtered_signal[:] = np.nan

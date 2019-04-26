@@ -635,7 +635,7 @@ class SeisOutFile:
 
         """
 
-        fname = self.path / "_TriggeredEvents.csv"
+        fname = (self.path / "_TriggeredEvents").with_suffix('.csv')
         events.to_csv(fname, index=False)
 
 
@@ -714,11 +714,11 @@ class SeisPlot:
         tmp = np.arange(self.data.start_time,
                         self.data.end_time + self.data.sample_size,
                         self.data.sample_size)
-        self.times = [x.datetime for x in tmp]
+        self.times = pd.to_datetime([x.datetime for x in tmp])
         # Convert event["DT"] to python datetime object
-        self.event["DT"] = pd.to_datetime(self.event["DT"])
+        self.event["DT"] = [x.datetime for x in self.event["DT"]]
         self.event = self.event[(self.event["DT"] > self.times[0])
-                                & (self.event["DT"] < self.event[-1])]
+                                & (self.event["DT"] < self.times[-1])]
 
         self.map_max = np.max(map_)
 
@@ -785,18 +785,15 @@ class SeisPlot:
             s_onset.plot(self.times, self.data.s_onset[i, :], "b", linewidth=0.5)
 
             # Defining Pick and Error
-            picks = self.stat_pick["Pick"]
-            stat_pick = picks[picks["Name"] == station].reset_index(drop=True)
-
-            if len(stat_pick) > 0:
-                stat_pick = stat_pick.replace("-1.0", np.nan)
+            picks     = self.stat_pick["Pick"]
+            stat_pick = picks[picks["Name"] == station].replace(-1, np.nan).reset_index(drop=True)
 
             for j, pick in stat_pick.iterrows():
                 if np.isnan(pick["PickError"]):
                     continue
 
                 pick_time = pick["PickTime"]
-                pick_err = pick["PickError"]
+                pick_err  = pick["PickError"]
 
                 if pick["Phase"] == "P":
                     self._pick_vlines(z_trace, pick_time, pick_err)
@@ -820,11 +817,11 @@ class SeisPlot:
 
             dt_max = self.event["DT"].iloc[np.argmax(self.event["COA"])]
             dt_max = UTCDateTime(dt_max)
-            self._ttime_vlines(self, z_trace, dt_max, ptt[i])
-            self._ttime_vlines(self, p_onset, dt_max, ptt[i])
-            self._ttime_vlines(self, y_trace, dt_max, stt[i])
-            self._ttime_vlines(self, x_trace, dt_max, stt[i])
-            self._ttime_vlines(self, s_onset, dt_max, stt[i])
+            self._ttime_vlines(z_trace, dt_max, ptt[i])
+            self._ttime_vlines(p_onset, dt_max, ptt[i])
+            self._ttime_vlines(y_trace, dt_max, stt[i])
+            self._ttime_vlines(x_trace, dt_max, stt[i])
+            self._ttime_vlines(s_onset, dt_max, stt[i])
 
             p_onset.axhline(gau_p["PickThreshold"])
             s_onset.axhline(gau_s["PickThreshold"])
@@ -896,8 +893,9 @@ class SeisPlot:
             print(msg)
             return
 
-        dt_max = self.event["DT"].iloc[np.argmax(self.event["COA"])]
-        tslice_idx = np.where(self.times == dt_max)[0][0]
+
+        dt_max = (self.event["DT"].iloc[np.argmax(self.event["COA"])]).to_pydatetime()
+        tslice_idx = np.where(np.argmin(abs(self.times - dt_max)))[0][0]
         tslice = self.times[tslice_idx]
 
         # Determining the marginal window value from the coalescence function
@@ -950,14 +948,14 @@ class SeisPlot:
 
         # --- Plotting the Station Travel Times ---
         ttime_range = self.lut.get_value_at("TIME_P", point[0])[0].shape[0]
-        tps = np.zeros(ttime_range)
-        tss = np.zeros(ttime_range)
+        tps = []
+        tss = []
         dt_max = UTCDateTime(dt_max)
         tmp_p = self.lut.get_value_at("TIME_P", point[0])
         tmp_s = self.lut.get_value_at("TIME_S", point[0])
         for i in range(ttime_range):
-            tps[i] = (dt_max + tmp_p[0][i]).datetime
-            tss[i] = (dt_max + tmp_s[0][i]).datetime
+            tps.append((dt_max + tmp_p[0][i]).datetime)
+            tss.append((dt_max + tmp_s[0][i]).datetime)
 
         del tmp_p, tmp_s
 
@@ -1123,7 +1121,7 @@ class SeisPlot:
 
     def _plot_coa_trace(self, trace, x, y, st_idx, color):
         trace.plot(x, y / np.max(abs(y)) * self.trace_scale + (st_idx + 1),
-                   linecolor=color, linewidth=0.5)
+                   color=color, linewidth=0.5)
 
     def _coalescence_image(self, tslice_idx):
         """
@@ -1603,6 +1601,7 @@ class SeisScan:
         self.detection_threshold = params.detection_threshold
 
         self.marginal_window = 30
+        self.minimum_repeat  = 30
         self.percent_tt = 0.1
         self.plot_coal_grid = False
         self.plot_coal_video = False
@@ -1738,7 +1737,7 @@ class SeisScan:
         msg += "         Minimum repeat            = {} s\n"
         msg += "=" * 126 + "\n"
         msg = msg.format(str(start_time), str(end_time), self.n_cores,
-                         self.marginal_window, self.min_repeat)
+                         self.marginal_window, self.minimum_repeat)
         if self.log:
             self.output.write_log(msg)
         else:
@@ -1779,7 +1778,7 @@ class SeisScan:
 
         # Convert times to UTCDateTime objects
         start_time = UTCDateTime(start_time)
-        end_time = UTCDateTime(end_time)
+        end_time   = UTCDateTime(end_time)
 
         self.log = log
 
@@ -1801,7 +1800,7 @@ class SeisScan:
 
         events = self.output.read_triggered_events(start_time, end_time)
 
-        self.onset_centred = True
+        self.onset_centred = False
 
         n_evts = len(events)
 
@@ -1824,15 +1823,14 @@ class SeisScan:
                 print(msg)
 
             tic()
-            # Determining the Seismic event location
-            w_beg = event['MinTime'] - self.pre_pad
-            w_end = event['MaxTime'] + self.post_pad
-            self.data.read_mseed(w_beg, w_end, self.sampling_rate)
 
+            # Determining the Seismic event location
+            w_beg = event['CoaTime'] - 2*self.marginal_window - self.pre_pad
+            w_end = event['CoaTime'] + 2*self.marginal_window + self.post_pad
+            self.data.read_mseed(w_beg, w_end, self.sampling_rate)
             daten, dsnr, dsnr_norm, dloc, map_ = self._compute(w_beg, w_end,
                                                     self.data.signal, 
                                                     self.data.availability)
-
             dcoord = self.lut.xyz2coord(np.array(dloc).astype(int))
             event_coa_val = pd.DataFrame(np.array((daten, dsnr,
                                                    dcoord[:, 0],
@@ -1840,8 +1838,33 @@ class SeisScan:
                                                    dcoord[:, 2])).transpose(),
                                          columns=['DT', 'COA', 'X', 'Y', 'Z'])
             event_coa_val['DT'] = event_coa_val['DT'].apply(UTCDateTime)
+            event_coa_val_dtmax = event_coa_val['DT'].iloc[event_coa_val['COA'].astype('float').idxmax()]
+            w_beg_mw = event_coa_val_dtmax - self.marginal_window
+            w_end_mw = event_coa_val_dtmax + self.marginal_window
+
+            while (np.min(event_coa_val['DT']) > w_beg_mw) or (np.max(event_coa_val['DT']) < w_end_mw):
+                w_beg = event_coa_val_dtmax - 2*self.marginal_window - self.pre_pad
+                w_end = event_coa_val_dtmax + 2*self.marginal_window + self.post_pad
+                self.data.read_mseed(w_beg, w_end, self.sampling_rate)
+                daten, dsnr, dsnr_norm, dloc, map_ = self._compute(w_beg, w_end,
+                                                        self.data.signal, 
+                                                        self.data.availability)
+                dcoord = self.lut.xyz2coord(np.array(dloc).astype(int))
+                event_coa_val = pd.DataFrame(np.array((daten, dsnr,
+                                                       dcoord[:, 0],
+                                                       dcoord[:, 1],
+                                                       dcoord[:, 2])).transpose(),
+                                             columns=['DT', 'COA', 'X', 'Y', 'Z'])
+                event_coa_val['DT'] = event_coa_val['DT'].apply(UTCDateTime)
+                event_coa_val_dtmax = event_coa_val['DT'].iloc[event_coa_val['COA'].astype('float').idxmax()]
+                w_beg_mw = event_coa_val_dtmax - self.marginal_window
+                w_end_mw = event_coa_val_dtmax + self.marginal_window
+
             event = event_coa_val
-            event_max = event.iloc[event_coa_val['COA'].idxmax()]
+            event = event[(event['DT'] >= w_beg_mw) & (event['DT'] <= w_end_mw)]
+            map_  = map_[:,:,:,event.index[0]:event.index[-1]]
+            event = event.reset_index(drop=True)
+            event_max = event.iloc[event['COA'].astype('float').idxmax()]
 
             # Determining the hypocentral location from the maximum over
             # the marginal window.
@@ -1879,7 +1902,7 @@ class SeisScan:
                 self.output.cut_mseed(self.data, evt_id)
                 toc()
 
-            output_file = self.output.path / self.output.name / "_{}".format(evt_id)
+            output_file = self.output.path / "_{}".format(evt_id)
             # Outputting coalescence grids and triggered events
             if self.plot_coal_trace:
                 tic()
@@ -1891,7 +1914,7 @@ class SeisScan:
                                      event,
                                      station_pick,
                                      self.marginal_window)
-                seis_plot.CoalescenceTrace(output_file=output_file)
+                seis_plot.coalescence_trace(output_file=output_file)
                 toc()
 
             if self.plot_coal_grid:
@@ -1910,7 +1933,7 @@ class SeisScan:
                                      event,
                                      station_pick,
                                      self.marginal_window)
-                seis_plot.CoalescenceVideo(output_file=output_file)
+                seis_plot.coalescence_video(output_file=output_file)
                 toc()
 
             if self.plot_coal_picture:
@@ -1923,7 +1946,8 @@ class SeisScan:
                                      event,
                                      station_pick,
                                      self.marginal_window)
-                seis_plot.CoalescenceMarginal(output_file=output_file,
+
+                seis_plot.coalescence_marginal(output_file=output_file,
                                               earthquake=evt)
                 toc()
 
@@ -2226,7 +2250,6 @@ class SeisScan:
                         1 / sampling_rate)
         daten = [x.datetime for x in tmp]
         dsnr = np.exp((dsnr / (len(avail_idx) * 2)) - 1.0)
-        print(dsnr)
         dloc = self.lut.xyz2index(dind, inverse=True)
 
         # Determining the normalised coalescence through time
@@ -2237,7 +2260,6 @@ class SeisScan:
 
         # Reset map to original coalescence value
         map_ = map_ * sum_coa[np.newaxis, np.newaxis, np.newaxis, :]
-
         return daten, dsnr, dsnr_norm, dloc, map_
 
     def _compute_p_onset(self, sig_z, sampling_rate):
@@ -2370,6 +2392,8 @@ class SeisScan:
                           (coa_val["DT"] <= end_time)]
 
         coa_val = coa_val.reset_index(drop=True)
+        
+
 
         if len(coa_val) == 0:
             msg = "No events triggered at this threshold"
@@ -2377,8 +2401,8 @@ class SeisScan:
             self._no_events = True
             return
 
-        event_cols = ["EventNum", "CoaTime", "COA_V", "COA_X", "COA_Y",
-                      "COA_Z", "MinTime", "MaxTime"]
+        event_cols = ['EventNum', 'CoaTime', 'COA_V', 'COA_X', 'COA_Y',
+                      'COA_Z', 'MinTime', 'MaxTime']
 
         ss = 1 / self.sampling_rate
 
@@ -2398,22 +2422,22 @@ class SeisScan:
 
             min_idx = c
             max_idx = d
-            val_idx = np.argmax(coa_val["COA"].iloc[np.arange(c, d + 1)])
+            val_idx = np.argmax(coa_val['COA'].iloc[np.arange(c, d + 1)])
 
             # Determining the times for min, max and max coalescence value
-            t_min = coa_val["DT"].iloc[min_idx]
-            t_max = coa_val["DT"].iloc[max_idx]
-            t_val = coa_val["DT"].iloc[val_idx]
+            t_min = coa_val['DT'].iloc[min_idx]
+            t_max = coa_val['DT'].iloc[max_idx]
+            t_val = coa_val['DT'].iloc[val_idx]
 
-            COA_V = coa_val["COA"].iloc[val_idx]
-            COA_X = coa_val["X"].iloc[val_idx]
-            COA_Y = coa_val["Y"].iloc[val_idx]
-            COA_Z = coa_val["Z"].iloc[val_idx]
+            COA_V = coa_val['COA'].iloc[val_idx]
+            COA_X = coa_val['X'].iloc[val_idx]
+            COA_Y = coa_val['Y'].iloc[val_idx]
+            COA_Z = coa_val['Z'].iloc[val_idx]
 
-            if (t_val - t_min) < self.min_repeat:
-                t_min = coa_val["DT"].iloc[min_idx] - self.min_repeat
-            if (t_max - t_val) < self.min_repeat:
-                t_max = coa_val["DT"].iloc[max_idx] + self.min_repeat
+            if (t_val - t_min) < self.minimum_repeat:
+                t_min = coa_val['DT'].iloc[min_idx] - self.minimum_repeat
+            if (t_max - t_val) < self.minimum_repeat:
+                t_max = coa_val['DT'].iloc[max_idx] + self.minimum_repeat
 
             tmp = pd.DataFrame([[e, t_val,
                                 COA_V, COA_X, COA_Y, COA_Z,
@@ -2433,20 +2457,20 @@ class SeisScan:
             if (i + 1 < n_evts) and ((event["MaxTime"]
                                       - init_events["MinTime"].iloc[i + 1]) < 0):
                 count += 1
-        init_events["EventNum"] = evt_num
+        init_events['EventNum'] = evt_num
 
         events = pd.DataFrame(columns=event_cols)
         for i in range(1, count + 1):
-            tmp = init_events[init_events["EventNum"] == i]
+            tmp = init_events[init_events['EventNum'] == i]
             tmp = tmp.reset_index(drop=True)
             j = np.argmax(tmp["COA_V"])
-            event = pd.DataFrame([[i, tmp["CoaTime"].iloc[j],
-                                   tmp["COA_V"].iloc[j],
-                                   tmp["COA_X"].iloc[j],
-                                   tmp["COA_Y"].iloc[j],
-                                   tmp["COA_Z"].iloc[j],
-                                   tmp["CoaTime"].iloc[j] - self.marginal_window,
-                                   tmp["CoaTime"].iloc[j] + self.marginal_window]],
+            event = pd.DataFrame([[i, tmp['CoaTime'].iloc[j],
+                                   tmp['COA_V'].iloc[j],
+                                   tmp['COA_X'].iloc[j],
+                                   tmp['COA_Y'].iloc[j],
+                                   tmp['COA_Z'].iloc[j],
+                                   tmp['MinTime'].iloc[j] - self.marginal_window,
+                                   tmp['MaxTime'].iloc[j] + self.marginal_window]],
                                  columns=event_cols)
             events = events.append(event, ignore_index=True)
 
@@ -2454,6 +2478,9 @@ class SeisScan:
         for char_ in ["-", ":", ".", " "]:
             evt_id.str.replace(char_, "")
         events["EventID"] = evt_id
+
+        if len(events) > 0:
+            self._no_events = False
 
         return events
 
@@ -2634,13 +2661,16 @@ class SeisScan:
         onset_threshold[S_idxmin:S_idxmax] = -1
         onset_threshold = onset_threshold[onset_threshold > -1]
 
-        threshold = np.percentile(onset_threshold, self.pick_threshold * 100)
+        threshold        = np.percentile(onset_threshold, self.pick_threshold * 100)
         threshold_window = np.percentile(onset_trim, 88)
-        threshold = np.max([threshold, threshold_window])
+        #print(threshold,threshold_window)
+        threshold        = np.max([threshold, threshold_window])
+        print(threshold)
 
         tmp = (onset_trim - threshold).any() > 0
         if onset[max_onset] >= threshold and tmp:
-            exceedence = np.where((onset_trim - threshold).any() > 0)[0]
+            exceedence = np.where((onset_trim - threshold) > 0)[0]
+            print(exceedence)
             exceedence_dist = np.zeros(len(exceedence))
 
             d = 1
@@ -2668,7 +2698,7 @@ class SeisScan:
 
             x_data_dt = np.array([])
             for i in range(len(x_data)):
-                x_data_dt = np.hstack(x_data_dt, start_time + x_data[i])
+                x_data_dt = np.hstack([x_data_dt, start_time + x_data[i]])
 
             try:
                 p0 = [np.max(y_data),
@@ -2691,8 +2721,8 @@ class SeisScan:
                 gaussian_fit = self.DEFAULT_GAUSSIAN_FIT
                 gaussian_fit["PickThreshold"] = threshold
 
-                sigma = -1
-                mean = -1
+                sigma     = -1
+                mean      = -1
                 max_onset = -1
         else:
             gaussian_fit = self.DEFAULT_GAUSSIAN_FIT
@@ -2747,18 +2777,18 @@ class SeisScan:
             if self.picking_mode == "Gaussian":
                 for phase in ["P", "S"]:
                     if phase == "P":
-                        onset = p_onset[i]
+                        onset   = p_onset[i]
                         arrival = p_arrival
                     else:
-                        onset = s_onset[i]
+                        onset   = s_onset[i]
                         arrival = s_arrival
 
                     msg = "Fitting Gaussian for  {}  -  {}"
                     msg = msg.format(phase, str(arrival))
-                    if self.log:
-                        self.output.write_log(msg)
-                    else:
-                        print(msg)
+                    # if self.log:
+                    #     self.output.write_log(msg)
+                    # else:
+                    #     print()
 
                     gau, max_onset, err, mn = self._gaussian_trigger(onset,
                                                                      phase,
@@ -2774,8 +2804,9 @@ class SeisScan:
                         s_gauss = np.hstack([s_gauss, gau])
 
 
-                    stations.loc[idx] = [self.lut.station_data['Name'], phase, arrival,
+                    stations.iloc[idx] = [self.lut.station_data['Name'][i], phase, arrival,
                                          mn, err, max_onset]
+                    idx+=1
 
         self.output.write_stations_file(stations, event_name)
 

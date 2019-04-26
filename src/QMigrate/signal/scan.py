@@ -150,7 +150,7 @@ def sta_lta_centred(a, nsta, nlta):
 
     # Compute the STA and the LTA
     sta[nsta:] = sta[nsta:] - sta[:-nsta]
-    sta[nsta:-nsta] = sta[nsta * 2]
+    sta[nsta:-nsta] = sta[nsta*2:]
     sta /= nsta
 
     lta[nlta:] = lta[nlta:] - lta[:-nlta]
@@ -691,6 +691,8 @@ class SeisPlot:
         self.marginal_window = marginal_window
         self.range_order = True
 
+        self.logo = '{}'
+
         if options is None:
             self.trace_scale = 1
             self.cmap = "hot_r"
@@ -716,7 +718,10 @@ class SeisPlot:
                         self.data.sample_size)
         self.times = pd.to_datetime([x.datetime for x in tmp])
         # Convert event["DT"] to python datetime object
-        self.event["DT"] = [x.datetime for x in self.event["DT"]]
+        if not isinstance(self.event["DT"].iloc[0],datetime):
+            self.event["DT"] = [x.datetime for x in self.event["DT"]]
+
+
         self.event = self.event[(self.event["DT"] > self.times[0])
                                 & (self.event["DT"] < self.times[-1])]
 
@@ -802,7 +807,8 @@ class SeisPlot:
                                      gau_p["popt"][0],
                                      gau_p["popt"][1],
                                      gau_p["popt"][2])
-                    p_onset.plot(gau_p["xdata_dt"], yy)
+                    gau_dts = [x.datetime for x in gau_p["xdata_dt"]]
+                    p_onset.plot(gau_dts, yy)
                     self._pick_vlines(p_onset, pick_time, pick_err)
                 else:
                     self._pick_vlines(y_trace, pick_time, pick_err)
@@ -812,7 +818,8 @@ class SeisPlot:
                                      gau_s["popt"][0],
                                      gau_s["popt"][1],
                                      gau_s["popt"][2])
-                    s_onset.plot(gau_s["xdata_dt"], yy)
+                    gau_dts = [x.datetime for x in gau_s["xdata_dt"]]
+                    s_onset.plot(gau_dts, yy)
                     self._pick_vlines(s_onset, pick_time, pick_err)
 
             dt_max = self.event["DT"].iloc[np.argmax(self.event["COA"])]
@@ -912,8 +919,8 @@ class SeisPlot:
         xy_slice = plt.subplot2grid((3, 5), (0, 0), colspan=2, rowspan=2)
         xz_slice = plt.subplot2grid((3, 5), (2, 0), colspan=2)
         yz_slice = plt.subplot2grid((3, 5), (0, 2), rowspan=2)
-        trace = plt.subplot2grid((3, 5), (0, 3), colspan=2, rowspan=2)
-        logo = plt.subplot2grid((3, 5), (2, 2))
+        trace    = plt.subplot2grid((3, 5), (0, 3), colspan=2, rowspan=2)
+        logo     = plt.subplot2grid((3, 5), (2, 2))
         coal_val = plt.subplot2grid((3, 5), (2, 3), colspan=2)
 
         # --- Ordering by distance to event ---
@@ -978,30 +985,34 @@ class SeisPlot:
                                               color="r")
 
         # --- Plotting the Coalescence Function ---
-        self._plot_coal(coal_val, tslice)
+        self._plot_coal(coal_val, dt_max.datetime)
 
         # --- Determining Error ellipse for Covariance ---
-        cells = self.lut.cell_count
+        cells  = self.lut.cell_count
         xcells = cells[0]
         ycells = cells[1]
         zcells = cells[2]
-        cov_x = int(eq["Covariance_ErrX"] / xcells)
-        cov_y = int(eq["Covariance_ErrY"] / ycells)
-        cov_z = int(eq["Covariance_ErrZ"] / zcells)
-        dCo = abs(crd - self.lut.coord2loc(np.array([[loc[0][0] + cov_x,
-                                                      loc[1][0] + cov_y,
-                                                      loc[2][0] + cov_z]]),
+        cov_x  = eq["Covariance_ErrX"] / self.lut.cell_size[0]
+        cov_y  = eq["Covariance_ErrY"] / self.lut.cell_size[1]
+        cov_z  = eq["Covariance_ErrZ"] / self.lut.cell_size[2]
+
+        CovCoord = np.array([[eq['Covariance_X'],eq['Covariance_Y'],eq['Covariance_Z']]])
+        CovLoc   = self.lut.coord2loc(CovCoord)
+
+        dCo = abs(CovCoord - self.lut.coord2loc(np.array([[CovLoc[0][0] + cov_x,
+                                                      CovLoc[0][1] + cov_y,
+                                                      CovLoc[0][2] + cov_z]]),
                                            inverse=True))
 
         ellipse_XY = patches.Ellipse((eq["Covariance_X"], eq["Covariance_Y"]),
                                      2 * dCo[0][0], 2 * dCo[0][1], angle=0,
-                                     linewidth=2, fill=False)
-        ellipse_YZ = patches.Ellipse((eq["Covariance_X"], eq["Covariance_Z"]),
+                                     linewidth=2,edgecolor='k',fill=False,label='Global Gaussian Error Ellipse')
+        ellipse_YZ = patches.Ellipse((eq["Covariance_Z"], eq["Covariance_Y"]),
                                      2 * dCo[0][2], 2 * dCo[0][1], angle=0,
-                                     linewidth=2, fill=False)
-        ellipse_XZ = patches.Ellipse((eq["Covariance_Z"], eq["Covariance_Y"]),
-                                     2 * dCo[0][1], 2 * dCo[0][2], angle=0,
-                                     linewidth=2, fill=False)
+                                     linewidth=2,edgecolor='k', fill=False)
+        ellipse_XZ = patches.Ellipse((eq["Covariance_X"], eq["Covariance_Z"]),
+                                     2 * dCo[0][0], 2 * dCo[0][2], angle=0,
+                                     linewidth=2,edgecolor='k', fill=False)
 
         # ------ Spatial Function ------
         # --- Plotting the marginal window ---
@@ -1034,10 +1045,11 @@ class SeisPlot:
         xy_slice.axhline(y=crd[0][1], linestyle="--", linewidth=2,
                          color=self.line_station_color)
         xy_slice.scatter(eq["Gaussian_X"], eq["Gaussian_Y"], 150, c="pink",
-                         marker="*")
+                         marker="*",label='Local Gaussian Location')
         xy_slice.scatter(eq["Covariance_X"], eq["Covariance_Y"], 150, c="blue",
-                         marker="*")
+                         marker="*",label='Global Gaussian Location')
         xy_slice.add_patch(ellipse_XY)
+        xy_slice.legend()
 
         # xz_slice
         grid1, grid2 = np.mgrid[xmin:xmax:(xmax - xmin) / xcells,
@@ -1115,6 +1127,7 @@ class SeisPlot:
         if output_file is None:
             plt.show()
         else:
+            fig.suptitle('Event Origin Time = {}'.format(dt_max.datetime))
             plt.savefig("{}_EventLocationError.pdf".format(output_file),
                         dpi=400)
             plt.close("all")
@@ -1356,13 +1369,11 @@ class SeisPlot:
                                     (np.arange(self.data.signal.shape[1]) + 1)])
 
     def _pick_vlines(self, trace, pick_time, pick_err):
-        trace.axvline(pd.to_datetime(pick_time)
-                      + timedelta(seconds=-pick_err / 2),
+        trace.axvline((pick_time - pick_err/2).datetime,
                       linestyle="--")
-        trace.axvline(pd.to_datetime(pick_time)
-                      + timedelta(seconds=pick_err / 2),
+        trace.axvline((pick_time + pick_err/2).datetime,
                       linestyle="--")
-        trace.axvline(pd.to_datetime(pick_time))
+        trace.axvline((pick_time).datetime)
 
     def _ttime_vlines(self, trace, dt_max, ttime):
         trace.axvline((dt_max + ttime).datetime, color="red")
@@ -1401,9 +1412,10 @@ class SeisPlot:
         plot.yaxis.tick_right()
         plot.yaxis.set_label_position("right")
         plot.set_xlim([self.event["DT"].iloc[0], self.event["DT"].iloc[-1]])
-        plot.format_xdate = mdates.DateFormatter("%Y-%m-%d")  # FIX - Not working
+        #plot.format_xdate = mdates.DateFormatter("%Y-%m-%d")  # FIX - Not working
         for tick in plot.get_xticklabels():
             tick.set_rotation(45)
+            
         self.coal_val_vline = plot.axvline(tslice, 0, 1000, linestyle="--",
                                            linewidth=2, color="r")
 
@@ -1800,7 +1812,7 @@ class SeisScan:
 
         events = self.output.read_triggered_events(start_time, end_time)
 
-        self.onset_centred = False
+        self.onset_centred = True
 
         n_evts = len(events)
 
@@ -1915,6 +1927,7 @@ class SeisScan:
                                      station_pick,
                                      self.marginal_window)
                 seis_plot.coalescence_trace(output_file=output_file)
+                del seis_plot
                 toc()
 
             if self.plot_coal_grid:
@@ -1949,6 +1962,7 @@ class SeisScan:
 
                 seis_plot.coalescence_marginal(output_file=output_file,
                                               earthquake=evt)
+                del seis_plot
                 toc()
 
             del map_, event, station_pick
@@ -2665,12 +2679,10 @@ class SeisScan:
         threshold_window = np.percentile(onset_trim, 88)
         #print(threshold,threshold_window)
         threshold        = np.max([threshold, threshold_window])
-        print(threshold)
 
         tmp = (onset_trim - threshold).any() > 0
         if onset[max_onset] >= threshold and tmp:
             exceedence = np.where((onset_trim - threshold) > 0)[0]
-            print(exceedence)
             exceedence_dist = np.zeros(len(exceedence))
 
             d = 1

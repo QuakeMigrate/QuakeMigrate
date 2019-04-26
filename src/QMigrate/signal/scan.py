@@ -2802,8 +2802,8 @@ class SeisScan:
                     else:
                         s_gauss = np.hstack([s_gauss, gau])
 
-                    stations.iloc[idx] = [self.lut.stations[i], phase, arrival,
-                                          mn, err, max_onset]
+                    stations.iloc[idx] = [self.lut.station_data['Name'][i],
+                                          phase, arrival, mn, err, max_onset]
                     idx += 1
 
         self.output.write_stations_file(stations, event_name)

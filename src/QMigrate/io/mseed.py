@@ -12,12 +12,6 @@ import QMigrate.core.model as cmod
 import numpy as np
 
 
-<<<<<<< HEAD
-=======
-
-
-
->>>>>>> 03dd71f63fa524e0bd9bd360f5ee65ef64f2a740
 class MSEED():
     """
     MSEED object
@@ -57,39 +51,6 @@ class MSEED():
         self.stations = lut.station_data["Name"]
         del lut
         self.st = None
-
-
-    def _downsample(self,stream, sr):
-        """
-        Downsample the MSEED to the designated sampling rate
-
-        Parameters
-        ----------
-        stream : obspy Stream object
-            Contains list of Trace objects to be downsampled
-        sr : int
-            Designated sample rate
-
-        """
-
-        for trace in stream:
-            if sr != trace.stats.sampling_rate:
-
-                if (trace.stats.sampling_rate % sr) == 0:
-                    trace.filter("lowpass", freq=float(sr) / 2.000001,
-                                 corners=2, zerophase=True)
-                    trace.decimate(factor=int(trace.stats.sampling_rate / sr),
-                                   strict_length=False, no_filter=True)
-                elif ((trace.stats.sampling_rate % sr) != 0) and self.resample == True:
-                    trace.filter("lowpass", freq=float(sr) / 2.000001,
-                                 corners=2, zerophase=True)
-                    trace.resample(sr,
-                                   strict_length=False, no_filter=True)
-                else:
-                    print('Error! Seismic data cannot be decimated as the sample rate is not divisible. Resampling can be forced using .resample = True.')
-
-
-        return stream
 
     def path_structure(self, path_type='YEAR/JD/STATION'):
         """
@@ -167,11 +128,7 @@ class MSEED():
             availability = np.zeros((len(self.stations), 1))
             signal = np.zeros((3, len(self.stations), int(samples)))
 
-<<<<<<< HEAD
         self.st = st
-=======
-        self.st     = st
->>>>>>> 03dd71f63fa524e0bd9bd360f5ee65ef64f2a740
         self.signal = signal
         self.filtered_signal = np.empty((self.signal.shape))
         self.filtered_signal[:] = np.nan

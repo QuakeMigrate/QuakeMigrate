@@ -2681,7 +2681,7 @@ class SeisScan:
                     if exceedence[e + 1] == exceedence[e] + 1:
                         exceedence_dist[e] = d
                     else:
-                        exceedence_dist[3] = d
+                        exceedence_dist[e] = d
                         d += 1
                 e += 1
 

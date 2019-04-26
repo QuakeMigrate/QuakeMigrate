@@ -2089,7 +2089,7 @@ class SeisScan:
             # Saving figure if defined
             if savefig:
                 out = self.output.path / "{}_Trigger".format(self.output.name)
-                out = out.with_suffix(".pdf")
+                out = str(out.with_suffix(".pdf"))
                 plt.savefig(out)
             else:
                 plt.show()

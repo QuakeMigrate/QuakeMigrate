@@ -12,32 +12,9 @@ import QMigrate.core.model as cmod
 import numpy as np
 
 
-def _downsample(stream, sr):
-    """
-    Downsample the MSEED to the designated sampling rate
-
-    Parameters
-    ----------
-    stream : obspy Stream object
-        Contains list of Trace objects to be downsampled
-    sr : int
-        Designated sample rate
-
-    """
-
-    for trace in stream:
-        if sr != trace.stats.sampling_rate:
-            trace.filter("lowpass", freq=float(sr) / 2.000001,
-                         corners=2, zerophase=True)
-            trace.decimate(factor=int(trace.stats.sampling_rate / sr),
-                           strict_length=False, no_filter=True)
-
-    return stream
-
-
 class MSEED():
     """
-    mSEED class
+    MSEED object
 
     Contains
 
@@ -56,12 +33,18 @@ class MSEED():
     """
 
     def __init__(self, LUT, HOST_PATH='/PATH/MSEED'):
+        """
+        MSEED object initialisation
+
+        """
 
         self.MSEED_path = pathlib.Path(HOST_PATH)
 
         self.format = None
         self.signal = None
         self.filtered_signal = None
+
+        self.resample = False
 
         lut = cmod.LUT()
         lut.load(LUT)
@@ -78,6 +61,7 @@ class MSEED():
         path_type : str
 
         """
+
         if path_type == "SeisComp3":
             self.format = "{year}/*/{station}/*/*.{station}..*.D.{year}.{jday}"
         elif path_type == "YEAR/JD/STATION":
@@ -89,7 +73,7 @@ class MSEED():
 
     def read_mseed(self, start_time, end_time, sampling_rate):
         """
-        Reading the required mseed files for all stations between two times
+        Reading the required mSEED files for all stations between two times
         and return station availability of the seperate stations during this
         period
 
@@ -109,8 +93,9 @@ class MSEED():
         samples = int((end_time - start_time) * sampling_rate + 1)
         files = self._load_from_path()
 
+        st = obspy.Stream()
+
         if files:
-            st = obspy.Stream()
             for file in files:
                 file = str(file)
                 try:
@@ -135,7 +120,7 @@ class MSEED():
                 # Combining the mseed and determining station availability
                 st.detrend("linear")
                 st.detrend("demean")
-                st = _downsample(st, sampling_rate)
+                st = self._downsample(st, sampling_rate)
 
                 signal, availability = self._station_availability(st, samples)
         else:
@@ -143,6 +128,7 @@ class MSEED():
             availability = np.zeros((len(self.stations), 1))
             signal = np.zeros((3, len(self.stations), int(samples)))
 
+        self.st = st
         self.signal = signal
         self.filtered_signal = np.empty((self.signal.shape))
         self.filtered_signal[:] = np.nan
@@ -218,16 +204,54 @@ class MSEED():
         while (self.start_time + (dy * 86400)).julday <= self.end_time.julday:
             now = self.start_time + (dy * 86400)
             for stat in self.stations.tolist():
-                file_format = self.format.format(year=now.year,
-                                                 month=now.month,
-                                                 jday=str(now.julday).zfill(3),
-                                                 station=stat)
+                file_format = self.format.format(
+                    year=now.year,
+                    month=now.month,
+                    jday=str(now.julday).zfill(3),
+                    station=stat)
                 files = list(self.MSEED_path.glob(file_format))
                 FILES.extend(files)
 
                 dy += 1
 
         return FILES
+
+    def _downsample(self, stream, sr):
+        """
+        Downsample the MSEED to the designated sampling rate
+
+        Parameters
+        ----------
+        stream : obspy Stream object
+            Contains list of Trace objects to be downsampled
+        sr : int
+            Designated sample rate
+
+        """
+
+        for trace in stream:
+            if sr != trace.stats.sampling_rate:
+                trace.filter(
+                    "lowpass",
+                    freq=float(sr) / 2.000001,
+                    corners=2,
+                    zerophase=True)
+                if (trace.stats.sampling_rate % sr) == 0:
+                    trace.decimate(
+                        factor=int(trace.stats.sampling_rate / sr),
+                        strict_length=False,
+                        no_filter=True)
+                elif self.resample:
+                    trace.resample(
+                        sr,
+                        strict_length=False,
+                        no_filter=True)
+                else:
+                    msg = "Mismatched sampling rates - cannot decimate data.\n"
+                    msg += "To resample data, set .resample = True"
+                    print(msg)
+
+        return stream
 
     @property
     def sample_size(self):

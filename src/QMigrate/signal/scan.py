@@ -397,7 +397,7 @@ class SeisOutFile:
                                                           end_time)
         fname = fname.with_suffix(".coal4D")
 
-        np.save(fname, map_)
+        np.save(str(fname), map_)
 
     def read_decscan(self):
         """
@@ -524,7 +524,7 @@ class SeisOutFile:
         """
 
         fname = self.path / "{}_{}".format(self.name, event_name)
-        fname = fname.with_suffix(".mseed")
+        fname = str(fname.with_suffix(".mseed"))
         st = data.st
         st.write(str(fname), format="MSEED")
 
@@ -542,7 +542,7 @@ class SeisOutFile:
         """
 
         fname = self.path / "{}_{}".format(self.name, event_name)
-        fname = fname.with_suffix(".stn")
+        fname = str(fname.with_suffix(".stn"))
         stations.to_csv(fname, index=False)
 
     def write_coal_video(self, map_, lut, data, event_coa_val, event_name):
@@ -586,7 +586,7 @@ class SeisOutFile:
         """
 
         fname = self.path / "{}_{}".format(self.name, event_name)
-        fname = fname.with_suffix(".event")
+        fname = str(fname.with_suffix(".event"))
         event.to_csv(fname, index=False)
 
     def read_triggered_events(self, start_time, end_time):
@@ -600,7 +600,7 @@ class SeisOutFile:
 
         """
         fname = self.path / "{}_TriggeredEvents".format(self.name)
-        fname = fname.with_suffix(".csv")
+        fname = str(fname.with_suffix(".csv"))
         events = pd.read_csv(fname)
 
         # Trim the events between the start and end times
@@ -625,7 +625,7 @@ class SeisOutFile:
         """
 
         fname = self.path / "{}_TriggeredEvents".format(self.name)
-        fname = fname.with_suffix(".csv")
+        fname = str(fname.with_suffix(".csv"))
         events.to_csv(fname, index=False)
 
 

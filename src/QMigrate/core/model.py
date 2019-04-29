@@ -1010,7 +1010,7 @@ class LUT(Grid3D, NonLinLoc):
         self.maps = {"TIME_P": p_map,
                      "TIME_S": s_map}
 
-    def compute_1d_vmodel(self, z, vp, vs):
+    def compute_1d_vmodel(self, path, delimiter=","):
         """
         Calculate the travel-time tables for each station in a velocity model
         that varies with depth
@@ -1025,6 +1025,11 @@ class LUT(Grid3D, NonLinLoc):
             S-wave velocity for each layer in model (units: km / s)
 
         """
+
+        import pandas as pd
+
+        vmod = pd.read_csv(path, delimiter=delimiter).as_matrix()
+        z, vp, vs = vmod[:, 0], vmod[:, 1] * 1000, vmod[:, 2] * 1000
 
         rloc = self.station_xyz()
         nstn = rloc.shape[0]

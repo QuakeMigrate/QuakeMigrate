@@ -1603,23 +1603,24 @@ class SeisScan:
         self.p_station = params.p_station
         self.s_station = params.s_station
         self.detection_threshold = params.detection_threshold
-
         self.marginal_window = 30
         self.minimum_repeat = 30
         self.percent_tt = 0.1
+        self.picking_mode = "Gaussian"
+        self.location_error = 0.95
+        self.normalise_coalescence = False
+        self.deep_learning = False
+        self.output_sampling_rate = None
+
+        # Internal variables
+        self._no_events = False
+        self._onset_centred = False
+
+        # Plotting functionality
         self.plot_coal_grid = False
         self.plot_coal_video = False
         self.plot_coal_picture = False
         self.plot_coal_trace = False
-        self.picking_mode = "Gaussian"
-        self.location_error = 0.95
-        self.onset_centred = False
-        self.normalise_coalescence = False
-        self.deep_learning = False
-        self.output_sampling_rate = None
-        self._no_events = False
-
-        # self.plot = SeisPlot(lut)
 
         self.xy_files = None
 
@@ -1804,7 +1805,7 @@ class SeisScan:
 
         events = self.output.read_triggered_events(start_time, end_time)
 
-        self.onset_centred = True
+        self._onset_centred = True
 
         n_evts = len(events)
 
@@ -1958,7 +1959,7 @@ class SeisScan:
             del map_, event, station_pick
             self.coa_map = None
 
-        self.onset_centred = False
+        self._onset_centred = False
 
     def plot_scn(self, events, start_time, end_time, stations=None, savefig=False):
         """
@@ -2289,7 +2290,7 @@ class SeisScan:
         sig_z = self._preprocess_p(sig_z, sampling_rate)
         self.filt_data["sigz"] = sig_z
         p_onset_raw, p_onset = onset(sig_z, stw, ltw,
-                                     centred=self.onset_centred)
+                                     centred=self._onset_centred)
         self.onset_data["sigz"] = p_onset
 
         return p_onset_raw, p_onset
@@ -2347,9 +2348,9 @@ class SeisScan:
         self.filt_data["sige"] = sig_e
         self.filt_data["sign"] = sig_n
         s_e_onset_raw, s_e_onset = onset(sig_e, stw, ltw,
-                                         centred=self.onset_centred)
+                                         centred=self._onset_centred)
         s_n_onset_raw, s_n_onset = onset(sig_n, stw, ltw,
-                                         centred=self.onset_centred)
+                                         centred=self._onset_centred)
         self.onset_data["sige"] = s_e_onset
         self.onset_data["sign"] = s_n_onset
         s_onset = np.sqrt((s_e_onset ** 2 + s_n_onset ** 2) / 2.)

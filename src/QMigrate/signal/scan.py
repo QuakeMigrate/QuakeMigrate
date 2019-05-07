@@ -1629,46 +1629,19 @@ class SeisScan(SeisScanParam):
         lut = cmod.LUT()
         lut.load(lookup_table)
         self.lut = lut
-        ttmax = np.max(lut.fetch_map("TIME_S"))
-        self.post_pad = round(ttmax + ttmax*0.05)
-        # self.sampling_rate = 1000.0
-        # self.seis_reader = None
-
-        # if params is None:
-        #     params = SeisScanParam()
+        self.seis_reader = reader
 
         if output_path is not None:
             self.output = SeisOutFile(output_path, output_name)
         else:
             self.output = None
 
-        # self.pick_threshold = 1.0
-
-        # self.marginal_window = 30
-        # self.minimum_repeat = 30
-        # self.percent_tt = 0.1
-        # self.picking_mode = "Gaussian"
-        # self.location_error = 0.95
-        # self.normalise_coalescence = False
-        # self.deep_learning = False
-        # self.output_sampling_rate = None
-
-        # self.pre_pad = None
-        # self.time_step = 10.0
-        # self.n_cores = 1
-        # self.min_repeat = 30
+        ttmax = np.max(lut.fetch_map("TIME_S"))
+        self.post_pad = round(ttmax + ttmax*0.05)
 
         # Internal variables
         self._no_events = False
         self._onset_centred = False
-
-        # # Plotting functionality
-        # self.plot_coal_grid = False
-        # self.plot_coal_video = False
-        # self.plot_coal_picture = False
-        # self.plot_coal_trace = False
-
-        # self.xy_files = None
 
         msg = "=" * 126 + "\n"
         msg += "=" * 126 + "\n"
@@ -2485,7 +2458,7 @@ class SeisScan(SeisScanParam):
 
         evt_id = events["CoaTime"].astype(str)
         for char_ in ["-", ":", ".", " "]:
-            evt_id.str.replace(char_, "")
+            evt_id = evt_id.replace(char_, "")
         events["EventID"] = evt_id
 
         if len(events) > 0:

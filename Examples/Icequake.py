@@ -1,4 +1,4 @@
-
+#!/usr/bin/env python
 # coding: utf-8
 
 # # QuakeMigrate - Example - Icequake detection
@@ -9,109 +9,123 @@
 # 
 # Here, we detail how to:
 # 1. Create a travel-times lookup table for the example seismometer network
-# 2. Run a stage to coalesce energy through time
-# 3. Run a trigger stage determining events above a threshold value
-# 4. Refine the earthquake location by running locate.
-# 4. Outline of some of the key outputs
+# 2. Run the detect stage to coalesce energy through time
+# 3. Run the trigger stage to determine events above a threshold value
+# 4. Run the locate stage to refine the earthquake location
+# 
+# We also provide an outline of some of the key outputs
+
+# In[3]:
+
+
+# Import necessary modules:
+import QMigrate.core.model as cmod
+import QMigrate.signal.scan as cscan
+import QMigrate.io.mseed as cmseed
+
+
+# In[ ]:
+
+
+# Set i/o paths:
+stat_in = "INPUTS/Stations.txt"
+data_in = "INPUTS/MSEED/Icequake"
+lut_out = "OUTPUTS/LUT/Icequake.LUT"
+output  = "OUTPUTS/RUNS/Icequake"
+
 
 # ## 1. Create a travel-times lookup table (LUT)
-
-# In[4]:
-
-
-# Import neccessary modules:
-import QMigrate.core.model  as cmod   # Velocity model generation functions
-import QMigrate.signal.scan as cscan  # Detection and location algorithms
-import QMigrate.io.mseed    as cmseed # MSEED data processing 
-import pandas as pd
-
 
 # In[7]:
 
 
-# Set the parameters for the travel-times lookup table (LUT):
-lut = cmod.LUT(center=[0.0,0.0,0.0], cell_count=[20,20,140], cell_size=[100,100,20], azimuth=0.0) # Create an empty LUT with a centre, cell count (x,y,z) and cell size (x,y,z in metres) specified
-lut.set_lonlat(-17.224,64.328) # Set the lat and lon of the centre of the LUT
-lut.lcc_standard_parallels=(64.32,64.335) # Set the LUT standard parallels
-lut.setproj_wgs84('LCC') # Set the LUT projection
-STATIONS = pd.read_csv('INPUTS/Stations.txt',delimiter=',') # Read in a file containing the station information
-lut.set_station(STATIONS.as_matrix(),units='lat_lon_elev') # Set the station parameters for the LUT
-lut_path = 'OUTPUTS/LUT/Icequake.LUT' # Set the path to save the LUT to
+# Set the parameters for the travel-times lookup table (LUT)
+# Cell count (x,y,z); cell size (x,y,z in metres)
+lut = cmod.LUT(cell_count=[20, 20, 140], cell_size=[100, 100, 20])
+lut.lonlat_centre(-17.224, 64.328)
+
+# Set the LUT projection (here we use the Lambert Conformal Conic projection)
+lut.lcc_standard_parallels = (64.32, 64.335)
+lut.setproj_wgs84("LCC")
+
+# Add stations to LUT
+lut.stations(path=stat_in, units="lat_lon_elev")
+
+# Compute for a homogeneous velocity model
 v_p_homo_model = 3630
 v_s_homo_model = 1833
+lut.compute_homogeneous_vmodel(v_p_homo_model, v_s_homo_model)
 
-
-# In[9]:
-
-
-# And compute and save the LUT:
-lut.compute_Homogeous(v_p_homo_model,v_s_homo_model) # Compute for a homogeneous velocity model
-lut.save(lut_path)
+# Save the LUT
+lut.save(lut_out)
 
 
 # ## 2. Coalesce the seismic energy through time
 
-# In[10]:
-
-
-# Read in the continuous seismic data:
-DATA = cmseed.MSEED(lut_path,HOST_PATH='INPUTS/MSEED/Icequake') # Imports the continuous seismic data in
-DATA.path_structure(TYPE='YEAR/JD/STATION')
-
-
 # In[11]:
 
 
-# Set the parameters for running the coalescence through time:
-# Setup the coalescence object:
-scn = cscan.SeisScan(DATA,lut_path,output_path='OUTPUTS/RUNS/Icequake',output_name='Icequake_example')
-# Specify key detect/trigger parameters:
-scn.sample_rate     = 500 # Sampling rate of data, in Hz
-scn.bp_filter_p1    = [10, 125, 4] # The band-pass filter parameters for the P-phase (10 to 125 Hz, with 4th order corners)
-scn.bp_filter_s1    = [10, 125, 4] # The band-pass filter parameters for the P-phase (10 to 125 Hz, with 4th order corners)
-scn.onset_win_p1    = [0.01, 0.25] # Length of the STA and LTA time windows for the P-phase
-scn.onset_win_s1    = [0.05, 0.5] # Length of the STA and LTA time windows for the S-phase
-scn.time_step       = 0.75 # The length of the time-step
-scn.CoalescenceGrid = False
-scn.Decimate        = [1,1,1] # Decimation factors in x,y,z (no decimation here)
-scn.NumberOfCores   = 12 # Number of cores/processors to use
+# Create a new instance of the MSEED class and set path structure
+data = cmseed.MSEED(lut_out, HOST_PATH=data_in)
+data.path_structure(path_type="YEAR/JD/STATION")
+
+# Create a new instance of the SeisScan class
+scn = cscan.SeisScan(data, lut_out, output_path=output, output_name='Icequake_example')
+
+
+# In[ ]:
+
+
+# Set detect parameters
+scn.sampling_rate = 500           # Sampling rate of data, in Hz
+scn.p_bp_filter   = [10, 125, 4]  # The band-pass filter parameters for the P-phase (10 to 125 Hz, with 4th order corners)
+scn.s_bp_filter   = [10, 125, 4]  # The band-pass filter parameters for the P-phase (10 to 125 Hz, with 4th order corners)
+scn.p_onset_win   = [0.01, 0.25]  # Length of the STA and LTA time windows for the P-phase
+scn.s_onset_win   = [0.05, 0.5]   # Length of the STA and LTA time windows for the S-phase
+scn.time_step     = 0.75          # The length of the time-step
+scn.decimate      = [1,1,1]       # Decimation factors in x,y,z (no decimation here)
+scn.n_cores       = 12            # Number of cores/processors to use
 
 # Defining the start and end times 
-START = '2014-06-29T18:41:55.0'
-END   = '2014-06-29T18:42:20.0'
+starttime = "2014-06-29T18:41:55.0"
+endtime   = "2014-06-29T18:42:20.0"
 
 
 # In[13]:
 
 
-# Run SeisLoc to find the coalescence of energy through time:
-# (Note: Outputs a .scn file with the overall coalesence value for each timestep)
-scn.Detect(START,END) # Finds the coalescence of energy over the start and end times specified
+# Run the detect stage to find the coalescence of energy through time:
+scn.detect(starttime, endtime)
 
 
 # ## 3. Run the trigger stage, to detect and output individual icequakes
+# 
+# nb: We can use the same SeisScan object here because we are not using a different decimation. If running trigger and locate on grids with different levels of decimation, a new SeisScan object must be initialised.
 
 # In[15]:
 
 
-# Set any trigger parameters that may be different/additional to the initial coalescence stage:
-scn.DetectionThreshold    = 1.5 # SNR threshold for the coalescence through time. Will detect an event if the coalescence goes above this for a given timestep
-scn.MarginalWindow        = 2.75 # The length of the time-step window, + pre and post padding (i.e. 0.75 sec time-step window + 1s padding either side)
-scn.MinimumRepeat         = 5.0
-scn.NormalisedCoalescence = True 
+# Set trigger parameters:
+scn.detection_threshold   = 1.5   # SNR threshold for the coalescence through time. Will detect an event if the coalescence goes above this for a given timestep
+scn.marginal_window       = 2.75  # The length of the time-step window, + pre and post padding (i.e. 0.75 sec time-step window + 1s padding either side)
+scn.min_repeat            = 5.0
+scn.normalise_coalescence = True
 
-# Various output boolian switches:
-scn.CoalescenceVideo      = False
-scn.CoalescenceGrid       = False
-scn.CoalescencePicture    = True
-scn.CoalescenceTrace      = False
+# Turn on plotting features
+scn.plot_coal_video      = False
+scn.plot_coal_grid       = False
+scn.plot_coal_picture    = True
+scn.plot_coal_trace      = False
 
 
 # In[16]:
 
 
-scn.Trigger(START,END)# Triggers events, outputing .event, .stn and .pdf for each event in the directory SeisLoc_outputs/RUNS/Icequake
-scn.Locate(START,END)
+# Run the trigger stage to find any events
+scn.trigger(starttime, endtime)
+
+# Run the locate stage to determine the location of any triggered events
+scn.locate(starttime, endtime)
 
 
 # ## 4. Some of the key outputs
@@ -138,7 +152,7 @@ for line in lines:
     print(line)
 
 
-# In[31]:
+# In[4]:
 
 
 # Show the coalescence pdf file, containing event origin time and location:

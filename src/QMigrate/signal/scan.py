@@ -1519,7 +1519,59 @@ class SeisScanParam:
                                          self.location_method)
 
 
-class SeisScan:
+class DefaultSeisScan(object):
+    """
+    Contains default parameter information for SeisScan
+
+    """
+
+    def __init__(self):
+        self.lookup_table = None
+        self.seis_reader = None
+        self.p_bp_filter = [2.0, 16.0, 3]
+        self.s_bp_filter = [2.0, 12.0, 3]
+        self.p_onset_win = [0.2, 1.0]
+        self.s_onset_win = [0.2, 1.0]
+        self.p_station = None
+        self.s_station = None
+        self.detection_threshold = 4.0
+        self.detection_downsample = 5
+        self.detection_window = 3.0
+        self.minimum_velocity = 3000.0
+        self.marginal_window = [0.5, 3000.0]
+        self.location_method = "Mean"
+        self.time_step = 10
+        self.start_datetime = None
+        self.end_datetime = None
+        self.decimate = [1, 1, 1]
+        self.sampling_rate = 1000.0
+
+        self.pick_threshold = 1.0
+
+        self.marginal_window = 30
+        self.minimum_repeat = 30
+        self.percent_tt = 0.1
+        self.picking_mode = "Gaussian"
+        self.location_error = 0.95
+        self.normalise_coalescence = False
+        self.deep_learning = False
+        self.output_sampling_rate = None
+
+        self.pre_pad = None
+        self.time_step = 10.0
+        self.n_cores = 1
+        self.min_repeat = 30
+
+        # Plotting functionality
+        self.plot_coal_grid = False
+        self.plot_coal_video = False
+        self.plot_coal_picture = False
+        self.plot_coal_trace = False
+
+        self.xy_files = None
+
+
+class SeisScan(SeisScanParam):
     """
     QuakeMigrate scanning class
 
@@ -1540,11 +1592,6 @@ class SeisScan:
     trigger(start_time, end_time)
         Core trigger method
     """
-
-    _pre_pad = None
-    _time_step = 10.0
-    _n_cores = 1
-    _min_repeat = 30
 
     raw_data = {}
     filt_data = {}
@@ -1577,52 +1624,52 @@ class SeisScan:
 
         """
 
+        super().__init__()
+
         self.data = data
         lut = cmod.LUT()
         lut.load(lookup_table)
         self.lut = lut
         ttmax = np.max(lut.fetch_map("TIME_S"))
         self.post_pad = round(ttmax + ttmax*0.05)
-        self.sampling_rate = 1000.0
-        self.seis_reader = None
+        # self.sampling_rate = 1000.0
+        # self.seis_reader = None
 
-        if params is None:
-            params = SeisScanParam()
+        # if params is None:
+        #     params = SeisScanParam()
 
         if output_path is not None:
             self.output = SeisOutFile(output_path, output_name)
         else:
             self.output = None
 
-        self.pick_threshold = 1.0
+        # self.pick_threshold = 1.0
 
-        self.p_bp_filter = params.p_bp_filter
-        self.s_bp_filter = params.s_bp_filter
-        self.p_onset_win = params.p_onset_win
-        self.s_onset_win = params.s_onset_win
-        self.p_station = params.p_station
-        self.s_station = params.s_station
-        self.detection_threshold = params.detection_threshold
-        self.marginal_window = 30
-        self.minimum_repeat = 30
-        self.percent_tt = 0.1
-        self.picking_mode = "Gaussian"
-        self.location_error = 0.95
-        self.normalise_coalescence = False
-        self.deep_learning = False
-        self.output_sampling_rate = None
+        # self.marginal_window = 30
+        # self.minimum_repeat = 30
+        # self.percent_tt = 0.1
+        # self.picking_mode = "Gaussian"
+        # self.location_error = 0.95
+        # self.normalise_coalescence = False
+        # self.deep_learning = False
+        # self.output_sampling_rate = None
+
+        # self.pre_pad = None
+        # self.time_step = 10.0
+        # self.n_cores = 1
+        # self.min_repeat = 30
 
         # Internal variables
         self._no_events = False
         self._onset_centred = False
 
-        # Plotting functionality
-        self.plot_coal_grid = False
-        self.plot_coal_video = False
-        self.plot_coal_picture = False
-        self.plot_coal_trace = False
+        # # Plotting functionality
+        # self.plot_coal_grid = False
+        # self.plot_coal_video = False
+        # self.plot_coal_picture = False
+        # self.plot_coal_trace = False
 
-        self.xy_files = None
+        # self.xy_files = None
 
         msg = "=" * 126 + "\n"
         msg += "=" * 126 + "\n"
@@ -1632,46 +1679,6 @@ class SeisScan:
         msg += "\n"
         msg = msg.format(self.output.path, self.output.name)
         print(msg)
-
-    @property
-    def pre_pad(self):
-        return self._pre_pad
-
-    @pre_pad.setter
-    def pre_pad(self, value):
-        # Add tests for a valid pre-pad
-        self._pre_pad = value
-
-    @property
-    def post_pad(self):
-        return self._post_pad
-
-    @post_pad.setter
-    def post_pad(self, value):
-        # Add tests for a valid pre-pad
-        self._post_pad = value
-
-    @property
-    def time_step(self):
-        return self._time_step
-
-    @time_step.setter
-    def time_step(self, value):
-        # Add tests for a valid time_step
-        self._time_step = value
-
-    @property
-    def n_cores(self):
-        return self._n_cores
-
-    @n_cores.setter
-    def n_cores(self, value):
-        # Add tests for a valid number of cores
-        self._n_cores = value
-
-    @property
-    def min_repeat(self):
-        return self._min_repeat
 
     def detect(self, start_time, end_time, log=False):
         """
@@ -2002,11 +2009,11 @@ class SeisScan:
             yz = plt.subplot2grid((6, 16), (0, 14), colspan=2, rowspan=4,
                                   sharey=xy)
 
-            coa.plot(data["DT"], data["COA"], color="blue",
-                     label="Maximum coalescence", linewidth=1.0)
+            coa.plot(data["DT"], data["COA"], color="blue", zorder=10,
+                     label="Maximum coalescence", linewidth=0.5)
             coa.get_xaxis().set_ticks([])
-            coa_norm.plot(data["DT"], data["COA_N"], color="blue",
-                          label="Maximum coalescence", linewidth=1.0)
+            coa_norm.plot(data["DT"], data["COA_N"], color="blue", zorder=10,
+                          label="Maximum coalescence", linewidth=0.5)
 
             if not self._no_events:
                 for i, event in events.iterrows():

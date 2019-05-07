@@ -119,6 +119,8 @@ class MSEED(object):
 
         st = obspy.Stream()
         try:
+            first = next(files)
+            files = chain([first], files)
             for file in files:
                 file = str(file)
                 try:
@@ -234,7 +236,7 @@ class MSEED(object):
                     station=stat)
                 files = chain(files, self.MSEED_path.glob(file_format))
 
-                dy += 1
+            dy += 1
 
         return files
 

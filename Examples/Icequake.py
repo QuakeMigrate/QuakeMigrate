@@ -46,7 +46,7 @@ lut.lonlat_centre(-17.224, 64.328)
 
 # Set the LUT projection (here we use the Lambert Conformal Conic projection)
 lut.lcc_standard_parallels = (64.32, 64.335)
-lut.setproj_wgs84("LCC")
+lut.projections(grid_proj="LCC")
 
 # Add stations to LUT
 lut.stations(path=stat_in, units="lat_lon_elev")

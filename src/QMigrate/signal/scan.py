@@ -1560,7 +1560,6 @@ class DefaultSeisScan(object):
         self.pre_pad = None
         self.time_step = 10.0
         self.n_cores = 1
-        self.min_repeat = 30
 
         # Plotting functionality
         self.plot_coal_grid = False

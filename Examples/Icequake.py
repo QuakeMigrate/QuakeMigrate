@@ -108,7 +108,7 @@ scn.detect(starttime, endtime)
 # Set trigger parameters:
 scn.detection_threshold   = 1.5   # SNR threshold for the coalescence through time. Will detect an event if the coalescence goes above this for a given timestep
 scn.marginal_window       = 2.75  # The length of the time-step window, + pre and post padding (i.e. 0.75 sec time-step window + 1s padding either side)
-scn.min_repeat            = 5.0
+scn.minimum_repeat        = 5.0
 scn.normalise_coalescence = True
 
 # Turn on plotting features

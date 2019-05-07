@@ -28,10 +28,10 @@ import QMigrate.io.mseed as cmseed
 
 
 # Set i/o paths:
-stat_in = "INPUTS/Stations.txt"
-data_in = "INPUTS/MSEED/Icequake"
-lut_out = "OUTPUTS/LUT/Icequake.LUT"
-output  = "OUTPUTS/RUNS/Icequake"
+stat_in = "./INPUTS/Stations.txt"
+data_in = "./INPUTS/MSEED/Icequake"
+lut_out = "./OUTPUTS/LUT/Icequake.LUT"
+output  = "./OUTPUTS/RUNS/Icequake"
 
 
 # ## 1. Create a travel-times lookup table (LUT)

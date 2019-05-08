@@ -4,9 +4,6 @@ Module to produce gridded traveltime velocity models
 
 """
 
-__version__ = "0.1"
-__author__ = ""
-
 import os
 import pathlib
 import time
@@ -1640,7 +1637,6 @@ class SeisScan(SeisScanParam):
         self.post_pad = round(ttmax + ttmax*0.05)
 
         # Internal variables
-        self._no_events = False
         self._onset_centred = False
 
         msg = "=" * 126 + "\n"
@@ -1731,18 +1727,14 @@ class SeisScan(SeisScanParam):
         coa_val = self.output.read_decscan()
         events = self._trigger_scn(coa_val, start_time, end_time)
 
-        if self._no_events is True:
-            self.plot_scn(events=None, start_time=start_time,
-                          end_time=end_time, stations=self.lut.station_data,
-                          savefig=savefig)
+        if events is None:
             print("No events above the threshold. Reduce the threshold value")
         else:
             self.output.write_triggered_events(events)
-            self.plot_scn(events=events, start_time=start_time,
-                          end_time=end_time, stations=self.lut.station_data,
-                          savefig=savefig)
 
-        self._no_events = False
+        self.plot_scn(events=events, start_time=start_time,
+                      end_time=end_time, stations=self.lut.station_data,
+                      savefig=savefig)
 
     def locate(self, start_time, end_time, cut_mseed=False, log=False):
         """
@@ -1987,7 +1979,7 @@ class SeisScan(SeisScanParam):
             coa_norm.plot(data["DT"], data["COA_N"], color="blue", zorder=10,
                           label="Maximum coalescence", linewidth=0.5)
 
-            if not self._no_events:
+            if events is not None:
                 for i, event in events.iterrows():
                     if i == 0:
                         label1 = "Minimum repeat window"
@@ -2026,7 +2018,7 @@ class SeisScan(SeisScanParam):
             coa_norm.set_ylabel("Normalised maximum coalescence value")
             coa_norm.set_xlabel("DateTime")
 
-            if not self._no_events:
+            if events is not None:
                 if self.normalise_coalescence:
                     coa_norm.axhline(self.detection_threshold, c="g",
                                      label="Detection threshold")
@@ -2380,8 +2372,7 @@ class SeisScan(SeisScanParam):
         if len(coa_val) == 0:
             msg = "No events triggered at this threshold"
             print(msg)
-            self._no_events = True
-            return
+            return None
 
         event_cols = ["EventNum", "CoaTime", "COA_V", "COA_X", "COA_Y",
                       "COA_Z", "MinTime", "MaxTime"]
@@ -2461,8 +2452,8 @@ class SeisScan(SeisScanParam):
             evt_id = evt_id.replace(char_, "")
         events["EventID"] = evt_id
 
-        if len(events) > 0:
-            self._no_events = False
+        if len(events) == 0:
+            events = None
 
         return events
 

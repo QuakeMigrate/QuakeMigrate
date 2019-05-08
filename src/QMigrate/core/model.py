@@ -4,9 +4,6 @@ Module to produce gridded traveltime velocity models
 
 """
 
-__version__ = "0.1"
-__author__ = ""
-
 import math
 import warnings
 import pickle

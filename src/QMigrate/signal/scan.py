@@ -1567,7 +1567,7 @@ class DefaultSeisScan(object):
         self.xy_files = None
 
 
-class SeisScan(SeisScanParam):
+class SeisScan(DefaultSeisScan):
     """
     QuakeMigrate scanning class
 
@@ -1620,7 +1620,7 @@ class SeisScan(SeisScanParam):
 
         """
 
-        SeisScanParam.__init__(self)
+        DefaultSeisScan.__init__(self)
 
         self.data = data
         lut = cmod.LUT()

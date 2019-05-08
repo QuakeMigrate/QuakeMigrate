@@ -1,6 +1,6 @@
 # QuakeMigrate: Earthquake Onset Detection and Location Method
 
-A python and C software package for detection and location of seismic events using a coherency and coalescence based technique. The advatages over other software packages is the generation of several visual outputs and infromation. The simple initiation scripts and examples help the user to define parameters for any seismological situation. The modular and open-source nature of the software package allows for the continued development from many instiutations and research groups. 
+A python and C software package for detection and location of seismic events using a coherency and coalescence based technique. The advantages over other software packages is the generation of several visual outputs and information. The simple initiation scripts and examples help the user to define parameters for any seismological situation. The modular and open-source nature of the software package allows for the continued development from many institutions and research groups. 
 
 ## Getting Started
 ... Attach Jupyter Notebook with example ... 

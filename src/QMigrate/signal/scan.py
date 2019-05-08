@@ -2449,7 +2449,7 @@ class SeisScan(DefaultSeisScan):
 
         evt_id = events["CoaTime"].astype(str)
         for char_ in ["-", ":", ".", " "]:
-            evt_id = evt_id.replace(char_, "")
+            evt_id = evt_id.str.replace(char_, "")
         events["EventID"] = evt_id
 
         if len(events) == 0:

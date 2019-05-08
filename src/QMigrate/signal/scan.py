@@ -1620,7 +1620,7 @@ class SeisScan(SeisScanParam):
 
         """
 
-        SeisScanParam.__init__()
+        SeisScanParam.__init__(self)
 
         self.data = data
         lut = cmod.LUT()

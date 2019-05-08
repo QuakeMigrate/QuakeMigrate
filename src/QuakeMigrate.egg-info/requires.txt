@@ -1,9 +1,0 @@
-numpy
-pandas
-scipy
-scikit-fmm
-pyproj
-matplotlib
-vispy
-pyzmq
-msgpack-python

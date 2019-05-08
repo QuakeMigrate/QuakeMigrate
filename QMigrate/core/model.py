@@ -1030,7 +1030,6 @@ class LUT(Grid3D, NonLinLoc):
 
         rloc = self.station_xyz()
         nstn = rloc.shape[0]
-        corners = self.grid_corners
         ix, iy, iz = self.grid_xyz
         p_map = np.zeros(ix.shape + (rloc.shape[0],))
         s_map = np.zeros(ix.shape + (rloc.shape[0],))
@@ -1049,18 +1048,6 @@ class LUT(Grid3D, NonLinLoc):
             msg = msg.format(stn + 1, nstn)
             print(msg)
 
-            x = np.arange(min(corners[:, 0]),
-                          max(corners[:, 0]),
-                          self.cell_size[0])
-            y = np.arange(min(corners[:, 1]),
-                          max(corners[:, 1]),
-                          self.cell_size[1]) * -1
-            z = np.arange(min(corners[:, 2]),
-                          max(corners[:, 2]),
-                          self.cell_size[2])
-
-            # print(eikonal(x, y, z, gvp, np.array([stn])))
-
             p_map[..., stn] = eikonal(ix, iy, iz,
                                       self.cell_size[0],
                                       self.cell_size[1],
@@ -1075,55 +1062,11 @@ class LUT(Grid3D, NonLinLoc):
         self.maps = {"TIME_P": p_map,
                      "TIME_S": s_map}
 
-    # def compute_3DVelocity(self, INPUT_FILE):
-    #     '''
-    #     Function used to compute Travel-time tables in a 1D Velocity model
-    #     defined using the input VP and VS arrays
+    def compute_3d_vmodel(self, path):
+        """
 
-    #     INPUTS:
-    #         INPUT_FILE - File containg comma seperated X,Y,Z,VP,VS
-
-    #     '''
-    #     VEL = pd.read_csv(INPUT_FILE, names=['X', 'Y', 'Z', 'VP', 'VS'])
-
-    #     rloc = self.station_xyz()
-    #     nstn = rloc.shape[0]
-    #     corners = self.grid_corners
-    #     ix, iy, iz = self.grid_xyz
-    #     p_map = np.zeros(ix.shape + (nstn,))
-    #     s_map = np.zeros(ix.shape + (nstn,))
-
-    #     gvp = scipy.interpolate.griddata(VEL[['X', 'Y', 'Z']],
-    #                                      VEL['VP'],
-    #                                      (ix, iy, iz),
-    #                                      'linear')
-    #     gvs = scipy.interpolate.griddata(VEL[['X', 'Y', 'Z']],
-    #                                      VEL['VP'],
-    #                                      (ix, iy, iz),
-    #                                      'linear')
-
-    #     for stn in range(nstn):
-    #         msg = "Generating 3D Travel-Time Table - {} of {}"
-    #         msg = msg.format(stn + 1, nstn)
-    #         print(msg)
-
-    #         x = np.arange(min(corners[:, 0]),
-    #                       max(corners[:, 0]),
-    #                       self.cell_size[0])
-    #         y = np.arange(min(corners[:, 1]),
-    #                       max(corners[:, 1]),
-    #                       self.cell_size[1])
-    #         z = np.arange(min(corners[:, 2]),
-    #                       max(corners[:, 2]),
-    #                       self.cell_size[2])
-
-    #         p_map[..., stn] = eikonal(x, y, z, gvp,
-    #                                   rloc[stn][np.newaxis, :])[0]
-    #         s_map[..., stn] = eikonal(x, y, z, gvs,
-    #                                   rloc[stn][np.newaxis, :])[0]
-
-    #     self.maps = {'TIME_P': p_map,
-    #                  'TIME_S': s_map}
+        """
+        raise NotImplementedError
 
     def compute_3d_nlloc_vmodel(self, path, regrid=False, decimate=[1, 1, 1]):
         """
@@ -1220,66 +1163,18 @@ class LUT(Grid3D, NonLinLoc):
                     self.station_data["Latitude"])
         plt.show()
 
-    # def plot3D(self, map_, station, output_file=None):
-    #     """
-    #     Creates a 3-dimensional representation of the station locations with
-    #     optional velocity model if specified.
+    def plot_3d(self, map_, station, output_file=None):
+        """
+        Creates a 3-dimensional representation of the station locations with
+        optional velocity model if specified.
 
-    #     Parameters
-    #     ----------
-    #     map_ : str
-    #         Specifies which velocity model to plot
-    #     station : str
+        Parameters
+        ----------
+        map_ : str
+            Specifies which velocity model to plot
+        station : str
 
-    #     output_file : str, optional
-    #         Location to save file to
-    #     """
-
-    #     fig = plt.figure()
-    #     xy_slice = plt.subplot2grid((3, 3), (0, 0), colspan=2, rowspan=2)
-    #     yz_slice = plt.subplot2grid((3, 3), (2, 0), colspan=2)
-    #     xz_slice = plt.subplot2grid((3, 3), (0, 2), rowspan=2)
-
-    #     extnt = self.lut.coord2loc(self.lut.grid_corners, inverse=True)
-
-    #     # Plotting the MAP
-    #     a0, b0 = min(extnt[:, 0]), max(extnt[:, 0])
-    #     c0 = (b0 - a0) / self.lut.cell_count[0]
-    #     a1, b1 = min(extnt[:, 0]), max(extnt[:, 0])
-    #     c1 = (b1 - a1) / self.lut.cell_count[1]
-    #     a2, b2 = min(extnt[:, 0]), max(extnt[:, 0])
-    #     c2 = (b2 - a2) / self.lut.cell_count[2]
-    #     xyx, xyy = np.mgrid[a0:b0:c0, a1:b1:c1]
-    #     xzx, xzz = np.mgrid[a0:b0:c0, a2:b2:c2]
-    #     yzx, yzz = np.mgrid[a1:b1:c1, a2:b2:c2]
-    #     xy_slice.pcolormesh(xyx, xyy, self.lut.fetch_map(map_)[:, :, 100, 1])
-
-    #     # Plotting the Station Location
-    #     xy_slice.scatter(self.lut.station_data['Longitude'],
-    #                      self.lut.station_data['Latitude'])
-    #     xz_slice.scatter(self.lut.station_data['Elevation'],
-    #                      self.lut.station_data['Longitude'])
-    #     yz_slice.scatter(self.lut.station_data['Latitude'],
-    #                      self.lut.station_data['Elevation'])
-
-    #     # # ---- Plotting the Velocity Model Slices
-    #     # if VelSlice is not None:
-    #     #     try:
-    #     #         stat_idx = np.where(self.station_data['Name'] == ttime_slice)[0][0]
-    #     #         stat_info = np.array([self.station_data['Longitude'][stat_idx],
-    #     #                               self.station_data['Latitude'][stat_idx],
-    #     #                               self.station_data['Elevation'][stat_idx]])
-
-    #     #         index2loc(coord2loc(stat_info), inverse=True)
-    #     #     except:
-    #     #         print('Please give a defined station name!')
-
-    #     try:
-    #         station_idx = np.where(self.lut.station_data['Name'] == station)[0][0]
-    #     except:
-    #         print(' Please specify ')
-
-    #     if output_file is None:
-    #         plt.show()
-    #     else:
-    #         plt.savefig(output_file)
+        output_file : str, optional
+            Location to save file to
+        """
+        raise NotImplementedError

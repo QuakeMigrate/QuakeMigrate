@@ -219,21 +219,6 @@ def filter(sig, srate, lc, hc, order=3):
     return fsig
 
 
-def _find(obj, name, default=None):
-    if isinstance(name, str):
-        if name in obj:
-            return obj[name]
-        else:
-            return default
-    elif name[0] in obj:
-        if len(name) == 1:
-            return obj[name[0]]
-        else:
-            return _find(obj[name[0]], name[1:], default)
-    else:
-        return default
-
-
 class SeisOutFile:
     """
     Input / output control class
@@ -258,7 +243,7 @@ class SeisOutFile:
 
     """
 
-    SCAN_COLS = ["DT", "COA", "X", "Y", "Z"]
+    SCAN_COLS = ["DT", "COA", "COA_N", "X", "Y", "Z"]
 
     def __init__(self, path="", name=None):
         """
@@ -280,71 +265,6 @@ class SeisOutFile:
         self.name = name
 
         self.file_sample_rate = None
-
-    def read_scan(self):
-        """
-        Parse information from an existing .scn file
-
-        Returns
-        -------
-        data : pandas DataFrame object
-            DataFrame containing information from a seismic scan file
-
-        """
-
-        fname = (self.path / self.name).with_suffix(".scn")
-        data = pd.read_csv(fname, names=self.SCAN_COLS)
-        data["DT"] = data["DT"].apply(UTCDateTime)
-        return data
-
-    def write_scan(self, daten, dsnr, dloc):
-        """
-        Create a new .scn file
-
-        Parameters
-        ----------
-        daten : 
-
-        dsnr : 
-
-        dloc : 
-
-
-        """
-
-        fname = (self.path / self.name).with_suffix(".scn")
-
-        df_params = {"DT": daten,
-                     "COA": dsnr,
-                     "X": dloc[:, 0],
-                     "Y": dloc[:, 1],
-                     "Z": dloc[:, 2]}
-
-        df = pd.DataFrame(df_params)
-        df["DT"] = df["DT"].apply(UTCDateTime)
-
-        if self.file_sample_rate is not None:
-            df = df.set_index(df["DT"])
-            df = df.resample("{}L".format(self.file_sample_rate)).mean()
-            df = df.reset_index()
-            df = df.rename(columns={"index": "DT"})
-
-        df["DT"] = df["DT"].astype(str)
-
-        if fname.exists():
-            mode = "a"  # append if already exists
-        else:
-            mode = "w"  # make a new file if not
-
-        array = np.array(df)
-
-        with fname.open(mode=mode) as f:
-            for i in range(array.shape[0]):
-                f.write("{},{},{},{},{}\n".format(array[i, 0],
-                                                  array[i, 1],
-                                                  array[i, 2],
-                                                  array[i, 3],
-                                                  array[i, 4]))
 
     def del_scan(self):
         """
@@ -435,7 +355,7 @@ class SeisOutFile:
 
         fname = (self.path / self.name).with_suffix(".scnmseed")
 
-        data = pd.DataFrame(columns=["DT", "COA", "COA_N", "X", "Y", "Z"])
+        data = pd.DataFrame(columns=self.SCAN_COLS)
         data["DT"] = daten
         data["DT"] = data["DT"].apply(UTCDateTime)
         data["COA"] = dsnr
@@ -541,33 +461,6 @@ class SeisOutFile:
         fname = self.path / "{}_{}".format(self.name, event_name)
         fname = str(fname.with_suffix(".stn"))
         stations.to_csv(fname, index=False)
-
-    def write_coal_video(self, map_, lut, data, event_coa_val, event_name):
-        """
-        Create a coalescence video for each event
-
-        Parameters
-        ----------
-        map_ : 
-
-        lut : 
-
-        data : 
-
-        event_coa_val : 
-
-        event_name : str
-
-        """
-
-        fname = str(self.path / self.name)
-
-        SeisPLT = SeisPlot(lut, map_, data, event_coa_val)
-
-        SeisPLT.coalescence_video(output_file="{}_{}".format(fname,
-                                                             event_name))
-        SeisPLT.coalescence_marginal(output_file="{}_{}".format(fname,
-                                                                event_name))
 
     def write_event(self, event, event_name):
         """
@@ -1407,113 +1300,6 @@ class SeisPlot:
 
         self.coal_val_vline = plot.axvline(tslice, 0, 1000, linestyle="--",
                                            linewidth=2, color="r")
-
-
-class SeisScanParam:
-    """
-    Scan parameter class
-
-    Reads in a user defined parameter file, specifying the scan parameters.
-
-      _set_param - Definition of the path for the Parameter file to be read
-
-    """
-
-    def __init__(self, param=None):
-        self.lookup_table = None
-        self.seis_reader = None
-        self.p_bp_filter = [2.0, 16.0, 3]
-        self.s_bp_filter = [2.0, 12.0, 3]
-        self.p_onset_win = [0.2, 1.0]
-        self.s_onset_win = [0.2, 1.0]
-        self.p_station = None
-        self.s_station = None
-        self.detection_threshold = 4.0
-        self.detection_downsample = 5
-        self.detection_window = 3.0
-        self.minimum_velocity = 3000.0
-        self.marginal_window = [0.5, 3000.0]
-        self.location_method = "Mean"
-        self.time_step = 10
-        self.start_datetime = None
-        self.end_datetime = None
-        self.decimate = [1, 1, 1]
-
-        if param is not None:
-            with open(param, "r") as f:
-                params = json.load(f)
-            self._set_param(params)
-
-    def _set_param(self, param):
-        # Defining the Model Types to load LUT from
-        type_ = _find(param, ("MODEL", "Type"))
-
-        if (type_ == "MATLAB"):
-            path = _find(param, ("MODEL", "Path"))
-            if path:
-                decimate = _find(param, ("MODEL", "Decimate"))
-                self.lookup_table = mload.lut02(path, decimate)
-
-        if (type_ == "QuakeMigrate"):
-            path = _find(param, ("MODEL", "Path"))
-            if path:
-                decimate = _find(param, ("MODEL", "Decimate"))
-                self.lookup_table = mload.lut02(path, decimate)
-
-        if (type_ == "NLLoc"):
-            path = _find(param, ("MODEL", "Path"))
-            if path:
-                decimate = _find(param, ("MODEL", "Decimate"))
-                self.lookup_table = mload.lut02(path, decimate)
-
-        # Defining the Seimsic Data to load the information from
-        type_ = _find(param, ("SEISMIC", "Type"))
-        if (type_ == "MSEED"):
-            path = _find(param, ("SEISMIC", "Path"))
-            if path:
-                self.seis_reader = mload.mseed_reader(path)
-
-        # ~ Other possible types to add DAT,SEGY,RAW
-
-        # Defining the Time-Period to scan across
-        scn = _find(param, "SCAN")
-        if scn:
-            self.start_datetime = _find(scn, "Start_DateTime",
-                                        self.start_datetime)
-            self.end_datetime = _find(scn, "End_DateTime",
-                                      self.end_datetime)
-            self.start_datetime = datetime.strptime(self.start_datetime,
-                                                    "%Y-%m-%dT%H:%M:%S.%f")
-            self.end_datetime = datetime.strptime(self.end_datetime,
-                                                  "%Y-%m-%dT%H:%M:%S.%f")
-
-        # Defining the Parameters for the Coalescence
-        scn = _find(param, ("PARAM"))
-        if scn:
-            self.time_step = _find(scn, "TimeStep",
-                                   self.time_step)
-            self.p_station = _find(scn, "StationSelectP",
-                                   self.p_station)
-            self.s_station = _find(scn, "StationSelectS",
-                                   self.s_station)
-            self.p_bp_filter = _find(scn, "SigFiltP1Hz",
-                                     self.p_bp_filter)
-            self.s_bp_filter = _find(scn, "SigFiltS1Hz",
-                                     self.s_bp_filter)
-            self.p_sta_lta = _find(scn, "OnsetWinP1Sec",
-                                   self.p_sta_lta)
-            self.s_sta_lta = _find(scn, "OnsetWinS1Sec",
-                                   self.s_sta_lta)
-            self.detection_downsample = _find(scn, "DetectionDownsample",
-                                              self.detection_downsample)
-            self.detection_window = _find(scn, "DetectionWindow",
-                                          self.detection_window)
-            self.minimum_velocity = _find(scn, "MinimumVelocity",
-                                          self.minimum_velocity)
-            self.marginal_window = _find(scn, "marginal_window",
-                                         self.marginal_window)
-            self.location_method = _find(scn, "LocationMethod",
-                                         self.location_method)
 
 
 class DefaultSeisScan(object):
@@ -2976,16 +2762,6 @@ class SeisScan(DefaultSeisScan):
                                 np.sqrt(cov_matrix[1, 1]),
                                 np.sqrt(cov_matrix[2, 2])])
 
-        # Determining maximum location and error about this point
-        # err_vol = np.zeros((coa_map.shape))
-        # err_vol[np.where(coa_map > self.location_error)] = 1
-        # xmax = np.sum(np.max(np.sum(err_vol, axis=0), axis=1), axis=0) \
-        #        * self.lut.cell_size[0]
-        # ymax = np.sum(np.max(np.sum(err_vol, axis=1), axis=1), axis=0) \
-        #        * self.lut.cell_size[1]
-        # zmax = np.sum(np.max(np.sum(err_vol, axis=2), axis=1), axis=0) \
-        #        * self.lut.cell_size[2]
-
         return loc, loc_err, loc_cov, loc_err_cov
 
     def _error_ellipse(self, coa_3d):
@@ -3084,176 +2860,3 @@ class SeisScan(DefaultSeisScan):
                             gau_3d[2][2] * self.lut.cell_size[2]])
 
         return expect_vector, xyz_err, crd_cov, cov_matrix
-
-
-# class DeepLearningPhaseDetection:
-
-#     def __init__(self, sign, sige, sigz, srate):
-
-#         #####################
-#         # Hyperparameters
-#         self.freq_min = 2.0
-#         self.freq_max = 16.0
-
-#         self.decimate_data = False  # If false, assumes data is already 100 Hz samprate
-
-#         self.n_shift = 10  # Number of samples to shift the sliding window at a time
-#         self.n_gpu = 0  # Number of GPUs to use (if any)
-
-#         self.batch_size = 1000*3
-
-#         self.half_dur = 2.00
-#         self.only_dt = 0.01
-#         self.n_win = int(self.half_dur/self.only_dt)
-#         self.n_feat = 2*self.n_win
-
-#         self.sign = sign
-#         self.sige = sige
-#         self.sigz = sigz
-#         self.srate = srate
-
-#         self.prob_S = None
-#         self.prob_P = None
-#         self.prob_N = None
-
-#         self.models_path = "/raid1/jds70/PhaseLink/generalized-phase-detection/model_pol.json"
-#         self.weights_path = "/raid1/jds70/PhaseLink/generalized-phase-detection/model_pol_best.hdf5"
-
-#         self.PhaseProbability()
-
-#     def sliding_window(self, data, size, stepsize=1, padded=False, axis=-1, copy=True):
-#         """
-#         Calculate a sliding window over a signal
-
-#         Parameters
-#         ----------
-#         data : numpy array
-#             The array to be slided over.
-#         size : int
-#             The sliding window size
-#         stepsize : int
-#             The sliding window stepsize. Defaults to 1.
-#         axis : int
-#             The axis to slide over. Defaults to the last axis.
-#         copy : bool
-#             Return strided array as copy to avoid sideffects when manipulating
-#             the output array.
-
-#         Returns
-#         -------
-#         data : numpy array
-#             A matrix where row in last dimension consists of one instance
-#             of the sliding window.
-#         Notes
-#         -----
-#         - Be wary of setting `copy` to `False` as undesired sideffects with the
-#           output values may occur.
-
-#         Examples
-#         --------
-#         >>> a = numpy.array([1, 2, 3, 4, 5])
-#         >>> sliding_window(a, size=3)
-#         array([[1, 2, 3],
-#                [2, 3, 4],
-#                [3, 4, 5]])
-#         >>> sliding_window(a, size=3, stepsize=2)
-#         array([[1, 2, 3],
-#                [3, 4, 5]])
-
-#         See Also
-#         --------
-#         pieces : Calculate number of pieces available by sliding
-#         """
-
-#         if axis >= data.ndim:
-#             raise ValueError(
-#                 "Axis value out of range"
-#             )
-
-#         if stepsize < 1:
-#             raise ValueError(
-#                 "Stepsize may not be zero or negative"
-#             )
-
-#         if size > data.shape[axis]:
-#             raise ValueError(
-#                 "Sliding window size may not exceed size of selected axis"
-#             )
-
-#         shape = list(data.shape)
-#         shape[axis] = np.floor(data.shape[axis] / stepsize - size / stepsize + 1).astype(int)
-#         shape.append(size)
-
-#         strides = list(data.strides)
-#         strides[axis] *= stepsize
-#         strides.append(data.strides[axis])
-
-#         strided = np.lib.stride_tricks.as_strided(
-#             data, shape=shape, strides=strides
-#         )
-
-#         if copy:
-#             return strided.copy()
-#         else:
-#             return strided
-
-#     def PhaseProbability(self):
-
-#         # load json and create model
-#         json_file = open(self.models_path, "r")
-#         loaded_model_json = json_file.read()
-#         json_file.close()
-#         model = model_from_json(loaded_model_json, custom_objects={"tf": tf})
-
-#         # load weights into new model
-#         model.load_weights(self.weights_path)
-#         # print("Loaded model from disk")
-
-#         # Parallelising for GPU usage
-#         if self.n_gpu > 1:
-#             from keras.utils import multi_gpu_model
-#             model = multi_gpu_model(model, gpus=self.n_gpu)
-
-#         # Manipulating the streams so samplerate and station same
-#         sr = self.srate
-#         dt = 1.0 / sr
-
-#         self.prob_S = np.zeros(self.sign.shape)
-#         self.prob_P = np.zeros(self.sign.shape)
-#         self.prob_N = np.zeros(self.sign.shape)
-
-#         for ii in range(self.sign.shape[0]):
-#             tt = (np.arange(0, self.sign.shape[1], self.n_shift) + self.n_win) * dt
-#             tt_i = np.arange(0, self.sign.shape[1], self.n_shift) + self.n_feat
-
-#             sliding_N = self.sliding_window(self.sign[ii, :], self.n_feat,
-#                                             stepsize=self.n_shift)
-#             sliding_E = self.sliding_window(self.sige[ii, :], self.n_feat,
-#                                             stepsize=self.n_shift)
-#             sliding_Z = self.sliding_window(self.sigz[ii, :], self.n_feat,
-#                                             stepsize=self.n_shift)
-
-#             tr_win = np.zeros((sliding_N.shape[0], self.n_feat, 3))
-#             tr_win[:, :, 0] = sliding_N
-#             tr_win[:, :, 1] = sliding_E
-#             tr_win[:, :, 2] = sliding_Z
-#             # tr_win = tr_win / np.max(np.abs(tr_win), axis=(1,2))[:,None,None]
-#             tt = tt[:tr_win.shape[0]]
-#             tt_i = tt_i[:tr_win.shape[0]]
-
-#             ts = model.predict(tr_win, verbose=False,
-#                                batch_size=tr_win.shape[0])
-
-#             SS = np.interp(np.arange(self.sign.shape[1])*dt, tt, ts[:, 1])
-#             PP = np.interp(np.arange(self.sign.shape[1])*dt, tt, ts[:, 0])
-#             NN = np.interp(np.arange(self.sign.shape[1])*dt, tt, ts[:, 2])
-#             PP[np.isnan(PP)] = 0.0
-#             SS[np.isnan(SS)] = 0.0
-#             NN[np.isnan(NN)] = 0.0
-
-#             # plt.plot(ts[:,0])
-#             # plt.savefig("TEST.pdf")
-
-#             self.prob_S[ii, :] = SS
-#             self.prob_P[ii, :] = PP
-#             self.prob_N[ii, :] = NN

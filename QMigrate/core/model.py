@@ -1025,7 +1025,7 @@ class LUT(Grid3D, NonLinLoc):
 
         import pandas as pd
 
-        vmod = pd.read_csv(path, delimiter=delimiter).as_matrix()
+        vmod = pd.read_csv(path, delimiter=delimiter).values
         z, vp, vs = vmod[:, 0], vmod[:, 1] * 1000, vmod[:, 2] * 1000
 
         rloc = self.station_xyz()

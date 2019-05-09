@@ -1,0 +1,26 @@
+name: QuakeMigrate
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - ffmpeg=3.4.1=2
+  - ipython
+  - jupyter
+  - libgcc-ng
+  - matplotlib
+  - numpy
+  - obspy
+  - pandas
+  - pip
+  - pyqt
+  - python=3.5.5=0
+  - scikit-learn
+  - scipy
+  - pyproj
+  - pip:
+    - cython==0.24.1
+    - h5py==2.6.0
+    - hjson==2.0.2
+    - scikit-fmm==0.0.9
+prefix: /raid1/cb793/miniconda3/envs/QuakeMigrate
+

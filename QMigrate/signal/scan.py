@@ -1639,7 +1639,7 @@ class SeisScan(DefaultSeisScan):
             loc, loc_err, loc_cov, loc_err_cov = self._location_error(map_)
             toc()
 
-            evt = pd.DataFrame([np.append(event_max.as_matrix(),
+            evt = pd.DataFrame([np.append(event_max.values,
                                           [loc[0], loc[1], loc[2],
                                            loc_err[0], loc_err[1], loc_err[2],
                                            loc_cov[0], loc_cov[1], loc_cov[2],

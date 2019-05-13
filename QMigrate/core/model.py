@@ -211,7 +211,7 @@ class Grid3D(object):
         latitude : float
             Latitude coordinate of the grid centre
         elevation : float
-            Elevation coordinate of the grid centre (units: m)
+            Elevation coordinate of the top grid layer (units: m)
         grid_centre : array-like
             Array containing coordinates of the grid centre
         grid_proj : pyproj object
@@ -229,7 +229,7 @@ class Grid3D(object):
 
         self.cell_count = cell_count
         self.cell_size = cell_size
-        self.elevation = (cell_count[2] * cell_size[2] / -2)
+        self.elevation = 0
         self.azimuth = azimuth
         self.dip = dip
         self.sort_order = sort_order
@@ -306,7 +306,8 @@ class Grid3D(object):
         x, y = pyproj.transform(self.coord_proj, self.grid_proj,
                                 self.longitude, self.latitude)
 
-        self.grid_centre = [x, y, self.elevation]
+        self.grid_centre = [x, y, self.elevation - (self.cell_count[2]
+                                                    * self.cell_size[2] / 2)]
 
     def _update_coord_centre(self):
         lon, lat = pyproj.transform(self.coord_proj, self.grid_proj,

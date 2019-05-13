@@ -3,18 +3,17 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - ffmpeg=3.4.1=2
+  - ffmpeg=3.4.1*=2
   - ipython
   - jupyter
   - libgcc-ng
   - matplotlib
   - numpy
   - obspy
-  - pandas
+  - pandas=0.19.*
   - pip
   - pyqt
-  - python=3.5.5=0
-  - scikit-learn
+  - python
   - scipy
   - pyproj
   - pip:

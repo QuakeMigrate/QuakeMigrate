@@ -120,6 +120,184 @@ def _utm_zone(longitude):
 #     x=(lon)
 
 
+def bilinear_interp(pos, gridspec, grid):
+
+    if len(pos) == 2:
+        x = pos[0]
+        z = pos[1]
+    else:
+        x = pos[:, 0]
+        z = pos[:, 1]
+    _, _ = gridspec[0]
+    x0, z0 = gridspec[1]
+    dx, dz = gridspec[2]
+    # nzy = nx * nz
+
+    # get the position of the nearest node
+    i = np.floor((x - x0)/dx).astype(np.int)
+    k = np.floor((z - z0)/dz).astype(np.int)
+
+    # get fractional distance of earthquake along each axis
+    xd = (x / dx) - np.floor(x / dx)
+    zd = (z / dz) - np.floor(z / dz)
+
+    if np.all(zd==0):
+        # there is no interpolation in Z
+        c0 = grid[i, k]
+        c1 = grid[i+1, k]
+
+        # do the interpolation along x
+        c = c0*(1 - xd) + c1 * xd
+    else:
+
+        # Do bi-linear interpolation
+        # get the 4 data points of the surrounding square
+        c00 = grid[i, k]
+        c10 = grid[i + 1, k]
+        # k[(k==nz-1) & (zd==0.)] -=1
+        c11 = grid[i + 1, k + 1]
+        c01 = grid[i, k + 1]
+
+        # do the interpolation along y
+        c0 = c00 * (1 - xd) + c10 * xd
+        c1 = c01 * (1 - xd) + c11 * xd
+
+        # do the interpolation along z
+        c = c0*(1 - zd) + c1 * zd
+
+    return c
+
+def read_2d_nlloc(froot):
+    """
+    Read the NonLinLoc travel time grids
+
+    HEADER
+    2 101 111  0.000000 0.000000 -2.000000  0.200000 0.200000 0.200000 SLOW_LEN FLOAT
+    TRANSFORM  TRANS_MERC RefEllipsoid WGS-84  LatOrig 8.000000  LongOrig 38.000000  RotCW 0.000000
+    """
+
+    with open(froot + '.hdr', 'r') as fid:
+        line = fid.readline().split()
+        nx = int(line[0])
+        ny = int(line[1])
+        nz = int(line[2])
+        x0 = float(line[3])
+        y0 = float(line[4])
+        z0 = float(line[5])
+        dx = float(line[6])
+        dy = float(line[7])
+        dz = float(line[8])
+        line = fid.readline().split()
+        # st_name = line[0]
+        st_x = float(line[1])
+        st_y = float(line[2])
+        st_z = float(line[3])
+
+    npts = nx * ny * nz 
+    with open(froot + '.buf', 'rb') as fid:
+        buf = fid.read(npts * 4)
+        data = struct.unpack('f' * npts, buf)
+    
+    data = np.reshape(data, (nx, ny, nz), order='C')
+    # print(data.shape)
+
+    distance_x = x0 + (np.linspace(0, nx - 1, nx) * dx)
+    distance_y = y0 + (np.linspace(0, ny - 1, ny) * dy)
+    distance_z = z0 + (np.linspace(0, nz - 1, nz) * dz)
+
+    X, Y, Z = np.meshgrid(distance_x, distance_y, distance_z, 
+                            indexing='ij')
+
+    distance = np.sqrt(np.square(X) + np.square(Y) + np.square(Z))
+
+    return data, (X, Y, Z, distance), (st_x, st_y, st_z), \
+            [[nx, ny, nz], [x0, y0, z0], [dx, dy, dz]]
+
+def grid_string(max_dist, max_depth, min_depth, dx):
+    max_x = int(np.ceil(max_dist / dx)) + 5
+    max_z = int(np.ceil((max_depth - min_depth) / dx)) + 5
+
+    string = '2 {0:d} {1:d} 0.0 0.0 {2:f} {3:f} {3:f} {3:f}'
+    return string.format(max_x, max_z, min_depth, dx)
+
+def vgradient(i, vmodel, phase):
+    d_depth = vmodel['depth'][i+1] - vmodel['depth'][i]
+    d_vel_p = vmodel['vp'][i+1] - vmodel['vp'][i]
+    d_vel_s = vmodel['vs'][i+1] - vmodel['vs'][i]
+    
+    return d_vel_p / d_depth, d_vel_s / d_depth
+
+def vmodel_string(vmodel, block):
+
+    string = "LAYER  {0:f} {1:f} {3:f} {2:f} {4:f} 0.0 0.0"
+
+    out = []
+    
+    nlayer = len(vmodel)
+    i = 0 
+    while i < nlayer:
+        if not block:
+            try:
+                gradientp, gradients = vgradient(i, vmodel)
+            except IndexError:
+                gradientp, gradients = 0., 0.
+        else:
+            gradientp = 0.
+            gradients = 0.
+        out.append(string.format(vmodel['depth'][i] / 1000., 
+                                vmodel['vp'][i] / 1000., 
+                                vmodel['vs'][i] / 1000.,
+                                gradientp, gradients))
+        i += 1
+    
+    return '\n'.join(out)
+
+def write_control_file(x, y, z, name, max_dist,
+                        vmodel, depth_limits, phase='P', 
+                        dx=0.2, block_model=True):
+    control_string = '''CONTROL 0 54321
+TRANS NONE
+#TRANS LAMBERT WGS-84 8.0 38.0 8.2 8.4 0.0
+#TRANS TRANS_MERC WGS-84 8.0 38.0 0.0
+
+VGOUT ./model/layer
+VGTYPE {phase:s}
+
+#VGGRID 2 101 111 0.0 0.0 -2.0 0.2 0.2 0.2 SLOW_LEN
+VGGRID {grid:s} SLOW_LEN
+
+{vmodel:s}
+#LAYER  0.0 3.0 0.0 0.0 0.0 0.0 0.0
+#LAYER  2.0 4.0 0.0 0.0 0.0 0.0 0.0
+#LAYER 10.0 6.0 0.0 0.0 0.0 0.0 0.0
+#LAYER 15.0 6.5 0.0 0.0 0.0 0.0 0.0
+#LAYER  5.0 5.0 0.0 0.0 0.0 0.0 0.0
+#LAYER 20.0 7.3 0.0 0.0 0.0 0.0 0.0
+
+GTFILES ./model/layer ./time/layer {phase:s}
+GTMODE GRID2D ANGLES_NO
+
+#GTSRCE ST01 LATLON 8.1 38.1 0.0 0.0
+GTSRCE {name:s} XYZ {x:f} {y:f} {z:f} 0.0
+
+GT_PLFD 1.0E-3 0 
+                    '''
+    outstring = control_string.format(phase=phase,
+                                    grid=grid_string(max_dist, 
+                                                    depth_limits[1], 
+                                                    depth_limits[0],
+                                                    dx),
+                                    vmodel=vmodel_string(vmodel, block_model),
+                                    name=name, y=y, x=x, z=z)
+
+
+    with open('./control.in', 'w') as fid:
+        fid.write(outstring)
+
+    # print(outstring)
+    return
+
+
 def eikonal(ix, iy, iz, dxi, dyi, dzi, V, S):
     """
     Travel-Time formulation using a simple eikonal method.
@@ -1008,7 +1186,158 @@ class LUT(Grid3D, NonLinLoc):
         self.maps = {"TIME_P": p_map,
                      "TIME_S": s_map}
 
-    def compute_1d_vmodel(self, path, delimiter=","):
+    def compute_1DVelocity(self, p0, p1, gridspec, 
+                            vmodel, nlloc_dx=0.1, 
+                            nlloc_path='', block_model=False):
+        ''' Function to calculate 3d travel time look-up-tables from a 1d velocity model.
+
+        NonLinLoc Grid2Time is used to generate a 2D look-up-table which is then swept across
+        a 3D distance from station grid to populate a 3d travel time grid. The location of the 
+        stations should already have been added to the LUT using the fuction self.set_station.
+
+
+        INPUTS : projection     -     a dictionary with the details of the projection used. As 
+                                      NonLinLoc is used it makes sense to use the two projections 
+                                      NonLiLoc can use natively. These are the Lambert and 
+                                      Transverse Mercator. For example:
+                                            projection = {'name' : 'LAMBERT', 
+                                                            'zero_loc' : (6.7, 38.2), 
+                                                            'ellipsoid' : 'WGS-84', 
+                                                            'rotation' : 0.0, 
+                                                            'standard_parallels' : (7.2, 7.8)}
+                                            projection = {'name' : 'TRANS_MERC', 
+                                                            'zero_loc' : (6.7, 38.2), 
+                                                            'ellipsoid' : 'WGS-84', 
+                                                            'rotation' : 0.0}
+                 
+                  gridspec      -     an array of four tuples containing, in order, the 
+                                      longitude and latitude of the lower-left corner, the
+                                      longitude and latitude of the upper-right corner, the minimum 
+                                      and maximum depth of the grid and finally the grid spacing (in
+                                      m) in the x, y and z direction. Note the depths are in metres. 
+                                      For example:
+                                            gridspec = [(38.9, 8.05), (39.2, 8.3), (-2000, 30000),
+                                                        (500., 500., 500.)]
+                
+                  vmodel        -     a pandas DataFrame containing the headers "depth", "vp" and "vs"
+
+                  *kwargs
+                  nlloc_dx - gridspacing for NonLinLoc 2D grid. best to make fairly small to improve accuracy
+                           default equals 0.1 km
+                  nlloc_path - path to NonLinLoc binaries
+                  block_model - whether or not to interpret the velocity model with constant velocity blocks
+        '''
+
+        import subprocess
+        p0_x0, p0_y0, p0_z0 = gridspec[0]
+        p0_x1, p0_y1, p0_z1 = gridspec[1]
+        dx, dy, dz = gridspec[2]
+
+        # define the projection
+        self._coord_proj = p0
+        self._grid_proj = p1
+
+
+        ## define the TT grid for seisloc
+        p1_x0, p1_y0, p1_z0 = _coord_transform_np(p0, p1, 
+                                np.asarray([p0_x0, p0_y0, p0_z0]))
+        p1_x1, p1_y1, p1_z1 = _coord_transform_np(p0, p1, 
+                                np.asarray([p0_x1, p0_y1, p0_z1]))
+
+        # extract the number of nodes
+        d_x = (p1_x1 - p1_x0)
+        nx = int(np.ceil(d_x / dx)) + 1
+        d_y = (p1_y1 - p1_y0)
+        ny = int(np.ceil(d_y / dy)) + 1
+        d_z = (p1_z1 - p1_z0)
+        nz = int(np.ceil(d_z / dz)) + 1
+
+        xvec = p1_x0 + (np.linspace(0, nx - 1, nx) * dx)
+        yvec = p1_y0 + (np.linspace(0, ny - 1, ny) * dy)
+        zvec = p1_z0 + (np.linspace(0, nz - 1, nz) * dz)
+
+        X, Y, Z = np.meshgrid(xvec, yvec, zvec, indexing='ij')
+
+        # make a folder structure to run nonlinloc in
+        os.makedirs('time', exist_ok=True)
+        os.makedirs('model', exist_ok=True)       
+
+        nstation = len(self.station_data['Name'])
+
+        p_travel_times = np.empty((nx, ny, nz, nstation))
+        s_travel_times = np.empty_like(p_travel_times)
+        i = 0
+        while i < nstation:
+            p0_st_y = self.station_data['Latitude'][i]
+            p0_st_x = self.station_data['Longitude'][i]
+            p0_st_z = -self.station_data['Elevation'][i]
+            name = self.station_data['Name'][i]
+
+            print('Calculating Travel Time for station', name)
+
+            # get the maximum distance from station to corner of grid
+            p1_st_loc = _coord_transform_np(p0, p1,
+                                np.asarray([p0_st_x, p0_st_y, p0_st_z]))
+            p1_st_x, p1_st_y, p1_st_z = p1_st_loc
+
+            # for nonlinloc the distances must be in km
+            distance_grid = np.sqrt(np.square(X - p1_st_x) + \
+                                    np.square(Y - p1_st_y)) / \
+                                    1000.
+            max_dist = np.max(distance_grid)
+        
+            for phase in ['P', 'S']:
+                write_control_file(p1_st_x / 1000., p1_st_y / 1000., 
+                                    p1_st_z / 1000., name, 
+                                    max_dist, vmodel,
+                                    (p1_z0 / 1000., p1_z1 / 1000.), 
+                                    phase=phase, dx=nlloc_dx,
+                                    block_model=block_model)
+
+                print('\tRunning NonLinLoc phase =', phase)
+                out = subprocess.check_output([os.path.join(nlloc_path, 'Vel2Grid'), 
+                                            'control.in'])
+                out = subprocess.check_output([os.path.join(nlloc_path, 'Grid2Time'), 
+                                            'control.in'])
+                # print(out)
+
+                data, _, _, nll_gridspec = read_2d_nlloc('./time/layer.{}.{}.time'.format(phase, name))
+
+                distance = distance_grid.flatten()
+                depth = Z.flatten() / 1000.
+                travel_time = bilinear_interp(np.vstack((distance, depth)).T, 
+                                                        [nll_gridspec[0][1:], 
+                                                         nll_gridspec[1][1:], 
+                                                         nll_gridspec[2][1:]], 
+                                                         data[0, :, :])
+
+                travel_time = np.reshape(travel_time, (nx, ny, nz))
+                if phase == 'P':
+                    p_travel_times[..., i] = travel_time
+                elif phase == 'S':
+                    s_travel_times[..., i] = travel_time
+                else:
+                    raise Exception('HELP')
+              
+            i += 1
+        
+        # now define the rest of the lut paramters
+        x = p1_x0 + dx * ((nx -1) / 2.)
+        y = p1_y0 + dy * ((ny -1) / 2.)
+        z = p1_z0 + dz * ((nz -1) / 2.)
+        self.cell_count = np.asarray([nx, ny, nz])
+        self.cell_size = np.asarray([dx, dy, dz])
+        self.longitude, self.latitude = self.xy2lonlat(x, y)
+        self.elevation = z
+        self.azimuth = 0.0
+        self.dip = 0.0
+        self._update_grid_centre()
+        
+        self.maps = {'TIME_P' : p_travel_times, 'TIME_S' : s_travel_times}  
+
+        subprocess.call(['rm', '-rf', 'control.in', 'time', 'model'])  
+
+    def compute_1d_vmodel_skfmm(self, path, delimiter=","):
         """
         Calculate the travel-time tables for each station in a velocity model
         that varies with depth

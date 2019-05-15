@@ -87,12 +87,16 @@ class MSEED(object):
 
         if path_type == "SeisComp3":
             self.format = "{year}/*/{station}/*/*.{station}..*.D.{year}.{jday}"
-        elif path_type == "YEAR/JD/STATION":
+        elif path_type == "YEAR/JD/*_STATION":
             self.format = "{year}/{jday}/*_{station}_*"
+        elif path_type == "YEAR/JD/STATION":
+            self.format = "{year}/{jday}/{station}*"
         elif path_type == "STATION.YEAR.JULIANDAY":
             self.format = "*{station}.*.{year}.{jday}"
         elif path_type == "/STATION/STATION.YearMonthDay":
             self.format = "{station}/{station}.{year}{month:02d}{day:02d}"
+        elif path_type == "YEAR_JD/STATION":
+            self.format = "{year}_{jday}/{station}_*"
 
     def read_mseed(self, start_time, end_time, sampling_rate):
         """

@@ -802,9 +802,9 @@ class NonLinLoc:
         self.NLLoc_org = np.array([float(params[3]),
                                    float(params[4]),
                                    float(params[5])])
-        self.NLLoc_siz = np.array([float(params[6]),
-                                   float(params[7]),
-                                   float(params[8])])
+        self.NLLoc_size = np.array([float(params[6]),
+                                    float(params[7]),
+                                    float(params[8])])
         self.NLLoc_type = params[9]
 
         # Defining the station information

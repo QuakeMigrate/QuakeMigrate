@@ -773,7 +773,7 @@ class NonLinLoc:
     def __init__(self):
         self.NLLoc_n = np.array([0, 0, 0])
         self.NLLoc_org = np.array([0, 0, 0])
-        self.NLLoc_siz = np.array([0, 0, 0])
+        self.NLLoc_size = np.array([0, 0, 0])
         self.NLLoc_type = "TIME"
         self.NLLoc_proj = "NONE"
         # Has form lon - lat - rotation - reference ellipsoid - std1 - std2
@@ -852,13 +852,13 @@ class NonLinLoc:
         # Generating the correct NonLinLoc Formatted Grid
         if self.NLLoc_proj == "NONE":
             GRID_NLLOC = Grid3D(cell_count=self.NLLoc_n,
-                                cell_size=self.NLLoc_siz,
+                                cell_size=self.NLLoc_size,
                                 azimuth=0.0,
                                 dip=0.0)
             GRID_NLLOC.nlloc_grid_centre(self.NLLoc_org[0], self.NLLoc_org[1])
         else:
             GRID_NLLOC = Grid3D(cell_count=self.NLLoc_n,
-                                cell_size=self.NLLoc_siz,
+                                cell_size=self.NLLoc_size,
                                 azimuth=self.NLLoc_MapOrg[2],
                                 dip=0.0)
             GRID_NLLOC.lonlat_centre(self.NLLoc_MapOrg[0],
@@ -895,7 +895,7 @@ class NonLinLoc:
         centre = self.NLLoc_org + self.NLLoc_size * (self.NLLoc_n - 1) / 2
         self.centre = centre * [1000, 1000, -1000]
         self.cell_count = self.NLLoc_n
-        self.cell_size = self.NLLoc_siz * 1000
+        self.cell_size = self.NLLoc_size * 1000
         self.dip = 0.0
 
         if self.NLLoc_proj == "NONE":
@@ -1398,7 +1398,7 @@ class LUT(Grid3D, NonLinLoc):
         """
         raise NotImplementedError
 
-    def compute_3d_nlloc_vmodel(self, path, regrid=False, decimate=[1, 1, 1]):
+    def read_3d_nlloc_lut(self, path, regrid=False, decimate=[1, 1, 1]):
         """
         Calculate the travel-time tables for each station in a velocity model
         that varies over all dimensions.

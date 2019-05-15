@@ -193,11 +193,11 @@ def read_2d_nlloc(froot):
         st_y = float(line[2])
         st_z = float(line[3])
 
-    npts = nx * ny * nz 
+    npts = nx * ny * nz
     with open(froot + '.buf', 'rb') as fid:
         buf = fid.read(npts * 4)
         data = struct.unpack('f' * npts, buf)
-    
+
     data = np.reshape(data, (nx, ny, nz), order='C')
     # print(data.shape)
 
@@ -205,7 +205,7 @@ def read_2d_nlloc(froot):
     distance_y = y0 + (np.linspace(0, ny - 1, ny) * dy)
     distance_z = z0 + (np.linspace(0, nz - 1, nz) * dz)
 
-    X, Y, Z = np.meshgrid(distance_x, distance_y, distance_z, 
+    X, Y, Z = np.meshgrid(distance_x, distance_y, distance_z,
                             indexing='ij')
 
     distance = np.sqrt(np.square(X) + np.square(Y) + np.square(Z))
@@ -224,7 +224,7 @@ def vgradient(i, vmodel, phase):
     d_depth = vmodel['depth'][i+1] - vmodel['depth'][i]
     d_vel_p = vmodel['vp'][i+1] - vmodel['vp'][i]
     d_vel_s = vmodel['vs'][i+1] - vmodel['vs'][i]
-    
+
     return d_vel_p / d_depth, d_vel_s / d_depth
 
 def vmodel_string(vmodel, block):
@@ -232,9 +232,9 @@ def vmodel_string(vmodel, block):
     string = "LAYER  {0:f} {1:f} {3:f} {2:f} {4:f} 0.0 0.0"
 
     out = []
-    
+
     nlayer = len(vmodel)
-    i = 0 
+    i = 0
     while i < nlayer:
         if not block:
             try:
@@ -244,16 +244,16 @@ def vmodel_string(vmodel, block):
         else:
             gradientp = 0.
             gradients = 0.
-        out.append(string.format(vmodel['depth'][i] / 1000., 
-                                vmodel['vp'][i] / 1000., 
+        out.append(string.format(vmodel['depth'][i] / 1000.,
+                                vmodel['vp'][i] / 1000.,
                                 vmodel['vs'][i] / 1000.,
                                 gradientp, gradients))
         i += 1
-    
+
     return '\n'.join(out)
 
 def write_control_file(x, y, z, name, max_dist,
-                        vmodel, depth_limits, phase='P', 
+                        vmodel, depth_limits, phase='P',
                         dx=0.2, block_model=True):
     control_string = '''CONTROL 0 54321
 TRANS NONE
@@ -280,11 +280,11 @@ GTMODE GRID2D ANGLES_NO
 #GTSRCE ST01 LATLON 8.1 38.1 0.0 0.0
 GTSRCE {name:s} XYZ {x:f} {y:f} {z:f} 0.0
 
-GT_PLFD 1.0E-3 0 
+GT_PLFD 1.0E-3 0
                     '''
     outstring = control_string.format(phase=phase,
-                                    grid=grid_string(max_dist, 
-                                                    depth_limits[1], 
+                                    grid=grid_string(max_dist,
+                                                    depth_limits[1],
                                                     depth_limits[0],
                                                     dx),
                                     vmodel=vmodel_string(vmodel, block_model),
@@ -484,11 +484,11 @@ class Grid3D(object):
         x, y = pyproj.transform(self.coord_proj, self.grid_proj,
                                 self.longitude, self.latitude)
 
-        self.grid_centre = [x, y, self.elevation - (self.cell_count[2]
+        self.grid_centre = [x, y, self.elevation - ((self.cell_count[2] - 1)
                                                     * self.cell_size[2] / 2)]
 
     def _update_coord_centre(self):
-        lon, lat = pyproj.transform(self.coord_proj, self.grid_proj,
+        lon, lat = pyproj.transform(self.grid_proj, self.coord_proj,
                                     self.grid_centre[0], self.grid_centre[1])
         self.longitude = lon
         self.latitude = lat
@@ -803,8 +803,8 @@ class NonLinLoc:
                                    float(params[4]),
                                    float(params[5])])
         self.NLLoc_size = np.array([float(params[6]),
-                                    float(params[7]),
-                                    float(params[8])])
+                                   float(params[7]),
+                                   float(params[8])])
         self.NLLoc_type = params[9]
 
         # Defining the station information
@@ -887,13 +887,14 @@ class NonLinLoc:
 
         Parameters
         ----------
-        decimate : 
+        decimate :
 
 
         """
 
         centre = self.NLLoc_org + self.NLLoc_size * (self.NLLoc_n - 1) / 2
         self.centre = centre * [1000, 1000, -1000]
+        self.elevation = self.NLLoc_org[2] * -1000
         self.cell_count = self.NLLoc_n
         self.cell_size = self.NLLoc_size * 1000
         self.dip = 0.0
@@ -906,19 +907,16 @@ class NonLinLoc:
             self.azimuth = self.NLLoc_MapOrg[2]
             self.nlloc_grid_centre(float(self.NLLoc_MapOrg[0]),
                                    float(self.NLLoc_MapOrg[1]))
-            self.elevation = self.centre[2]
 
         if self.NLLoc_proj == "LAMBERT":
             self.azimuth = float(self.NLLoc_MapOrg[2])
             self.nlloc_grid_centre(float(self.NLLoc_MapOrg[0]),
                                    float(self.NLLoc_MapOrg[1]))
-            self.elevation = self.centre[2]
 
         if self.NLLoc_proj == "TRANS_MERC":
             self.azimuth = float(self.NLLoc_MapOrg[2])
             self.nlloc_grid_centre(float(self.NLLoc_MapOrg[0]),
                                    float(self.NLLoc_MapOrg[1]))
-            self.elevation = self.centre[2]
 
         self.NLLoc_data = self.decimate_array(self.NLLoc_data,
                                               np.array(decimate))[:, :, ::-1]
@@ -1064,7 +1062,7 @@ class LUT(Grid3D, NonLinLoc):
 
         Parameters
         ----------
-        ds : 
+        ds :
 
         inplace : bool
             Performs the operation to the travel-time table directly
@@ -1186,39 +1184,39 @@ class LUT(Grid3D, NonLinLoc):
         self.maps = {"TIME_P": p_map,
                      "TIME_S": s_map}
 
-    def compute_1DVelocity(self, p0, p1, gridspec, 
-                            vmodel, nlloc_dx=0.1, 
+    def compute_1DVelocity(self, p0, p1, gridspec,
+                            vmodel, nlloc_dx=0.1,
                             nlloc_path='', block_model=False):
         ''' Function to calculate 3d travel time look-up-tables from a 1d velocity model.
 
         NonLinLoc Grid2Time is used to generate a 2D look-up-table which is then swept across
-        a 3D distance from station grid to populate a 3d travel time grid. The location of the 
+        a 3D distance from station grid to populate a 3d travel time grid. The location of the
         stations should already have been added to the LUT using the fuction self.set_station.
 
 
-        INPUTS : projection     -     a dictionary with the details of the projection used. As 
-                                      NonLinLoc is used it makes sense to use the two projections 
-                                      NonLiLoc can use natively. These are the Lambert and 
+        INPUTS : projection     -     a dictionary with the details of the projection used. As
+                                      NonLinLoc is used it makes sense to use the two projections
+                                      NonLiLoc can use natively. These are the Lambert and
                                       Transverse Mercator. For example:
-                                            projection = {'name' : 'LAMBERT', 
-                                                            'zero_loc' : (6.7, 38.2), 
-                                                            'ellipsoid' : 'WGS-84', 
-                                                            'rotation' : 0.0, 
+                                            projection = {'name' : 'LAMBERT',
+                                                            'zero_loc' : (6.7, 38.2),
+                                                            'ellipsoid' : 'WGS-84',
+                                                            'rotation' : 0.0,
                                                             'standard_parallels' : (7.2, 7.8)}
-                                            projection = {'name' : 'TRANS_MERC', 
-                                                            'zero_loc' : (6.7, 38.2), 
-                                                            'ellipsoid' : 'WGS-84', 
+                                            projection = {'name' : 'TRANS_MERC',
+                                                            'zero_loc' : (6.7, 38.2),
+                                                            'ellipsoid' : 'WGS-84',
                                                             'rotation' : 0.0}
-                 
-                  gridspec      -     an array of four tuples containing, in order, the 
+
+                  gridspec      -     an array of four tuples containing, in order, the
                                       longitude and latitude of the lower-left corner, the
-                                      longitude and latitude of the upper-right corner, the minimum 
+                                      longitude and latitude of the upper-right corner, the minimum
                                       and maximum depth of the grid and finally the grid spacing (in
-                                      m) in the x, y and z direction. Note the depths are in metres. 
+                                      m) in the x, y and z direction. Note the depths are in metres.
                                       For example:
                                             gridspec = [(38.9, 8.05), (39.2, 8.3), (-2000, 30000),
                                                         (500., 500., 500.)]
-                
+
                   vmodel        -     a pandas DataFrame containing the headers "depth", "vp" and "vs"
 
                   *kwargs
@@ -1239,9 +1237,9 @@ class LUT(Grid3D, NonLinLoc):
 
 
         ## define the TT grid for seisloc
-        p1_x0, p1_y0, p1_z0 = _coord_transform_np(p0, p1, 
+        p1_x0, p1_y0, p1_z0 = _coord_transform_np(p0, p1,
                                 np.asarray([p0_x0, p0_y0, p0_z0]))
-        p1_x1, p1_y1, p1_z1 = _coord_transform_np(p0, p1, 
+        p1_x1, p1_y1, p1_z1 = _coord_transform_np(p0, p1,
                                 np.asarray([p0_x1, p0_y1, p0_z1]))
 
         # extract the number of nodes
@@ -1260,7 +1258,7 @@ class LUT(Grid3D, NonLinLoc):
 
         # make a folder structure to run nonlinloc in
         os.makedirs('time', exist_ok=True)
-        os.makedirs('model', exist_ok=True)       
+        os.makedirs('model', exist_ok=True)
 
         nstation = len(self.station_data['Name'])
 
@@ -1285,19 +1283,19 @@ class LUT(Grid3D, NonLinLoc):
                                     np.square(Y - p1_st_y)) / \
                                     1000.
             max_dist = np.max(distance_grid)
-        
+
             for phase in ['P', 'S']:
-                write_control_file(p1_st_x / 1000., p1_st_y / 1000., 
-                                    p1_st_z / 1000., name, 
+                write_control_file(p1_st_x / 1000., p1_st_y / 1000.,
+                                    p1_st_z / 1000., name,
                                     max_dist, vmodel,
-                                    (p1_z0 / 1000., p1_z1 / 1000.), 
+                                    (p1_z0 / 1000., p1_z1 / 1000.),
                                     phase=phase, dx=nlloc_dx,
                                     block_model=block_model)
 
                 print('\tRunning NonLinLoc phase =', phase)
-                out = subprocess.check_output([os.path.join(nlloc_path, 'Vel2Grid'), 
+                out = subprocess.check_output([os.path.join(nlloc_path, 'Vel2Grid'),
                                             'control.in'])
-                out = subprocess.check_output([os.path.join(nlloc_path, 'Grid2Time'), 
+                out = subprocess.check_output([os.path.join(nlloc_path, 'Grid2Time'),
                                             'control.in'])
                 # print(out)
 
@@ -1305,10 +1303,10 @@ class LUT(Grid3D, NonLinLoc):
 
                 distance = distance_grid.flatten()
                 depth = Z.flatten() / 1000.
-                travel_time = bilinear_interp(np.vstack((distance, depth)).T, 
-                                                        [nll_gridspec[0][1:], 
-                                                         nll_gridspec[1][1:], 
-                                                         nll_gridspec[2][1:]], 
+                travel_time = bilinear_interp(np.vstack((distance, depth)).T,
+                                                        [nll_gridspec[0][1:],
+                                                         nll_gridspec[1][1:],
+                                                         nll_gridspec[2][1:]],
                                                          data[0, :, :])
 
                 travel_time = np.reshape(travel_time, (nx, ny, nz))
@@ -1318,9 +1316,9 @@ class LUT(Grid3D, NonLinLoc):
                     s_travel_times[..., i] = travel_time
                 else:
                     raise Exception('HELP')
-              
+
             i += 1
-        
+
         # now define the rest of the lut paramters
         x = p1_x0 + dx * ((nx -1) / 2.)
         y = p1_y0 + dy * ((ny -1) / 2.)
@@ -1332,10 +1330,10 @@ class LUT(Grid3D, NonLinLoc):
         self.azimuth = 0.0
         self.dip = 0.0
         self._update_grid_centre()
-        
-        self.maps = {'TIME_P' : p_travel_times, 'TIME_S' : s_travel_times}  
 
-        subprocess.call(['rm', '-rf', 'control.in', 'time', 'model'])  
+        self.maps = {'TIME_P' : p_travel_times, 'TIME_S' : s_travel_times}
+
+        subprocess.call(['rm', '-rf', 'control.in', 'time', 'model'])
 
     def compute_1d_vmodel_skfmm(self, path, delimiter=","):
         """

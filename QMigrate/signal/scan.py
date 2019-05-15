@@ -745,7 +745,7 @@ class SeisPlot:
 
         fig = self._coalescence_image(idx0)
         ani = animation.FuncAnimation(fig, self._video_update,
-                                      frames=np.linspace(idx0, idx1 - 1, 200),
+                                      frames=np.linspace(idx0+1, idx1, 200),
                                       blit=False, repeat=False)
 
         if output_file is None:
@@ -854,7 +854,7 @@ class SeisPlot:
 
         # Set coalescence trace limits
         # trace.set_ylim([0, i + 2])
-        trace.set_xlim([(self.data.start_time + 1.6).datetime, np.max(tss)])
+        trace.set_xlim([(self.data.start_time).datetime, np.max(tss)])
         # trace.get_xaxis().set_ticks([])
         trace.yaxis.tick_right()
         trace.yaxis.set_ticks(sidx + 1)
@@ -1046,8 +1046,8 @@ class SeisPlot:
         fig = plt.figure(figsize=(30, 15))
         fig.patch.set_facecolor("white")
         xy_slice = plt.subplot2grid((3, 5), (0, 0), colspan=2, rowspan=2)
-        yz_slice = plt.subplot2grid((3, 5), (2, 0), colspan=2)
-        xz_slice = plt.subplot2grid((3, 5), (0, 2), rowspan=2)
+        xz_slice = plt.subplot2grid((3, 5), (2, 0), colspan=2)
+        yz_slice = plt.subplot2grid((3, 5), (0, 2), rowspan=2)
         trace = plt.subplot2grid((3, 5), (0, 3), colspan=2, rowspan=2)
         logo = plt.subplot2grid((3, 5), (2, 2))
         coal_val = plt.subplot2grid((3, 5), (2, 3), colspan=2)
@@ -1086,26 +1086,30 @@ class SeisPlot:
 
         # --- Plotting the Station Travel Times ---
         ttime_range = self.lut.get_value_at("TIME_P", point)[0].shape[0]
-        tps = np.zeros(ttime_range)
-        tss = np.zeros(ttime_range)
         dt_max = self.event["DT"].iloc[np.argmax(self.event["COA"])]
+        tps = []
+        tss = []
         dt_max = UTCDateTime(dt_max)
-        tmp_p = self.lut.get_value_at("TIME_P", point)[0]
-        tmp_s = self.lut.get_value_at("TIME_S", point)[0]
+        print(dt_max)
+        tmp_p = self.lut.get_value_at("TIME_P", point)
+        tmp_s = self.lut.get_value_at("TIME_S", point)
         for i in range(ttime_range):
-            tps[i] = (dt_max + tmp_p[i]).datetime
-            tss[i] = (dt_max + tmp_s[i]).datetime
+
+            tps.append((dt_max + tmp_p[0][i]).datetime)
+            tss.append((dt_max + tmp_s[0][i]).datetime)
 
         del tmp_p, tmp_s
-
-        self.tp_arrival = trace.scatter(tps, (sidx + 1), 40,
-                                        "pink", marker="v")
-        self.ts_arrival = trace.scatter(tss, (sidx + 1), 40,
-                                        "purple", marker="v")
+        print(tps)
+        self.tp_arrival = trace.scatter(tps, (sidx + 1), 50, "pink",
+                                        marker="v", zorder=4, linewidth=0.1,
+                                        edgecolors="black")
+        self.ts_arrival = trace.scatter(tss, (sidx + 1), 50, "purple",
+                                        marker="v", zorder=5, linewidth=0.1,
+                                        edgecolors="black")
 
         # Set coalescence trace limits
         # trace.set_ylim([0, i + 2])
-        trace.set_xlim([(self.data.start_time + 1.6).datetime, np.max(tss)])
+        trace.set_xlim([(self.data.start_time).datetime, np.max(tss)])
         # trace.get_xaxis().set_ticks([])
         trace.yaxis.tick_right()
         trace.yaxis.set_ticks(sidx + 1)
@@ -1118,7 +1122,7 @@ class SeisPlot:
         self._plot_coal(coal_val, tslice)
 
         # --- Plotting the Coalescence Value Slices ---
-        crd_crnrs = self.lutxyz2coord(self.lut.grid_corners)
+        crd_crnrs = self.lut.xyz2coord(self.lut.grid_corners)
         cells = self.lut.cell_count
         xmin = min(crd_crnrs[:, 0])
         xmax = max(crd_crnrs[:, 0])
@@ -1164,7 +1168,8 @@ class SeisPlot:
         # yz_slice
         grid1, grid2 = np.mgrid[zmin:zmax:(zmax - zmin) / zcells,
                                 ymin:ymax:(ymax - ymin) / ycells]
-        self.yz_plot = xz_slice.pcolormesh(grid1, grid2,
+
+        self.yz_plot = yz_slice.pcolormesh(grid1, grid2,
                                            (np.transpose(self.map[int(loc[0]), :, :,
                                                                   int(tslice_idx - idx0)])
                                             / self.map_max),
@@ -1229,26 +1234,18 @@ class SeisPlot:
         # Get P- and S-traveltimes at this location
         ptt = self.lut.get_value_at("TIME_P", np.array([loc]))[0]
         stt = self.lut.get_value_at("TIME_S", np.array([loc]))[0]
-
-        tps = np.zeros(ptt.shape[0])
-        tss = np.zeros(ptt.shape[0])
-
-        # Updating the station travel-times
+        tps = []
+        tss = []
         for i in range(ptt.shape[0]):
-            try:
-                tps[i] = np.argmin(abs((self.times
-                                        - (tslice.astype(datetime)
-                                           + timedelta(seconds=ptt[i]))) / timedelta(seconds=1)))
-                tss[i] = np.argmin(abs((self.times
-                                        - (tslice.astype(datetime)
-                                           + timedelta(seconds=stt[i]))) / timedelta(seconds=1)))
-            except:
-                continue
+            tps.append(np.argmin(abs((self.times -
+                                      (tslice + timedelta(seconds=ptt[i]))))))
+            tss.append(np.argmin(abs((self.times -
+                                      (tslice + timedelta(seconds=stt[i]))))))
 
         self.tp_arrival.set_offsets(np.c_[tps,
-                                    (np.arange(self.data.signal.shape[1]) + 1)])
+                                    (np.arange(len(tps)) + 1)])
         self.ts_arrival.set_offsets(np.c_[tss,
-                                    (np.arange(self.data.signal.shape[1]) + 1)])
+                                    (np.arange(len(tss)) + 1)])
 
     def _pick_vlines(self, trace, pick_time, pick_err):
         trace.axvline((pick_time - pick_err/2).datetime,
@@ -1294,7 +1291,6 @@ class SeisPlot:
         plot.yaxis.tick_right()
         plot.yaxis.set_label_position("right")
         plot.set_xlim([self.event["DT"].iloc[0], self.event["DT"].iloc[-1]])
-        # plot.format_xdate = mdates.DateFormatter("%Y-%m-%d")  # FIX - Not working
         for tick in plot.get_xticklabels():
             tick.set_rotation(45)
 

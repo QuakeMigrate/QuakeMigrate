@@ -68,17 +68,17 @@ def gaussian_1d(x, a, b, c):
 
     Parameters
     ----------
-    x : 
+    x :
 
-    a : 
+    a :
 
-    b : 
+    b :
 
-    c : 
+    c :
 
     Returns
     -------
-    f : 
+    f :
 
     """
 
@@ -92,11 +92,11 @@ def gaussian_3d(nx, ny, nz, sgm):
 
     Parameters
     ----------
-    nx : 
+    nx :
 
-    ny : 
+    ny :
 
-    nz : 
+    nz :
 
     sgm :
 
@@ -170,11 +170,11 @@ def onset(sig, stw, ltw, centred=False):
 
     Parameters
     ----------
-    sig : 
+    sig :
 
-    stw : 
+    stw :
 
-    ltw : 
+    ltw :
 
     Returns
     -------
@@ -299,11 +299,11 @@ class SeisOutFile:
         ----------
         map_ :
 
-        event : 
+        event :
 
         start_time :
 
-        end_time : 
+        end_time :
 
         """
 
@@ -433,7 +433,7 @@ class SeisOutFile:
 
         Parameters
         ----------
-        data : 
+        data :
 
         event_name : str
             Event ID
@@ -547,17 +547,17 @@ class SeisPlot:
 
         map_ :
 
-        coa_map : 
+        coa_map :
 
-        data : 
+        data :
 
-        event : 
+        event :
 
-        station_pick : 
+        station_pick :
 
-        marginal_window : 
+        marginal_window :
 
-        options : 
+        options :
 
 
         """
@@ -1387,17 +1387,17 @@ class SeisScan(DefaultSeisScan):
 
         Parameters
         ----------
-        data : 
+        data :
 
-        lut : 
+        lut :
 
-        reader : 
+        reader :
 
-        params : 
+        params :
 
-        output_path : 
+        output_path :
 
-        output_name : 
+        output_name :
 
 
         """
@@ -1500,10 +1500,15 @@ class SeisScan(DefaultSeisScan):
         msg += "=" * 126 + "\n"
         msg = msg.format(str(start_time), str(end_time), self.n_cores,
                          self.marginal_window, self.minimum_repeat)
+
         if self.log:
             self.output.write_log(msg)
         else:
             print(msg)
+
+        if self.minimum_repeat < self.marginal_window:
+            msg = "Minimum repeat must be greater than or equal to marginal window."
+            raise Exception(msg)
 
         # Intial detection of the events from .scn file
         coa_val = self.output.read_decscan()
@@ -1601,7 +1606,8 @@ class SeisScan(DefaultSeisScan):
             w_beg_mw = event_coa_val_dtmax - self.marginal_window
             w_end_mw = event_coa_val_dtmax + self.marginal_window
 
-            if (event_coa_val_dtmax >= event["CoaTime"] - self.marginal_window) and (event_coa_val_dtmax <= event["CoaTime"] + self.marginal_window):
+            if (event_coa_val_dtmax >= event["CoaTime"] - self.marginal_window) \
+            and (event_coa_val_dtmax <= event["CoaTime"] + self.marginal_window):
                 w_beg_mw = event_coa_val_dtmax - self.marginal_window
                 w_end_mw = event_coa_val_dtmax + self.marginal_window
             else:
@@ -1720,13 +1726,13 @@ class SeisScan(DefaultSeisScan):
 
         Parameters
         ----------
-        events : 
+        events :
 
         start_time : UTCDateTime
 
         end_time : UTCDateTime
 
-        stations : 
+        stations :
 
         savefig : bool, optional
             Output the plot as a file. The plot is just shown by default.
@@ -1773,8 +1779,8 @@ class SeisScan(DefaultSeisScan):
                         label3 = ""
 
                     for plot in [coa, coa_norm]:
-                        plot.axvspan((event["MinTime"] - self.minimum_repeat).datetime,
-                                     (event["MaxTime"] + self.minimum_repeat).datetime,
+                        plot.axvspan((event["MinTime"]).datetime,
+                                     (event["MaxTime"]).datetime,
                                      label=label1, alpha=0.5, color="red")
                         plot.axvline((event["CoaTime"] - self.marginal_window).datetime,
                                      label=label2, c="m", linestyle="--", linewidth=1.75)
@@ -1858,9 +1864,9 @@ class SeisScan(DefaultSeisScan):
 
         Parameters
         ----------
-        start_time : 
+        start_time :
 
-        end_time : 
+        end_time :
 
         """
 
@@ -2088,9 +2094,9 @@ class SeisScan(DefaultSeisScan):
 
         Returns
         -------
-        s_onset_raw : 
+        s_onset_raw :
 
-        s_onset : 
+        s_onset :
 
         """
 
@@ -2569,9 +2575,9 @@ class SeisScan(DefaultSeisScan):
 
         Parameters
         ----------
-        vol : 
+        vol :
 
-        sgm : 
+        sgm :
 
         shp : array-like, optional
             Shape of volume
@@ -2591,14 +2597,14 @@ class SeisScan(DefaultSeisScan):
     def _mask3d(self, n, i, win):
         """
 
- 
+
         Parameters
         ----------
-        n : 
+        n :
 
-        i : 
+        i :
 
-        win : 
+        win :
 
         Returns
         -------
@@ -2727,18 +2733,18 @@ class SeisScan(DefaultSeisScan):
 
         Parameters
         ----------
-        map_4d : 
+        map_4d :
 
 
         Returns
         -------
-        loc : 
+        loc :
 
-        loc_err : 
+        loc_err :
 
-        loc_cov : 
+        loc_cov :
 
-        loc_err_cov : 
+        loc_err_cov :
 
 
         """

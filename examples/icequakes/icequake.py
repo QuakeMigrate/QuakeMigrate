@@ -67,7 +67,7 @@ lut.save(lut_out)
 
 # Create a new instance of the MSEED class and set path structure
 data = cmseed.MSEED(lut_out, HOST_PATH=data_in)
-data.path_structure(path_type="YEAR/JD/STATION")
+data.path_structure(path_type="YEAR/JD/*_STATION")
 
 # Create a new instance of the SeisScan class
 scn = cscan.SeisScan(data, lut_out, output_path=output, output_name="icequake_example")
@@ -134,7 +134,7 @@ scn.locate(starttime, endtime)
 
 
 # Show the .event file, containing event origin time and location:
-icequake_event_fname = "outputs/runs/icequake/icequake_example_20140629184210336.event"
+icequake_event_fname = "outputs/runs/icequake/icequake_example_20140629T184210208000.event"
 with open(icequake_event_fname) as f:
     lines = f.readlines()
 for line in lines:
@@ -145,7 +145,7 @@ for line in lines:
 
 
 # Show the .stn file, containing station time picks:
-icequake_stn_fname = "outputs/runs/icequake/icequake_example_20140629184210336.stn"
+icequake_stn_fname = "outputs/runs/icequake/icequake_example_20140629T184210208000.stn"
 with open(icequake_stn_fname) as f:
     lines = f.readlines()
 for line in lines:
@@ -156,7 +156,7 @@ for line in lines:
 
 
 # Show the coalescence pdf file, containing event origin time and location:
-icequake_coal_image_fname = "outputs/runs/icequake/icequake_example_20140629184210336_EventLocationError.pdf"
+icequake_coal_image_fname = "outputs/runs/icequake/icequake_example_20140629T184210208000_EventLocationError.pdf"
 from IPython.display import IFrame # For plotting pdf
 IFrame(icequake_coal_image_fname, width=800, height=400) # Plot pdf
 

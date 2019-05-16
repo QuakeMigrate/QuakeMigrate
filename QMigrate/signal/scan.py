@@ -854,7 +854,7 @@ class SeisPlot:
 
         # Set coalescence trace limits
         # trace.set_ylim([0, i + 2])
-        trace.set_xlim([(self.data.start_time).datetime, np.max(tss)])
+        trace.set_xlim([(dt_max-0.1).datetime, (self.data.end_time-0.8).datetime])
         # trace.get_xaxis().set_ticks([])
         trace.yaxis.tick_right()
         trace.yaxis.set_ticks(sidx + 1)
@@ -1016,7 +1016,7 @@ class SeisPlot:
 
     def _plot_coa_trace(self, trace, x, y, st_idx, color):
         trace.plot(x, y / np.max(abs(y)) * self.trace_scale + (st_idx + 1),
-                   color=color, linewidth=0.5, zorder=10)
+                   color=color, linewidth=0.5, zorder=1)
 
     def _coalescence_image(self, tslice_idx):
         """
@@ -2195,10 +2195,15 @@ class SeisScan(DefaultSeisScan):
             COA_Y = coa_val["Y"].iloc[val_idx]
             COA_Z = coa_val["Z"].iloc[val_idx]
 
-            if (t_val - t_min) < self.minimum_repeat:
-                t_min = coa_val["DT"].iloc[min_idx] - self.minimum_repeat
-            if (t_max - t_val) < self.minimum_repeat:
-                t_max = coa_val["DT"].iloc[max_idx] + self.minimum_repeat
+            if (t_val - t_min) < self.marginal_window:
+                t_min = t_val - self.marginal_window - self.minimum_repeat
+            else:
+                t_min = t_min - self.minimum_repeat
+
+            if (t_max - t_val) < self.marginal_window:
+                t_max = t_val + self.marginal_window  + self.minimum_repeat
+            else:
+                t_max = t_max + self.minimum_repeat
 
             tmp = pd.DataFrame([[e, t_val,
                                 COA_V, COA_X, COA_Y, COA_Z,
@@ -2209,14 +2214,17 @@ class SeisScan(DefaultSeisScan):
             c = d + 1
             e += 1
 
-        n_evts = len(init_events)
+
+
+        
+
+        n_evts  = len(init_events)
         evt_num = np.ones((n_evts), dtype=int)
 
         count = 1
         for i, event in init_events.iterrows():
             evt_num[i] = count
-            if (i + 1 < n_evts) and ((event["MaxTime"]
-                                      - init_events["MinTime"].iloc[i + 1]) < 0):
+            if (i + 1 < n_evts) and ((event["MaxTime"] - (init_events["CoaTime"].iloc[i + 1] - self.marginal_window)) < 0):
                 count += 1
         init_events["EventNum"] = evt_num
 
@@ -2225,13 +2233,15 @@ class SeisScan(DefaultSeisScan):
             tmp = init_events[init_events["EventNum"] == i]
             tmp = tmp.reset_index(drop=True)
             j = np.argmax(tmp["COA_V"])
+            min_mt=np.min(tmp["MinTime"])
+            max_mt=np.max(tmp["MaxTime"])
             event = pd.DataFrame([[i, tmp["CoaTime"].iloc[j],
                                    tmp["COA_V"].iloc[j],
                                    tmp["COA_X"].iloc[j],
                                    tmp["COA_Y"].iloc[j],
                                    tmp["COA_Z"].iloc[j],
-                                   tmp["MinTime"].iloc[j] - self.marginal_window,
-                                   tmp["MaxTime"].iloc[j] + self.marginal_window]],
+                                   min_mt,
+                                   max_mt]],
                                  columns=event_cols)
             events = events.append(event, ignore_index=True)
 

@@ -1228,7 +1228,8 @@ class LUT(Grid3D, NonLinLoc):
                   block_model - whether or not to interpret the velocity model with constant velocity blocks
         '''
 
-        import subprocess
+        from subprocess import call, check_output, STDOUT
+        self.velocity_model = vmodel
         p0_x0, p0_y0, p0_z0 = gridspec[0]
         p0_x1, p0_y1, p0_z1 = gridspec[1]
         dx, dy, dz = gridspec[2]
@@ -1277,7 +1278,9 @@ class LUT(Grid3D, NonLinLoc):
 
             # get the maximum distance from station to corner of grid
             p1_st_loc = _coord_transform_np(p0, p1,
-                                np.asarray([p0_st_x, p0_st_y, p0_st_z]))
+                                            np.asarray([p0_st_x, 
+                                                        p0_st_y, 
+                                                        p0_st_z]))
             p1_st_x, p1_st_y, p1_st_z = p1_st_loc
 
             # for nonlinloc the distances must be in km
@@ -1285,20 +1288,33 @@ class LUT(Grid3D, NonLinLoc):
                                     np.square(Y - p1_st_y)) / \
                                     1000.
             max_dist = np.max(distance_grid)
+
+            # NLLOC needs the station to lie within the 2D section,
+            # therefore we pick the depth extent of the 2D grid from
+            # the maximum possible extent of the station and the grid
+            min_z = np.min([p1_z0, p1_st_z])
+            max_z = np.max([p1_z1, p1_st_z])
+            depth_extent = np.asarray([min_z, max_z])
+            # print(min_z, max_z)
         
             for phase in ['P', 'S']:
+                # on the depth extent we allow 2 nodes as a computational buffer
                 write_control_file(p1_st_x / 1000., p1_st_y / 1000., 
                                     p1_st_z / 1000., name, 
-                                    max_dist, vmodel,
-                                    (p1_z0 / 1000., p1_z1 / 1000.), 
+                                    max_dist, self.velocity_model,
+                                    depth_extent / 1000., 
                                     phase=phase, dx=nlloc_dx,
                                     block_model=block_model)
 
                 print('\tRunning NonLinLoc phase =', phase)
-                out = subprocess.check_output([os.path.join(nlloc_path, 'Vel2Grid'), 
-                                            'control.in'])
-                out = subprocess.check_output([os.path.join(nlloc_path, 'Grid2Time'), 
-                                            'control.in'])
+                out = check_output([os.path.join(nlloc_path, 'Vel2Grid'), 
+                                            'control.in'], stderr=STDOUT)
+                if b'ERROR' in out:
+                    raise Exception('Vel2Grid Error', out)
+                out = check_output([os.path.join(nlloc_path, 'Grid2Time'), 
+                                            'control.in'], stderr=STDOUT)
+                if b'ERROR' in out:
+                    raise Exception('Grid2Time Error', out)
                 # print(out)
 
                 data, _, _, nll_gridspec = read_2d_nlloc('./time/layer.{}.{}.time'.format(phase, name))
@@ -1322,9 +1338,9 @@ class LUT(Grid3D, NonLinLoc):
             i += 1
         
         # now define the rest of the lut paramters
-        x = p1_x0 + dx * ((nx -1) / 2.)
-        y = p1_y0 + dy * ((ny -1) / 2.)
-        z = p1_z0 + dz * ((nz -1) / 2.)
+        x = p1_x0 + dx * ((nx - 1) / 2.)
+        y = p1_y0 + dy * ((ny - 1) / 2.)
+        z = p1_z0 + dz * ((nz - 1) / 2.)
         self.cell_count = np.asarray([nx, ny, nz])
         self.cell_size = np.asarray([dx, dy, dz])
         self.longitude, self.latitude = self.xy2lonlat(x, y)
@@ -1335,7 +1351,7 @@ class LUT(Grid3D, NonLinLoc):
         
         self.maps = {'TIME_P' : p_travel_times, 'TIME_S' : s_travel_times}  
 
-        subprocess.call(['rm', '-rf', 'control.in', 'time', 'model'])  
+        call(['rm', '-rf', 'control.in', 'time', 'model'])  
 
     def compute_1d_vmodel_skfmm(self, path, delimiter=","):
         """

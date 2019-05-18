@@ -18,9 +18,9 @@ import matplotlib
 from scipy.interpolate import RegularGridInterpolator, griddata, interp1d
 try:
     os.environ["DISPLAY"]
-    matplotlib.use('Qt5Agg')
+    matplotlib.use("Qt5Agg")
 except KeyError:
-    matplotlib.use('Agg')
+    matplotlib.use("Agg")
 import matplotlib.pylab as plt
 
 
@@ -178,7 +178,7 @@ def read_2d_nlloc(froot):
     TRANSFORM  TRANS_MERC RefEllipsoid WGS-84  LatOrig 8.000000  LongOrig 38.000000  RotCW 0.000000
     """
 
-    with open(froot + '.hdr', 'r') as fid:
+    with open(froot + ".hdr", "r") as fid:
         line = fid.readline().split()
         nx = int(line[0])
         ny = int(line[1])
@@ -196,18 +196,18 @@ def read_2d_nlloc(froot):
         st_z = float(line[3])
 
     npts = nx * ny * nz
-    with open(froot + '.buf', 'rb') as fid:
+    with open(froot + ".buf", "rb") as fid:
         buf = fid.read(npts * 4)
-        data = struct.unpack('f' * npts, buf)
+        data = struct.unpack("f" * npts, buf)
 
-    data = np.reshape(data, (nx, ny, nz), order='C')
+    data = np.reshape(data, (nx, ny, nz), order="C")
     # print(data.shape)
 
     distance_x = x0 + (np.linspace(0, nx - 1, nx) * dx)
     distance_y = y0 + (np.linspace(0, ny - 1, ny) * dy)
     distance_z = z0 + (np.linspace(0, nz - 1, nz) * dz)
 
-    X, Y, Z = np.meshgrid(distance_x, distance_y, distance_z, indexing='ij')
+    X, Y, Z = np.meshgrid(distance_x, distance_y, distance_z, indexing="ij")
 
     distance = np.sqrt(np.square(X) + np.square(Y) + np.square(Z))
 
@@ -219,14 +219,14 @@ def grid_string(max_dist, max_depth, min_depth, dx):
     max_x = int(np.ceil(max_dist / dx)) + 5
     max_z = int(np.ceil((max_depth - min_depth) / dx)) + 5
 
-    string = '2 {0:d} {1:d} 0.0 0.0 {2:f} {3:f} {3:f} {3:f}'
+    string = "2 {0:d} {1:d} 0.0 0.0 {2:f} {3:f} {3:f} {3:f}"
     return string.format(max_x, max_z, min_depth, dx)
 
 
 def vgradient(i, vmodel, phase):
-    d_depth = vmodel['depth'][i+1] - vmodel['depth'][i]
-    d_vel_p = vmodel['vp'][i+1] - vmodel['vp'][i]
-    d_vel_s = vmodel['vs'][i+1] - vmodel['vs'][i]
+    d_depth = vmodel["depth"][i+1] - vmodel["depth"][i]
+    d_vel_p = vmodel["vp"][i+1] - vmodel["vp"][i]
+    d_vel_s = vmodel["vs"][i+1] - vmodel["vs"][i]
 
     return d_vel_p / d_depth, d_vel_s / d_depth
 
@@ -248,19 +248,19 @@ def vmodel_string(vmodel, block):
         else:
             gradientp = 0.
             gradients = 0.
-        out.append(string.format(vmodel['depth'][i] / 1000.,
-                                 vmodel['vp'][i] / 1000.,
-                                 vmodel['vs'][i] / 1000.,
+        out.append(string.format(vmodel["depth"][i] / 1000.,
+                                 vmodel["vp"][i] / 1000.,
+                                 vmodel["vs"][i] / 1000.,
                                  gradientp, gradients))
         i += 1
 
-    return '\n'.join(out)
+    return "\n".join(out)
 
 
 def write_control_file(x, y, z, name, max_dist,
-                       vmodel, depth_limits, phase='P',
+                       vmodel, depth_limits, phase="P",
                        dx=0.2, block_model=True):
-    control_string = '''CONTROL 0 54321
+    control_string = """CONTROL 0 54321
     TRANS NONE
     #TRANS LAMBERT WGS-84 8.0 38.0 8.2 8.4 0.0
     #TRANS TRANS_MERC WGS-84 8.0 38.0 0.0
@@ -286,7 +286,7 @@ def write_control_file(x, y, z, name, max_dist,
     GTSRCE {name:s} XYZ {x:f} {y:f} {z:f} 0.0
 
     GT_PLFD 1.0E-3 0
-                    '''
+                    """
     outstring = control_string.format(phase=phase,
                                       grid=grid_string(max_dist,
                                                        depth_limits[1],
@@ -295,7 +295,7 @@ def write_control_file(x, y, z, name, max_dist,
                                                            block_model),
                                       name=name, y=y, x=x, z=z)
 
-    with open('./control.in', 'w') as fid:
+    with open("./control.in", "w") as fid:
         fid.write(outstring)
 
     # print(outstring)
@@ -518,7 +518,7 @@ class Grid3D(object):
 
     @cell_count.setter
     def cell_count(self, value):
-        value = np.array(value, dtype='int32')
+        value = np.array(value, dtype="int32")
         if value.size == 1:
             value = np.repeat(value, 3)
         else:
@@ -537,7 +537,7 @@ class Grid3D(object):
 
     @cell_size.setter
     def cell_size(self, value):
-        value = np.array(value, dtype='float64')
+        value = np.array(value, dtype="float64")
         if value.size == 1:
             value = np.repeat(value, 3)
         else:
@@ -599,8 +599,8 @@ class Grid3D(object):
 
     @grid_centre.setter
     def grid_centre(self, value):
-        value = np.array(value, dtype='float64')
-        assert (value.shape == (3,)), 'Grid centre must be [x, y, z] array.'
+        value = np.array(value, dtype="float64")
+        assert (value.shape == (3,)), "Grid centre must be [x, y, z] array."
         self._grid_centre = value
 
     @property
@@ -665,7 +665,7 @@ class Grid3D(object):
 
     def index2loc(self, value, inverse=False):
         if inverse:
-            return np.ravel_multi_index(value, self.cell_count, mode='clip',
+            return np.ravel_multi_index(value, self.cell_count, mode="clip",
                                         order=self.sort_order)
         else:
             out = np.vstack(np.unravel_index(value, self.cell_count,
@@ -796,7 +796,7 @@ class NonLinLoc:
         """
 
         # Read the .hdr file
-        f = open('{}.hdr'.format(filename), 'r')
+        f = open("{}.hdr".format(filename), "r")
 
         # Defining the grid dimensions
         params = f.readline().split()
@@ -822,7 +822,7 @@ class NonLinLoc:
         if trans[1] == "SIMPLE":
             self.NLLoc_proj = "SIMPLE"
             self.NLLoc_MapOrg = [trans[5], trans[3], trans[7],
-                                 "SIMPLE", '0.0', '0.0']
+                                 "SIMPLE", "0.0", "0.0"]
         if trans[1] == "LAMBERT":
             self.NLLoc_proj = "LAMBERT"
             self.NLLoc_MapOrg = [trans[7], trans[5], trans[13],
@@ -830,11 +830,11 @@ class NonLinLoc:
         if trans[1] == "TRANS_MERC":
             self.NLLoc_proj = "TRANS_MERC"
             self.NLLoc_MapOrg = [trans[7], trans[5], trans[9],
-                                 trans[3], '0.0', '0.0']
+                                 trans[3], "0.0", "0.0"]
 
         # Reading the .buf file
-        fid = open('{}.buf'.format(filename), 'rb')
-        data = struct.unpack('{}f'.format(self.NLLoc_n[0]
+        fid = open("{}.buf".format(filename), "rb")
+        data = struct.unpack("{}f".format(self.NLLoc_n[0]
                                           * self.NLLoc_n[1]
                                           * self.NLLoc_n[2]),
                              fid.read(self.NLLoc_n[0]
@@ -883,7 +883,7 @@ class NonLinLoc:
                                     OrgZ.flatten()),
                                    self.NLLoc_data.flatten(),
                                    (NewX, NewY, NewZ),
-                                   method='nearest')
+                                   method="nearest")
 
     def nlloc_regrid(self, decimate):
         """
@@ -1006,24 +1006,24 @@ class LUT(Grid3D, NonLinLoc):
         stats = pd.read_csv(path, delimiter=delimiter).values
 
         stn_data = {}
-        if units == 'offset':
-            stn_lon, stn_lat = self.xy2lonlat(stats[:, 0].astype('float')
+        if units == "offset":
+            stn_lon, stn_lat = self.xy2lonlat(stats[:, 0].astype("float")
                                               + self.grid_centre[0],
-                                              stats[:, 1].astype('float')
+                                              stats[:, 1].astype("float")
                                               + self.grid_centre[1])
-        elif units == 'xyz':
+        elif units == "xyz":
             stn_lon, stn_lat = self.xy2lonlat(stats[:, 0], stats[:, 1])
-        elif units == 'lon_lat_elev':
+        elif units == "lon_lat_elev":
             stn_lon = stats[:, 0]
             stn_lat = stats[:, 1]
-        elif units == 'lat_lon_elev':
+        elif units == "lat_lon_elev":
             stn_lon = stats[:, 1]
             stn_lat = stats[:, 0]
 
-        stn_data['Longitude'] = stn_lon
-        stn_data['Latitude'] = stn_lat
-        stn_data['Elevation'] = stats[:, 2]
-        stn_data['Name'] = stats[:, 3]
+        stn_data["Longitude"] = stn_lon
+        stn_data["Latitude"] = stn_lat
+        stn_data["Elevation"] = stats[:, 2]
+        stn_data["Name"] = stats[:, 3]
 
         self.station_data = stn_data
 
@@ -1033,8 +1033,8 @@ class LUT(Grid3D, NonLinLoc):
         else:
             station = self._select_station(station)
             stn = self.station_data[station]
-        x, y = self.xy2lonlat(stn['Longitude'], stn['Latitude'], inverse=True)
-        coord = np.c_[x, y, stn['Elevation']]
+        x, y = self.xy2lonlat(stn["Longitude"], stn["Latitude"], inverse=True)
+        coord = np.c_[x, y, stn["Elevation"]]
         return coord
 
     def station_offset(self, station=None):
@@ -1056,7 +1056,7 @@ class LUT(Grid3D, NonLinLoc):
 
         nstn = len(self.station_data)
         flag = np.array(np.zeros(nstn, dtype=np.bool))
-        for i, stn in enumerate(self.station_data['Name']):
+        for i, stn in enumerate(self.station_data["Name"]):
             if stn in station_data:
                 flag[i] = True
 
@@ -1073,7 +1073,7 @@ class LUT(Grid3D, NonLinLoc):
 
         TO-DO
         -----
-        I'm not sure that the inplace operation is doing the right thing? - CB
+        I"m not sure that the inplace operation is doing the right thing? - CB
 
 
         """
@@ -1189,7 +1189,7 @@ class LUT(Grid3D, NonLinLoc):
                      "TIME_S": s_map}
 
     def compute_1d_vmodel(self, p0, p1, gridspec, vmodel, nlloc_dx=0.1,
-                          nlloc_path='', block_model=False):
+                          nlloc_path="", block_model=False):
         """
         Calculate 3D travel time lookup-tables from a 1D velocity model.
 
@@ -1217,7 +1217,8 @@ class LUT(Grid3D, NonLinLoc):
             Interpret velocity model with constant velocity blocks
         """
 
-        import subprocess
+        from subprocess import call, check_output, STDOUT
+        self.velocity_model = vmodel
         p0_x0, p0_y0, p0_z0 = gridspec[0]
         p0_x1, p0_y1, p0_z1 = gridspec[1]
         dx, dy, dz = gridspec[2]
@@ -1248,24 +1249,24 @@ class LUT(Grid3D, NonLinLoc):
         yvec = p1_y0 + (np.linspace(0, ny - 1, ny) * dy)
         zvec = p1_z0 + (np.linspace(0, nz - 1, nz) * dz)
 
-        X, Y, Z = np.meshgrid(xvec, yvec, zvec, indexing='ij')
+        X, Y, Z = np.meshgrid(xvec, yvec, zvec, indexing="ij")
 
         # make a folder structure to run nonlinloc in
-        os.makedirs('time', exist_ok=True)
-        os.makedirs('model', exist_ok=True)
+        os.makedirs("time", exist_ok=True)
+        os.makedirs("model", exist_ok=True)
 
-        nstation = len(self.station_data['Name'])
+        nstation = len(self.station_data["Name"])
 
         p_travel_times = np.empty((nx, ny, nz, nstation))
         s_travel_times = np.empty_like(p_travel_times)
         i = 0
         while i < nstation:
-            p0_st_y = self.station_data['Latitude'][i]
-            p0_st_x = self.station_data['Longitude'][i]
-            p0_st_z = -self.station_data['Elevation'][i]
-            name = self.station_data['Name'][i]
+            p0_st_y = self.station_data["Latitude"][i]
+            p0_st_x = self.station_data["Longitude"][i]
+            p0_st_z = -self.station_data["Elevation"][i]
+            name = self.station_data["Name"][i]
 
-            print('Calculating Travel Time for station', name)
+            print("Calculating Travel Time for station", name)
 
             # get the maximum distance from station to corner of grid
             p1_st_loc = _coord_transform_np(p0, p1,
@@ -1279,24 +1280,35 @@ class LUT(Grid3D, NonLinLoc):
                                     np.square(Y - p1_st_y)) / 1000.
             max_dist = np.max(distance_grid)
 
-            for phase in ['P', 'S']:
+            # NLLOC needs the station to lie within the 2D section,
+            # therefore we pick the depth extent of the 2D grid from
+            # the maximum possible extent of the station and the grid
+            min_z = np.min([p1_z0, p1_st_z])
+            max_z = np.max([p1_z1, p1_st_z])
+            depth_extent = np.asarray([min_z, max_z])
+
+            for phase in ["P", "S"]:
+                # Allow 2 nodes on depth extent as a computational buffer
                 write_control_file(p1_st_x / 1000., p1_st_y / 1000.,
                                    p1_st_z / 1000., name,
-                                   max_dist, vmodel,
-                                   (p1_z0 / 1000., p1_z1 / 1000.),
+                                   max_dist, self.velocity_model,
+                                   depth_extent / 1000.,
                                    phase=phase, dx=nlloc_dx,
                                    block_model=block_model)
 
-                print('\tRunning NonLinLoc phase =', phase)
-                out = subprocess.check_output([os.path.join(nlloc_path,
-                                                            'Vel2Grid'),
-                                              'control.in'])
-                out = subprocess.check_output([os.path.join(nlloc_path,
-                                                            'Grid2Time'),
-                                              'control.in'])
-                # print(out)
+                print("\tRunning NonLinLoc phase =", phase)
+                out = check_output([os.path.join(nlloc_path, "Vel2Grid"),
+                                   "control.in"], stderr=STDOUT)
+                if b"ERROR" in out:
+                    raise Exception("Vel2Grid Error", out)
 
-                data, _, _, nll_gridspec = read_2d_nlloc('./time/layer.{}.{}.time'.format(phase, name))
+                out = check_output([os.path.join(nlloc_path, "Grid2Time"),
+                                    "control.in"], stderr=STDOUT)
+                if b"ERROR" in out:
+                    raise Exception("Grid2Time Error", out)
+
+                to_read = "./time/layer.{}.{}.time".format(phase, name)
+                data, _, _, nll_gridspec = read_2d_nlloc(to_read)
 
                 distance = distance_grid.flatten()
                 depth = Z.flatten() / 1000.
@@ -1307,12 +1319,12 @@ class LUT(Grid3D, NonLinLoc):
                                               data[0, :, :])
 
                 travel_time = np.reshape(travel_time, (nx, ny, nz))
-                if phase == 'P':
+                if phase == "P":
                     p_travel_times[..., i] = travel_time
-                elif phase == 'S':
+                elif phase == "S":
                     s_travel_times[..., i] = travel_time
                 else:
-                    raise Exception('HELP')
+                    raise Exception("HELP")
 
             i += 1
 
@@ -1328,9 +1340,9 @@ class LUT(Grid3D, NonLinLoc):
         self.dip = 0.0
         self._update_grid_centre()
 
-        self.maps = {'TIME_P' : p_travel_times, 'TIME_S' : s_travel_times}
+        self.maps = {"TIME_P": p_travel_times, "TIME_S": s_travel_times}
 
-        subprocess.call(['rm', '-rf', 'control.in', 'time', 'model'])
+        call(["rm", "-rf", "control.in", "time", "model"])
 
     def compute_1d_vmodel_skfmm(self, path, delimiter=","):
         """
@@ -1420,7 +1432,7 @@ class LUT(Grid3D, NonLinLoc):
             print(msg)
 
             # Reading in P-wave
-            self.nlloc_load_file('{}.P.{}.time'.format(path, name))
+            self.nlloc_load_file("{}.P.{}.time".format(path, name))
             if not regrid:
                 self.nlloc_project_grid()
             else:
@@ -1437,7 +1449,7 @@ class LUT(Grid3D, NonLinLoc):
 
             p_map[..., st] = self.NLLoc_data
 
-            self.nlloc_load_file('{}.S.{}.time'.format(path, name))
+            self.nlloc_load_file("{}.S.{}.time".format(path, name))
             if not regrid:
                 self.nlloc_project_grid()
             else:
@@ -1459,7 +1471,7 @@ class LUT(Grid3D, NonLinLoc):
 
         """
 
-        file = open(filename, 'wb')
+        file = open(filename, "wb")
         pickle.dump(self.__dict__, file, 2)
         file.close()
 
@@ -1474,7 +1486,7 @@ class LUT(Grid3D, NonLinLoc):
 
         """
 
-        file = open(filename, 'rb')
+        file = open(filename, "rb")
         tmp_dict = pickle.load(file)
         self.__dict__.update(tmp_dict)
 

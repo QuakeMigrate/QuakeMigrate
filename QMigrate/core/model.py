@@ -1060,6 +1060,8 @@ class LUT(Grid3D, NonLinLoc):
             if stn in station_data:
                 flag[i] = True
 
+        return flag
+
     def decimate(self, ds, inplace=False):
         """
         Up- or down-sample the travel-time tables by some factor

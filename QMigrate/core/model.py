@@ -1054,7 +1054,7 @@ class LUT(Grid3D, NonLinLoc):
         if self.station_data is None:
             return station_data
 
-        nstn = len(self.station_data)
+        nstn = len(self.station_data["Name"])
         flag = np.array(np.zeros(nstn, dtype=np.bool))
         for i, stn in enumerate(self.station_data["Name"]):
             if stn in station_data:

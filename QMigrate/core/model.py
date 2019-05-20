@@ -753,180 +753,180 @@ class Grid3D(object):
         return lx, ly, lz
 
 
-class NonLinLoc:
-    """
-    NonLinLoc class
+# class NonLinLoc:
+#     """
+#     NonLinLoc class
 
-    Reading and manipulating NLLoc Grids in a 2D or 3D format
+#     Reading and manipulating NLLoc Grids in a 2D or 3D format
 
-    Attributes
-    ----------
+#     Attributes
+#     ----------
 
-    Methods
-    -------
-    nlloc_load_file(filename)
-        Parses information from .hdr and .buf files into NonLinLoc variables
+#     Methods
+#     -------
+#     nlloc_load_file(filename)
+#         Parses information from .hdr and .buf files into NonLinLoc variables
 
-    TO-DO
-    -----
-    Loading of 2D travel-times
-
-
-    """
-
-    def __init__(self):
-        self.NLLoc_n = np.array([0, 0, 0])
-        self.NLLoc_org = np.array([0, 0, 0])
-        self.NLLoc_size = np.array([0, 0, 0])
-        self.NLLoc_type = "TIME"
-        self.NLLoc_proj = "NONE"
-        # Has form lon - lat - rotation - reference ellipsoid - std1 - std2
-        self.NLLoc_MapOrg = [0.0, 0.0, 0.0, "SIMPLE", 0.0, 0.0]
-        self.NLLoc_data = None
-
-    def nlloc_load_file(self, filename):
-        """
-        Parse information from .hdr and .buf files into NonLinLoc variables
-
-        Parameters
-        ----------
-        filename : str
-            File name (not including extension)
-
-        """
-
-        # Read the .hdr file
-        f = open("{}.hdr".format(filename), "r")
-
-        # Defining the grid dimensions
-        params = f.readline().split()
-        self.NLLoc_n = np.array([int(params[0]),
-                                 int(params[1]),
-                                 int(params[2])])
-        self.NLLoc_org = np.array([float(params[3]),
-                                   float(params[4]),
-                                   float(params[5])])
-        self.NLLoc_size = np.array([float(params[6]),
-                                   float(params[7]),
-                                   float(params[8])])
-        self.NLLoc_type = params[9]
-
-        # Defining the station information
-        stats = f.readline().split()
-        del stats
-
-        # Defining the transform information
-        trans = f.readline().split()
-        if trans[1] == "NONE":
-            self.NLLoc_proj = "NONE"
-        if trans[1] == "SIMPLE":
-            self.NLLoc_proj = "SIMPLE"
-            self.NLLoc_MapOrg = [trans[5], trans[3], trans[7],
-                                 "SIMPLE", "0.0", "0.0"]
-        if trans[1] == "LAMBERT":
-            self.NLLoc_proj = "LAMBERT"
-            self.NLLoc_MapOrg = [trans[7], trans[5], trans[13],
-                                 trans[3], trans[9], trans[11]]
-        if trans[1] == "TRANS_MERC":
-            self.NLLoc_proj = "TRANS_MERC"
-            self.NLLoc_MapOrg = [trans[7], trans[5], trans[9],
-                                 trans[3], "0.0", "0.0"]
-
-        # Reading the .buf file
-        fid = open("{}.buf".format(filename), "rb")
-        data = struct.unpack("{}f".format(self.NLLoc_n[0]
-                                          * self.NLLoc_n[1]
-                                          * self.NLLoc_n[2]),
-                             fid.read(self.NLLoc_n[0]
-                                      * self.NLLoc_n[1]
-                                      * self.NLLoc_n[2] * 4))
-        self.NLLoc_data = np.array(data).reshape(self.NLLoc_n[0],
-                                                 self.NLLoc_n[1],
-                                                 self.NLLoc_n[2])
-
-    def nlloc_project_grid(self):
-        """
-        Projecting the grid to the new coordinate system.
-
-        This function also determines the 3D grid from the 2D grids from
-        NonLinLoc
-
-        """
-
-        # Generating the correct NonLinLoc Formatted Grid
-        if self.NLLoc_proj == "NONE":
-            GRID_NLLOC = Grid3D(cell_count=self.NLLoc_n,
-                                cell_size=self.NLLoc_size,
-                                azimuth=0.0,
-                                dip=0.0)
-            GRID_NLLOC.nlloc_grid_centre(self.NLLoc_org[0], self.NLLoc_org[1])
-        else:
-            GRID_NLLOC = Grid3D(cell_count=self.NLLoc_n,
-                                cell_size=self.NLLoc_size,
-                                azimuth=self.NLLoc_MapOrg[2],
-                                dip=0.0)
-            GRID_NLLOC.lonlat_centre(self.NLLoc_MapOrg[0],
-                                     self.NLLoc_MapOrg[1])
-
-        # TO-DO: What is the text in NLLoc_MapOrg[3]?
-        if self.NLLoc_proj == "LAMBERT":
-            GRID_NLLOC.projections(grid_proj=self.NLLoc_MapOrg[3])
-
-        if self.NLLoc_proj == "TRANS_MERC":
-            GRID_NLLOC.projections(grid_proj=self.NLLoc_MapOrg[3])
-
-        OrgX, OrgY, OrgZ = GRID_NLLOC.grid_xyz
-        NewX, NewY, NewZ = self.grid_xyz
-
-        self.NLLoc_data = griddata((OrgX.flatten(),
-                                    OrgY.flatten(),
-                                    OrgZ.flatten()),
-                                   self.NLLoc_data.flatten(),
-                                   (NewX, NewY, NewZ),
-                                   method="nearest")
-
-    def nlloc_regrid(self, decimate):
-        """
-        Redefining coordinate system to the file loaded
-
-        Parameters
-        ----------
-        decimate :
+#     TO-DO
+#     -----
+#     Loading of 2D travel-times
 
 
-        """
+#     """
 
-        centre = self.NLLoc_org + self.NLLoc_size * (self.NLLoc_n - 1) / 2
-        self.centre = centre * [1000, 1000, -1000]
-        self.elevation = self.NLLoc_org[2] * -1000
-        self.cell_count = self.NLLoc_n
-        self.cell_size = self.NLLoc_size * 1000
-        self.dip = 0.0
+#     def __init__(self):
+#         self.NLLoc_n = np.array([0, 0, 0])
+#         self.NLLoc_org = np.array([0, 0, 0])
+#         self.NLLoc_size = np.array([0, 0, 0])
+#         self.NLLoc_type = "TIME"
+#         self.NLLoc_proj = "NONE"
+#         # Has form lon - lat - rotation - reference ellipsoid - std1 - std2
+#         self.NLLoc_MapOrg = [0.0, 0.0, 0.0, "SIMPLE", 0.0, 0.0]
+#         self.NLLoc_data = None
 
-        if self.NLLoc_proj == "NONE":
-            self.azimuth = 0.0
-            self.grid_centre = self.centre
+#     def nlloc_load_file(self, filename):
+#         """
+#         Parse information from .hdr and .buf files into NonLinLoc variables
 
-        if self.NLLoc_proj == "SIMPLE":
-            self.azimuth = self.NLLoc_MapOrg[2]
-            self.nlloc_grid_centre(float(self.NLLoc_MapOrg[0]),
-                                   float(self.NLLoc_MapOrg[1]))
+#         Parameters
+#         ----------
+#         filename : str
+#             File name (not including extension)
 
-        if self.NLLoc_proj == "LAMBERT":
-            self.azimuth = float(self.NLLoc_MapOrg[2])
-            self.nlloc_grid_centre(float(self.NLLoc_MapOrg[0]),
-                                   float(self.NLLoc_MapOrg[1]))
+#         """
 
-        if self.NLLoc_proj == "TRANS_MERC":
-            self.azimuth = float(self.NLLoc_MapOrg[2])
-            self.nlloc_grid_centre(float(self.NLLoc_MapOrg[0]),
-                                   float(self.NLLoc_MapOrg[1]))
+#         # Read the .hdr file
+#         f = open("{}.hdr".format(filename), "r")
 
-        self.NLLoc_data = self.decimate_array(self.NLLoc_data,
-                                              np.array(decimate))[:, :, ::-1]
+#         # Defining the grid dimensions
+#         params = f.readline().split()
+#         self.NLLoc_n = np.array([int(params[0]),
+#                                  int(params[1]),
+#                                  int(params[2])])
+#         self.NLLoc_org = np.array([float(params[3]),
+#                                    float(params[4]),
+#                                    float(params[5])])
+#         self.NLLoc_size = np.array([float(params[6]),
+#                                    float(params[7]),
+#                                    float(params[8])])
+#         self.NLLoc_type = params[9]
+
+#         # Defining the station information
+#         stats = f.readline().split()
+#         del stats
+
+#         # Defining the transform information
+#         trans = f.readline().split()
+#         if trans[1] == "NONE":
+#             self.NLLoc_proj = "NONE"
+#         if trans[1] == "SIMPLE":
+#             self.NLLoc_proj = "SIMPLE"
+#             self.NLLoc_MapOrg = [trans[5], trans[3], trans[7],
+#                                  "SIMPLE", "0.0", "0.0"]
+#         if trans[1] == "LAMBERT":
+#             self.NLLoc_proj = "LAMBERT"
+#             self.NLLoc_MapOrg = [trans[7], trans[5], trans[13],
+#                                  trans[3], trans[9], trans[11]]
+#         if trans[1] == "TRANS_MERC":
+#             self.NLLoc_proj = "TRANS_MERC"
+#             self.NLLoc_MapOrg = [trans[7], trans[5], trans[9],
+#                                  trans[3], "0.0", "0.0"]
+
+#         # Reading the .buf file
+#         fid = open("{}.buf".format(filename), "rb")
+#         data = struct.unpack("{}f".format(self.NLLoc_n[0]
+#                                           * self.NLLoc_n[1]
+#                                           * self.NLLoc_n[2]),
+#                              fid.read(self.NLLoc_n[0]
+#                                       * self.NLLoc_n[1]
+#                                       * self.NLLoc_n[2] * 4))
+#         self.NLLoc_data = np.array(data).reshape(self.NLLoc_n[0],
+#                                                  self.NLLoc_n[1],
+#                                                  self.NLLoc_n[2])
+
+#     def nlloc_project_grid(self):
+#         """
+#         Projecting the grid to the new coordinate system.
+
+#         This function also determines the 3D grid from the 2D grids from
+#         NonLinLoc
+
+#         """
+
+#         # Generating the correct NonLinLoc Formatted Grid
+#         if self.NLLoc_proj == "NONE":
+#             GRID_NLLOC = Grid3D(cell_count=self.NLLoc_n,
+#                                 cell_size=self.NLLoc_size,
+#                                 azimuth=0.0,
+#                                 dip=0.0)
+#             GRID_NLLOC.nlloc_grid_centre(self.NLLoc_org[0], self.NLLoc_org[1])
+#         else:
+#             GRID_NLLOC = Grid3D(cell_count=self.NLLoc_n,
+#                                 cell_size=self.NLLoc_size,
+#                                 azimuth=self.NLLoc_MapOrg[2],
+#                                 dip=0.0)
+#             GRID_NLLOC.lonlat_centre(self.NLLoc_MapOrg[0],
+#                                      self.NLLoc_MapOrg[1])
+
+#         # TO-DO: What is the text in NLLoc_MapOrg[3]?
+#         if self.NLLoc_proj == "LAMBERT":
+#             GRID_NLLOC.projections(grid_proj=self.NLLoc_MapOrg[3])
+
+#         if self.NLLoc_proj == "TRANS_MERC":
+#             GRID_NLLOC.projections(grid_proj=self.NLLoc_MapOrg[3])
+
+#         OrgX, OrgY, OrgZ = GRID_NLLOC.grid_xyz
+#         NewX, NewY, NewZ = self.grid_xyz
+
+#         self.NLLoc_data = griddata((OrgX.flatten(),
+#                                     OrgY.flatten(),
+#                                     OrgZ.flatten()),
+#                                    self.NLLoc_data.flatten(),
+#                                    (NewX, NewY, NewZ),
+#                                    method="nearest")
+
+#     def nlloc_regrid(self, decimate):
+#         """
+#         Redefining coordinate system to the file loaded
+
+#         Parameters
+#         ----------
+#         decimate :
 
 
-class LUT(Grid3D, NonLinLoc):
+#         """
+
+#         centre = self.NLLoc_org + self.NLLoc_size * (self.NLLoc_n - 1) / 2
+#         self.centre = centre * [1000, 1000, -1000]
+#         self.elevation = self.NLLoc_org[2] * -1000
+#         self.cell_count = self.NLLoc_n
+#         self.cell_size = self.NLLoc_size * 1000
+#         self.dip = 0.0
+
+#         if self.NLLoc_proj == "NONE":
+#             self.azimuth = 0.0
+#             self.grid_centre = self.centre
+
+#         if self.NLLoc_proj == "SIMPLE":
+#             self.azimuth = self.NLLoc_MapOrg[2]
+#             self.nlloc_grid_centre(float(self.NLLoc_MapOrg[0]),
+#                                    float(self.NLLoc_MapOrg[1]))
+
+#         if self.NLLoc_proj == "LAMBERT":
+#             self.azimuth = float(self.NLLoc_MapOrg[2])
+#             self.nlloc_grid_centre(float(self.NLLoc_MapOrg[0]),
+#                                    float(self.NLLoc_MapOrg[1]))
+
+#         if self.NLLoc_proj == "TRANS_MERC":
+#             self.azimuth = float(self.NLLoc_MapOrg[2])
+#             self.nlloc_grid_centre(float(self.NLLoc_MapOrg[0]),
+#                                    float(self.NLLoc_MapOrg[1]))
+
+#         self.NLLoc_data = self.decimate_array(self.NLLoc_data,
+#                                               np.array(decimate))[:, :, ::-1]
+
+
+class LUT(Grid3D):
     """
     Look-Up Table class
 
@@ -980,7 +980,6 @@ class LUT(Grid3D, NonLinLoc):
         """
 
         Grid3D.__init__(self, cell_count, cell_size, azimuth, dip)
-        NonLinLoc.__init__(self)
 
         self.velocity_model = None
         self.station_data = None
@@ -1408,62 +1407,166 @@ class LUT(Grid3D, NonLinLoc):
         """
         raise NotImplementedError
 
-    def read_3d_nlloc_lut(self, path, regrid=False, decimate=[1, 1, 1]):
+    # def read_3d_nlloc_lut(self, path, regrid=False, decimate=[1, 1, 1]):
+    #     """
+    #     Calculate the travel-time tables for each station in a velocity model
+    #     that varies over all dimensions.
+
+    #     This velocity model comes from a NonLinLoc velocity model file.
+
+    #     Parameters
+    #     ----------
+    #     path : str
+    #         Location of .buf and .hdr files
+
+    #     Raises
+    #     ------
+    #     MemoryError
+    #         If travel-time grids size exceeds available memory
+
+    #     """
+
+    #     nstn = len(self.station_data["Name"])
+    #     for st in range(nstn):
+    #         name = self.station_data["Name"][st]
+    #         msg = "Loading P- and S- traveltime maps for {}"
+    #         msg = msg.format(name)
+    #         print(msg)
+
+    #         # Reading in P-wave
+    #         self.nlloc_load_file("{}.P.{}.time".format(path, name))
+    #         if not regrid:
+    #             self.nlloc_project_grid()
+    #         else:
+    #             self.nlloc_regrid(decimate)
+
+    #         if ("p_map" not in locals()) and ("s_map" not in locals()):
+    #             ncell = self.NLLoc_data.shape
+    #             try:
+    #                 p_map = np.zeros(np.r_[ncell, nstn])
+    #                 s_map = np.zeros(np.r_[ncell, nstn])
+    #             except MemoryError:
+    #                 msg = "P- and S-traveltime maps exceed available memory."
+    #                 raise MemoryError(msg)
+
+    #         p_map[..., st] = self.NLLoc_data
+
+    #         self.nlloc_load_file("{}.S.{}.time".format(path, name))
+    #         if not regrid:
+    #             self.nlloc_project_grid()
+    #         else:
+    #             self.nlloc_regrid(decimate)
+
+    #         s_map[..., st] = self.NLLoc_data
+
+    #     self.maps = {"TIME_P": p_map,
+    #                  "TIME_S": s_map}
+
+    def write_grids(self, fpath):
+        '''
+        Writes the travel time look-up tables as binary files.
+        File format is similar, but not identical to the NLLoc
+        format.
+        '''
+
+        import struct
+
+        nstation = len(self.station_data['Name'])
+        for phase in ['P', 'S']:
+            m = self.fetch_map('_'.join(['TIME', phase]))
+
+            for i in range(nstation):
+                station = self.station_data['Name'][i]
+
+                fname = '.'.join([station, phase, 'buf'])  
+                froot = os.path.join(fpath, fname)
+
+
+                time = m[..., i].flatten(order='C')
+                npts = len(time)
+                byte_string = struct.pack('f' * npts, *time)
+                with open(froot, 'wb') as fid:
+                    fid.write(byte_string)
+
+    def save(self, fpath):
         """
-        Calculate the travel-time tables for each station in a velocity model
-        that varies over all dimensions.
-
-        This velocity model comes from a NonLinLoc velocity model file.
-
-        Parameters
-        ----------
-        path : str
-            Location of .buf and .hdr files
-
-        Raises
-        ------
-        MemoryError
-            If travel-time grids size exceeds available memory
-
+        Writes the header information of the look-up table as a
+        JSON file and saves the grids as binary floats
         """
 
-        nstn = len(self.station_data["Name"])
-        for st in range(nstn):
-            name = self.station_data["Name"][st]
-            msg = "Loading P- and S- traveltime maps for {}"
-            msg = msg.format(name)
-            print(msg)
+        import json
 
-            # Reading in P-wave
-            self.nlloc_load_file("{}.P.{}.time".format(path, name))
-            if not regrid:
-                self.nlloc_project_grid()
-            else:
-                self.nlloc_regrid(decimate)
+        fname = 'lut.hdr.json'
+        save_dic = {'cell_count' : self.cell_count.tolist(),
+                    'cell_size' : self.cell_size.tolist(),
+                    'coord_proj' : self._coord_proj.srs,
+                    'grid_proj' : self._grid_proj.srs,
+                    'grid_centre' : self.grid_centre.tolist(),
+                    'azimuth' : self.azimuth,
+                    'dip' : self.dip,
+                    'longitude' : self.longitude, 
+                    'latitude' : self.latitude,
+                    'elevation' : self.elevation,
+                    'stations' : dict(tuple([(key, self.station_data[key].tolist()) for key in self.station_data.keys()])),
+                    'vmodel' : self.velocity_model.values.tolist()}
+        print(self.__dict__.keys())
+        with open(os.path.join(fpath, fname), 'w') as fid:
+            json.dump(save_dic, fid)
+        
+        self.write_grids(fpath)
 
-            if ("p_map" not in locals()) and ("s_map" not in locals()):
-                ncell = self.NLLoc_data.shape
-                try:
-                    p_map = np.zeros(np.r_[ncell, nstn])
-                    s_map = np.zeros(np.r_[ncell, nstn])
-                except MemoryError:
-                    msg = "P- and S-traveltime maps exceed available memory."
-                    raise MemoryError(msg)
+    def load(self, fpath, header_only=False):
+        """
+        The default way of loading a saved look-up table
+        """
 
-            p_map[..., st] = self.NLLoc_data
+        import json
+        import struct
+        import pandas as pds
+        # read in the JSON file
 
-            self.nlloc_load_file("{}.S.{}.time".format(path, name))
-            if not regrid:
-                self.nlloc_project_grid()
-            else:
-                self.nlloc_regrid(decimate)
+        fname = 'lut.hdr.json'
+        with open(os.path.join(fpath, fname), 'r') as fid:
+            save_dic = json.load(fid)
+        
+        self.cell_count = save_dic['cell_count']
+        self.cell_size = save_dic['cell_size']
+        self._coord_proj = save_dic['coord_proj']
+        self._grid_proj = save_dic['grid_proj']
+        self.grid_centre = save_dic['grid_centre']
+        self.azimuth = save_dic['azimuth']
+        self.dip = save_dic['dip']
+        self._longitude = save_dic['longitude']
+        self._latitude = save_dic['latitude']
+        self._elevation = save_dic['elevation']
+        self.station_data = dict(tuple([(key, np.asarray(save_dic['stations'][key])) for key in save_dic['stations'].keys()]))
+        self.velocity_model = pds.DataFrame(save_dic['vmodel'], columns=['depth', 'vp', 'vs'])
 
-            s_map[..., st] = self.NLLoc_data
+        if not header_only:
+            stations = self.station_data['Name']
+            nstations = len(stations)
+            npts = np.prod(self.cell_count)
 
-        self.maps = {"TIME_P": p_map,
-                     "TIME_S": s_map}
+            p_time = np.empty((self.cell_count[0], 
+                              self.cell_count[1],
+                              self.cell_count[2],
+                              nstations))
+            s_time = np.empty_like(p_time)
+            self.maps = {"TIME_P": p_time, "TIME_S": s_time}
 
-    def save(self, filename):
+            for phase in ['P', 'S']:
+                m = self.maps['TIME_' + phase]
+                for i, station in enumerate(stations):
+                    print(i, station)
+                    fname = '.'.join([station, phase, 'buf'])  
+                    froot = os.path.join(fpath, fname)
+
+                    with open(froot, 'rb') as fid:
+                        data = fid.read(npts * 4)
+                    data = np.asarray(struct.unpack('f' * npts, data))
+                    m[..., i] = data.reshape(self.cell_count, order='C')
+
+    def save_pickle(self, filename):
         """
         Create a pickle file containing the look-up table
 
@@ -1478,7 +1581,7 @@ class LUT(Grid3D, NonLinLoc):
         pickle.dump(self.__dict__, file, 2)
         file.close()
 
-    def load(self, filename):
+    def load_pickle(self, filename):
         """
         Read the contents of a pickle file to __dict__
 

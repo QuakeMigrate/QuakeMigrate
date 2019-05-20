@@ -223,7 +223,7 @@ def grid_string(max_dist, max_depth, min_depth, dx):
     return string.format(max_x, max_z, min_depth, dx)
 
 
-def vgradient(i, vmodel, phase):
+def vgradient(i, vmodel):
     d_depth = vmodel["depth"][i+1] - vmodel["depth"][i]
     d_vel_p = vmodel["vp"][i+1] - vmodel["vp"][i]
     d_vel_s = vmodel["vs"][i+1] - vmodel["vs"][i]
@@ -243,7 +243,7 @@ def vmodel_string(vmodel, block):
         if not block:
             try:
                 gradientp, gradients = vgradient(i, vmodel)
-            except IndexError:
+            except KeyError:
                 gradientp, gradients = 0., 0.
         else:
             gradientp = 0.
@@ -261,31 +261,31 @@ def write_control_file(x, y, z, name, max_dist,
                        vmodel, depth_limits, phase="P",
                        dx=0.2, block_model=True):
     control_string = """CONTROL 0 54321
-    TRANS NONE
-    #TRANS LAMBERT WGS-84 8.0 38.0 8.2 8.4 0.0
-    #TRANS TRANS_MERC WGS-84 8.0 38.0 0.0
+TRANS NONE
+#TRANS LAMBERT WGS-84 8.0 38.0 8.2 8.4 0.0
+#TRANS TRANS_MERC WGS-84 8.0 38.0 0.0
 
-    VGOUT ./model/layer
-    VGTYPE {phase:s}
+VGOUT ./model/layer
+VGTYPE {phase:s}
 
-    #VGGRID 2 101 111 0.0 0.0 -2.0 0.2 0.2 0.2 SLOW_LEN
-    VGGRID {grid:s} SLOW_LEN
+#VGGRID 2 101 111 0.0 0.0 -2.0 0.2 0.2 0.2 SLOW_LEN
+VGGRID {grid:s} SLOW_LEN
 
-    {vmodel:s}
-    #LAYER  0.0 3.0 0.0 0.0 0.0 0.0 0.0
-    #LAYER  2.0 4.0 0.0 0.0 0.0 0.0 0.0
-    #LAYER 10.0 6.0 0.0 0.0 0.0 0.0 0.0
-    #LAYER 15.0 6.5 0.0 0.0 0.0 0.0 0.0
-    #LAYER  5.0 5.0 0.0 0.0 0.0 0.0 0.0
-    #LAYER 20.0 7.3 0.0 0.0 0.0 0.0 0.0
+{vmodel:s}
+#LAYER  0.0 3.0 0.0 0.0 0.0 0.0 0.0
+#LAYER  2.0 4.0 0.0 0.0 0.0 0.0 0.0
+#LAYER 10.0 6.0 0.0 0.0 0.0 0.0 0.0
+#LAYER 15.0 6.5 0.0 0.0 0.0 0.0 0.0
+#LAYER  5.0 5.0 0.0 0.0 0.0 0.0 0.0
+#LAYER 20.0 7.3 0.0 0.0 0.0 0.0 0.0
 
-    GTFILES ./model/layer ./time/layer {phase:s}
-    GTMODE GRID2D ANGLES_NO
+GTFILES ./model/layer ./time/layer {phase:s}
+GTMODE GRID2D ANGLES_NO
 
-    #GTSRCE ST01 LATLON 8.1 38.1 0.0 0.0
-    GTSRCE {name:s} XYZ {x:f} {y:f} {z:f} 0.0
+#GTSRCE ST01 LATLON 8.1 38.1 0.0 0.0
+GTSRCE {name:s} XYZ {x:f} {y:f} {z:f} 0.0
 
-    GT_PLFD 1.0E-3 0
+GT_PLFD 1.0E-3 0
                     """
     outstring = control_string.format(phase=phase,
                                       grid=grid_string(max_dist,
@@ -1277,7 +1277,8 @@ class LUT(Grid3D, NonLinLoc):
 
             # for nonlinloc the distances must be in km
             distance_grid = np.sqrt(np.square(X - p1_st_x) +
-                                    np.square(Y - p1_st_y)) / 1000.
+                                    np.square(Y - p1_st_y))
+            distance_grid /= 1000.
             max_dist = np.max(distance_grid)
 
             # NLLOC needs the station to lie within the 2D section,

@@ -51,7 +51,7 @@ INSTALL_REQUIRES = [
     'msgpack-python']
 
 # Compile stage for C-library
-os.system('gcc -shared -fPIC -std=gnu99 ./QMigrate/lib/src/onset.c ./QMigrate/lib/src/QMigrate.c ./QMigrate/lib/src/levinson.c -fopenmp -O0 -o ./QMigrate/lib/QMigrate.so')
+os.system('gcc -shared -fPIC -std=gnu99 ./QMigrate/lib/src/QMigrate.c -fopenmp -O0 -o ./QMigrate/lib/QMigrate.so')
 
 
 def read(*parts):

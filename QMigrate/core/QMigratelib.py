@@ -34,6 +34,10 @@ else:  # posix
     _qmigratelib = clib.load_library(str(p.with_suffix(".so")), ".")
 
 
+_qmigratelib.scan4d.argtypes = [c_dPt, c_i32Pt, c_dPt, c_int32, c_int32,
+                                c_int32, c_int32, c_int64, c_int64]
+
+
 def scan(sig, tt, fsmp, lsmp, nsamp, map4d, threads):
     """
     Wrapper for the C-compiled scan4d function

@@ -790,7 +790,7 @@ class SeisPlot:
         point = np.array([[loc[0][0],
                            loc[1][0],
                            loc[2][0]]])
-        crd = self.lut.coord2loc(point, inverse=True)
+        crd = self.lut.lonlatdep2index(point, inverse=True)
 
         # Defining the plots to be represented
         fig = plt.figure(figsize=(30, 15))
@@ -871,18 +871,21 @@ class SeisPlot:
         xcells = cells[0]
         ycells = cells[1]
         zcells = cells[2]
+
+        # the covariance is stored in grid_spacing units, convert back to 
+        # index
         cov_x = eq["Covariance_ErrX"] / self.lut.cell_size[0]
         cov_y = eq["Covariance_ErrY"] / self.lut.cell_size[1]
         cov_z = eq["Covariance_ErrZ"] / self.lut.cell_size[2]
 
-        cov_crd = np.array([[eq["Covariance_X"],
+        cov_crd = np.array([eq["Covariance_X"],
                              eq["Covariance_Y"],
-                             eq["Covariance_Z"]]])
-        cov_loc = self.lut.coord2loc(cov_crd)
-        dCo = abs(cov_crd - self.lut.coord2loc(np.array([[cov_loc[0][0] + cov_x,
-                                                          cov_loc[0][1] + cov_y,
-                                                          cov_loc[0][2] + cov_z]]),
-                                               inverse=True))
+                             eq["Covariance_Z"]]).T
+        cov_loc = self.lut.lonlatdep2index(cov_crd)
+
+        a = np.asarray([[cov_loc[0, 0] + cov_x, cov_loc[0, 1] + cov_y, cov_loc[0, 2] + cov_z]])
+        a = self.lut.lonlatdep2index(a, inverse=True)
+        dCo = abs(cov_crd - a)
 
         ellipse_XY = patches.Ellipse((eq["Covariance_X"], eq["Covariance_Y"]),
                                      2 * dCo[0][0], 2 * dCo[0][1], angle=0,
@@ -898,7 +901,10 @@ class SeisPlot:
 
         # ------ Spatial Function ------
         # --- Plotting the marginal window ---
-        crd_crnrs = self.lut.xyz2coord(self.lut.grid_corners)
+        crd_crnrs = self.lut.xyz2lonlatdep(self.lut.grid_corners[:, 0], 
+                                            self.lut.grid_corners[:, 1],
+                                            self.lut.grid_corners[:, 2])
+        crd_crnrs = np.vstack(crd_crnrs).T
         xmin = min(crd_crnrs[:, 0])
         xmax = max(crd_crnrs[:, 0])
         ymin = min(crd_crnrs[:, 1])
@@ -922,9 +928,9 @@ class SeisPlot:
         # xy_slice.clabel(CS, inline=1, fontsize=10)
         xy_slice.set_xlim([xmin, xmax])
         xy_slice.set_ylim([ymin, ymax])
-        xy_slice.axvline(x=crd[0][0], linestyle="--", linewidth=2,
+        xy_slice.axvline(x=crd[0, 0], linestyle="--", linewidth=2,
                          color=self.line_station_color)
-        xy_slice.axhline(y=crd[0][1], linestyle="--", linewidth=2,
+        xy_slice.axhline(y=crd[0, 1], linestyle="--", linewidth=2,
                          color=self.line_station_color)
         xy_slice.scatter(eq["Gaussian_X"], eq["Gaussian_Y"], 150, c="pink",
                          marker="*", label="Local Gaussian Location")
@@ -948,10 +954,10 @@ class SeisPlot:
         #                       colors=("g", "m", "k"))
         # xz_slice.clabel(CS, inline=1, fontsize=10)
         xz_slice.set_xlim([xmin, xmax])
-        xz_slice.set_ylim([zmax, zmin])
-        xz_slice.axvline(x=crd[0][0], linestyle="--", linewidth=2,
+        xz_slice.set_ylim([zmin, zmax])
+        xz_slice.axvline(x=crd[0, 0], linestyle="--", linewidth=2,
                          color=self.line_station_color)
-        xz_slice.axhline(y=crd[0][2], linestyle="--", linewidth=2,
+        xz_slice.axhline(y=crd[0, 2], linestyle="--", linewidth=2,
                          color=self.line_station_color)
         xz_slice.scatter(eq["Gaussian_X"], eq["Gaussian_Z"], 150, c="pink",
                          marker="*")
@@ -973,11 +979,11 @@ class SeisPlot:
         # CS = xz_slice.contour(grid1, grid2, map_[int(loc[0][0]), :, :].transpose(),
         #                       levels=[0.65, 0.75, 0.95],
         #                       colors=("g", "m", "k"))
-        yz_slice.set_xlim([zmax, zmin])
+        yz_slice.set_xlim([zmin, zmax])
         yz_slice.set_ylim([ymin, ymax])
-        yz_slice.axvline(x=crd[0][2], linestyle="--", linewidth=2,
+        yz_slice.axvline(x=crd[0, 2], linestyle="--", linewidth=2,
                          color=self.line_station_color)
-        yz_slice.axhline(y=crd[0][1], linestyle="--", linewidth=2,
+        yz_slice.axhline(y=crd[0, 1], linestyle="--", linewidth=2,
                          color=self.line_station_color)
         yz_slice.scatter(eq["Gaussian_Z"], eq["Gaussian_Y"], 150, c="pink",
                          marker="*")
@@ -1015,8 +1021,9 @@ class SeisPlot:
             plt.close("all")
 
     def _plot_coa_trace(self, trace, x, y, st_idx, color):
-        trace.plot(x, y / np.max(abs(y)) * self.trace_scale + (st_idx + 1),
-                   color=color, linewidth=0.5, zorder=1)
+        if np.max(abs(y)) > 0:
+            trace.plot(x, y / np.max(abs(y)) * self.trace_scale + (st_idx + 1),
+                    color=color, linewidth=0.5, zorder=1)
 
     def _coalescence_image(self, tslice_idx):
         """
@@ -1595,12 +1602,10 @@ class SeisScan(DefaultSeisScan):
                                                     w_beg, w_end,
                                                     self.data.signal,
                                                     self.data.availability)
-            dcoord = self.lut.xyz2coord(np.array(dloc).astype(int))
-            event_coa_val = pd.DataFrame(np.array((daten, dsnr,
-                                                   dcoord[:, 0],
-                                                   dcoord[:, 1],
-                                                   dcoord[:, 2])).transpose(),
-                                         columns=["DT", "COA", "X", "Y", "Z"])
+            dcoord = self.lut.xyz2lonlatdep(dloc[:, 0], dloc[:, 1], dloc[:, 2])
+            dcoord = np.vstack(dcoord)
+            a = np.vstack((daten, dsnr, dcoord[0, :], dcoord[1, :], dcoord[2, :])).T
+            event_coa_val = pd.DataFrame(a, columns=["DT", "COA", "X", "Y", "Z"])
             event_coa_val["DT"] = event_coa_val["DT"].apply(UTCDateTime)
             event_coa_val_dtmax = event_coa_val["DT"].iloc[event_coa_val["COA"].astype("float").idxmax()]
             w_beg_mw = event_coa_val_dtmax - self.marginal_window
@@ -1641,6 +1646,7 @@ class SeisScan(DefaultSeisScan):
             loc, loc_err, loc_cov, loc_err_cov = self._location_error(map_)
             toc()
 
+            print(loc)
             evt = pd.DataFrame([np.append(event_max.values,
                                           [loc[0], loc[1], loc[2],
                                            loc_err[0], loc_err[1], loc_err[2],
@@ -2013,7 +2019,7 @@ class SeisScan(DefaultSeisScan):
                         1 / sampling_rate)
         daten = [x.datetime for x in tmp]
         dsnr = np.exp((dsnr / (len(avail_idx) * 2)) - 1.0)
-        dloc = self.lut.xyz2index(dind, inverse=True)
+        dloc = self.lut.xyz2index(dind, inverse=True, unravel=True)
 
         # Determining the normalised coalescence through time
         sum_coa = np.sum(map_, axis=(0, 1, 2))
@@ -2524,8 +2530,10 @@ class SeisScan(DefaultSeisScan):
         start_time = self.data.start_time
 
         max_coa_crd = np.array([max_coa[["X", "Y", "Z"]].values])
-        max_coa_xyz = np.array(self.lut.xyz2coord(max_coa_crd,
-                                                  inverse=True)).astype(int)[0]
+        max_coa_xyz = np.array(self.lut.xyz2lonlatdep(max_coa_crd[:, 0],
+                                                    max_coa_crd[:, 1],
+                                                    max_coa_crd[:, 2],
+                                                  inverse=True)).T
 
         p_ttime = self.lut.value_at("TIME_P", max_coa_xyz)[0]
         s_ttime = self.lut.value_at("TIME_S", max_coa_xyz)[0]
@@ -2804,16 +2812,17 @@ class SeisScan(DefaultSeisScan):
 
         lc = self.lut.cell_count
         # Ordering below due to handedness of the grid
-        ly, lx, lz = np.meshgrid(np.arange(lc[1]),
-                                 np.arange(lc[0]),
-                                 np.arange(lc[2]))
+        lx, ly, lz = np.meshgrid(np.arange(lc[0]),
+                                 np.arange(lc[1]),
+                                 np.arange(lc[2]), 
+                                 indexing='ij')
         x_samples = lx.flatten() * self.lut.cell_size[0]
         y_samples = ly.flatten() * self.lut.cell_size[1]
         z_samples = lz.flatten() * self.lut.cell_size[2]
 
         ssw = np.sum(smp_weights)
 
-        # Expectation values:
+        # Expectation values: This is in units of the grid spacing
         x_expect = np.sum(smp_weights * x_samples) / ssw
         y_expect = np.sum(smp_weights * y_samples) / ssw
         z_expect = np.sum(smp_weights * z_samples) / ssw
@@ -2851,22 +2860,20 @@ class SeisScan(DefaultSeisScan):
         gau_3d = self._gaufit3d(coa_3d)
 
         # Converting the grid location to X,Y,Z
-        xyz = self.lut.xyz2loc(np.array([[gau_3d[0][0],
+        xyz = self.lut.xyz2index(np.array([[gau_3d[0][0],
                                           gau_3d[0][1],
                                           gau_3d[0][2]]]),
                                inverse=True)
-        expect_vector = self.lut.xyz2coord(xyz)[0]
+        expect_vector = self.lut.xyz2lonlatdep(xyz[:, 0], xyz[:, 1], xyz[:, 2])
 
-        expect_vector_cov = np.array([x_expect,
-                                      y_expect,
-                                      z_expect],
-                                     dtype=float)
-        loc_cov = np.array([[expect_vector_cov[0] / self.lut.cell_size[0],
-                             expect_vector_cov[1] / self.lut.cell_size[1],
-                             expect_vector_cov[2] / self.lut.cell_size[2]]])
-        xyz_cov = self.lut.xyz2loc(loc_cov, inverse=True)
-        crd_cov = self.lut.xyz2coord(xyz_cov)[0]
+        # convert it back from grid spacing units to index
+        loc_cov = np.array([[x_expect / self.lut.cell_size[0],
+                             y_expect / self.lut.cell_size[0],
+                             z_expect / self.lut.cell_size[0]]])
+        xyz_cov = self.lut.xyz2index(loc_cov, inverse=True)
+        crd_cov = self.lut.xyz2lonlatdep(xyz_cov[:, 0], xyz_cov[:, 1], xyz_cov[:, 2])
 
+        # convert to grid spacing units
         xyz_err = np.array([gau_3d[2][0] * self.lut.cell_size[0],
                             gau_3d[2][1] * self.lut.cell_size[1],
                             gau_3d[2][2] * self.lut.cell_size[2]])

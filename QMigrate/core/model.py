@@ -24,46 +24,46 @@ except KeyError:
 import matplotlib.pylab as plt
 
 
-def _cart2sph_np_array(xyz):
-    # theta_phi_r = _cart2sph_np_array(xyz)
-    tpr = np.zeros(xyz.shape)
-    xy = xyz[:, 0] ** 2 + xyz[:, 1] ** 2
-    tpr[:, 0] = np.arctan2(xyz[:, 1], xyz[:, 0])
-    tpr[:, 1] = np.arctan2(xyz[:, 2], np.sqrt(xy))
-    tpr[:, 2] = np.sqrt(xy + xyz[:, 2] ** 2)
-    return tpr
+# def _cart2sph_np_array(xyz):
+#     # theta_phi_r = _cart2sph_np_array(xyz)
+#     tpr = np.zeros(xyz.shape)
+#     xy = xyz[:, 0] ** 2 + xyz[:, 1] ** 2
+#     tpr[:, 0] = np.arctan2(xyz[:, 1], xyz[:, 0])
+#     tpr[:, 1] = np.arctan2(xyz[:, 2], np.sqrt(xy))
+#     tpr[:, 2] = np.sqrt(xy + xyz[:, 2] ** 2)
+#     return tpr
 
 
-def _cart2sph_np(xyz):
-    # theta_phi_r = _cart2sph_np(xyz)
-    if xyz.ndim == 1:
-        tpr = np.zeros(3)
-        xy = xyz[0] ** 2 + xyz[1] ** 2
-        tpr[0] = np.arctan2(xyz[1], xyz[0])
-        tpr[1] = np.arctan2(xyz[2], np.sqrt(xy))
-        tpr[2] = np.sqrt(xy + xyz[2] ** 2)
-    else:
-        tpr = np.zeros(xyz.shape)
-        xy = xyz[:, 0] ** 2 + xyz[:, 1] ** 2
-        tpr[:, 0] = np.arctan2(xyz[:, 1], xyz[:, 0])
-        tpr[:, 1] = np.arctan2(xyz[:, 2], np.sqrt(xy))
-        tpr[:, 2] = np.sqrt(xy + xyz[:, 2] ** 2)
-    return tpr
+# def _cart2sph_np(xyz):
+#     # theta_phi_r = _cart2sph_np(xyz)
+#     if xyz.ndim == 1:
+#         tpr = np.zeros(3)
+#         xy = xyz[0] ** 2 + xyz[1] ** 2
+#         tpr[0] = np.arctan2(xyz[1], xyz[0])
+#         tpr[1] = np.arctan2(xyz[2], np.sqrt(xy))
+#         tpr[2] = np.sqrt(xy + xyz[2] ** 2)
+#     else:
+#         tpr = np.zeros(xyz.shape)
+#         xy = xyz[:, 0] ** 2 + xyz[:, 1] ** 2
+#         tpr[:, 0] = np.arctan2(xyz[:, 1], xyz[:, 0])
+#         tpr[:, 1] = np.arctan2(xyz[:, 2], np.sqrt(xy))
+#         tpr[:, 2] = np.sqrt(xy + xyz[:, 2] ** 2)
+#     return tpr
 
 
-def _sph2cart_np(tpr):
-    # xyz = _sph2cart_np(theta_phi_r)
-    if tpr.ndim == 1:
-        xyz = np.zeros(3)
-        xyz[0] = tpr[2] * np.cos(tpr[1]) * np.cos(tpr[0])
-        xyz[1] = tpr[2] * np.cos(tpr[1]) * np.sin(tpr[0])
-        xyz[2] = tpr[2] * np.sin(tpr[1])
-    else:
-        xyz = np.zeros(tpr.shape)
-        xyz[:, 0] = tpr[:, 2] * np.cos(tpr[:, 1]) * np.cos(tpr[:, 0])
-        xyz[:, 1] = tpr[:, 2] * np.cos(tpr[:, 1]) * np.sin(tpr[:, 0])
-        xyz[:, 2] = tpr[:, 2] * np.sin(tpr[:, 1])
-    return xyz
+# def _sph2cart_np(tpr):
+#     # xyz = _sph2cart_np(theta_phi_r)
+#     if tpr.ndim == 1:
+#         xyz = np.zeros(3)
+#         xyz[0] = tpr[2] * np.cos(tpr[1]) * np.cos(tpr[0])
+#         xyz[1] = tpr[2] * np.cos(tpr[1]) * np.sin(tpr[0])
+#         xyz[2] = tpr[2] * np.sin(tpr[1])
+#     else:
+#         xyz = np.zeros(tpr.shape)
+#         xyz[:, 0] = tpr[:, 2] * np.cos(tpr[:, 1]) * np.cos(tpr[:, 0])
+#         xyz[:, 1] = tpr[:, 2] * np.cos(tpr[:, 1]) * np.sin(tpr[:, 0])
+#         xyz[:, 2] = tpr[:, 2] * np.sin(tpr[:, 1])
+#     return xyz
 
 
 def _coord_transform_np(p1, p2, loc):
@@ -407,16 +407,13 @@ class Grid3D(object):
         self._grid_proj = None
         self._longitude = None
         self._latitude = None
-        self._grid_centre = [0.0, 0.0, 0.0]
+        self._grid_origin = [0.0, 0.0, 0.0]
 
         self.cell_count = cell_count
         self.cell_size = cell_size
         self.elevation = 0
         self.azimuth = azimuth
         self.dip = dip
-        self.sort_order = sort_order
-        self.UTM_zones_different = False
-        self.lcc_standard_parallels = (0.0, 0.0)
 
     def projections(self, grid_proj, coord_proj=None):
         if coord_proj and self._coord_proj is None:
@@ -442,73 +439,6 @@ class Grid3D(object):
             msg += "        LCC (Lambert Conical Conformic)\n"
             msg += "        TM (Transverse Mercator"
             raise Exception(msg)
-
-    def lonlat_centre(self, longitude=None, latitude=None):
-        """
-        Define the centre of the 3D grid in geographical coordinates
-
-        Parameters
-        ----------
-        longitude : float
-            Geographical longitude of grid centre
-        latitude : float
-            Geographical latitude of grid centre
-
-        """
-
-        if longitude:
-            self.longitude = longitude
-        if latitude:
-            self.latitude = latitude
-
-    def nlloc_grid_centre(self, origin_lon, origin_lat):
-        """
-
-        Parameters
-        ----------
-        origin_lon : float
-            Geographical longitude of grid origin
-        origin_lat : float
-            Geographical latitude of grid origin
-
-        """
-
-        self.coord_proj = _proj(projection="WGS84")
-        # if _utm_zone(self.longitude) != _utm_zone(origin_lon):
-        #     self.grid_proj = _proj(projection="UTM", longitude=self.longitude)
-        if self.NLLoc_proj != "NONE":
-            self.grid_proj = self._nlloc_grid_proj()
-        grid_origin = self.xy2lonlat(origin_lon, origin_lat, inverse=True)
-        x = grid_origin[0] + self.centre[0]
-        y = grid_origin[1] + self.centre[1]
-        self.longitude, self.latitude = self.xy2lonlat(x, y)
-        self._update_grid_centre()
-
-    def _update_grid_centre(self):
-        x, y = pyproj.transform(self.coord_proj, self.grid_proj,
-                                self.longitude, self.latitude)
-
-        self.grid_centre = [x, y, self.elevation - ((self.cell_count[2] - 1)
-                                                    * self.cell_size[2] / 2)]
-
-    def _update_coord_centre(self):
-        lon, lat = pyproj.transform(self.grid_proj, self.coord_proj,
-                                    self.grid_centre[0], self.grid_centre[1])
-        self.longitude = lon
-        self.latitude = lat
-
-    def _nlloc_grid_proj(self):
-        if self.NLLoc_proj:
-            if self.NLLoc_proj == "SIMPLE":
-                print("ERROR -- simple not yet supported")
-            elif self.NLLoc_proj == "LAMBERT":
-                return _proj(projection="LCC", lon0=self.NLLoc_MapOrg[0],
-                             lat0=self.NLLoc_MapOrg[1],
-                             parallel_1=self.NLLoc_MapOrg[4],
-                             parallel_2=self.NLLoc_MapOrg[5])
-            elif self.NLLoc_proj == "TRANS_MERC":
-                return _proj(projection="TM", lon=self.NLLoc_MapOrg[0],
-                             lat=self.NLLoc_MapOrg[1])
 
     @property
     def cell_count(self):
@@ -555,8 +485,6 @@ class Grid3D(object):
     def longitude(self, value):
         # Add tests for suitable longitude
         self._longitude = value
-        if self._grid_proj and self.coord_proj and self.latitude:
-            self._update_grid_centre()
 
     @property
     def latitude(self):
@@ -568,8 +496,6 @@ class Grid3D(object):
     def latitude(self, value):
         # Add tests for suitable latitude
         self._latitude = value
-        if self._grid_proj and self.coord_proj and self.longitude:
-            self._update_grid_centre()
 
     @property
     def elevation(self):
@@ -584,24 +510,6 @@ class Grid3D(object):
     def elevation(self, value):
         # Add tests for suitable elevation
         self._elevation = value
-        if (self._grid_proj and self._coord_proj and
-                self.longitude and self.latitude):
-            self._update_grid_centre()
-
-    @property
-    def grid_centre(self):
-        """Get and set the centre of the grid"""
-        # x, y = pyproj.transform(self.grid_proj, self.coord_proj,
-        #                         self.longitude, self.latitude)
-        # self._grid_centre = [x, y, self.elevation]
-
-        return self._grid_centre
-
-    @grid_centre.setter
-    def grid_centre(self, value):
-        value = np.array(value, dtype="float64")
-        assert (value.shape == (3,)), "Grid centre must be [x, y, z] array."
-        self._grid_centre = value
 
     @property
     def grid_proj(self):
@@ -620,8 +528,6 @@ class Grid3D(object):
     @grid_proj.setter
     def grid_proj(self, value):
         self._grid_proj = value
-        if self._coord_proj and self.longitude and self.latitude:
-            self._update_grid_centre()
 
     @property
     def coord_proj(self):
@@ -631,96 +537,99 @@ class Grid3D(object):
     @coord_proj.setter
     def coord_proj(self, value):
         self._coord_proj = value
-        if self._grid_proj and self.longitude and self.latitude:
-            self._update_coord_centre()
 
     def xy2lonlat(self, x, y, inverse=False):
-        x = np.array(x)
-        y = np.array(y)
+        x = np.asarray(x)
+        y = np.asarray(y)
+        dummy_z = np.ones_like(x)
+
+        out = self.xyz2lonlatdep(x, y, dummy_z, inverse=inverse)
+
+        return out[0], out[1]
+
+    def lonlatdep2index(self, loc, inverse=False):
+
         if inverse:
-            return pyproj.transform(self.coord_proj,
+        
+            xyz = self.xyz2index(loc, inverse=True)
+            lonlatdep = self.xyz2lonlatdep(xyz[:, 0], xyz[:, 1], xyz[:, 2], inverse=False)
+
+            return np.asarray(lonlatdep).T
+
+        else:
+            xyz = self.xyz2lonlatdep(loc[:, 0], loc[:, 1], loc[:, 2], inverse=True)
+            xyz = np.vstack(xyz).T
+            index = self.xyz2index(xyz, inverse=False)
+
+            return index
+
+    def xyz2lonlatdep(self, x, y, z, inverse=False, clip=False):
+        x = np.asarray(x)
+        y = np.asarray(y)
+        z = np.asarray(z)
+        if inverse:
+            x, y = pyproj.transform(self.coord_proj,
                                     self.grid_proj,
                                     x, y)
+            
+            if clip:
+                corners = self.grid_corners
+                xmin, ymin, zmin = np.min(corners, axis=0)
+                xmax, ymax, zmax = np.max(corners, axis=0)
+
+                x[x < xmin] = xmin + self.cell_size[0] / 2
+                y[y < ymin] = ymin + self.cell_size[1] / 2
+                z[z < zmin] = zmin + self.cell_size[2] / 2
+                x[x > xmax] = xmax - self.cell_size[0] / 2
+                y[y > ymax] = ymax - self.cell_size[1] / 2
+                z[z > zmax] = zmax - self.cell_size[2] / 2
+            
+            return x, y, z
         else:
-            return pyproj.transform(self.grid_proj,
+            lon, lat = pyproj.transform(self.grid_proj,
                                     self.coord_proj,
                                     x, y)
+            return lon, lat, z
 
-    def local2global(self, value, inverse=False):
-        tpr = _cart2sph_np(value - self.grid_centre)
-        if inverse:
-            tpr -= [self.azimuth, self.dip, 0.0]
+    def xyz2index(self, loc, inverse=False, unravel=False):
+        """
+        Transforms from grid coordinates (i.e. x, y z) to 
+        the grid index
+        """
+
+        if unravel:
+            loc = np.asarray(np.unravel_index(loc, self.cell_count)).T
+
+        if not type(loc) == np.ndarray:
+            loc = np.asarray(loc)
+        ndim = len(loc.shape)
+        if ndim == 1:
+            x = loc[0]
+            y = loc[1]
+            z = loc[2]
         else:
-            tpr += [self.azimuth, self.dip, 0.0]
-        return (_sph2cart_np(tpr) + self.grid_centre)
+            x = loc[:, 0]
+            y = loc[:, 1]
+            z = loc[:, 2]
+        dx, dy, dz = self.cell_size
+        x0, y0, z0 = self.grid_origin
 
-    def xyz2loc(self, value, inverse=False):
         if inverse:
-            return self.local2global(self.grid_centre
-                                     + (self.cell_size
-                                        * (value - (self.cell_count - 1) / 2)))
+            xx = x0 + (x * dx)
+            yy = y0 + (y * dy)
+            zz = z0 + (z * dz)
+            
+            if not type(xx) == np.ndarray:
+                return np.asarray([xx, yy, zz])
+            else:
+                return np.vstack((xx, yy, zz)).T
         else:
-            return ((self.local2global(value, inverse=True) - self.grid_centre)
-                    / self.cell_size) + (self.cell_count - 1) / 2
+            # get position of closest node
+            i = (x - x0) / dx
+            j = (y - y0) / dy
+            k = (z - z0) / dz
 
-    def index2loc(self, value, inverse=False):
-        if inverse:
-            return np.ravel_multi_index(value, self.cell_count, mode="clip",
-                                        order=self.sort_order)
-        else:
-            out = np.vstack(np.unravel_index(value, self.cell_count,
-                                             order=self.sort_order))
-            return out.transpose()
-
-    def xyz2index(self, value, inverse=False):
-        if inverse:
-            return self.xyz2loc(self.index2loc(value), inverse=True)
-        else:
-            return self.index2loc(self.xyz2loc(value), inverse=True)
-
-    def xyz2coord(self, value, inverse=False):
-        if inverse:
-            x, y = self.xy2lonlat(value[:, 0], value[:, 1], inverse=True)
-            z = value[:, 2]
-
-            corners = self.grid_corners
-            xmin, ymin, zmin = np.min(corners, axis=0)
-            xmax, ymax, zmax = np.max(corners, axis=0)
-
-            if x < xmin:
-                x = np.array([xmin + self.cell_size[0] / 2])
-            if x > xmax:
-                x = np.array([xmax - self.cell_size[0] / 2])
-            if y < ymin:
-                y = np.array([ymin + self.cell_size[1] / 2])
-            if y > ymax:
-                y = np.array([ymax - self.cell_size[1] / 2])
-            if z < zmin:
-                z = np.array([zmin + self.cell_size[2] / 2])
-            if z > zmax:
-                z = np.array([zmax - self.cell_size[2] / 2])
-
-            return np.array([x, y, z]).transpose()
-        else:
-            lon, lat = self.xy2lonlat(value[:, 0], value[:, 1])
-            return np.array([lon, lat, value[:, 2]]).transpose()
-
-    def coord2loc(self, value, inverse=False):
-        if inverse:
-            return self.xyz2coord(self.xyz2loc(value, inverse=True))
-        else:
-            return self.xyz2loc(self.xyz2coord(value, inverse=True))
-
-    def coord2index(self, value, inverse=False):
-        if inverse:
-            return self.coord2loc(self.index2loc(value), inverse=True)
-        else:
-            return self.index2loc(self.coord2loc(value), inverse=True)
-
-    @property
-    def grid_origin(self):
-        grid_size = self.cell_count * self.cell_size
-        return self.local2global(self.grid_centre - (grid_size / 2))
+            return np.asarray([i, j, k]).T
 
     @property
     def grid_corners(self):
@@ -732,7 +641,7 @@ class Grid3D(object):
         lc = self.cell_count - 1
         ly, lx, lz = np.meshgrid([0, lc[1]], [0, lc[0]], [0, lc[2]])
         loc = np.c_[lx.flatten(), ly.flatten(), lz.flatten()]
-        return self.xyz2loc(loc, inverse=True)
+        return self.xyz2index(loc, inverse=True)
 
     @property
     def grid_xyz(self):
@@ -751,180 +660,6 @@ class Grid3D(object):
         ly = coord[:, 1].reshape(lc)
         lz = coord[:, 2].reshape(lc)
         return lx, ly, lz
-
-
-# class NonLinLoc:
-#     """
-#     NonLinLoc class
-
-#     Reading and manipulating NLLoc Grids in a 2D or 3D format
-
-#     Attributes
-#     ----------
-
-#     Methods
-#     -------
-#     nlloc_load_file(filename)
-#         Parses information from .hdr and .buf files into NonLinLoc variables
-
-#     TO-DO
-#     -----
-#     Loading of 2D travel-times
-
-
-#     """
-
-#     def __init__(self):
-#         self.NLLoc_n = np.array([0, 0, 0])
-#         self.NLLoc_org = np.array([0, 0, 0])
-#         self.NLLoc_size = np.array([0, 0, 0])
-#         self.NLLoc_type = "TIME"
-#         self.NLLoc_proj = "NONE"
-#         # Has form lon - lat - rotation - reference ellipsoid - std1 - std2
-#         self.NLLoc_MapOrg = [0.0, 0.0, 0.0, "SIMPLE", 0.0, 0.0]
-#         self.NLLoc_data = None
-
-#     def nlloc_load_file(self, filename):
-#         """
-#         Parse information from .hdr and .buf files into NonLinLoc variables
-
-#         Parameters
-#         ----------
-#         filename : str
-#             File name (not including extension)
-
-#         """
-
-#         # Read the .hdr file
-#         f = open("{}.hdr".format(filename), "r")
-
-#         # Defining the grid dimensions
-#         params = f.readline().split()
-#         self.NLLoc_n = np.array([int(params[0]),
-#                                  int(params[1]),
-#                                  int(params[2])])
-#         self.NLLoc_org = np.array([float(params[3]),
-#                                    float(params[4]),
-#                                    float(params[5])])
-#         self.NLLoc_size = np.array([float(params[6]),
-#                                    float(params[7]),
-#                                    float(params[8])])
-#         self.NLLoc_type = params[9]
-
-#         # Defining the station information
-#         stats = f.readline().split()
-#         del stats
-
-#         # Defining the transform information
-#         trans = f.readline().split()
-#         if trans[1] == "NONE":
-#             self.NLLoc_proj = "NONE"
-#         if trans[1] == "SIMPLE":
-#             self.NLLoc_proj = "SIMPLE"
-#             self.NLLoc_MapOrg = [trans[5], trans[3], trans[7],
-#                                  "SIMPLE", "0.0", "0.0"]
-#         if trans[1] == "LAMBERT":
-#             self.NLLoc_proj = "LAMBERT"
-#             self.NLLoc_MapOrg = [trans[7], trans[5], trans[13],
-#                                  trans[3], trans[9], trans[11]]
-#         if trans[1] == "TRANS_MERC":
-#             self.NLLoc_proj = "TRANS_MERC"
-#             self.NLLoc_MapOrg = [trans[7], trans[5], trans[9],
-#                                  trans[3], "0.0", "0.0"]
-
-#         # Reading the .buf file
-#         fid = open("{}.buf".format(filename), "rb")
-#         data = struct.unpack("{}f".format(self.NLLoc_n[0]
-#                                           * self.NLLoc_n[1]
-#                                           * self.NLLoc_n[2]),
-#                              fid.read(self.NLLoc_n[0]
-#                                       * self.NLLoc_n[1]
-#                                       * self.NLLoc_n[2] * 4))
-#         self.NLLoc_data = np.array(data).reshape(self.NLLoc_n[0],
-#                                                  self.NLLoc_n[1],
-#                                                  self.NLLoc_n[2])
-
-#     def nlloc_project_grid(self):
-#         """
-#         Projecting the grid to the new coordinate system.
-
-#         This function also determines the 3D grid from the 2D grids from
-#         NonLinLoc
-
-#         """
-
-#         # Generating the correct NonLinLoc Formatted Grid
-#         if self.NLLoc_proj == "NONE":
-#             GRID_NLLOC = Grid3D(cell_count=self.NLLoc_n,
-#                                 cell_size=self.NLLoc_size,
-#                                 azimuth=0.0,
-#                                 dip=0.0)
-#             GRID_NLLOC.nlloc_grid_centre(self.NLLoc_org[0], self.NLLoc_org[1])
-#         else:
-#             GRID_NLLOC = Grid3D(cell_count=self.NLLoc_n,
-#                                 cell_size=self.NLLoc_size,
-#                                 azimuth=self.NLLoc_MapOrg[2],
-#                                 dip=0.0)
-#             GRID_NLLOC.lonlat_centre(self.NLLoc_MapOrg[0],
-#                                      self.NLLoc_MapOrg[1])
-
-#         # TO-DO: What is the text in NLLoc_MapOrg[3]?
-#         if self.NLLoc_proj == "LAMBERT":
-#             GRID_NLLOC.projections(grid_proj=self.NLLoc_MapOrg[3])
-
-#         if self.NLLoc_proj == "TRANS_MERC":
-#             GRID_NLLOC.projections(grid_proj=self.NLLoc_MapOrg[3])
-
-#         OrgX, OrgY, OrgZ = GRID_NLLOC.grid_xyz
-#         NewX, NewY, NewZ = self.grid_xyz
-
-#         self.NLLoc_data = griddata((OrgX.flatten(),
-#                                     OrgY.flatten(),
-#                                     OrgZ.flatten()),
-#                                    self.NLLoc_data.flatten(),
-#                                    (NewX, NewY, NewZ),
-#                                    method="nearest")
-
-#     def nlloc_regrid(self, decimate):
-#         """
-#         Redefining coordinate system to the file loaded
-
-#         Parameters
-#         ----------
-#         decimate :
-
-
-#         """
-
-#         centre = self.NLLoc_org + self.NLLoc_size * (self.NLLoc_n - 1) / 2
-#         self.centre = centre * [1000, 1000, -1000]
-#         self.elevation = self.NLLoc_org[2] * -1000
-#         self.cell_count = self.NLLoc_n
-#         self.cell_size = self.NLLoc_size * 1000
-#         self.dip = 0.0
-
-#         if self.NLLoc_proj == "NONE":
-#             self.azimuth = 0.0
-#             self.grid_centre = self.centre
-
-#         if self.NLLoc_proj == "SIMPLE":
-#             self.azimuth = self.NLLoc_MapOrg[2]
-#             self.nlloc_grid_centre(float(self.NLLoc_MapOrg[0]),
-#                                    float(self.NLLoc_MapOrg[1]))
-
-#         if self.NLLoc_proj == "LAMBERT":
-#             self.azimuth = float(self.NLLoc_MapOrg[2])
-#             self.nlloc_grid_centre(float(self.NLLoc_MapOrg[0]),
-#                                    float(self.NLLoc_MapOrg[1]))
-
-#         if self.NLLoc_proj == "TRANS_MERC":
-#             self.azimuth = float(self.NLLoc_MapOrg[2])
-#             self.nlloc_grid_centre(float(self.NLLoc_MapOrg[0]),
-#                                    float(self.NLLoc_MapOrg[1]))
-
-#         self.NLLoc_data = self.decimate_array(self.NLLoc_data,
-#                                               np.array(decimate))[:, :, ::-1]
-
 
 class LUT(Grid3D):
     """
@@ -1090,7 +825,7 @@ class LUT(Grid3D):
         c1 = (self.cell_count - ds * (cell_count - 1) - 1) // 2
         cn = c1 + ds * (cell_count - 1) + 1
         centre_cell = (c1 + cn - 1) / 2
-        centre = self.xyz2loc(centre_cell, inverse=True)
+        centre = self.xyz2index(centre_cell, inverse=True)
         self.cell_count = cell_count
         self.cell_size = self.cell_size * ds
         self.centre = centre
@@ -1111,7 +846,7 @@ class LUT(Grid3D):
         c1 = (self.cell_count - ds * (cell_count - 1) - 1) // 2
         cn = c1 + ds * (cell_count - 1) + 1
         centre_cell = (c1 + cn - 1) / 2
-        centre = self.xyz2loc(centre_cell, inverse=True)
+        centre = self.xyz2index(centre_cell, inverse=True)
         self.cell_count = cell_count
         self.cell_size = self.cell_size * ds
         self.centre = centre
@@ -1131,11 +866,11 @@ class LUT(Grid3D):
         return self.interpolate(map_, loc, station)
 
     def value_at(self, map_, xyz, station=None):
-        loc = self.xyz2loc(xyz)
+        loc = self.xyz2index(xyz)
         return self.interpolate(map_, loc, station)
 
     def values_at(self, xyz, station=None):
-        loc = self.xyz2loc(xyz)
+        loc = self.xyz2index(xyz)
         return self.get_values_at(loc, station)
 
     def interpolator(self, map_, station=None):
@@ -1245,10 +980,12 @@ class LUT(Grid3D):
         ny = int(np.ceil(d_y / dy)) + 1
         d_z = (p1_z1 - p1_z0)
         nz = int(np.ceil(d_z / dz)) + 1
+        print(nx, ny, nz)
 
         xvec = p1_x0 + (np.linspace(0, nx - 1, nx) * dx)
         yvec = p1_y0 + (np.linspace(0, ny - 1, ny) * dy)
         zvec = p1_z0 + (np.linspace(0, nz - 1, nz) * dz)
+        print(zvec)
 
         X, Y, Z = np.meshgrid(xvec, yvec, zvec, indexing="ij")
 
@@ -1279,7 +1016,6 @@ class LUT(Grid3D):
             # for nonlinloc the distances must be in km
             distance_grid = np.sqrt(np.square(X - p1_st_x) +
                                     np.square(Y - p1_st_y))
-            distance_grid /= 1000.
             max_dist = np.max(distance_grid)
 
             # NLLOC needs the station to lie within the 2D section,
@@ -1291,10 +1027,10 @@ class LUT(Grid3D):
 
             for phase in ["P", "S"]:
                 # Allow 2 nodes on depth extent as a computational buffer
-                write_control_file(p1_st_x / 1000., p1_st_y / 1000.,
-                                   p1_st_z / 1000., name,
+                write_control_file(p1_st_x, p1_st_y,
+                                   p1_st_z, name,
                                    max_dist, self.velocity_model,
-                                   depth_extent / 1000.,
+                                   depth_extent,
                                    phase=phase, dx=nlloc_dx,
                                    block_model=block_model)
 
@@ -1313,7 +1049,7 @@ class LUT(Grid3D):
                 data, _, _, nll_gridspec = read_2d_nlloc(to_read)
 
                 distance = distance_grid.flatten()
-                depth = Z.flatten() / 1000.
+                depth = Z.flatten()
                 travel_time = bilinear_interp(np.vstack((distance, depth)).T,
                                               [nll_gridspec[0][1:],
                                                nll_gridspec[1][1:],
@@ -1331,20 +1067,18 @@ class LUT(Grid3D):
             i += 1
 
         # Define rest of the LUT parameters
-        x = p1_x0 + dx * ((nx - 1) / 2.)
-        y = p1_y0 + dy * ((ny - 1) / 2.)
-        z = p1_z0 + dz * ((nz - 1) / 2.)
         self.cell_count = np.asarray([nx, ny, nz])
         self.cell_size = np.asarray([dx, dy, dz])
-        self.longitude, self.latitude = self.xy2lonlat(x, y)
-        self.elevation = z
+        self.grid_origin = np.asarray([p1_x0, p1_y0, p1_z0])
+        self.longitude = p0_x0
+        self.latitude = p0_y0
+        self.elevation = -p0_z0
         self.azimuth = 0.0
         self.dip = 0.0
-        self._update_grid_centre()
 
         self.maps = {"TIME_P": p_travel_times, "TIME_S": s_travel_times}
 
-        call(["rm", "-rf", "control.in", "time", "model"])
+        # call(["rm", "-rf", "control.in", "time", "model"])
 
     def compute_1d_vmodel_skfmm(self, path, delimiter=","):
         """
@@ -1462,14 +1196,32 @@ class LUT(Grid3D):
     #     self.maps = {"TIME_P": p_map,
     #                  "TIME_S": s_map}
 
-    def write_grids(self, fpath):
+    def write_grids(self, froot=None, fpath=None):
         '''
         Writes the travel time look-up tables as binary files.
         File format is similar, but not identical to the NLLoc
         format.
+
+        froot specifies a root file naming format, i.e.
+                /path/to/my/directory/layer.{phase:s}.{name:s}.time.buf
+            this is primarily used for outputting NonLinLoc compatible files
+            The format specifier can include a phase and/or a name field
+
+        fpath specifies the path to where you want the files stored. i.e.
+                /path/to/my/directory
+            The individual grid files will be named according to their name and 
+            phase autmoatically
         '''
 
         import struct
+
+        if not froot and not fpath:
+            raise ValueError('Must define one of froot or fpath')
+        
+        if fpath:
+            fname = '.'.join(["{name:s}", "{phase:s}", 'buf'])  
+            froot = os.path.join(fpath, fname)
+
 
         nstation = len(self.station_data['Name'])
         for phase in ['P', 'S']:
@@ -1478,14 +1230,12 @@ class LUT(Grid3D):
             for i in range(nstation):
                 station = self.station_data['Name'][i]
 
-                fname = '.'.join([station, phase, 'buf'])  
-                froot = os.path.join(fpath, fname)
-
+                fname = froot.format(phase=phase, name=station)                
 
                 time = m[..., i].flatten(order='C')
                 npts = len(time)
                 byte_string = struct.pack('f' * npts, *time)
-                with open(froot, 'wb') as fid:
+                with open(fname, 'wb') as fid:
                     fid.write(byte_string)
 
     def save(self, fpath):
@@ -1501,7 +1251,7 @@ class LUT(Grid3D):
                     'cell_size' : self.cell_size.tolist(),
                     'coord_proj' : self._coord_proj.srs,
                     'grid_proj' : self._grid_proj.srs,
-                    'grid_centre' : self.grid_centre.tolist(),
+                    'grid_origin' : self.grid_origin.tolist(),
                     'azimuth' : self.azimuth,
                     'dip' : self.dip,
                     'longitude' : self.longitude, 
@@ -1509,11 +1259,10 @@ class LUT(Grid3D):
                     'elevation' : self.elevation,
                     'stations' : dict(tuple([(key, self.station_data[key].tolist()) for key in self.station_data.keys()])),
                     'vmodel' : self.velocity_model.values.tolist()}
-        print(self.__dict__.keys())
         with open(os.path.join(fpath, fname), 'w') as fid:
             json.dump(save_dic, fid)
         
-        self.write_grids(fpath)
+        self.write_grids(fpath=fpath)
 
     def load(self, fpath, header_only=False):
         """
@@ -1531,9 +1280,9 @@ class LUT(Grid3D):
         
         self.cell_count = save_dic['cell_count']
         self.cell_size = save_dic['cell_size']
-        self._coord_proj = save_dic['coord_proj']
-        self._grid_proj = save_dic['grid_proj']
-        self.grid_centre = save_dic['grid_centre']
+        self._coord_proj = pyproj.Proj(save_dic['coord_proj'], preserve_units=True)
+        self._grid_proj = pyproj.Proj(save_dic['grid_proj'], preserve_units=True)
+        self.grid_origin = save_dic['grid_origin']
         self.azimuth = save_dic['azimuth']
         self.dip = save_dic['dip']
         self._longitude = save_dic['longitude']
@@ -1557,7 +1306,6 @@ class LUT(Grid3D):
             for phase in ['P', 'S']:
                 m = self.maps['TIME_' + phase]
                 for i, station in enumerate(stations):
-                    print(i, station)
                     fname = '.'.join([station, phase, 'buf'])  
                     froot = os.path.join(fpath, fname)
 
@@ -1565,6 +1313,211 @@ class LUT(Grid3D):
                         data = fid.read(npts * 4)
                     data = np.asarray(struct.unpack('f' * npts, data))
                     m[..., i] = data.reshape(self.cell_count, order='C')
+
+
+    def save_nonlinloc(self, froot):
+        """
+        Save the look up table as nonlinloc compatible grids
+
+        Here we use the grid coordinate system
+        """
+
+        # this is the format of the .hdr file
+        out_string = "{0:d} {1:d} {2:d} "
+        out_string += "{3:f} {4:f} {5:f} "
+        out_string += "{6:f} {7:f} {8:f} "
+        out_string += "TIME\n"
+
+        out_string += "{9:s} {10:f} {11:f} {12:f}"
+
+        # nonlinloc saves the grids with respect to the lower left corner
+        corners = self.grid_corners
+        LL = corners[0, :]
+
+        # station positions
+        stat_xyz = self.station_xyz()
+
+        # adds the NLL format string to the froot argument
+        trans_fname = froot + '_trans.in'
+        froot += '.{phase:s}.{name:s}.time'
+
+        for station in self.station_data['Name']:
+            xyz = stat_xyz[0, :]
+            for phase in ['P', 'S']:
+                fname = froot.format(name=station, phase=phase)
+                with open(fname + '.hdr', 'w') as fid:
+                    fid.write(out_string.format(self.cell_count[0], self.cell_count[1], self.cell_count[2],
+                                                LL[0], LL[1], LL[2],
+                                                self.cell_size[0], self.cell_size[1], self.cell_size[2],
+                                                station, xyz[0], xyz[1], xyz[2]))
+        
+        # cartesian projection information is not stored in the NonLinLoc grid files
+        # here we decide to write a NLL control file TRANS statement in a separate 
+        # file called froot + "trans.in"
+
+        p_string = self._grid_proj.srs.replace('+', '').split()
+        p_dict = dict([(s.split('=')[0], s.split('=')[1]) for s in p_string])
+        if p_dict['ellps'] == 'WGS84':
+            p_dict['ellps'] = 'WGS-84'
+
+        if self._coord_proj == self._grid_proj:
+            out_string = 'TRANS NONE'
+        elif 'lcc' in self._grid_proj.srs:
+            out_string = "TRANS LAMBERT {0:s} {1:f} {2:f} {3:f} {4:f} {5:f}" 
+            out_string = out_string.format(p_dict['ellps'], float(p_dict['lat_0']), 
+                                          float(p_dict['lon_0']), float(p_dict['lat_1']), 
+                                          float(p_dict['lat2']), self.azimuth)
+        elif 'tmerc' in self._grid_proj:
+            out_string = "TRANS TRANS_MERC {0:s} {1:f} {2:f} {3:f}" 
+            out_string = out_string.format(p_dict['ellps'], float(p_dict['lat_0']), 
+                                          float(p_dict['lon_0']),  self.azimuth)
+        else:
+            raise ValueError('Projection is not valid with NonLinLoc')
+            
+        with open(trans_fname, 'w') as fid:
+            fid.write(out_string)
+
+        self.write_grids(froot=froot + '.buf')
+
+    def load_nonlinloc(self, froot, trans_file=None):
+        
+        """
+        if trans file is not provided then a file is assumed to exist called
+        froot + '_trans.in" as would have been created using the save_nonlinloc
+        function
+        """
+        from glob import glob
+
+
+        if not trans_file:
+            trans_file = froot + '_trans.in'
+        
+        if not os.path.exists(trans_file):
+            raise IOError(trans_file, 'does not exist')
+        
+        with open(trans_file, 'r') as fid:
+            line = fid.readline().split()
+        
+        self.dip = 0.0
+        if line[1] == 'NONE':
+            raise NotImplementedError
+        elif line[1] == 'LAMBERT':
+            lat_0 = float(line[3])
+            lon_0 = float(line[4])
+            lat_1 = float(line[5])
+            lat_2 = float(line[6])
+            az = float(line[7])
+
+            self.azimuth = az
+            self._coord_proj = _proj(projection='WGS84')
+            self._grid_proj = _proj(projection='LCC', lon0=lon_0,
+                                    lat0=lat_0, parallel_1=lat_1,
+                                    parallel_2=lat_2)
+        
+        elif line[1] == 'TRANS_MERC':
+            lat_0 = float(line[3])
+            lon_0 = float(line[4])
+            az = float(line[5])
+
+            self.azimuth = az
+            self._coord_proj = _proj(projection='WGS84')
+            self._grid_proj = _proj(projection='TM', lon0=lon_0,
+                                    lat0=lat_0)
+        
+        else:
+            raise AttributeError('Well, this should not happen')
+
+        
+        hdr_files = glob(froot +'*.hdr')
+        names, lats, lons, heights = [], [], [], []
+        for hdr_file in hdr_files:
+
+            phase = hdr_file.split('/')[-1].split('.')[1]
+
+            if phase == 'S':
+                continue
+
+            with open(hdr_file, 'r') as fid:
+                grid_line = fid.readline().split()
+                station_line = fid.readline().split()
+            
+            # first define the calculation grid
+            nx = int(grid_line[0])
+            ny = int(grid_line[1])
+            nz = int(grid_line[2])
+            x0 = float(grid_line[3])
+            y0 = float(grid_line[4])
+            z0 = float(grid_line[5])
+            dx = float(grid_line[6])
+            dy = float(grid_line[7])
+            dz = float(grid_line[8])
+
+            assert grid_line[9] == 'TIME'
+
+            self.cell_count = np.asarray([nx, ny, nz])
+            self.cell_size = np.asarray([dx, dy, dz])
+
+            grid_centre_x = x0 + ((nx - 1) * dx) / 2.
+            grid_centre_y = y0 + ((ny - 1) * dy) / 2.
+            grid_centre_z = z0 + ((nz - 1) * dz) / 2.
+            self.grid_centre = np.array([grid_centre_x,
+                                         grid_centre_y,
+                                         grid_centre_z])
+            lon, lat = self.xy2lonlat(grid_centre_x, grid_centre_y)
+            self._longitude = lon
+            self._latitude = lat
+            self.elevation = grid_centre_z
+
+            # now define the station location
+            name = station_line[0]
+            x = float(station_line[1])
+            y = float(station_line[2])
+            z = float(station_line[3])
+            heights.append(z)
+            names.append(name)
+
+            lon, lat = self.xy2lonlat(x, y)
+            lons.append(lon)
+            lats.append(lat)
+
+            stations = self.station_data['Name']
+            nstations = len(stations)
+            npts = np.prod(self.cell_count)
+
+        self.station_data = {}
+        self.station_data['Name'] = names
+        self.station_data['Latitude'] = lats
+        self.station_data['Longitude'] = lons
+        self.station_data["Elevation"] = heights
+
+
+        nstations = len(self.station_data['Name'])
+        p_time = np.empty((self.cell_count[0], 
+                            self.cell_count[1],
+                            self.cell_count[2],
+                            nstations))
+        s_time = np.empty_like(p_time)
+        self.maps = {"TIME_P": p_time, "TIME_S": s_time}
+
+        p_i, s_i = 0, 0
+        for hdr_file in hdr_files:
+            buf_file = hdr_file[:-3] + 'buf'
+            phase = hdr_file.split('/')[-1].split('.')[1]
+            if phase == 'P':
+                i = p_i
+            elif phase == 'S':
+                i = s_i
+            else:
+                raise ValueError(phase, 'is an invalid phase')
+            m = self.maps['TIME_' + phase]
+            with open(buf_file, 'rb') as fid:
+                data = fid.read(npts * 4)
+            data = np.asarray(struct.unpack('f' * npts, data))
+            m[..., i] = data.reshape(self.cell_count, order='C')
+            if phase == 'P':
+                p_i += 1
+            else:
+                s_i += 1
 
     def save_pickle(self, filename):
         """

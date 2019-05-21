@@ -996,9 +996,9 @@ class SeisPlot:
                          self.lut.station_data["Latitude"],
                          15, marker="^", color=self.line_station_color)
         xz_slice.scatter(self.lut.station_data["Longitude"],
-                         self.lut.station_data["Elevation"],
+                         -self.lut.station_data["Elevation"],
                          15, marker="^", color=self.line_station_color)
-        yz_slice.scatter(self.lut.station_data["Elevation"],
+        yz_slice.scatter(-self.lut.station_data["Elevation"],
                          self.lut.station_data["Latitude"],
                          15, marker="<", color=self.line_station_color)
         for i, txt in enumerate(self.lut.station_data["Name"]):
@@ -1097,7 +1097,6 @@ class SeisPlot:
         tps = []
         tss = []
         dt_max = UTCDateTime(dt_max)
-        print(dt_max)
         tmp_p = self.lut.get_value_at("TIME_P", point)
         tmp_s = self.lut.get_value_at("TIME_S", point)
         for i in range(ttime_range):
@@ -1106,7 +1105,6 @@ class SeisPlot:
             tss.append((dt_max + tmp_s[0][i]).datetime)
 
         del tmp_p, tmp_s
-        print(tps)
         self.tp_arrival = trace.scatter(tps, (sidx + 1), 50, "pink",
                                         marker="v", zorder=4, linewidth=0.1,
                                         edgecolors="black")
@@ -1412,18 +1410,13 @@ class SeisScan(DefaultSeisScan):
         DefaultSeisScan.__init__(self)
 
         self.data = data
-        lut = cmod.LUT()
-        lut.load(lookup_table)
-        self.lut = lut
+        self.lut_name = lookup_table
         self.seis_reader = reader
 
         if output_path is not None:
             self.output = SeisOutFile(output_path, output_name)
         else:
             self.output = None
-
-        ttmax = np.max(lut.fetch_map("TIME_S"))
-        self.post_pad = round(ttmax + ttmax*0.05)
 
         # Internal variables
         self._onset_centred = False
@@ -1459,7 +1452,13 @@ class SeisScan(DefaultSeisScan):
         self.log = log
 
         # Conduct the continuous compute on the decimated grid
+        lut = cmod.LUT()
+        lut.load(self.lut_name)
+        self.header_only = False
+        self.lut = lut
         self.lut = self.lut.decimate(self.decimate)
+        ttmax = np.max(self.lut.fetch_map("TIME_S"))
+        self.post_pad = round(ttmax + ttmax*0.05)
 
         # Define pre-pad as a function of the onset windows
         if self.pre_pad is None:
@@ -1526,6 +1525,10 @@ class SeisScan(DefaultSeisScan):
         else:
             self.output.write_triggered_events(events)
 
+        lut = cmod.LUT()
+        lut.load(self.lut_name, header_only=True)
+        self.header_only = True
+        self.lut = lut
         self.plot_scn(events=events, start_time=start_time,
                       end_time=end_time, stations=self.lut.station_data,
                       savefig=savefig)
@@ -1575,7 +1578,13 @@ class SeisScan(DefaultSeisScan):
         n_evts = len(events)
 
         # Conduct the continuous compute on the decimated grid
+        lut = cmod.LUT()
+        lut.load(self.lut_name)
+        self.header_only = False
+        self.lut = lut
         self.lut = self.lut.decimate(self.decimate)
+        ttmax = np.max(self.lut.fetch_map("TIME_S"))
+        self.post_pad = round(ttmax + ttmax*0.05)
 
         if self.pre_pad is None:
             self.pre_pad = max(self.p_onset_win[1],
@@ -1646,7 +1655,6 @@ class SeisScan(DefaultSeisScan):
             loc, loc_err, loc_cov, loc_err_cov = self._location_error(map_)
             toc()
 
-            print(loc)
             evt = pd.DataFrame([np.append(event_max.values,
                                           [loc[0], loc[1], loc[2],
                                            loc_err[0], loc_err[1], loc_err[2],
@@ -1935,7 +1943,8 @@ class SeisScan(DefaultSeisScan):
                                                     self.data.signal,
                                                     self.data.availability)
 
-            dcoord = self.lut.xyz2coord(dloc)
+            dcoord = self.lut.xyz2lonlatdep(dloc[:, 0], dloc[:, 1], dloc[:, 2])
+            dcoord = np.asarray(dcoord).T
 
             self.output.file_sample_rate = self.output_sampling_rate
             coalescence_mSEED = self.output.write_decscan(coalescence_mSEED,

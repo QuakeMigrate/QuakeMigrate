@@ -24,48 +24,6 @@ except KeyError:
 import matplotlib.pylab as plt
 
 
-# def _cart2sph_np_array(xyz):
-#     # theta_phi_r = _cart2sph_np_array(xyz)
-#     tpr = np.zeros(xyz.shape)
-#     xy = xyz[:, 0] ** 2 + xyz[:, 1] ** 2
-#     tpr[:, 0] = np.arctan2(xyz[:, 1], xyz[:, 0])
-#     tpr[:, 1] = np.arctan2(xyz[:, 2], np.sqrt(xy))
-#     tpr[:, 2] = np.sqrt(xy + xyz[:, 2] ** 2)
-#     return tpr
-
-
-# def _cart2sph_np(xyz):
-#     # theta_phi_r = _cart2sph_np(xyz)
-#     if xyz.ndim == 1:
-#         tpr = np.zeros(3)
-#         xy = xyz[0] ** 2 + xyz[1] ** 2
-#         tpr[0] = np.arctan2(xyz[1], xyz[0])
-#         tpr[1] = np.arctan2(xyz[2], np.sqrt(xy))
-#         tpr[2] = np.sqrt(xy + xyz[2] ** 2)
-#     else:
-#         tpr = np.zeros(xyz.shape)
-#         xy = xyz[:, 0] ** 2 + xyz[:, 1] ** 2
-#         tpr[:, 0] = np.arctan2(xyz[:, 1], xyz[:, 0])
-#         tpr[:, 1] = np.arctan2(xyz[:, 2], np.sqrt(xy))
-#         tpr[:, 2] = np.sqrt(xy + xyz[:, 2] ** 2)
-#     return tpr
-
-
-# def _sph2cart_np(tpr):
-#     # xyz = _sph2cart_np(theta_phi_r)
-#     if tpr.ndim == 1:
-#         xyz = np.zeros(3)
-#         xyz[0] = tpr[2] * np.cos(tpr[1]) * np.cos(tpr[0])
-#         xyz[1] = tpr[2] * np.cos(tpr[1]) * np.sin(tpr[0])
-#         xyz[2] = tpr[2] * np.sin(tpr[1])
-#     else:
-#         xyz = np.zeros(tpr.shape)
-#         xyz[:, 0] = tpr[:, 2] * np.cos(tpr[:, 1]) * np.cos(tpr[:, 0])
-#         xyz[:, 1] = tpr[:, 2] * np.cos(tpr[:, 1]) * np.sin(tpr[:, 0])
-#         xyz[:, 2] = tpr[:, 2] * np.sin(tpr[:, 1])
-#     return xyz
-
-
 def _coord_transform_np(p1, p2, loc):
     xyz = np.zeros(loc.shape)
     if loc.ndim == 1:
@@ -83,41 +41,34 @@ def _coord_transform_np(p1, p2, loc):
 
 def _proj(**kwargs):
     projection = kwargs.get("projection")
+    units = kwargs.get("units")
     if projection == "WGS84":
         proj = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"  # "+init=EPSG:4326"
     if projection == "NAD27":
         proj = "+proj=longlat +ellps=clrk66 +datum=NAD27 +no_defs"  # "+init=EPSG:4267"
     if projection == "UTM":
         zone = _utm_zone(kwargs.get("longitude"))
-        proj = "+proj=utm +zone={0:d} +datum=WGS84 +units=m +no_defs"
-        proj = proj.format(zone)
+        proj = "+proj=utm +zone={0:d} +datum=WGS84 +units={} +no_defs"
+        proj = proj.format(zone, units)
     if projection == "LCC":
         lon0 = kwargs.get("lon0")
         lat0 = kwargs.get("lat0")
         parallel_1 = kwargs.get("parallel_1")
         parallel_2 = kwargs.get("parallel_2")
-        proj = "+proj=lcc +lon_0={} +lat_0={} +lat_1={} +lat_2={} +datum=WGS84 +units=m +no_defs"
+        proj = "+proj=lcc +lon_0={} +lat_0={} +lat_1={} +lat_2={} +datum=WGS84 +units={} +no_defs"
         proj = proj.format(float(lon0), float(lat0),
-                           float(parallel_1), float(parallel_2))
+                           float(parallel_1), float(parallel_2), units)
     if projection == "TM":
         lon = kwargs.get("lon")
         lat = kwargs.get("lat")
-        proj = "+proj=tmerc +lon_0={} +lat_0={} +datum=WGS84 +units=m +no_defs"
-        proj = proj.format(float(lon), float(lat))
+        proj = "+proj=tmerc +lon_0={} +lat_0={} +datum=WGS84 +units={} +no_defs"
+        proj = proj.format(float(lon), float(lat), units)
 
-    return pyproj.Proj(proj)
+    return pyproj.Proj(proj, preserve_units=True)
 
 
 def _utm_zone(longitude):
     return (int(1 + math.fmod((longitude + 180.0) / 6.0, 60)))
-
-
-# def _proj_nlloc_simple(latOrg,lonOrg,rotAngle):
-#     x = (long - longOrig) * 111.111 * cos(lat_radians)
-#     y = (lat - latOrig) * 111.111
-#     lat = latOrig + y / 111.111
-#     long = longOrig + x / (111.111 * cos(lat_radians))
-#     x=(lon)
 
 
 def bilinear_interp(pos, gridspec, grid):
@@ -1412,7 +1363,7 @@ class LUT(Grid3D):
             self._coord_proj = _proj(projection='WGS84')
             self._grid_proj = _proj(projection='LCC', lon0=lon_0,
                                     lat0=lat_0, parallel_1=lat_1,
-                                    parallel_2=lat_2)
+                                    parallel_2=lat_2, units='km')
         
         elif line[1] == 'TRANS_MERC':
             lat_0 = float(line[3])
@@ -1422,7 +1373,7 @@ class LUT(Grid3D):
             self.azimuth = az
             self._coord_proj = _proj(projection='WGS84')
             self._grid_proj = _proj(projection='TM', lon0=lon_0,
-                                    lat0=lat_0)
+                                    lat0=lat_0, units='km')
         
         else:
             raise AttributeError('Well, this should not happen')
@@ -1457,16 +1408,11 @@ class LUT(Grid3D):
             self.cell_count = np.asarray([nx, ny, nz])
             self.cell_size = np.asarray([dx, dy, dz])
 
-            grid_centre_x = x0 + ((nx - 1) * dx) / 2.
-            grid_centre_y = y0 + ((ny - 1) * dy) / 2.
-            grid_centre_z = z0 + ((nz - 1) * dz) / 2.
-            self.grid_centre = np.array([grid_centre_x,
-                                         grid_centre_y,
-                                         grid_centre_z])
-            lon, lat = self.xy2lonlat(grid_centre_x, grid_centre_y)
+            self.grid_origin = np.array([x0, y0, z0])
+            lon, lat = self.xy2lonlat(x0, y0)
             self._longitude = lon
             self._latitude = lat
-            self.elevation = grid_centre_z
+            self.elevation = z0
 
             # now define the station location
             name = station_line[0]

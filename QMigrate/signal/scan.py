@@ -1329,7 +1329,7 @@ class DefaultSeisScan(object):
         self.end_datetime = None
         self.decimate = [1, 1, 1]
         self.sampling_rate = 1000.0
-        self._onset_centred = None
+        self.set_onset_centred = None
 
         self.pick_threshold = 1.0
 
@@ -1433,8 +1433,16 @@ class SeisScan(DefaultSeisScan):
         self.post_pad = round(ttmax + ttmax*0.05)
 
         # Internal variables
-        if self._onset_centred == None:
+        if self.set_onset_centred == None:
             self._onset_centred = False
+        elif self.set_onset_centred == True:
+            self._onset_centred = True
+        elif self.set_onset_centred == False:
+            self._onset_centred = False
+        else:
+            msg = 'set_onset_centre must be either True or False !'
+            raise Exception(msg)
+
 
 
         msg = "=" * 126 + "\n"
@@ -1579,8 +1587,15 @@ class SeisScan(DefaultSeisScan):
 
         events = self.output.read_triggered_events(start_time, end_time)
 
-        if self._onset_centred == None:
+        if self.set_onset_centred == None:
             self._onset_centred = True
+        elif self.set_onset_centred == True:
+            self._onset_centred = True
+        elif self.set_onset_centred == False:
+            self._onset_centred = False
+        else:
+            msg = 'set_onset_centre must be either True or False !'
+            raise Exception(msg)
 
         n_evts = len(events)
 

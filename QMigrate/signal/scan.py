@@ -991,8 +991,9 @@ class SeisPlot:
             plt.close("all")
 
     def _plot_coa_trace(self, trace, x, y, st_idx, color):
-        trace.plot(x, y / np.max(abs(y)) * self.trace_scale + (st_idx + 1),
-                   color=color, linewidth=0.5, zorder=1)
+        if y.any():
+            trace.plot(x, y / np.max(abs(y)) * self.trace_scale + (st_idx + 1),
+                       color=color, linewidth=0.5, zorder=1)
 
     def _coalescence_image(self, tslice_idx):
         """

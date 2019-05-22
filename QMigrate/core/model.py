@@ -1496,8 +1496,8 @@ class LUT(Grid3D, NonLinLoc):
 
         """
 
-        file = open(filename, "rb")
-        tmp_dict = pickle.load(file)
+        with open(filename, "rb") as f:
+            tmp_dict = pickle.load(f)
         self.__dict__.update(tmp_dict)
 
     def plot_station(self):

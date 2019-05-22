@@ -418,29 +418,29 @@ class Grid3D(object):
         self.UTM_zones_different = False
         self.lcc_standard_parallels = (0.0, 0.0)
 
-    def projections(self, grid_proj, coord_proj=None):
+    def projections(self, grid_proj_type, coord_proj=None):
         if coord_proj and self._coord_proj is None:
             self.coord_proj = _proj(projection=coord_proj)
         elif self._coord_proj is None:
             self.coord_proj = _proj(projection="WGS84")
 
-        if grid_proj == "UTM":
-            self.grid_proj = _proj(projection=grid_proj,
+        if grid_proj_type == "UTM":
+            self.grid_proj = _proj(projection=grid_proj_type,
                                    longitude=self.longitude)
-        elif grid_proj == "LCC":
-            self.grid_proj = _proj(projection=grid_proj, lon0=self.longitude,
+        elif grid_proj_type == "LCC":
+            self.grid_proj = _proj(projection=grid_proj_type, lon0=self.longitude,
                                    lat0=self.latitude,
                                    parallel_1=self.lcc_standard_parallels[0],
                                    parallel_2=self.lcc_standard_parallels[1])
-        elif grid_proj == "TM":
-            self.grid_proj = _proj(projection=grid_proj, lon=self.longitude,
+        elif grid_proj_type == "TM":
+            self.grid_proj = _proj(projection=grid_proj_type, lon=self.longitude,
                                    lat=self.latitude)
         else:
             msg = "Projection type must be specified.\n"
             msg += "SeisLoc currently supports:\n"
             msg += "        UTM\n"
             msg += "        LCC (Lambert Conical Conformic)\n"
-            msg += "        TM (Transverse Mercator"
+            msg += "        TM (Transverse Mercator)"
             raise Exception(msg)
 
     def lonlat_centre(self, longitude=None, latitude=None):
@@ -489,7 +489,7 @@ class Grid3D(object):
                                 self.longitude, self.latitude)
 
         self.grid_centre = [x, y, self.elevation - ((self.cell_count[2] - 1)
-                                                    * self.cell_size[2] / 2)]
+                                                    * self.cell_size[2]) / 2]
 
     def _update_coord_centre(self):
         lon, lat = pyproj.transform(self.grid_proj, self.coord_proj,
@@ -719,7 +719,7 @@ class Grid3D(object):
 
     @property
     def grid_origin(self):
-        grid_size = self.cell_count * self.cell_size
+        grid_size = (self.cell_count - 1) * self.cell_size
         return self.local2global(self.grid_centre - (grid_size / 2))
 
     @property
@@ -870,10 +870,10 @@ class NonLinLoc:
 
         # TO-DO: What is the text in NLLoc_MapOrg[3]?
         if self.NLLoc_proj == "LAMBERT":
-            GRID_NLLOC.projections(grid_proj=self.NLLoc_MapOrg[3])
+            GRID_NLLOC.projections(grid_proj_type=self.NLLoc_MapOrg[3])
 
         if self.NLLoc_proj == "TRANS_MERC":
-            GRID_NLLOC.projections(grid_proj=self.NLLoc_MapOrg[3])
+            GRID_NLLOC.projections(grid_proj_type=self.NLLoc_MapOrg[3])
 
         OrgX, OrgY, OrgZ = GRID_NLLOC.grid_xyz
         NewX, NewY, NewZ = self.grid_xyz
@@ -1334,14 +1334,18 @@ class LUT(Grid3D, NonLinLoc):
         # Define rest of the LUT parameters
         x = p1_x0 + dx * ((nx - 1) / 2.)
         y = p1_y0 + dy * ((ny - 1) / 2.)
-        z = p1_z0 + dz * ((nz - 1) / 2.)
+        z = p1_z0 #+ dz * ((nz - 1) / 2.)
         self.cell_count = np.asarray([nx, ny, nz])
         self.cell_size = np.asarray([dx, dy, dz])
         self.longitude, self.latitude = self.xy2lonlat(x, y)
-        self.elevation = z
+        self.elevation = -z
         self.azimuth = 0.0
         self.dip = 0.0
         self._update_grid_centre()
+
+        # Flip TT maps so the indexing is consistent (z ordered from deepest to shallowest)
+        p_travel_times = p_travel_times[...,::-1,:]
+        s_travel_times = s_travel_times[...,::-1,:]
 
         self.maps = {"TIME_P": p_travel_times, "TIME_S": s_travel_times}
 
@@ -1377,7 +1381,7 @@ class LUT(Grid3D, NonLinLoc):
         p_map = np.zeros(ix.shape + (rloc.shape[0],))
         s_map = np.zeros(ix.shape + (rloc.shape[0],))
 
-        z = np.insert(np.append(z, -np.inf), 0, np.inf)
+        z = np.insert(np.append(z, np.finfo(float).min), 0, np.finfo(float).max)
         vp = np.insert(np.append(vp, vp[-1]), 0, vp[0])
         vs = np.insert(np.append(vs, vs[-1]), 0, vs[0])
 

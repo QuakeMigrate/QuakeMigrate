@@ -20,6 +20,6 @@ dependencies:
     - cython==0.24.1
     - h5py==2.6.0
     - hjson==2.0.2
-    - scikit-fmm==0.0.9
+    - scikit-fmm==2019.1.30
 prefix: /raid1/cb793/miniconda3/envs/QuakeMigrate
 

@@ -1351,7 +1351,7 @@ class LUT(Grid3D, NonLinLoc):
 
         call(["rm", "-rf", "control.in", "time", "model"])
 
-    def compute_1d_vmodel_skfmm(self, path, delimiter=",", header=False):
+    def compute_1d_vmodel_skfmm(self, path, header=False, delimiter=","):
         """
         Calculate the travel-time tables for each station in a velocity model
         that varies with depth
@@ -1372,8 +1372,7 @@ class LUT(Grid3D, NonLinLoc):
         if header:
             vmod = pd.read_csv(path, delimiter=delimiter).values
         else:
-            vmod = pd.read_csv(path, delimiter=delimiter, header=None).values
-
+            vmod = pd.read_csv(path, header=None, delimiter=delimiter).values
         z, vp, vs = vmod[:, 0], vmod[:, 1] * 1000, vmod[:, 2] * 1000
 
         rloc = self.station_xyz()

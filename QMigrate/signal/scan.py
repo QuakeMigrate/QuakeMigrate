@@ -871,28 +871,31 @@ class SeisPlot:
         xcells = cells[0]
         ycells = cells[1]
         zcells = cells[2]
-        cov_x = eq["Covariance_ErrX"] / self.lut.cell_size[0]
-        cov_y = eq["Covariance_ErrY"] / self.lut.cell_size[1]
-        cov_z = eq["Covariance_ErrZ"] / self.lut.cell_size[2]
+        cov_x = eq["GlobalCovariance_ErrX"] / self.lut.cell_size[0]
+        cov_y = eq["GlobalCovariance_ErrY"] / self.lut.cell_size[1]
+        cov_z = eq["GlobalCovariance_ErrZ"] / self.lut.cell_size[2]
 
-        cov_crd = np.array([[eq["Covariance_X"],
-                             eq["Covariance_Y"],
-                             eq["Covariance_Z"]]])
+        cov_crd = np.array([[eq["GlobalCovariance_X"],
+                             eq["GlobalCovariance_Y"],
+                             eq["GlobalCovariance_Z"]]])
         cov_loc = self.lut.coord2loc(cov_crd)
         dCo = abs(cov_crd - self.lut.coord2loc(np.array([[cov_loc[0][0] + cov_x,
                                                           cov_loc[0][1] + cov_y,
                                                           cov_loc[0][2] + cov_z]]),
                                                inverse=True))
 
-        ellipse_XY = patches.Ellipse((eq["Covariance_X"], eq["Covariance_Y"]),
+        ellipse_XY = patches.Ellipse((eq["GlobalCovariance_X"],
+                                      eq["GlobalCovariance_Y"]),
                                      2 * dCo[0][0], 2 * dCo[0][1], angle=0,
                                      linewidth=2, edgecolor="k",
                                      fill=False,
-                                     label="Global Gaussian Error Ellipse")
-        ellipse_YZ = patches.Ellipse((eq["Covariance_Z"], eq["Covariance_Y"]),
+                                     label="Global Covariance Error Ellipse")
+        ellipse_YZ = patches.Ellipse((eq["GlobalCovariance_Z"],
+                                      eq["GlobalCovariance_Y"]),
                                      2 * dCo[0][2], 2 * dCo[0][1], angle=0,
                                      linewidth=2, edgecolor="k", fill=False)
-        ellipse_XZ = patches.Ellipse((eq["Covariance_X"], eq["Covariance_Z"]),
+        ellipse_XZ = patches.Ellipse((eq["GlobalCovariance_X"],
+                                      eq["GlobalCovariance_Z"]),
                                      2 * dCo[0][0], 2 * dCo[0][2], angle=0,
                                      linewidth=2, edgecolor="k", fill=False)
 
@@ -926,10 +929,12 @@ class SeisPlot:
                          color=self.line_station_color)
         xy_slice.axhline(y=crd[0][1], linestyle="--", linewidth=2,
                          color=self.line_station_color)
-        xy_slice.scatter(eq["Gaussian_X"], eq["Gaussian_Y"], 150, c="pink",
-                         marker="*", label="Local Gaussian Location")
-        xy_slice.scatter(eq["Covariance_X"], eq["Covariance_Y"], 150, c="blue",
-                         marker="*", label="Global Gaussian Location")
+        xy_slice.scatter(eq["LocalGaussian_X"], eq["LocalGaussian_Y"],
+                         150, c="pink", marker="*",
+                         label="Local Gaussian Location")
+        xy_slice.scatter(eq["GlobalCovariance_X"], eq["GlobalCovariance_Y"],
+                         150, c="blue", marker="*",
+                         label="Global Covariance Location")
         xy_slice.add_patch(ellipse_XY)
         xy_slice.legend()
 
@@ -953,10 +958,10 @@ class SeisPlot:
                          color=self.line_station_color)
         xz_slice.axhline(y=crd[0][2], linestyle="--", linewidth=2,
                          color=self.line_station_color)
-        xz_slice.scatter(eq["Gaussian_X"], eq["Gaussian_Z"], 150, c="pink",
-                         marker="*")
-        xz_slice.scatter(eq["Covariance_X"], eq["Covariance_Z"], 150, c="blue",
-                         marker="*")
+        xz_slice.scatter(eq["LocalGaussian_X"], eq["LocalGaussian_Z"],
+                         150, c="pink", marker="*")
+        xz_slice.scatter(eq["GlobalCovariance_X"], eq["GlobalCovariance_Z"],
+                         150, c="blue", marker="*")
         xz_slice.add_patch(ellipse_XZ)
         xz_slice.invert_yaxis()
 
@@ -979,10 +984,10 @@ class SeisPlot:
                          color=self.line_station_color)
         yz_slice.axhline(y=crd[0][1], linestyle="--", linewidth=2,
                          color=self.line_station_color)
-        yz_slice.scatter(eq["Gaussian_Z"], eq["Gaussian_Y"], 150, c="pink",
-                         marker="*")
-        yz_slice.scatter(eq["Covariance_Z"], eq["Covariance_Y"], 150, c="blue",
-                         marker="*")
+        yz_slice.scatter(eq["LocalGaussian_Z"], eq["LocalGaussian_Y"],
+                         150, c="pink", marker="*")
+        yz_slice.scatter(eq["GlobalCovariance_Z"], eq["GlobalCovariance_Y"],
+                         150, c="blue", marker="*")
         yz_slice.add_patch(ellipse_YZ)
 
         # --- Plotting the station locations ---
@@ -1380,6 +1385,14 @@ class SeisScan(DefaultSeisScan):
                             "xdata_dt": 0,
                             "PickValue": -1}
 
+    EVENT_FILE_COLS = ["DT", "COA", "X", "Y", "Z",
+                       "LocalGaussian_X", "LocalGaussian_Y", "LocalGaussian_Z",
+                       "LocalGaussian_ErrX", "LocalGaussian_ErrY",
+                       "LocalGaussian_ErrZ", "GlobalCovariance_X",
+                       "GlobalCovariance_Y", "GlobalCovariance_Z",
+                       "GlobalCovariance_ErrX", "GlobalCovariance_ErrY",
+                       "GlobalCovariance_ErrZ"]
+
     def __init__(self, data, lookup_table, reader=None, params=None,
                  output_path=None, output_name=None):
         """
@@ -1607,7 +1620,7 @@ class SeisScan(DefaultSeisScan):
             w_end_mw = event_coa_val_dtmax + self.marginal_window
 
             if (event_coa_val_dtmax >= event["CoaTime"] - self.marginal_window) \
-            and (event_coa_val_dtmax <= event["CoaTime"] + self.marginal_window):
+               and (event_coa_val_dtmax <= event["CoaTime"] + self.marginal_window):
                 w_beg_mw = event_coa_val_dtmax - self.marginal_window
                 w_end_mw = event_coa_val_dtmax + self.marginal_window
             else:
@@ -1647,13 +1660,7 @@ class SeisScan(DefaultSeisScan):
                                            loc_cov[0], loc_cov[1], loc_cov[2],
                                            loc_err_cov[0], loc_err_cov[1],
                                            loc_err_cov[2]])],
-                               columns=["DT", "COA", "X", "Y", "Z",
-                                        "Gaussian_X", "Gaussian_Y",
-                                        "Gaussian_Z", "Gaussian_ErrX",
-                                        "Gaussian_ErrY", "Gaussian_ErrZ",
-                                        "Covariance_X", "Covariance_Y",
-                                        "Covariance_Z", "Covariance_ErrX",
-                                        "Covariance_ErrY", "Covariance_ErrZ"])
+                               columns=self.EVENT_FILE_COLS)
             self.output.write_event(evt, evt_id)
 
             if cut_mseed:
@@ -2201,7 +2208,7 @@ class SeisScan(DefaultSeisScan):
                 t_min = t_min - self.minimum_repeat
 
             if (t_max - t_val) < self.marginal_window:
-                t_max = t_val + self.marginal_window  + self.minimum_repeat
+                t_max = t_val + self.marginal_window + self.minimum_repeat
             else:
                 t_max = t_max + self.minimum_repeat
 
@@ -2214,11 +2221,7 @@ class SeisScan(DefaultSeisScan):
             c = d + 1
             e += 1
 
-
-
-        
-
-        n_evts  = len(init_events)
+        n_evts = len(init_events)
         evt_num = np.ones((n_evts), dtype=int)
 
         count = 1
@@ -2233,8 +2236,8 @@ class SeisScan(DefaultSeisScan):
             tmp = init_events[init_events["EventNum"] == i]
             tmp = tmp.reset_index(drop=True)
             j = np.argmax(tmp["COA_V"])
-            min_mt=np.min(tmp["MinTime"])
-            max_mt=np.max(tmp["MaxTime"])
+            min_mt = np.min(tmp["MinTime"])
+            max_mt = np.max(tmp["MaxTime"])
             event = pd.DataFrame([[i, tmp["CoaTime"].iloc[j],
                                    tmp["COA_V"].iloc[j],
                                    tmp["COA_X"].iloc[j],
@@ -2246,7 +2249,7 @@ class SeisScan(DefaultSeisScan):
             events = events.append(event, ignore_index=True)
 
         evt_id = events["CoaTime"].astype(str)
-        for char_ in ["-", ":", ".", " ", "Z"]:
+        for char_ in ["-", ":", ".", " ", "Z", "T"]:
             evt_id = evt_id.str.replace(char_, "")
         events["EventID"] = evt_id
 

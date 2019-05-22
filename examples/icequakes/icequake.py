@@ -45,11 +45,12 @@ lut = cmod.LUT(cell_count=[20, 20, 140], cell_size=[100, 100, 20])
 lut.lonlat_centre(-17.224, 64.328)
 
 # Set the LUT projection (here we use the Lambert Conformal Conic projection)
-lut.lcc_standard_parallels = (64.32, 64.335)
-lut.projections(grid_proj="LCC")
+lut.lcc_standard_parallels = (64.32, 64.335)     # Defining the parallels for the projection
+lut.projections(grid_proj_type="LCC")		     # Defining the projection type for the grid
+lut.elevation=1400                               # Defining the elevation of the top of the grid in m 
 
 # Add stations to LUT
-lut.stations(path=stat_in, units="lat_lon_elev")
+lut.stations(path=stat_in, units="lat_lon_elev") # Defining the station locations within the grid
 
 # Compute for a homogeneous velocity model
 v_p_homo_model = 3630
@@ -68,6 +69,8 @@ lut.save(lut_out)
 # Create a new instance of the MSEED class and set path structure
 data = cmseed.MSEED(lut_out, HOST_PATH=data_in)
 data.path_structure(path_type="YEAR/JD/*_STATION")
+data.resample = True 
+
 
 # Create a new instance of the SeisScan class
 scn = cscan.SeisScan(data, lut_out, output_path=output, output_name="icequake_example")
@@ -106,9 +109,9 @@ scn.detect(starttime, endtime)
 
 
 # Set trigger parameters:
-scn.detection_threshold   = 1.5   # SNR threshold for the coalescence through time. Will detect an event if the coalescence goes above this for a given timestep
-scn.marginal_window       = 2.75  # The length of the time-step window, + pre and post padding (i.e. 0.75 sec time-step window + 1s padding either side)
-scn.minimum_repeat        = 5.0
+scn.detection_threshold   = 1.6   # SNR threshold for the coalescence through time. Will detect an event if the coalescence goes above this for a given timestep
+scn.marginal_window       = 1.0  # The length of the time-step window, + pre and post padding (i.e. 0.75 sec time-step window + 1s padding either side)
+scn.minimum_repeat        = 1.0
 scn.normalise_coalescence = True
 
 # Turn on plotting features
@@ -128,13 +131,10 @@ scn.trigger(starttime, endtime)
 scn.locate(starttime, endtime)
 
 
-# ## 4. Some of the key outputs
-
-# In[21]:
-
+# ## 4. Some of the key outputs 
 
 # Show the .event file, containing event origin time and location:
-icequake_event_fname = "outputs/runs/icequake/icequake_example_20140629T184210208000.event"
+icequake_event_fname = "outputs/runs/icequake/icequake_example_20140629184210336000.event"
 with open(icequake_event_fname) as f:
     lines = f.readlines()
 for line in lines:
@@ -145,7 +145,7 @@ for line in lines:
 
 
 # Show the .stn file, containing station time picks:
-icequake_stn_fname = "outputs/runs/icequake/icequake_example_20140629T184210208000.stn"
+icequake_stn_fname = "outputs/runs/icequake/icequake_example_20140629184210336000.stn"
 with open(icequake_stn_fname) as f:
     lines = f.readlines()
 for line in lines:
@@ -156,7 +156,7 @@ for line in lines:
 
 
 # Show the coalescence pdf file, containing event origin time and location:
-icequake_coal_image_fname = "outputs/runs/icequake/icequake_example_20140629T184210208000_EventLocationError.pdf"
+icequake_coal_image_fname = "outputs/runs/icequake/icequake_example_20140629184210336000_EventLocationError.pdf"
 from IPython.display import IFrame # For plotting pdf
 IFrame(icequake_coal_image_fname, width=800, height=400) # Plot pdf
 

@@ -2449,8 +2449,8 @@ class SeisScan(DefaultSeisScan):
 
             tmp = exceedence_dist[np.argmax(onset_trim[exceedence])]
             tmp = np.where(exceedence_dist == tmp)
-            gau_idxmin = exceedence[tmp][0] + win_min
-            gau_idxmax = exceedence[tmp][-1] + win_min
+            gau_idxmin = exceedence[tmp][0] + win_min - 1
+            gau_idxmax = exceedence[tmp][-1] + win_min + 2
 
             data_half_range = int(2 * sampling_rate / lowfreq)
             x_data = np.arange(gau_idxmin, gau_idxmax, dtype=float)

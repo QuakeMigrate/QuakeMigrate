@@ -8,6 +8,7 @@ import os
 import pathlib
 import time
 from datetime import datetime, timedelta
+import warnings
 
 import obspy
 from obspy import Stream, Trace, UTCDateTime
@@ -19,7 +20,6 @@ from scipy.signal import butter, lfilter
 from scipy.optimize import curve_fit
 import numpy as np
 from matplotlib.collections import PatchCollection
-from matplotlib.patches import Rectangle
 import matplotlib
 try:
     os.environ["DISPLAY"]
@@ -27,13 +27,15 @@ try:
 except KeyError:
     matplotlib.use("Agg")
 import matplotlib.pylab as plt
-import matplotlib.dates as mdates
-from matplotlib import patches
+from matplotlib.patches import Rectangle, Ellipse
 import matplotlib.image as mpimg
 import matplotlib.animation as animation
 
 import QMigrate.core.model as cmod
 import QMigrate.core.QMigratelib as ilib
+
+# Catch warnings as errors
+warnings.filterwarnings("always")
 
 
 def TicTocGenerator():
@@ -54,7 +56,7 @@ def toc(tmp_bool=True):
     # Prints the time difference yielded by generator instance TicToc
     tmp_time_interval = next(TicToc)
     if tmp_bool:
-        print("Elapsed time: {} seconds.\n".format(tmp_time_interval))
+        print("    \tElapsed time: {:.6f} seconds.\n".format(tmp_time_interval))
 
 
 def tic():
@@ -855,20 +857,19 @@ class SeisPlot:
                                                           cov_loc[0][2] + cov_z]]),
                                                inverse=True))
 
-        ellipse_XY = patches.Ellipse((eq["GlobalCovariance_X"],
-                                      eq["GlobalCovariance_Y"]),
-                                     2 * dCo[0][0], 2 * dCo[0][1], angle=0,
-                                     linewidth=2, edgecolor="k",
-                                     fill=False,
-                                     label="Global Covariance Error Ellipse")
-        ellipse_YZ = patches.Ellipse((eq["GlobalCovariance_Z"],
-                                      eq["GlobalCovariance_Y"]),
-                                     2 * dCo[0][2], 2 * dCo[0][1], angle=0,
-                                     linewidth=2, edgecolor="k", fill=False)
-        ellipse_XZ = patches.Ellipse((eq["GlobalCovariance_X"],
-                                      eq["GlobalCovariance_Z"]),
-                                     2 * dCo[0][0], 2 * dCo[0][2], angle=0,
-                                     linewidth=2, edgecolor="k", fill=False)
+        ellipse_XY = Ellipse((eq["GlobalCovariance_X"],
+                              eq["GlobalCovariance_Y"]),
+                             2 * dCo[0][0], 2 * dCo[0][1], angle=0,
+                             linewidth=2, edgecolor="k", fill=False,
+                             label="Global Covariance Error Ellipse")
+        ellipse_YZ = Ellipse((eq["GlobalCovariance_Z"],
+                              eq["GlobalCovariance_Y"]),
+                             2 * dCo[0][2], 2 * dCo[0][1], angle=0,
+                             linewidth=2, edgecolor="k", fill=False)
+        ellipse_XZ = Ellipse((eq["GlobalCovariance_X"],
+                              eq["GlobalCovariance_Z"]),
+                             2 * dCo[0][0], 2 * dCo[0][2], angle=0,
+                             linewidth=2, edgecolor="k", fill=False)
 
         # ------ Spatial Function ------
         # --- Plotting the marginal window ---
@@ -1258,7 +1259,7 @@ class SeisPlot:
             plot.text(150, 200, txt,
                       fontsize=fontsize, style="italic")
         except:
-            print("Logo not plotting")
+            print("    \tLogo not plotting")
 
     def _plot_coal(self, plot, tslice):
         # --- Plotting the Coalescence Function ---
@@ -1288,17 +1289,8 @@ class DefaultSeisScan(object):
         self.s_bp_filter = [2.0, 12.0, 3]
         self.p_onset_win = [0.2, 1.0]
         self.s_onset_win = [0.2, 1.0]
-        self.p_station = None
-        self.s_station = None
         self.detection_threshold = 4.0
-        self.detection_downsample = 5
-        self.detection_window = 3.0
-        self.minimum_velocity = 3000.0
-        self.marginal_window = [0.5, 3000.0]
-        self.location_method = "Mean"
         self.time_step = 10
-        self.start_datetime = None
-        self.end_datetime = None
         self.decimate = [1, 1, 1]
         self.sampling_rate = 1000.0
         self.set_onset_centred = None
@@ -1405,17 +1397,15 @@ class SeisScan(DefaultSeisScan):
         self.post_pad = round(ttmax + ttmax*0.05)
 
         # Internal variables
-        if self.set_onset_centred == None:
+        if self.set_onset_centred is None:
             self._onset_centred = False
-        elif self.set_onset_centred == True:
+        elif self.set_onset_centred is True:
             self._onset_centred = True
-        elif self.set_onset_centred == False:
+        elif not self.set_onset_centred:
             self._onset_centred = False
         else:
             msg = 'set_onset_centre must be either True or False !'
             raise Exception(msg)
-
-
 
         msg = "=" * 126 + "\n"
         msg += "=" * 126 + "\n"
@@ -1492,7 +1482,7 @@ class SeisScan(DefaultSeisScan):
         msg += "         Number of CPUs            = {}\n"
         msg += "\n"
         msg += "         Marginal window           = {} s\n"
-        msg += "         Minimum repeat            = {} s\n"
+        msg += "         Minimum repeat            = {} s\n\n"
         msg += "=" * 126 + "\n"
         msg = msg.format(str(start_time), str(end_time), self.n_cores,
                          self.marginal_window, self.minimum_repeat)
@@ -1548,8 +1538,7 @@ class SeisScan(DefaultSeisScan):
         msg += "   Parameters specified:\n"
         msg += "         Start time                = {}\n"
         msg += "         End   time                = {}\n"
-        msg += "         Number of CPUs            = {}\n"
-        msg += "\n"
+        msg += "         Number of CPUs            = {}\n\n"
         msg += "=" * 126 + "\n"
         msg = msg.format(str(start_time), str(end_time), self.n_cores)
         if self.log:
@@ -1582,7 +1571,10 @@ class SeisScan(DefaultSeisScan):
 
         for i, event in events.iterrows():
             evt_id = event["EventID"]
-            msg = "Processing for Event {} of {} - {}"
+            msg = "=" * 126 + "\n"
+            msg += "    EVENT - {} of {} - {}\n"
+            msg += "=" * 126 + "\n"
+            msg += "    Determining event location..."
             msg = msg.format(i + 1, n_evts, evt_id)
             if self.log:
                 self.output.write_log(msg)
@@ -1665,7 +1657,7 @@ class SeisScan(DefaultSeisScan):
             # Outputting coalescence grids and triggered events
             if self.plot_coal_trace:
                 tic()
-                print("Creating Station Traces")
+                print("    Creating station traces...")
                 seis_plot = SeisPlot(self.lut,
                                      map_,
                                      self.coa_map,
@@ -1679,13 +1671,13 @@ class SeisScan(DefaultSeisScan):
 
             if self.plot_coal_grid:
                 tic()
-                print("Creating 4D Coalescence Grids")
+                print("    Creating 4D coalescence grids...")
                 self.output.write_coal4D(map_, evt_id, w_beg, w_end)
                 toc()
 
             if self.plot_coal_video:
                 tic()
-                print("Creating Seismic Videos")
+                print("    Creating seismic videos...")
                 seis_plot = SeisPlot(self.lut,
                                      map_,
                                      self.coa_map,
@@ -1699,7 +1691,7 @@ class SeisScan(DefaultSeisScan):
 
             if self.plot_coal_picture:
                 tic()
-                print("Creating Seismic Picture")
+                print("    Creating overview figure...")
                 seis_plot = SeisPlot(self.lut,
                                      map_,
                                      self.coa_map,
@@ -1713,9 +1705,10 @@ class SeisScan(DefaultSeisScan):
                 del seis_plot
                 toc()
 
+            print("=" * 126 + "\n")
+
             del map_, event, station_pick
             self.coa_map = None
-
 
     def plot_scn(self, events, start_time, end_time, stations=None, savefig=False):
         """
@@ -1912,7 +1905,7 @@ class SeisScan(DefaultSeisScan):
             w_beg = start_time + self.time_step * i - self.pre_pad
             w_end = start_time + self.time_step * (i + 1) + self.post_pad
 
-            msg = ("~" * 15) + " Processing - {} to {} " + ("~" * 15)
+            msg = ("~" * 27) + " Processing : {} - {} " + ("~" * 27)
             msg = msg.format(str(w_beg), str(w_end))
             if self.log:
                 self.output.write_log(msg)
@@ -1938,6 +1931,7 @@ class SeisScan(DefaultSeisScan):
 
             del daten, dsnr, dsnr_norm, dloc, map_
             i += 1
+        print("=" * 126)
 
     def _compute(self, w_beg, w_end, signal, station_availability):
 
@@ -2317,6 +2311,7 @@ class SeisScan(DefaultSeisScan):
                                                    XSig,
                                                    YSig,
                                                    p0)
+
                             tmp_gau = gaussian_1d(XSig.astype(float),
                                                   float(popt[0]),
                                                   float(popt[1]),
@@ -2329,7 +2324,7 @@ class SeisScan(DefaultSeisScan):
                             else:
                                 onset_gaussian[np.where((gau_onset_num[i, :] == j))[0]] = tmp_gau
                         except:
-                            print("Error with {}".format(j))
+                            print("    Error with {}".format(j))
 
                     else:
                         continue
@@ -2465,6 +2460,7 @@ class SeisScan(DefaultSeisScan):
                 p0 = [np.max(y_data),
                       float(gau_idxmin + np.argmax(y_data)) / sampling_rate,
                       data_half_range / sampling_rate]
+
                 popt, pcov = curve_fit(gaussian_1d, x_data, y_data, p0)
                 sigma = np.absolute(popt[2])
 
@@ -2673,12 +2669,6 @@ class SeisScan(DefaultSeisScan):
                            self._mask3d([nx, ny, nz], [mx, my, mz], mask)),
             self._mask3d([nx, ny, nz], [mx, my, mz], win))
         ix, iy, iz = np.where(flg)
-        msg = "X : {}-{} - Y : {}-{} - Z : {}-{}"
-        msg = msg.format(min(ix), max(ix), min(iy), max(iy), min(iz), max(iz))
-        if self.log:
-            self.output.write_log(msg)
-        else:
-            print(msg)
 
         ncell = len(ix)
 
@@ -2811,8 +2801,7 @@ class SeisScan(DefaultSeisScan):
         y_expect = np.sum(smp_weights * y_samples) / ssw
         z_expect = np.sum(smp_weights * z_samples) / ssw
 
-        msg = "Covariance GridXYZ - X : {} - Y : {} - Z : {}"
-        msg.format(x_expect, y_expect, z_expect)
+        msg = "    Calculating covariance of coalescence array..."
         if self.log:
             self.output.write_log(msg)
         else:

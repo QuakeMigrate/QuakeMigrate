@@ -243,8 +243,6 @@ class SeisOutFile:
 
     """
 
-    SCAN_COLS = ["DT", "COA", "COA_N", "X", "Y", "Z"]
-
     def __init__(self, path="", name=None):
         """
         Class initialisation method
@@ -332,11 +330,11 @@ class SeisOutFile:
                         coa_stats.endtime + td,
                         td)
         data["DT"] = [x.datetime for x in tmp]
-        data["COA"] = coa.select(station="COA")[0].data / 1e8
-        data["COA_N"] = coa.select(station="COA_N")[0].data / 1e8
+        data["COA"] = coa.select(station="COA")[0].data / 1e5
+        data["COA_N"] = coa.select(station="COA_N")[0].data / 1e5
         data["X"] = coa.select(station="X")[0].data / 1e6
         data["Y"] = coa.select(station="Y")[0].data / 1e6
-        data["Z"] = coa.select(station="Z")[0].data
+        data["Z"] = coa.select(station="Z")[0].data / 1e3
 
         data["DT"] = data["DT"].apply(UTCDateTime)
 
@@ -355,53 +353,26 @@ class SeisOutFile:
 
         fname = (self.path / self.name).with_suffix(".scnmseed")
 
-        data = pd.DataFrame(columns=self.SCAN_COLS)
-        data["DT"] = daten
-        data["DT"] = data["DT"].apply(UTCDateTime)
-        data["COA"] = dsnr
-        data["COA_N"] = dsnr_norm
-        data["X"] = dloc[:, 0]
-        data["Y"] = dloc[:, 1]
-        data["Z"] = dloc[:, 2]
+        dsnr[dsnr > 21474.] = 21474.
+        dsnr_norm[dsnr_norm > 21474.] = 21474.
 
-        npts = len(data)
-        starttime = data.iloc[0][0]
-        stats_COA = {"network": "NW",
-                     "station": "COA",
-                     "npts": npts,
-                     "sampling_rate": sampling_rate,
-                     "starttime": starttime}
-        stats_COA_N = {"network": "NW",
-                       "station": "COA_N",
-                       "npts": npts,
-                       "sampling_rate": sampling_rate,
-                       "starttime": starttime}
-        stats_X = {"network": "NW",
-                   "station": "X",
-                   "npts": npts,
-                   "sampling_rate": sampling_rate,
-                   "starttime": starttime}
-        stats_Y = {"network": "NW",
-                   "station": "Y",
-                   "npts": npts,
-                   "sampling_rate": sampling_rate,
-                   "starttime": starttime}
-        stats_Z = {"network": "NW",
-                   "station": "Z",
-                   "npts": npts,
-                   "sampling_rate": sampling_rate,
-                   "starttime": starttime}
+        npts = len(dsnr)
+        starttime = UTCDateTime(daten[0])
+        meta = {"network": "NW",
+                "npts": npts,
+                "sampling_rate": sampling_rate,
+                "starttime": starttime}
 
-        st = Stream(Trace(data=(np.array(data["COA"]) * 1e8).astype(np.int32),
-                          header=stats_COA))
-        st += Stream(Trace(data=(np.array(data["COA_N"]) * 1e8).astype(np.int32),
-                           header=stats_COA_N))
-        st += Stream(Trace(data=(np.array(data["X"]) * 1e6).astype(np.int32),
-                           header=stats_X))
-        st += Stream(Trace(data=(np.array(data["Y"]) * 1e6).astype(np.int32),
-                           header=stats_Y))
-        st += Stream(Trace(data=np.array(data["Z"]).astype(np.int32),
-                           header=stats_Z))
+        st = Stream(Trace(data=(dsnr * 1e5).astype(np.int32),
+                          header={**{"station": "COA"}, **meta}))
+        st += Stream(Trace(data=(dsnr_norm * 1e5).astype(np.int32),
+                           header={**{"station": "COA_N"}, **meta}))
+        st += Stream(Trace(data=(dloc[:, 0] * 1e6).astype(np.int32),
+                           header={**{"station": "X"}, **meta}))
+        st += Stream(Trace(data=(dloc[:, 1] * 1e6).astype(np.int32),
+                           header={**{"station": "Y"}, **meta}))
+        st += Stream(Trace(data=(dloc[:, 2] * 1e3).astype(np.int32),
+                           header={**{"station": "Z"}, **meta}))
 
         if original_dataset is not None:
             original_dataset = original_dataset + st

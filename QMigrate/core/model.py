@@ -1343,11 +1343,15 @@ class LUT(Grid3D, NonLinLoc):
         self.dip = 0.0
         self._update_grid_centre()
 
+        # Flip TT maps so the indexing is consistent (z ordered from deepest to shallowest)
+        p_travel_times = p_travel_times[...,::-1,:]
+        s_travel_times = s_travel_times[...,::-1,:]
+
         self.maps = {"TIME_P": p_travel_times, "TIME_S": s_travel_times}
 
         call(["rm", "-rf", "control.in", "time", "model"])
 
-    def compute_1d_vmodel_skfmm(self, path, delimiter=","):
+    def compute_1d_vmodel_skfmm(self, path, delimiter=",", header=False):
         """
         Calculate the travel-time tables for each station in a velocity model
         that varies with depth
@@ -1365,7 +1369,11 @@ class LUT(Grid3D, NonLinLoc):
 
         import pandas as pd
 
-        vmod = pd.read_csv(path, delimiter=delimiter, header=None).values
+        if header:
+            vmod = pd.read_csv(path, delimiter=delimiter).values
+        else:
+            vmod = pd.read_csv(path, delimiter=delimiter, header=None).values
+
         z, vp, vs = vmod[:, 0], vmod[:, 1] * 1000, vmod[:, 2] * 1000
 
         rloc = self.station_xyz()

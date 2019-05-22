@@ -1386,7 +1386,8 @@ class SeisScan(DefaultSeisScan):
                             "PickValue": -1}
 
     def __init__(self, data, lookup_table, reader=None, params=None,
-                 output_path=None, output_name=None):
+                 output_path=None, output_name=None, pickle_read=False,
+                 nonlinloc_read=False, nonlinloc_trans_file=None):
         """
         Class initialisation method
 
@@ -1410,7 +1411,18 @@ class SeisScan(DefaultSeisScan):
         DefaultSeisScan.__init__(self)
 
         self.data = data
-        self.lut_name = lookup_table
+        self._pickle_read = pickle_read
+        self._nonlinloc_read = nonlinloc_read
+        self._lut_name = lookup_table
+
+        if self._pickle_read and self.nonlinloc_read:
+            raise AttributeError('Cannot load both NonLinLoc grids and pickle grids')
+        if self._pickle_read:
+            self.lut = cmod.LUT()
+            self.lut.load_pickle(self._lut_name)
+        if self._nonlinloc_read:
+            self._nonlinloc_trans_file = nonlinloc_trans_file
+
         self.seis_reader = reader
 
         if output_path is not None:
@@ -1452,10 +1464,16 @@ class SeisScan(DefaultSeisScan):
         self.log = log
 
         # Conduct the continuous compute on the decimated grid
-        lut = cmod.LUT()
-        lut.load(self.lut_name)
-        self.header_only = False
-        self.lut = lut
+        if self._pickle_read:
+            pass
+        elif self._nonlinloc_read:
+            lut = cmod.LUT()
+            lut.load_nonlinloc(self.lut_name, trans_file=self._nonlinloc_trans_file)
+            self.lut = lut
+        else:
+            lut = cmod.LUT()
+            lut.load(self.lut_name)
+            self.lut = lut
         self.lut = self.lut.decimate(self.decimate)
         ttmax = np.max(self.lut.fetch_map("TIME_S"))
         self.post_pad = round(ttmax + ttmax*0.05)
@@ -1525,10 +1543,17 @@ class SeisScan(DefaultSeisScan):
         else:
             self.output.write_triggered_events(events)
 
-        lut = cmod.LUT()
-        lut.load(self.lut_name, header_only=True)
-        self.header_only = True
-        self.lut = lut
+        if self._pickle_read:
+            pass
+        elif self._nonlinloc_read:
+            lut = cmod.LUT()
+            lut.load_nonlinloc(self.lut_name, header_only=True,
+                               trans_file=self._nonlinloc_trans_file)
+            self.lut = lut
+        else:
+            lut = cmod.LUT()
+            lut.load(self.lut_name, header_only=True)
+            self.lut = lut
         self.plot_scn(events=events, start_time=start_time,
                       end_time=end_time, stations=self.lut.station_data,
                       savefig=savefig)
@@ -1578,10 +1603,16 @@ class SeisScan(DefaultSeisScan):
         n_evts = len(events)
 
         # Conduct the continuous compute on the decimated grid
-        lut = cmod.LUT()
-        lut.load(self.lut_name)
-        self.header_only = False
-        self.lut = lut
+        if self._pickle_read:
+            pass
+        elif self._nonlinloc_read:
+            lut = cmod.LUT()
+            lut.load_nonlinloc(self.lut_name, trans_file=self._nonlinloc_trans_file)
+            self.lut = lut
+        else:
+            lut = cmod.LUT()
+            lut.load(self.lut_name)
+            self.lut = lut
         self.lut = self.lut.decimate(self.decimate)
         ttmax = np.max(self.lut.fetch_map("TIME_S"))
         self.post_pad = round(ttmax + ttmax*0.05)

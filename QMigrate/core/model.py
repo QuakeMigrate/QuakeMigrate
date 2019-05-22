@@ -1330,7 +1330,7 @@ class LUT(Grid3D):
 
         self.write_grids(froot=froot + '.buf')
 
-    def load_nonlinloc(self, froot, trans_file=None):
+    def load_nonlinloc(self, froot, trans_file=None, header_only=False):
         
         """
         if trans file is not provided then a file is assumed to exist called
@@ -1445,25 +1445,27 @@ class LUT(Grid3D):
         s_time = np.empty_like(p_time)
         self.maps = {"TIME_P": p_time, "TIME_S": s_time}
 
-        p_i, s_i = 0, 0
-        for hdr_file in hdr_files:
-            buf_file = hdr_file[:-3] + 'buf'
-            phase = hdr_file.split('/')[-1].split('.')[1]
-            if phase == 'P':
-                i = p_i
-            elif phase == 'S':
-                i = s_i
-            else:
-                raise ValueError(phase, 'is an invalid phase')
-            m = self.maps['TIME_' + phase]
-            with open(buf_file, 'rb') as fid:
-                data = fid.read(npts * 4)
-            data = np.asarray(struct.unpack('f' * npts, data))
-            m[..., i] = data.reshape(self.cell_count, order='C')
-            if phase == 'P':
-                p_i += 1
-            else:
-                s_i += 1
+
+        if not header_only:
+            p_i, s_i = 0, 0
+            for hdr_file in hdr_files:
+                buf_file = hdr_file[:-3] + 'buf'
+                phase = hdr_file.split('/')[-1].split('.')[1]
+                if phase == 'P':
+                    i = p_i
+                elif phase == 'S':
+                    i = s_i
+                else:
+                    raise ValueError(phase, 'is an invalid phase')
+                m = self.maps['TIME_' + phase]
+                with open(buf_file, 'rb') as fid:
+                    data = fid.read(npts * 4)
+                data = np.asarray(struct.unpack('f' * npts, data))
+                m[..., i] = data.reshape(self.cell_count, order='C')
+                if phase == 'P':
+                    p_i += 1
+                else:
+                    s_i += 1
 
     def save_pickle(self, filename):
         """

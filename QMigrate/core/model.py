@@ -987,6 +987,35 @@ class LUT(Grid3D, NonLinLoc):
         self._maps = {}
         self.data = None
 
+    def __str__(self):
+        """
+        Return short summary string of the LUT object
+
+        It will provide the defining properties of the LUT - location, underlying
+        grid properties and the simple 1D velocity structure.
+
+        """
+        out = "QuakeMigrate traveltime look-up table"
+        out += "\n\tGrid centre\t:\t{lat:10.5f}\u00b0N {lon:10.5f}\u00b0E {dep:6.3f} km"
+        out += "\n\tNumber of cells\t:\t{xn:4d} {yn:4d} {zn:4d}"
+        out += "\n\tCell size\t:\t{xs:6.3f} km {ys:6.3f} km {zs:6.3f} km"
+        out += "\n\t1D velocity model:"
+        out += "\n\t\tDepth\tVp\tVs"
+
+        out = out.format(xn=self.cell_count[0], yn=self.cell_count[1],
+                         zn=self.cell_count[2], xs=self.cell_size[0] / 1000.,
+                         ys=self.cell_size[1] / 1000., zs=self.cell_size[2] / 1000.,
+                         lat=self.latitude, lon=self.longitude, dep=self.elevation / 1000.)
+
+        # for i, layer in self.velocity_model.iterrows():
+        #     vel = "\t\t{:6.3f}\t{:6.3f}\t{:6.3f}"
+        #     vel = vel.format(layer["depth"] / 1000., layer["vp"] / 1000.,
+        #                      layer["vs"] / 1000.)
+
+        #     out += "\n{}".format(vel)
+
+        return out
+
     def stations(self, path, units, delimiter=","):
         """
         Reads station information from file

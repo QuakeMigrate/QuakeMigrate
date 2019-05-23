@@ -74,6 +74,29 @@ class MSEED(object):
         del lut
         self.st = None
 
+    def __str__(self):
+        """
+        Return short summary string of the mSEED object
+
+        It will provide information about the archive location and structure,
+        data sampling rate and time period over which the archive is being
+        queried.
+
+        """
+
+        out = "QuakeMigrate mSEED object"
+        out += "\n\tHost path\t:\t{}".format(self.MSEED_path)
+        out += "\n\tPath structure\t:\t{}".format(self.format)
+        out += "\n\tResampling\t:\t{}".format(self.resample)
+        # out += "\n\tSampling rate\t:\t{}".format(self.sampling_rate)
+        # out += "\n\tStart time\t:\t{}".format(str(self.start_time))
+        # out += "\n\tEnd time\t:\t{}".format(str(self.end_time))
+        out += "\n\tStations:"
+        for station in self.stations:
+            out += "\n\t\t{}".format(station)
+
+        return out
+
     def path_structure(self, path_type="YEAR/JD/STATION"):
         """
         Define the format of the data archive

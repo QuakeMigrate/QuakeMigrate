@@ -1416,6 +1416,46 @@ class SeisScan(DefaultSeisScan):
         msg = msg.format(self.output.path, self.output.name)
         print(msg)
 
+    def __str__(self):
+        """
+        Return short summary string of the SeisScan object
+
+        It will provide information on all of the various parameters that the
+        user can/has set.
+
+        """
+
+        out = "QuakeMigrate parameters"
+        out += "\n\tTime step\t\t:\t{}".format(self.time_step)
+        out += "\n\n\tData sampling rate\t:\t{}".format(self.sampling_rate)
+        out += "\n\tOutput sampling rate\t:\t{}".format(
+            self.output_sampling_rate)
+        out += "\n\n\tDecimation\t\t:\t[{}, {}, {}]".format(
+            self.decimate[0], self.decimate[1], self.decimate[2])
+        out += "\n\n\tBandpass filter P\t:\t[{}, {}, {}]".format(
+            self.p_bp_filter[0], self.p_bp_filter[1], self.p_bp_filter[2])
+        out += "\n\tBandpass filter S\t:\t[{}, {}, {}]".format(
+            self.s_bp_filter[0], self.s_bp_filter[1], self.s_bp_filter[2])
+        out += "\n\n\tOnset P [STA, LTA]\t:\t[{}, {}]".format(
+            self.p_onset_win[0], self.p_onset_win[1])
+        out += "\n\tOnset S [STA, LTA]\t:\t[{}, {}]".format(
+            self.s_onset_win[0], self.s_onset_win[1])
+        out += "\n\n\tPre-pad\t\t\t:\t{}".format(self.pre_pad)
+        out += "\n\tPost-pad\t\t:\t{}".format(self.post_pad)
+        out += "\n\n\tMarginal window\t\t:\t{}".format(self.marginal_window)
+        out += "\n\tMinimum repeat\t\t:\t{}".format(self.minimum_repeat)
+        out += "\n\tDetection threshold\t:\t{}".format(self.detection_threshold)
+        out += "\n\tPick threshold\t\t:\t{}".format(self.pick_threshold)
+        out += "\n\tPicking mode\t\t:\t{}".format(self.picking_mode)
+        out += "\n\tPercent ttime\t\t:\t{}".format(self.percent_tt)
+        out += "\n\tLocation error\t\t:\t{}".format(self.location_error)
+        out += "\n\n\tCentred onset\t\t:\t{}".format(self._onset_centred)
+        out += "\n\tNormalise coalescence\t:\t{}".format(
+            self.normalise_coalescence)
+        out += "\n\n\tNumber of CPUs\t\t:\t{}".format(self.n_cores)
+
+        return out
+
     def detect(self, start_time, end_time, log=False):
         """
         Searches through continuous data to find earthquakes

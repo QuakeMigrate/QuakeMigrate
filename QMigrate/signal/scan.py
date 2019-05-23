@@ -15,8 +15,7 @@ from obspy import Stream, Trace, UTCDateTime
 from obspy.signal.trigger import classic_sta_lta
 from obspy.signal.invsim import cosine_taper
 import pandas as pd
-from scipy import stats
-from scipy.signal import butter, lfilter
+from scipy.signal import butter, lfilter, fftconvolve
 from scipy.optimize import curve_fit
 import numpy as np
 from matplotlib.collections import PatchCollection
@@ -2004,14 +2003,6 @@ class SeisScan(DefaultSeisScan):
             self.data.p_onset_raw = p_onset_raw
             self.data.s_onset_raw = s_onset_raw
 
-        # tmp1, tmp2 = self._gaussian_coalescence(phase="P")
-        # self.data.p_gau_onset_num = tmp1
-        # self.data.p_gaussian_onset = tmp2
-        # tmp1, tmp2 = self._gaussian_coalescence(phase="S")
-        # self.data.s_gau_onset_num = tmp1
-        # self.data.s_gaussian_onset = tmp2
-        # del tmp1, tmp2
-
         p_s_onset = np.concatenate((self.data.p_onset, self.data.s_onset))
         p_s_onset[np.isnan(p_s_onset)] = 0
 
@@ -2281,97 +2272,6 @@ class SeisScan(DefaultSeisScan):
             events = None
 
         return events
-
-    def _gaussian_coalescence(self, phase):
-        """
-        Fits a Gaussian for the coalescence function
-
-        """
-
-        if phase == "P":
-            onset = self.data.p_onset
-        elif phase == "S":
-            onset = self.data.s_onset
-        x = np.arange(onset.shape[1])
-
-        gauss_threshold = 1.4
-
-        # ---- Selecting only the data above a predefined threshold ----
-        # Setting values below threshold to nan
-        onset[np.where(onset < gauss_threshold)] = np.nan
-
-        # Defining two blank arrays that gaussian periods should be defined for
-        gau_onset_num = np.zeros(onset.shape) * np.nan
-
-        # --- Determing the indexs to fit gaussians about ---
-        for i in range(len(onset)):
-            c = 0
-            e = 1
-
-            idx = np.where(~np.isnan(onset[i, :]))[0]
-            while c < len(idx):
-                # Determining the index when above the level and maximum value
-                d = c
-                while idx[d] + 1 == idx[d + 1]:
-                    d += 1
-                    if d + 1 >= len(idx) - 1:
-                        d = len(idx) - 1
-                        break
-
-                gau_onset_num[i, idx[c]:idx[d]] = e
-
-                c = d + 1
-                e += 1
-
-        # --- Determing the indexs to fit gaussians about ---
-
-        gau_onset = np.zeros(onset.shape)
-        for i in range(onset.shape[0]):
-            if ~np.isnan(np.nanmax(gau_onset_num[i, :])):
-                c = 0
-                for j in range(1, int(round(np.nanmax(gau_onset_num[i, :])))):
-                    XSig = x[np.where((gau_onset_num[i, :] == j))[0]]
-                    YSig = onset[i, np.where((gau_onset_num[i, :] == j))[0]]
-
-                    if len(YSig) > 8:
-
-                        # self.DATA.p_onset =  YSig
-
-                        try:
-                            if phase == "P":
-                                lowfreq = float(self.p_bp_filter[0])
-                            elif phase == "S":
-                                lowfreq = float(self.s_bp_filter[0])
-                            p0 = [np.max(YSig),
-                                  np.argmax(YSig) + np.min(XSig),
-                                  1. / (lowfreq / 4.)]
-
-                            # Fitting the gaussian to the function
-                            popt, pcov = curve_fit(gaussian_1d,
-                                                   XSig,
-                                                   YSig,
-                                                   p0)
-
-                            tmp_gau = gaussian_1d(XSig.astype(float),
-                                                  float(popt[0]),
-                                                  float(popt[1]),
-                                                  float(popt[2]))
-
-                            if c == 0:
-                                onset_gaussian = np.zeros(x.shape)
-                                onset_gaussian[np.where((gau_onset_num[i, :] == j))[0]] = tmp_gau
-                                c += 1
-                            else:
-                                onset_gaussian[np.where((gau_onset_num[i, :] == j))[0]] = tmp_gau
-                        except:
-                            print("    Error with {}".format(j))
-
-                    else:
-                        continue
-
-                gau_onset[i, :] = onset_gaussian
-
-        return gau_onset_num, gau_onset
 
     def _gaussian_trigger(self, onset, phase, start_time, p_arrival, s_arrival,
                           p_ttime, s_ttime):

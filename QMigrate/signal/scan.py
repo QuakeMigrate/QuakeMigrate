@@ -2625,12 +2625,14 @@ class SeisScan(DefaultSeisScan):
             shp = vol.shape
         nx, ny, nz = shp
 
+
+        vol = vol - 0.88
         vol = vol/np.nanmax(vol)
         vol[np.isnan(vol)] = 0
         flt  = gaussian_3d(nx, ny, nz, sgm)
         vol2 = fftconvolve(vol, flt, mode="same")
         vol2[vol2==0] = np.nan
-        vol = vol2
+        self.coa_map = vol2
         return vol2
 
     def _mask3d(self, n, i, win):
@@ -2666,7 +2668,7 @@ class SeisScan(DefaultSeisScan):
 
         return mask
 
-    def _gaufit3d(self, pdf, lx=None, ly=None, lz=None, smooth=True,
+    def _gaufit3d(self, pdf, lx=None, ly=None, lz=None, smooth=3,
                   thresh=0.0, win=3, mask=7):
         """
 
@@ -2706,7 +2708,7 @@ class SeisScan(DefaultSeisScan):
 
         nx, ny, nz = pdf.shape
         if smooth:
-            pdf = self._gaufilt3d(pdf, smooth, [win*3, win*3, win*3])
+            pdf = self._gaufilt3d(pdf, smooth)
         mx, my, mz = np.unravel_index(np.nanargmax(pdf), pdf.shape)
         mval = pdf[mx, my, mz]
         flg = np.logical_or(
@@ -2796,13 +2798,8 @@ class SeisScan(DefaultSeisScan):
         # Determining the coalescence 3D map
         coa_map = np.log(np.sum(np.exp(map_4d), axis=-1))
         coa_map = coa_map / np.max(coa_map)
-        cutoff = 0.88
-
+        cutoff  = 0.88
         coa_map[coa_map < cutoff] = np.nan
-        # coa_map[coa_map < cutoff] = cutoff
-        # coa_map = coa_map - cutoff
-        # coa_map = coa_map / np.max(coa_map)
-
         self.coa_map = coa_map
 
         # Determining the location error as an error-ellipse
@@ -2886,7 +2883,7 @@ class SeisScan(DefaultSeisScan):
         # Determining the maximum location, and taking 2xgrid cells positive
         # and negative for location in each dimension
         gau_3d = self._gaufit3d(coa_3d)
-        coa_3d[np.isnan(coa_3d)] = 0 # Setting back to zero ready for plotting
+        self.coa_map[np.isnan(self.coa_map)] = 0 # Setting back to zero ready for plotting
 
         # Converting the grid location to X,Y,Z
         xyz = self.lut.xyz2loc(np.array([[gau_3d[0][0],

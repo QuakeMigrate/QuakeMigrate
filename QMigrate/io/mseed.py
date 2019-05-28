@@ -270,10 +270,12 @@ class MSEED(object):
                         strict_length=False,
                         no_filter=True)
                 elif self.resample:
-                    trace.resample(
-                        sr,
-                        strict_length=False,
-                        no_filter=True)
+                    # trace.resample(
+                    #     sr,
+                    #     strict_length=False,
+                    #     no_filter=True)
+                    trace.interpolate(sr)
+
                 else:
                     msg = "Mismatched sampling rates - cannot decimate data.\n"
                     msg += "To resample data, set .resample = True"

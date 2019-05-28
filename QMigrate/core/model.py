@@ -1480,10 +1480,10 @@ class LUT(Grid3D, NonLinLoc):
             Path to location to save pickle file
 
         """
-
-        file = open(filename, "wb")
-        pickle.dump(self.__dict__, file, 2)
-        file.close()
+        np.save(filename,self.__dict__)
+        #file = open(filename, "wb")
+        #pickle.dump(self.__dict__, file, 2)
+        #file.close()
 
     def load(self, filename):
         """
@@ -1496,8 +1496,8 @@ class LUT(Grid3D, NonLinLoc):
 
         """
 
-        file = open(filename, "rb")
-        tmp_dict = pickle.load(file)
+        #file = open(filename, "rb")
+        tmp_dict = np.load(filename) #pickle.load(file)
         self.__dict__.update(tmp_dict)
 
     def plot_station(self):

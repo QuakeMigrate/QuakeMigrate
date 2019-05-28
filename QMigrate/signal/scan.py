@@ -15,7 +15,7 @@ from obspy.signal.trigger import classic_sta_lta
 from obspy.signal.invsim import cosine_taper
 import pandas as pd
 from scipy import stats
-from scipy.signal import butter, lfilter
+from scipy.signal import butter, lfilter, fftconvolve
 from scipy.optimize import curve_fit
 import numpy as np
 from matplotlib.collections import PatchCollection
@@ -604,7 +604,7 @@ class SeisPlot:
         self.event = self.event[(self.event["DT"] > self.times[0])
                                 & (self.event["DT"] < self.times[-1])]
 
-        self.map_max = np.max(map_)
+        self.map_max = np.nanmax(map_)
 
         self.coal_trace_vline = None
         self.coal_val_vline = None
@@ -785,8 +785,8 @@ class SeisPlot:
         tslice = self.times[tslice_idx]
 
         # Determining the marginal window value from the coalescence function
-        map_ = self.coa_map
-        loc = np.where(map_ == np.max(map_))
+        map_ = np.ma.masked_invalid(self.coa_map)
+        loc = np.where(map_ == np.nanmax(map_))
         point = np.array([[loc[0][0],
                            loc[1][0],
                            loc[2][0]]])
@@ -1056,6 +1056,7 @@ class SeisPlot:
         trace = plt.subplot2grid((3, 5), (0, 3), colspan=2, rowspan=2)
         logo = plt.subplot2grid((3, 5), (2, 2))
         coal_val = plt.subplot2grid((3, 5), (2, 3), colspan=2)
+
 
         # --- Plotting the Traces ---
         idx0 = np.where(self.times == self.event["DT"].iloc[0])[0][0]
@@ -1651,6 +1652,7 @@ class SeisScan(DefaultSeisScan):
                 else:
                     print(msg)
                 continue
+
 
             event = event_coa_val
             event = event[(event["DT"] >= w_beg_mw) & (event["DT"] <= w_end_mw)]
@@ -2477,8 +2479,8 @@ class SeisScan(DefaultSeisScan):
 
             tmp = exceedence_dist[np.argmax(onset_trim[exceedence])]
             tmp = np.where(exceedence_dist == tmp)
-            gau_idxmin = exceedence[tmp][0] + win_min
-            gau_idxmax = exceedence[tmp][-1] + win_min
+            gau_idxmin = exceedence[tmp][0] + win_min - 1
+            gau_idxmax = exceedence[tmp][-1] + win_min + 2
 
             data_half_range = int(2 * sampling_rate / lowfreq)
             x_data = np.arange(gau_idxmin, gau_idxmax, dtype=float)
@@ -2622,8 +2624,14 @@ class SeisScan(DefaultSeisScan):
         if shp is None:
             shp = vol.shape
         nx, ny, nz = shp
-        flt = gaussian_3d(nx, ny, nz, sgm)
-        return fftconvolve(vol, flt, mode="same")
+
+        vol = vol/np.nanmax(vol)
+        vol[np.isnan(vol)] = 0
+        flt  = gaussian_3d(nx, ny, nz, sgm)
+        vol2 = fftconvolve(vol, flt, mode="same")
+        vol2[vol2==0] = np.nan
+        vol = vol2
+        return vol2
 
     def _mask3d(self, n, i, win):
         """
@@ -2651,9 +2659,14 @@ class SeisScan(DefaultSeisScan):
         x2, y2, z2 = np.clip(i + w2 + 1, 0 * n, n)
         mask = np.zeros(n, dtype=np.bool)
         mask[x1:x2, y1:y2, z1:z2] = True
+
+        # removing true if value is np.nan
+        mask[x1:x2, y1:y2, z1:z2] = ~np.isnan(self.coa_map)[x1:x2, y1:y2, z1:z2]
+
+
         return mask
 
-    def _gaufit3d(self, pdf, lx=None, ly=None, lz=None, smooth=None,
+    def _gaufit3d(self, pdf, lx=None, ly=None, lz=None, smooth=True,
                   thresh=0.0, win=3, mask=7):
         """
 
@@ -2693,8 +2706,8 @@ class SeisScan(DefaultSeisScan):
 
         nx, ny, nz = pdf.shape
         if smooth:
-            pdf = self._gaufilt3d(pdf, smooth, [11, 11, 11])
-        mx, my, mz = np.unravel_index(pdf.argmax(), pdf.shape)
+            pdf = self._gaufilt3d(pdf, smooth, [win*3, win*3, win*3])
+        mx, my, mz = np.unravel_index(np.nanargmax(pdf), pdf.shape)
         mval = pdf[mx, my, mz]
         flg = np.logical_or(
             np.logical_and(pdf > mval * np.exp(-(thresh * thresh) / 2),
@@ -2784,9 +2797,12 @@ class SeisScan(DefaultSeisScan):
         coa_map = np.log(np.sum(np.exp(map_4d), axis=-1))
         coa_map = coa_map / np.max(coa_map)
         cutoff = 0.88
-        coa_map[coa_map < cutoff] = cutoff
-        coa_map = coa_map - cutoff
-        coa_map = coa_map / np.max(coa_map)
+
+        coa_map[coa_map < cutoff] = np.nan
+        # coa_map[coa_map < cutoff] = cutoff
+        # coa_map = coa_map - cutoff
+        # coa_map = coa_map / np.max(coa_map)
+
         self.coa_map = coa_map
 
         # Determining the location error as an error-ellipse
@@ -2832,12 +2848,12 @@ class SeisScan(DefaultSeisScan):
         y_samples = ly.flatten() * self.lut.cell_size[1]
         z_samples = lz.flatten() * self.lut.cell_size[2]
 
-        ssw = np.sum(smp_weights)
+        ssw = np.nansum(smp_weights)
 
         # Expectation values:
-        x_expect = np.sum(smp_weights * x_samples) / ssw
-        y_expect = np.sum(smp_weights * y_samples) / ssw
-        z_expect = np.sum(smp_weights * z_samples) / ssw
+        x_expect = np.nansum(smp_weights * x_samples) / ssw
+        y_expect = np.nansum(smp_weights * y_samples) / ssw
+        z_expect = np.nansum(smp_weights * z_samples) / ssw
 
         msg = "Covariance GridXYZ - X : {} - Y : {} - Z : {}"
         msg.format(x_expect, y_expect, z_expect)
@@ -2848,21 +2864,21 @@ class SeisScan(DefaultSeisScan):
 
         # Covariance matrix:
         cov_matrix = np.zeros((3, 3))
-        cov_matrix[0, 0] = np.sum(smp_weights
+        cov_matrix[0, 0] = np.nansum(smp_weights
                                   * (x_samples - x_expect) ** 2) / ssw
-        cov_matrix[1, 1] = np.sum(smp_weights
+        cov_matrix[1, 1] = np.nansum(smp_weights
                                   * (y_samples - y_expect) ** 2) / ssw
-        cov_matrix[2, 2] = np.sum(smp_weights
+        cov_matrix[2, 2] = np.nansum(smp_weights
                                   * (z_samples - z_expect) ** 2) / ssw
-        cov_matrix[0, 1] = np.sum(smp_weights
+        cov_matrix[0, 1] = np.nansum(smp_weights
                                   * (x_samples - x_expect)
                                   * (y_samples - y_expect)) / ssw
         cov_matrix[1, 0] = cov_matrix[0, 1]
-        cov_matrix[0, 2] = np.sum(smp_weights
+        cov_matrix[0, 2] = np.nansum(smp_weights
                                   * (x_samples - x_expect)
                                   * (z_samples - z_expect)) / ssw
         cov_matrix[2, 0] = cov_matrix[0, 2]
-        cov_matrix[1, 2] = np.sum(smp_weights
+        cov_matrix[1, 2] = np.nansum(smp_weights
                                   * (y_samples - y_expect)
                                   * (z_samples - z_expect)) / ssw
         cov_matrix[2, 1] = cov_matrix[1, 2]
@@ -2870,6 +2886,7 @@ class SeisScan(DefaultSeisScan):
         # Determining the maximum location, and taking 2xgrid cells positive
         # and negative for location in each dimension
         gau_3d = self._gaufit3d(coa_3d)
+        coa_3d[np.isnan(coa_3d)] = 0 # Setting back to zero ready for plotting
 
         # Converting the grid location to X,Y,Z
         xyz = self.lut.xyz2loc(np.array([[gau_3d[0][0],

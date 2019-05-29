@@ -2602,7 +2602,7 @@ class SeisScan(DefaultSeisScan):
 
         return stations, p_gauss, s_gauss
 
-    def _gaufilt3d(self, vol, sgm, shp=None):
+    def _gaufilt3d(self, vol, sgm=1.0, shp=None,thrs=0.88):
         """
 
 
@@ -2625,14 +2625,11 @@ class SeisScan(DefaultSeisScan):
             shp = vol.shape
         nx, ny, nz = shp
 
-
-        vol = vol - 0.88
-        vol = vol/np.nanmax(vol)
-        vol[np.isnan(vol)] = 0
-        flt  = gaussian_3d(nx, ny, nz, sgm)
-        vol2 = fftconvolve(vol, flt, mode="same")
-        vol2[vol2==0] = np.nan
-        self.coa_map = vol2
+        vol             = vol/np.nanmax(vol)
+        vol[vol < thrs] = 0.0
+        flt             = gaussian_3d(nx, ny, nz, sgm)
+        vol2            = fftconvolve(vol, flt, mode="same")
+        vol2[vol2==0.0] = np.nan
         return vol2
 
     def _mask3d(self, n, i, win):
@@ -2668,7 +2665,7 @@ class SeisScan(DefaultSeisScan):
 
         return mask
 
-    def _gaufit3d(self, pdf, lx=None, ly=None, lz=None, smooth=3,
+    def _gaufit3d(self, pdf, lx=None, ly=None, lz=None,
                   thresh=0.0, win=3, mask=7):
         """
 
@@ -2707,8 +2704,6 @@ class SeisScan(DefaultSeisScan):
         """
 
         nx, ny, nz = pdf.shape
-        if smooth:
-            pdf = self._gaufilt3d(pdf, smooth)
         mx, my, mz = np.unravel_index(np.nanargmax(pdf), pdf.shape)
         mval = pdf[mx, my, mz]
         flg = np.logical_or(
@@ -2796,12 +2791,11 @@ class SeisScan(DefaultSeisScan):
         """
 
         # Determining the coalescence 3D map
-        coa_map = np.log(np.sum(np.exp(map_4d), axis=-1))
-        coa_map = coa_map / np.max(coa_map)
-        cutoff  = 0.88
-        coa_map[coa_map < cutoff] = np.nan
+        coa_map      = np.log(np.sum(np.exp(map_4d), axis=-1))
+        coa_map      = self._gaufilt3d(coa_map) # apply a gaussian smoothing to the data.
         self.coa_map = coa_map
 
+        print(coa_map)
         # Determining the location error as an error-ellipse
         loc, loc_err, loc_cov, cov_matrix = self._error_ellipse(coa_map)
         loc_err_cov = np.array([np.sqrt(cov_matrix[0, 0]),
@@ -2905,5 +2899,5 @@ class SeisScan(DefaultSeisScan):
         xyz_err = np.array([gau_3d[2][0] * self.lut.cell_size[0],
                             gau_3d[2][1] * self.lut.cell_size[1],
                             gau_3d[2][2] * self.lut.cell_size[2]])
-
+        print(xyz_err)
         return expect_vector, xyz_err, crd_cov, cov_matrix

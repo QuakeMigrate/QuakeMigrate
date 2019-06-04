@@ -899,6 +899,42 @@ class SeisPlot:
                                      2 * dCo[0][0], 2 * dCo[0][2], angle=0,
                                      linewidth=2, edgecolor="k", fill=False)
 
+
+        # --- Determining Error ellipse for Gaussian ---
+        cells = self.lut.cell_count
+        xcells = cells[0]
+        ycells = cells[1]
+        zcells = cells[2]
+        cov_x = eq["LocalGaussian_ErrX"] / self.lut.cell_size[0]
+        cov_y = eq["LocalGaussian_ErrY"] / self.lut.cell_size[1]
+        cov_z = eq["LocalGaussian_ErrZ"] / self.lut.cell_size[2]
+
+        cov_crd = np.array([[eq["LocalGaussian_X"],
+                             eq["LocalGaussian_Y"],
+                             eq["LocalGaussian_Z"]]])
+        cov_loc = self.lut.coord2loc(cov_crd)
+        dCo = abs(cov_crd - self.lut.coord2loc(np.array([[cov_loc[0][0] + cov_x,
+                                                          cov_loc[0][1] + cov_y,
+                                                          cov_loc[0][2] + cov_z]]),
+                                               inverse=True))
+
+        gellipse_XY = patches.Ellipse((eq["LocalGaussian_X"],
+                                      eq["LocalGaussian_Y"]),
+                                     2 * dCo[0][0], 2 * dCo[0][1], angle=0,
+                                     linewidth=2, edgecolor="b",
+                                     fill=False,
+                                     label="Global Covariance Error Ellipse")
+        gellipse_YZ = patches.Ellipse((eq["LocalGaussian_Z"],
+                                      eq["LocalGaussian_Y"]),
+                                     2 * dCo[0][2], 2 * dCo[0][1], angle=0,
+                                     linewidth=2, edgecolor="b", fill=False)
+        gellipse_XZ = patches.Ellipse((eq["LocalGaussian_X"],
+                                      eq["LocalGaussian_Z"]),
+                                     2 * dCo[0][0], 2 * dCo[0][2], angle=0,
+                                     linewidth=2, edgecolor="b", fill=False)
+
+
+
         # ------ Spatial Function ------
         # --- Plotting the marginal window ---
         crd_crnrs = self.lut.xyz2coord(self.lut.grid_corners)
@@ -936,6 +972,7 @@ class SeisPlot:
                          150, c="blue", marker="*",
                          label="Global Covariance Location")
         xy_slice.add_patch(ellipse_XY)
+        xy_slice.add_patch(gellipse_XY)
         xy_slice.legend()
 
         # xz_slice
@@ -963,6 +1000,7 @@ class SeisPlot:
         xz_slice.scatter(eq["GlobalCovariance_X"], eq["GlobalCovariance_Z"],
                          150, c="blue", marker="*")
         xz_slice.add_patch(ellipse_XZ)
+        xz_slice.add_patch(gellipse_XZ)
         xz_slice.invert_yaxis()
 
         # yz_slice
@@ -989,6 +1027,7 @@ class SeisPlot:
         yz_slice.scatter(eq["GlobalCovariance_Z"], eq["GlobalCovariance_Y"],
                          150, c="blue", marker="*")
         yz_slice.add_patch(ellipse_YZ)
+        yz_slice.add_patch(gellipse_YZ)
 
         # --- Plotting the station locations ---
         xy_slice.scatter(self.lut.station_data["Longitude"],
@@ -2602,7 +2641,7 @@ class SeisScan(DefaultSeisScan):
 
         return stations, p_gauss, s_gauss
 
-    def _gaufilt3d(self, vol, sgm=1.0, shp=None,thrs=0.88):
+    def _gaufilt3d(self, vol, sgm=1.0, shp=None):
         """
 
 
@@ -2624,12 +2663,10 @@ class SeisScan(DefaultSeisScan):
         if shp is None:
             shp = vol.shape
         nx, ny, nz = shp
-
-        vol             = vol/np.nanmax(vol)
-        vol[vol < thrs] = 0.0
-        flt             = gaussian_3d(nx, ny, nz, sgm)
-        vol2            = fftconvolve(vol, flt, mode="same")
-        vol2[vol2==0.0] = np.nan
+        vol              = vol/np.nanmax(vol)
+        flt              = gaussian_3d(nx, ny, nz, sgm)
+        vol2             = fftconvolve(vol, flt, mode="same")
+        vol2             = vol2/np.nanmax(vol2)
         return vol2
 
     def _mask3d(self, n, i, win):
@@ -2660,13 +2697,93 @@ class SeisScan(DefaultSeisScan):
         mask[x1:x2, y1:y2, z1:z2] = True
 
         # removing true if value is np.nan
-        mask[x1:x2, y1:y2, z1:z2] = ~np.isnan(self.coa_map)[x1:x2, y1:y2, z1:z2]
+        #mask[x1:x2, y1:y2, z1:z2] = ~np.isnan(self.coa_map)[x1:x2, y1:y2, z1:z2]
 
 
         return mask
 
+    def _covfit3d(self,pdf,thresh=0.8, win=3):
+
+        # Determining Covariance Location and Error
+        nx, ny, nz = pdf.shape
+        mx, my, mz = np.unravel_index(np.nanargmax(pdf), pdf.shape)
+        flg = np.logical_and(pdf > thresh,#mval * np.exp(-(thresh * thresh) / 2),
+                           self._mask3d([nx, ny, nz], [mx, my, mz], win))
+        ix, iy, iz = np.where(flg)
+        print('Variables',min(ix), max(ix), min(iy), max(iy), min(iz), max(iz))
+        smp_weights   = pdf.flatten()
+        smp_weights[~flg.flatten()] = np.nan
+
+        lc = self.lut.cell_count
+        # Ordering below due to handedness of the grid
+        ly, lx, lz = np.meshgrid(np.arange(lc[1]),
+                                 np.arange(lc[0]),
+                                 np.arange(lc[2]))
+        x_samples = lx.flatten() * self.lut.cell_size[0]
+        y_samples = ly.flatten() * self.lut.cell_size[1]
+        z_samples = lz.flatten() * self.lut.cell_size[2]
+
+        ssw = np.nansum(smp_weights)
+        print(ssw)
+
+        # Expectation values:
+        x_expect = np.nansum(smp_weights * x_samples) / ssw
+        y_expect = np.nansum(smp_weights * y_samples) / ssw
+        z_expect = np.nansum(smp_weights * z_samples) / ssw
+
+        print(x_expect)
+
+        # if self.log:
+        #     self.output.write_log(msg)
+        # else:
+        #     print(msg)
+
+        # Covariance matrix:
+        cov_matrix = np.zeros((3, 3))
+        cov_matrix[0, 0] = np.nansum(smp_weights
+                                  * (x_samples - x_expect) ** 2) / ssw
+        cov_matrix[1, 1] = np.nansum(smp_weights
+                                  * (y_samples - y_expect) ** 2) / ssw
+        cov_matrix[2, 2] = np.nansum(smp_weights
+                                  * (z_samples - z_expect) ** 2) / ssw
+        cov_matrix[0, 1] = np.nansum(smp_weights
+                                  * (x_samples - x_expect)
+                                  * (y_samples - y_expect)) / ssw
+        cov_matrix[1, 0] = cov_matrix[0, 1]
+        cov_matrix[0, 2] = np.nansum(smp_weights
+                                  * (x_samples - x_expect)
+                                  * (z_samples - z_expect)) / ssw
+        cov_matrix[2, 0] = cov_matrix[0, 2]
+        cov_matrix[1, 2] = np.nansum(smp_weights
+                                  * (y_samples - y_expect)
+                                  * (z_samples - z_expect)) / ssw
+        cov_matrix[2, 1] = cov_matrix[1, 2]
+
+        # Determining the maximum location, and taking 2xgrid cells positive
+        # and negative for location in each dimension\
+
+        expect_vector_cov = np.array([x_expect,
+                                      y_expect,
+                                      z_expect],
+                                     dtype=float)
+        loc_cov_gc = np.array([[expect_vector_cov[0] / self.lut.cell_size[0],
+                             expect_vector_cov[1] / self.lut.cell_size[1],
+                             expect_vector_cov[2] / self.lut.cell_size[2]]])
+
+        loc_err_cov = np.array([np.sqrt(cov_matrix[0, 0]),
+                                np.sqrt(cov_matrix[1, 1]),
+                                np.sqrt(cov_matrix[2, 2])])
+
+
+        loc_cov = self.lut.xyz2coord(self.lut.xyz2loc(loc_cov_gc, inverse=True))[0]
+
+
+        return loc_cov, loc_err_cov
+
+
+
     def _gaufit3d(self, pdf, lx=None, ly=None, lz=None,
-                  thresh=0.0, win=3, mask=7):
+                  thresh=0.8, win=11):
         """
 
 
@@ -2702,21 +2819,17 @@ class SeisScan(DefaultSeisScan):
 
 
         """
-
         nx, ny, nz = pdf.shape
         mx, my, mz = np.unravel_index(np.nanargmax(pdf), pdf.shape)
         mval = pdf[mx, my, mz]
-        flg = np.logical_or(
-            np.logical_and(pdf > mval * np.exp(-(thresh * thresh) / 2),
-                           self._mask3d([nx, ny, nz], [mx, my, mz], mask)),
-            self._mask3d([nx, ny, nz], [mx, my, mz], win))
+        flg = np.logical_and(pdf > thresh,#mval * np.exp(-(thresh * thresh) / 2),
+                           self._mask3d([nx, ny, nz], [mx, my, mz], win))
         ix, iy, iz = np.where(flg)
-        msg = "X : {}-{} - Y : {}-{} - Z : {}-{}"
-        msg = msg.format(min(ix), max(ix), min(iy), max(iy), min(iz), max(iz))
-        if self.log:
-            self.output.write_log(msg)
-        else:
-            print(msg)
+        print('Variables',min(ix), max(ix), min(iy), max(iy), min(iz), max(iz))
+        # if self.log:
+        #     self.output.write_log(msg)
+        # else:
+        #     print(msg)
 
         ncell = len(ix)
 
@@ -2763,11 +2876,25 @@ class SeisScan(DefaultSeisScan):
                       P[3] / 2, P[1], P[5] / 2,
                       P[4] / 2, P[5] / 2, P[2]]).reshape(3, 3)
         egv, vec = np.linalg.eig(M)
-        sgm = np.sqrt(0.5 / np.clip(np.abs(egv), 1e-10, np.inf))
+        sgm = np.sqrt(0.5 / np.clip(np.abs(egv), 1e-10, np.inf))/2
         val = np.exp(-K)
         csgm = np.sqrt(0.5 / np.clip(np.abs(M.diagonal()), 1e-10, np.inf))
 
-        return loc + iloc, vec, sgm, csgm, val
+        gau_3d = [loc + iloc, vec, sgm, csgm, val]
+
+        # Converting the grid location to X,Y,Z
+        xyz = self.lut.xyz2loc(np.array([[gau_3d[0][0],
+                                          gau_3d[0][1],
+                                          gau_3d[0][2]]]),
+                               inverse=True)
+        loc_gau = self.lut.xyz2coord(xyz)[0]
+
+
+        loc_gau_err = np.array([gau_3d[2][0] * self.lut.cell_size[0],
+                                gau_3d[2][1] * self.lut.cell_size[1],
+                                gau_3d[2][2] * self.lut.cell_size[2]])
+
+        return loc_gau, loc_gau_err
 
     def _location_error(self, map_4d):
         """
@@ -2792,15 +2919,20 @@ class SeisScan(DefaultSeisScan):
 
         # Determining the coalescence 3D map
         coa_map      = np.log(np.sum(np.exp(map_4d), axis=-1))
-        coa_map      = self._gaufilt3d(coa_map) # apply a gaussian smoothing to the data.
-        self.coa_map = coa_map
+        coa_map      = self._gaufilt3d(coa_map)
 
-        print(coa_map)
+
+
         # Determining the location error as an error-ellipse
-        loc, loc_err, loc_cov, cov_matrix = self._error_ellipse(coa_map)
-        loc_err_cov = np.array([np.sqrt(cov_matrix[0, 0]),
-                                np.sqrt(cov_matrix[1, 1]),
-                                np.sqrt(cov_matrix[2, 2])])
+        loc, loc_err, loc_cov, loc_err_cov= self._error_ellipse(np.copy(coa_map))
+
+        # Changing map ready for plotting
+        self.coa_map = coa_map/np.nanmax(coa_map)
+        self.coa_map[self.coa_map < 0.8] = np.nan
+        self.coa_map = self.coa_map - 0.8
+        self.coa_map = self.coa_map/np.nanmax(self.coa_map)
+        self.coa_map[np.isnan(self.coa_map)] = 0 # Setting back to zero ready for plotting
+
 
         return loc, loc_err, loc_cov, loc_err_cov
 
@@ -2816,88 +2948,18 @@ class SeisScan(DefaultSeisScan):
 
         Returns
         -------
-        expect_vector
-            x, y, z coordinates of expectation hypocentre
-        xyz_err
+        loc_gau : 
 
-        crd_cov
+        loc_gau_err :
 
-        cov_matrix
-            Covariance matrix
+        loc_cov :
 
+        loc_err_cov
         """
 
         # Get point sample coords and weights:
-        smp_weights = coa_3d.flatten()
+        loc_gau, loc_gau_err  = self._gaufit3d(np.copy(coa_3d),thresh=0.8)
+        #loc_gau, loc_gau_err  = self._covfit3d(np.copy(coa_3d),thresh=0.8)#self._gaufit3d(coa_3d,thresh=0.0)
+        loc_cov, loc_err_cov  = self._covfit3d(np.copy(coa_3d),thresh=0.8, win=(np.max(self.lut.cell_count)*100))
 
-        lc = self.lut.cell_count
-        # Ordering below due to handedness of the grid
-        ly, lx, lz = np.meshgrid(np.arange(lc[1]),
-                                 np.arange(lc[0]),
-                                 np.arange(lc[2]))
-        x_samples = lx.flatten() * self.lut.cell_size[0]
-        y_samples = ly.flatten() * self.lut.cell_size[1]
-        z_samples = lz.flatten() * self.lut.cell_size[2]
-
-        ssw = np.nansum(smp_weights)
-
-        # Expectation values:
-        x_expect = np.nansum(smp_weights * x_samples) / ssw
-        y_expect = np.nansum(smp_weights * y_samples) / ssw
-        z_expect = np.nansum(smp_weights * z_samples) / ssw
-
-        msg = "Covariance GridXYZ - X : {} - Y : {} - Z : {}"
-        msg.format(x_expect, y_expect, z_expect)
-        if self.log:
-            self.output.write_log(msg)
-        else:
-            print(msg)
-
-        # Covariance matrix:
-        cov_matrix = np.zeros((3, 3))
-        cov_matrix[0, 0] = np.nansum(smp_weights
-                                  * (x_samples - x_expect) ** 2) / ssw
-        cov_matrix[1, 1] = np.nansum(smp_weights
-                                  * (y_samples - y_expect) ** 2) / ssw
-        cov_matrix[2, 2] = np.nansum(smp_weights
-                                  * (z_samples - z_expect) ** 2) / ssw
-        cov_matrix[0, 1] = np.nansum(smp_weights
-                                  * (x_samples - x_expect)
-                                  * (y_samples - y_expect)) / ssw
-        cov_matrix[1, 0] = cov_matrix[0, 1]
-        cov_matrix[0, 2] = np.nansum(smp_weights
-                                  * (x_samples - x_expect)
-                                  * (z_samples - z_expect)) / ssw
-        cov_matrix[2, 0] = cov_matrix[0, 2]
-        cov_matrix[1, 2] = np.nansum(smp_weights
-                                  * (y_samples - y_expect)
-                                  * (z_samples - z_expect)) / ssw
-        cov_matrix[2, 1] = cov_matrix[1, 2]
-
-        # Determining the maximum location, and taking 2xgrid cells positive
-        # and negative for location in each dimension
-        gau_3d = self._gaufit3d(coa_3d)
-        self.coa_map[np.isnan(self.coa_map)] = 0 # Setting back to zero ready for plotting
-
-        # Converting the grid location to X,Y,Z
-        xyz = self.lut.xyz2loc(np.array([[gau_3d[0][0],
-                                          gau_3d[0][1],
-                                          gau_3d[0][2]]]),
-                               inverse=True)
-        expect_vector = self.lut.xyz2coord(xyz)[0]
-
-        expect_vector_cov = np.array([x_expect,
-                                      y_expect,
-                                      z_expect],
-                                     dtype=float)
-        loc_cov = np.array([[expect_vector_cov[0] / self.lut.cell_size[0],
-                             expect_vector_cov[1] / self.lut.cell_size[1],
-                             expect_vector_cov[2] / self.lut.cell_size[2]]])
-        xyz_cov = self.lut.xyz2loc(loc_cov, inverse=True)
-        crd_cov = self.lut.xyz2coord(xyz_cov)[0]
-
-        xyz_err = np.array([gau_3d[2][0] * self.lut.cell_size[0],
-                            gau_3d[2][1] * self.lut.cell_size[1],
-                            gau_3d[2][2] * self.lut.cell_size[2]])
-        print(xyz_err)
-        return expect_vector, xyz_err, crd_cov, cov_matrix
+        return loc_gau, loc_gau_err, loc_cov, loc_err_cov

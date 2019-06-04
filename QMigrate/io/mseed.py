@@ -142,7 +142,7 @@ class MSEED(object):
         self.start_time = start_time
         self.end_time = end_time
         samples = int((end_time - start_time) * sampling_rate + 1)
-        files = self._load_from_path()
+        files = self._load_from_path(start_time, end_time)
 
         st = obspy.Stream()
         try:
@@ -236,9 +236,16 @@ class MSEED(object):
 
         return signal, availability
 
-    def _load_from_path(self):
+    def _load_from_path(self, start_time, end_time):
         """
         Retrieves available files between two times
+
+        Parameters
+        ----------
+        start_time : UTCDateTime object
+            Start datetime to read mSEED
+        end_time : UTCDateTime object
+            End datetime to read mSEED
 
         Returns
         -------
@@ -253,8 +260,8 @@ class MSEED(object):
 
         dy = 0
         files = []
-        while (self.start_time + (dy * 86400)).julday <= self.end_time.julday:
-            now = self.start_time + (dy * 86400)
+        while start_time + (dy * 86400) <= end_time:
+            now = start_time + (dy * 86400)
             for stat in self.stations.tolist():
                 file_format = self.format.format(
                     year=now.year,

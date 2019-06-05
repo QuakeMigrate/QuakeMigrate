@@ -261,7 +261,8 @@ class MSEED(object):
         dy = 0
         files = []
         start_day = obspy.UTCDateTime(
-            "{}-{}T00:00:00.0".format(start_time.year, start_time.julday))
+            "{}-{}T00:00:00.0".format(start_time.year,
+                                      str(start_time.julday).zfill(3)))
         while start_day + (dy * 86400) <= end_time:
             now = start_time + (dy * 86400)
             for stat in self.stations.tolist():

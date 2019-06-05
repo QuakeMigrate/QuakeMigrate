@@ -881,8 +881,13 @@ class SeisScan(DefaultSeisScan):
         self.pre_pad += round(t_length * 0.06)
         self.post_pad += round(t_length * 0.06)
 
-        i = 0
-        while start_time + self.time_step * (i + 1) <= end_time:
+        try:
+            nsteps = int(np.ceil((end_time - start_time) / self.time_step))
+        except AttributeError:
+            msg = "Time step has not been specified"
+            print(msg)
+
+        for i in range(nsteps):
             w_beg = start_time + self.time_step * i - self.pre_pad
             w_end = start_time + self.time_step * (i + 1) + self.post_pad
 
@@ -911,7 +916,7 @@ class SeisScan(DefaultSeisScan):
                                                           self.sampling_rate)
 
             del daten, dsnr, dsnr_norm, dloc, map_
-            i += 1
+
         print("=" * 126)
 
     def _compute(self, w_beg, w_end, signal, station_availability):

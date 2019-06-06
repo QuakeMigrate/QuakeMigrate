@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Module to produce gridded traveltime velocity models
+Module to handle input/output for QuakeMigrate
 
 """
 
@@ -24,7 +24,7 @@ class QuakeIO:
     """
     Input / output control class
 
-    Provides the basic methods for input / output of seismic scan files
+    Provides the basic methods for input / output of QuakeMigrate files
 
     Attributes
     ----------
@@ -44,15 +44,16 @@ class QuakeIO:
 
     """
 
-    def __init__(self, path="", name=None):
+    def __init__(self, path, name=None):
         """
         Class initialisation method
 
         Parameters
         ----------
-        path : str, optional
-
+        path : str
+            Path to output directory
         name: str, optional
+            Name of run
 
         """
 
@@ -62,6 +63,10 @@ class QuakeIO:
         print("Path = {}, Name = {}".format(str(path), name))
         self.path = path
         self.name = name
+        self.run = path / name
+
+        # Make output directories
+        self._make_directories()
 
         self.file_sample_rate = None
 
@@ -71,7 +76,7 @@ class QuakeIO:
 
         """
 
-        fname = (self.path / self.name).with_suffix(".scn")
+        fname = (self.run / self.name).with_suffix(".scn")
         if fname.exists():
             print("Filename {} already exists - deleting.".format(str(fname)))
             fname.unlink()
@@ -108,9 +113,9 @@ class QuakeIO:
 
         start_time = UTCDateTime(start_time)
         end_time = UTCDateTime(end_time)
-        fname = self.path / self.name / "{}_{}_{}".format(event,
-                                                          start_time,
-                                                          end_time)
+        fname = self.run / self.name / "{}_{}_{}".format(event,
+                                                         start_time,
+                                                         end_time)
         fname = fname.with_suffix(".coal4D")
 
         np.save(str(fname), map_)
@@ -120,7 +125,7 @@ class QuakeIO:
 
         """
 
-        fname = (self.path / self.name).with_suffix(".scnmseed")
+        fname = (self.run / self.name).with_suffix(".scnmseed")
         coa = obspy.read(str(fname))
         coa_stats = coa.select(station="COA")[0].stats
 
@@ -152,7 +157,7 @@ class QuakeIO:
 
         """
 
-        fname = (self.path / self.name).with_suffix(".scnmseed")
+        fname = (self.run / self.name).with_suffix(".scnmseed")
 
         dsnr[dsnr > 21474.] = 21474.
         dsnr_norm[dsnr_norm > 21474.] = 21474.
@@ -195,7 +200,7 @@ class QuakeIO:
 
         """
 
-        fname = (self.path / self.name).with_suffix(".log")
+        fname = (self.run / "logs" / self.name).with_suffix(".log")
         with fname.open(mode="a") as f:
             f.write(message + "\n")
 
@@ -212,12 +217,12 @@ class QuakeIO:
 
         """
 
-        fname = self.path / "{}_{}".format(self.name, event_name)
+        fname = self.run / "mseed" / "{}_{}".format(self.name, event_name)
         fname = str(fname.with_suffix(".mseed"))
         st = data.st
-        st.write(str(fname), format="MSEED")
+        st.write(str(fname), format="MSEED", encoding="FLOAT64")
 
-    def write_stations_file(self, stations, event_name):
+    def write_picks(self, stations, event_name):
         """
         Create a new .stn file
 
@@ -230,8 +235,8 @@ class QuakeIO:
 
         """
 
-        fname = self.path / "{}_{}".format(self.name, event_name)
-        fname = str(fname.with_suffix(".stn"))
+        fname = self.run / "picks" / "{}_{}".format(self.name, event_name)
+        fname = str(fname.with_suffix(".picks"))
         stations.to_csv(fname, index=False)
 
     def write_event(self, event, event_name):
@@ -247,7 +252,7 @@ class QuakeIO:
 
         """
 
-        fname = self.path / "{}_{}".format(self.name, event_name)
+        fname = self.run / "events" / "{}_{}".format(self.name, event_name)
         fname = str(fname.with_suffix(".event"))
         event.to_csv(fname, index=False)
 
@@ -261,7 +266,7 @@ class QuakeIO:
         end_time : UTCDateTime object
 
         """
-        fname = self.path / "{}_TriggeredEvents".format(self.name)
+        fname = self.run / "{}_TriggeredEvents".format(self.name)
         fname = str(fname.with_suffix(".csv"))
         events = pd.read_csv(fname)
 
@@ -286,6 +291,18 @@ class QuakeIO:
 
         """
 
-        fname = self.path / "{}_TriggeredEvents".format(self.name)
+        fname = self.run / "{}_TriggeredEvents".format(self.name)
         fname = str(fname.with_suffix(".csv"))
         events.to_csv(fname, index=False)
+
+    def _make_directories(self):
+        """
+
+        """
+
+        self.run.mkdir(exist_ok=True)
+        dirs = ["events", "picks", "traces", "videos",
+                "summaries", "logs", "mseed"]
+        for d in dirs:
+            new_dir = self.run / d
+            new_dir.mkdir(exist_ok=True)

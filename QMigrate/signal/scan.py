@@ -5,9 +5,7 @@ Module to perform QuakeMigrate detect, trigger and locate
 """
 
 import os
-import pathlib
 import time
-from datetime import datetime
 import warnings
 
 from obspy import UTCDateTime
@@ -628,13 +626,11 @@ class SeisScan(DefaultSeisScan):
             self.output.write_event(evt, evt_id)
 
             if cut_mseed:
-                print("Creating cut Mini-SEED")
+                print("    Creating cut Mini-SEED")
                 tic()
                 self.output.cut_mseed(self.data, evt_id)
                 toc()
 
-            out = str(self.output.path / "{}_{}".format(self.output.name,
-                                                        evt_id))
             # Outputting coalescence grids and triggered events
             if self.plot_coal_trace:
                 tic()
@@ -646,6 +642,9 @@ class SeisScan(DefaultSeisScan):
                                             event,
                                             station_pick,
                                             self.marginal_window)
+                out = str(self.output.run / "traces" / "{}_{}".format(
+                    self.output.name,
+                    evt_id))
                 seis_plot.coalescence_trace(output_file=out)
                 del seis_plot
                 toc()
@@ -666,6 +665,9 @@ class SeisScan(DefaultSeisScan):
                                             event,
                                             station_pick,
                                             self.marginal_window)
+                out = str(self.output.run / "videos" / "{}_{}".format(
+                    self.output.name,
+                    evt_id))
                 seis_plot.coalescence_video(output_file=out)
                 del seis_plot
                 toc()
@@ -680,7 +682,9 @@ class SeisScan(DefaultSeisScan):
                                             event,
                                             station_pick,
                                             self.marginal_window)
-
+                out = str(self.output.run / "summaries" / "{}_{}".format(
+                    self.output.name,
+                    evt_id))
                 seis_plot.coalescence_marginal(output_file=out,
                                                earthquake=evt)
                 del seis_plot
@@ -714,7 +718,7 @@ class SeisScan(DefaultSeisScan):
 
         """
 
-        fname = (self.output.path / self.output.name).with_suffix(".scnmseed")
+        fname = (self.output.run / self.output.name).with_suffix(".scnmseed")
 
         if fname.exists():
             # Loading the .scn file
@@ -819,7 +823,7 @@ class SeisScan(DefaultSeisScan):
 
             # Saving figure if defined
             if savefig:
-                out = self.output.path / "{}_Trigger".format(self.output.name)
+                out = self.output.run / "{}_Trigger".format(self.output.name)
                 out = str(out.with_suffix(".pdf"))
                 plt.savefig(out)
             else:
@@ -1388,7 +1392,7 @@ class SeisScan(DefaultSeisScan):
             DataFrame containing the maximum coalescence values for a
             given event
         event_name : str
-            Event ID - used for saving the stations file
+            Event ID - used for saving the picks file
 
         Returns
         -------
@@ -1406,10 +1410,10 @@ class SeisScan(DefaultSeisScan):
         p_ttime = self.lut.value_at("TIME_P", max_coa_xyz)[0]
         s_ttime = self.lut.value_at("TIME_S", max_coa_xyz)[0]
 
-        # Determining the stations that can be picked on and the phasese
-        stations = pd.DataFrame(index=np.arange(0, 2 * len(p_onset)),
-                                columns=["Name", "Phase", "ModelledTime",
-                                         "PickTime", "PickError","SNR"])
+        # Determining the stations that can be picked on and the phases
+        picks = pd.DataFrame(index=np.arange(0, 2 * len(p_onset)),
+                             columns=["Name", "Phase", "ModelledTime",
+                                      "PickTime", "PickError","SNR"])
 
         p_gauss = np.array([])
         s_gauss = np.array([])
@@ -1447,13 +1451,13 @@ class SeisScan(DefaultSeisScan):
                     else:
                         s_gauss = np.hstack([s_gauss, gau])
 
-                    stations.iloc[idx] = [self.lut.station_data['Name'][i],
-                                          phase, arrival, mn, err, max_onset]
+                    picks.iloc[idx] = [self.lut.station_data['Name'][i],
+                                       phase, arrival, mn, err, max_onset]
                     idx += 1
 
-        self.output.write_stations_file(stations, event_name)
+        self.output.write_picks(picks, event_name)
 
-        return stations, p_gauss, s_gauss
+        return picks, p_gauss, s_gauss
 
     def _gaufilt3d(self, vol, sgm, shp=None):
         """

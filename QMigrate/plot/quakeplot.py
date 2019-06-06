@@ -261,7 +261,7 @@ class QuakePlot:
             if output_file is None:
                 plt.show()
             else:
-                fname = "{}_CoalescenceTrace_{}.pdf"
+                fname = "{}_{}.pdf"
                 fname = fname.format(output_file, station)
                 plt.savefig(fname)
                 plt.close("all")
@@ -542,7 +542,7 @@ class QuakePlot:
             plt.show()
         else:
             fig.suptitle("Event Origin Time = {}".format(dt_max.datetime))
-            plt.savefig("{}_EventLocationError.pdf".format(output_file),
+            plt.savefig("{}_EventSummary.pdf".format(output_file),
                         dpi=400)
             plt.close("all")
 

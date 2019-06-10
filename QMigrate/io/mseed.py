@@ -141,7 +141,7 @@ class MSEED(object):
         self.sampling_rate = sampling_rate
         self.start_time = start_time
         self.end_time = end_time
-        samples = int((end_time - start_time) * sampling_rate + 1)
+        samples = int(round((end_time - start_time) * sampling_rate)) + 1
         files = self._load_from_path(start_time, end_time)
 
         st = obspy.Stream()

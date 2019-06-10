@@ -527,14 +527,14 @@ class SeisScan(DefaultSeisScan):
 
         events = self.output.read_triggered_events(start_time, end_time)
 
-        if self.set_onset_centred == None:
+        if self.set_onset_centred is None:
             self._onset_centred = True
-        elif self.set_onset_centred == True:
+        elif self.set_onset_centred is True:
             self._onset_centred = True
-        elif self.set_onset_centred == False:
+        elif self.set_onset_centred is False:
             self._onset_centred = False
         else:
-            msg = 'set_onset_centre must be either True or False !'
+            msg = "set_onset_centre must be either True or False!"
             raise Exception(msg)
 
         n_evts = len(events)

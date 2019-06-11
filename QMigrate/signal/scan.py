@@ -68,17 +68,22 @@ def gaussian_1d(x, a, b, c):
 
     Parameters
     ----------
-    x :
+    x : array-like
+        array of x values
 
-    a :
+    a : float / int
+        amplitude (height of gaussian)
 
-    b :
+    b : float / int
+        mean (centre of gaussian)
 
-    c :
+    c : float / int
+        sigma (width of gaussian)
 
     Returns
     -------
-    f :
+    f : function
+        one-dimentional gaussian function
 
     """
 
@@ -86,23 +91,28 @@ def gaussian_1d(x, a, b, c):
     return f
 
 
-def gaussian_3d(nx, ny, nz, sgm):
+def gaussian_3d(nx, ny, nz, sgm, K):
     """
     Create a 3-dimensional Gaussian function
 
     Parameters
     ----------
-    nx :
+    nx : array-like
+         array of x values
 
-    ny :
+    ny : array-like
+         array of y values
 
-    nz :
+    nz : array-like
+         array of z values
 
-    sgm :
+    sgm : float / int
+          sigma (width of gaussian in all directions)
 
     Returns
     -------
-
+    f : function
+        three-dimensional gaussian function
 
     """
 
@@ -113,13 +123,15 @@ def gaussian_3d(nx, ny, nz, sgm):
     y = np.linspace(-ny2, ny2, ny)
     z = np.linspace(-nz2, nz2, nz)
     ix, iy, iz = np.meshgrid(x, y, z, indexing="ij")
+
     if np.isscalar(sgm):
         sgm = np.repeat(sgm, 3)
     sx, sy, sz = sgm
-    return np.exp(- (ix * ix) / (2 * sx * sx)
-                  - (iy * iy) / (2 * sy * sy)
-                  - (iz * iz) / (2 * sz * sz))
 
+    f = np.exp(- (ix * ix) / (2 * sx * sx)
+                  - (iy * iy) / (2 * sy * sy)
+                  - (iz * iz) / (2 * sz * sz)) + K
+    return f
 
 def sta_lta_centred(a, nsta, nlta):
     """
@@ -332,11 +344,11 @@ class SeisOutFile:
                         coa_stats.endtime + td,
                         td)
         data["DT"] = [x.datetime for x in tmp]
-        data["COA"] = coa.select(station="COA")[0].data / 1e8
-        data["COA_N"] = coa.select(station="COA_N")[0].data / 1e8
+        data["COA"] = coa.select(station="COA")[0].data / 1e5
+        data["COA_N"] = coa.select(station="COA_N")[0].data / 1e5
         data["X"] = coa.select(station="X")[0].data / 1e6
         data["Y"] = coa.select(station="Y")[0].data / 1e6
-        data["Z"] = coa.select(station="Z")[0].data
+        data["Z"] = coa.select(station="Z")[0].data / 1e3
 
         data["DT"] = data["DT"].apply(UTCDateTime)
 
@@ -392,15 +404,15 @@ class SeisOutFile:
                    "sampling_rate": sampling_rate,
                    "starttime": starttime}
 
-        st = Stream(Trace(data=(np.array(data["COA"]) * 1e8).astype(np.int32),
+        st = Stream(Trace(data=(np.array(data["COA"]) * 1e5).astype(np.int32),
                           header=stats_COA))
-        st += Stream(Trace(data=(np.array(data["COA_N"]) * 1e8).astype(np.int32),
+        st += Stream(Trace(data=(np.array(data["COA_N"]) * 1e5).astype(np.int32),
                            header=stats_COA_N))
         st += Stream(Trace(data=(np.array(data["X"]) * 1e6).astype(np.int32),
                            header=stats_X))
         st += Stream(Trace(data=(np.array(data["Y"]) * 1e6).astype(np.int32),
                            header=stats_Y))
-        st += Stream(Trace(data=np.array(data["Z"]).astype(np.int32),
+        st += Stream(Trace(data=(np.array(data["Z"]) * 1e3).astype(np.int32),
                            header=stats_Z))
 
         if original_dataset is not None:
@@ -1648,6 +1660,11 @@ class SeisScan(DefaultSeisScan):
                            + 3 * max(self.p_onset_win[0],
                                      self.s_onset_win[0])
 
+        # Adjust pre- and post-pad to take into account cosine taper
+        t_length = self.pre_pad + 4*self.marginal_window + self.post_pad
+        self.pre_pad += round(t_length * 0.06)
+        self.post_pad += round(t_length * 0.06)
+
         for i, event in events.iterrows():
             evt_id = event["EventID"]
             msg = "Processing for Event {} of {} - {}"
@@ -1659,15 +1676,16 @@ class SeisScan(DefaultSeisScan):
 
             tic()
 
-            # Determining the Seismic event location
             w_beg = event["CoaTime"] - 2*self.marginal_window - self.pre_pad
             w_end = event["CoaTime"] + 2*self.marginal_window + self.post_pad
+
             self.data.read_mseed(w_beg, w_end, self.sampling_rate)
             daten, dsnr, dsnr_norm, dloc, map_ = self._compute(
                                                     w_beg, w_end,
                                                     self.data.signal,
                                                     self.data.availability)
             dcoord = self.lut.xyz2coord(np.array(dloc).astype(int))
+
             event_coa_val = pd.DataFrame(np.array((daten, dsnr,
                                                    dcoord[:, 0],
                                                    dcoord[:, 1],
@@ -2060,6 +2078,7 @@ class SeisScan(DefaultSeisScan):
         pre_smp = int(round(self.pre_pad * int(sampling_rate)))
         pos_smp = int(round(self.post_pad * int(sampling_rate)))
         nsamp = tsamp - pre_smp - pos_smp
+
         daten = 0.0 - pre_smp / sampling_rate
 
         ncell = tuple(self.lut.cell_count)
@@ -2124,7 +2143,7 @@ class SeisScan(DefaultSeisScan):
         """
         Pre-processing method for Z-component
 
-        Applies a bandpass filter followed by a butterworth filter
+        Applies a butterworth bandpass filter.
 
         Parameters
         ----------
@@ -2188,7 +2207,7 @@ class SeisScan(DefaultSeisScan):
         """
         Pre-processing method for N- and E-components
 
-        Applies a bandpass filter followed by a butterworth filter (DOES IT?)
+        Applies a butterworth bandpass filter.
 
         Parameters
         ----------
@@ -2410,10 +2429,10 @@ class SeisScan(DefaultSeisScan):
     def _gaussian_trigger(self, onset, phase, start_time, p_arrival, s_arrival,
                           p_ttime, s_ttime):
         """
-        Fit a Gaussian to the onset function.
+        Fit a Gaussian to the onset function in order to make a time pick.
 
-        Uses knowledge of approximate trigger index, the lowest frequency
-        within the signal and the signal sampling rate.
+        Uses knowledge of approximate trigger index, the short-term average onset
+        window and the signal sampling rate.
 
         Parameters
         ----------
@@ -2422,11 +2441,11 @@ class SeisScan(DefaultSeisScan):
         phase : str
             Phase name ("P" or "S")
         start_time : UTCDateTime object
-            Start time of triggered data
+            Start time of data (w_beg)
         p_arrival : UTCDateTime object
-            Time when P-phase is observed to arrive
+            Time when P-phase is expected to arrive based on best location.
         s_arrival : UTCDateTime object
-            Time when S-phase is observed to arrive
+            Time when S-phase is expected to arrive based on best location.
         p_ttime : UTCDateTime object
             Traveltime of P-phase
         s_ttime : UTCDateTime object
@@ -2434,6 +2453,18 @@ class SeisScan(DefaultSeisScan):
 
         Returns
         -------
+        gaussian_fit : dictionary
+            gaussian fit parameters
+
+        max_onset : float
+            amplitude of gaussian fit to onset function
+
+        sigma : float
+            sigma of gaussian fit to onset function
+
+        mean : UTCDateTime
+            mean of gaussian fit to onset function == pick time
+
 
         """
 
@@ -2441,17 +2472,20 @@ class SeisScan(DefaultSeisScan):
         msg = msg.format(phase, str(start_time), str(p_arrival))
         # print(msg)
 
-        sampling_rate = self.sampling_rate
-
         # Determine indices of P and S trigger times
-        pt_idx = int((p_arrival - start_time) * sampling_rate)
-        st_idx = int((s_arrival - start_time) * sampling_rate)
+        pt_idx = int((p_arrival - start_time) * self.sampling_rate)
+        st_idx = int((s_arrival - start_time) * self.sampling_rate)
 
-        # Define bounds from which to determine cdf information
-        pmin_idx = int(pt_idx - (st_idx - pt_idx) / 2)
+        # Determine P and S pick window upper and lower bounds based on
+        # (P-S)/2 -- either this or the next window definition will be
+        # used depending on which is wider.
+        pmin_idx = int(pt_idx - (st_idx - pt_idx) / 2) # unnecessary?
         pmax_idx = int(pt_idx + (st_idx - pt_idx) / 2)
         smin_idx = int(st_idx - (st_idx - pt_idx) / 2)
-        smax_idx = int(st_idx + (st_idx - pt_idx) / 2)
+        smax_idx = int(st_idx + (st_idx - pt_idx) / 2) # unnecessary?
+
+        # Check if index falls outside length of onset function; if so set
+        # window to start/end at start/end of data.
         for idx in [pmin_idx, pmax_idx, smin_idx, smax_idx]:
             if idx < 0:
                 idx = 0
@@ -2459,18 +2493,26 @@ class SeisScan(DefaultSeisScan):
                 idx = len(onset)
 
         # Defining the bounds to search for the event over
+        # Determine P and S pick window upper and lower bounds based on
+        # set percentage of total travel time, plus marginal window
+
+        # window based on self.percent_tt of P/S travel time
         pp_ttime = p_ttime * self.percent_tt
         ps_ttime = s_ttime * self.percent_tt
-        P_idxmin_new = int(pt_idx - int((self.marginal_window + pp_ttime)
-                                        * sampling_rate))
-        P_idxmax_new = int(pt_idx + int((self.marginal_window + pp_ttime)
-                                        * sampling_rate))
-        S_idxmin_new = int(st_idx - int((self.marginal_window + ps_ttime)
-                                        * sampling_rate))
-        S_idxmax_new = int(st_idx + int((self.marginal_window + ps_ttime)
-                                        * sampling_rate))
 
-        # Setting so the search region can"t be bigger than P-S/2.
+        # Add length of marginal window to this. Convert to index.
+        P_idxmin_new = int(pt_idx - int((self.marginal_window + pp_ttime)
+                                        * self.sampling_rate))
+        P_idxmax_new = int(pt_idx + int((self.marginal_window + pp_ttime)
+                                        * self.sampling_rate))
+        S_idxmin_new = int(st_idx - int((self.marginal_window + ps_ttime)
+                                        * self.sampling_rate))
+        S_idxmax_new = int(st_idx + int((self.marginal_window + ps_ttime)
+                                        * self.sampling_rate))
+
+        # Setting so the search region can"t be bigger than (P-S)/2.
+        # Compare these two window definitions. If (P-S)/2 window is
+        # smaller then use this (to avoid picking the wrong phase).
         P_idxmin = np.max([pmin_idx, P_idxmin_new])
         P_idxmax = np.min([pmax_idx, P_idxmax_new])
         S_idxmin = np.max([smin_idx, S_idxmin_new])
@@ -2478,31 +2520,45 @@ class SeisScan(DefaultSeisScan):
 
         # Setting parameters depending on the phase
         if phase == "P":
-            lowfreq = self.p_bp_filter[0]
+            sta_winlen = self.p_onset_win[0]
             win_min = P_idxmin
             win_max = P_idxmax
         if phase == "S":
-            lowfreq = self.s_bp_filter[0]
+            sta_winlen = self.s_onset_win[0]
             win_min = S_idxmin
             win_max = S_idxmax
 
+        # Find index of maximum value of onset function in the appropriate
+        # pick window
         max_onset = np.argmax(onset[win_min:win_max]) + win_min
+        # Trim the onset function in the pick window
         onset_trim = onset[win_min:win_max]
 
+        # Only keep the onset function outside the pick windows to
+        # calculate the pick threshold
         onset_threshold = onset.copy()
         onset_threshold[P_idxmin:P_idxmax] = -1
         onset_threshold[S_idxmin:S_idxmax] = -1
         onset_threshold = onset_threshold[onset_threshold > -1]
 
+        # Calculate the pick threshold: either user-specified percentile of
+        # data outside pick windows, or 88th percentile within the relevant
+        # pick window (whichever is bigger).
         threshold = np.percentile(onset_threshold, self.pick_threshold * 100)
         threshold_window = np.percentile(onset_trim, 88)
         threshold = np.max([threshold, threshold_window])
 
+        # Remove data within the pick window that is lower than the threshold
         tmp = (onset_trim - threshold).any() > 0
+
+        # If there is any data that meets this requirement...
         if onset[max_onset] >= threshold and tmp:
             exceedence = np.where((onset_trim - threshold) > 0)[0]
             exceedence_dist = np.zeros(len(exceedence))
 
+            # Really faffy process to identify the period of data which is
+            # above the threshold around the highest value of the onset
+            # function.
             d = 1
             e = 0
             while e < len(exceedence_dist) - 1:
@@ -2516,37 +2572,56 @@ class SeisScan(DefaultSeisScan):
                         d += 1
                 e += 1
 
+            # Find the indices for this period of data
             tmp = exceedence_dist[np.argmax(onset_trim[exceedence])]
             tmp = np.where(exceedence_dist == tmp)
+            # Add one data point below the threshold at each end of this period
             gau_idxmin = exceedence[tmp][0] + win_min - 1
             gau_idxmax = exceedence[tmp][-1] + win_min + 2
 
-            data_half_range = int(2 * sampling_rate / lowfreq)
+            # Initial guess for gaussian half-width based on onset function
+            # STA window length
+            data_half_range = int(sta_winlen * self.sampling_rate / 2)
+
+            # Select data to fit the gaussian to
             x_data = np.arange(gau_idxmin, gau_idxmax, dtype=float)
-            x_data = x_data / sampling_rate
+            x_data = x_data / self.sampling_rate
             y_data = onset[gau_idxmin:gau_idxmax]
 
+            # Convert indices to times
             x_data_dt = np.array([])
             for i in range(len(x_data)):
                 x_data_dt = np.hstack([x_data_dt, start_time + x_data[i]])
 
+            # Try to fit a gaussian.
             try:
+                # Initial parameters are:
+                #  height = max value of onset function
+                #  mean   = time of max value
+                #  sigma  = data half-range (calculated above)
                 p0 = [np.max(y_data),
-                      float(gau_idxmin + np.argmax(y_data)) / sampling_rate,
-                      data_half_range / sampling_rate]
+                      float(gau_idxmin + np.argmax(y_data)) / self.sampling_rate,
+                      data_half_range / self.sampling_rate]
+
+                # Do the fit
                 popt, pcov = curve_fit(gaussian_1d, x_data, y_data, p0)
-                sigma = np.absolute(popt[2])
 
-                # Mean is popt[1]. x_data[0] + popt[1] (In seconds)
-                mean = start_time + float(popt[1])
-
+                # Results:
+                #  popt = [height, mean (seconds), sigma (seconds)]
+                #  pcov not used
                 max_onset = popt[0]
+                # Convert mean (pick time) to time
+                mean = start_time + float(popt[1])
+                sigma = np.absolute(popt[2])
 
                 gaussian_fit = {"popt": popt,
                                 "xdata": x_data,
                                 "xdata_dt": x_data_dt,
                                 "PickValue": max_onset,
                                 "PickThreshold": threshold}
+
+            # If curve_fit fails. Will also spit error message to stdout,
+            # though this can be suppressed  - see warnings.filterwarnings()
             except:
                 gaussian_fit = self.DEFAULT_GAUSSIAN_FIT
                 gaussian_fit["PickThreshold"] = threshold
@@ -2554,6 +2629,8 @@ class SeisScan(DefaultSeisScan):
                 sigma = -1
                 mean = -1
                 max_onset = -1
+
+        # If onset function does not exceed threshold in pick window
         else:
             gaussian_fit = self.DEFAULT_GAUSSIAN_FIT
             gaussian_fit["PickThreshold"] = threshold
@@ -2641,33 +2718,50 @@ class SeisScan(DefaultSeisScan):
 
         return stations, p_gauss, s_gauss
 
-    def _gaufilt3d(self, vol, sgm=1.0, shp=None):
+    def _gaufilt3d(self, map_3d, sgm=0.4, shp=None):
         """
 
 
         Parameters
         ----------
-        vol :
+        map_3d : 3-d array
+                 marginalised 3d coalescence map
 
-        sgm :
+        sgm : float / int
+              sigma value (in grid cells) for the 3d gaussian filter function
+              --> bigger sigma leads to more aggressive (long wavelength) smoothing.
 
         shp : array-like, optional
             Shape of volume
 
+
         Returns
         -------
-
+        smoothed_map_3d : 3-d array
+                          gaussian smoothed 3d coalescence map
 
         """
 
         if shp is None:
-            shp = vol.shape
+            shp = map_3d.shape
         nx, ny, nz = shp
-        vol              = vol/np.nanmax(vol)
-        flt              = gaussian_3d(nx, ny, nz, sgm)
-        vol2             = fftconvolve(vol, flt, mode="same")
-        vol2             = vol2/np.nanmax(vol2)
-        return vol2
+
+        # Normalise
+        map_3d = map_3d/np.nanmax(map_3d)
+
+        # Construct 3d gaussian filter
+        flt = gaussian_3d(nx, ny, nz, sgm, 0.)
+        # Convolve map_3d and 3d gaussian filter
+        smoothed_map_3d = fftconvolve(map_3d, flt, mode="same")
+
+        # Mirror and convolve again (to avoid 'phase-shift')
+        smoothed_map_3d = smoothed_map_3d[::-1,::-1,::-1]/np.nanmax(smoothed_map_3d)
+        smoothed_map_3d = fftconvolve(smoothed_map_3d, flt, mode="same")
+
+        # Final mirror and normalise
+        smoothed_map_3d = smoothed_map_3d[::-1,::-1,::-1]/np.nanmax(smoothed_map_3d)
+
+        return smoothed_map_3d
 
     def _mask3d(self, n, i, win):
         """
@@ -2702,16 +2796,52 @@ class SeisScan(DefaultSeisScan):
 
         return mask
 
-    def _covfit3d(self,pdf,thresh=0.8, win=3):
+    def _covfit3d(self, coa_map, thresh=0.88, win=None):
+        """
+
+
+        Parameters
+        ----------
+        coa_map : 3-d array
+                  marginalised 3d coalescence map
+
+        thresh : float (between 0 and 1)
+                 cut-off threshold (fractional percentile) to trim coa_map; only
+                 data above this percentile will be retained, optional
+
+        win : int
+              window of grid cells (+/-win in x, y and z) around max value in coa_map
+              to perform the fit over, optional
+
+        Returns
+        -------
+        loc_cov : array-like
+                  [x, y, z] expectation location from covariance fit
+
+        loc_err_cov : array-like
+                      [x_err, y_err, z_err] one sigma uncertainties associated with
+                      loc_cov
+
+
+        """
+        # Normalise!!
+        coa_map = coa_map/(np.nanmax(coa_map))
 
         # Determining Covariance Location and Error
-        nx, ny, nz = pdf.shape
-        mx, my, mz = np.unravel_index(np.nanargmax(pdf), pdf.shape)
-        flg = np.logical_and(pdf > thresh,#mval * np.exp(-(thresh * thresh) / 2),
-                           self._mask3d([nx, ny, nz], [mx, my, mz], win))
-        ix, iy, iz = np.where(flg)
-        print('Variables',min(ix), max(ix), min(iy), max(iy), min(iz), max(iz))
-        smp_weights   = pdf.flatten()
+        nx, ny, nz = coa_map.shape
+        mx, my, mz = np.unravel_index(np.nanargmax(coa_map), coa_map.shape)
+
+        # If window is specified, clip the grid to only look here.
+        if win:
+            flg = np.logical_and(coa_map > thresh,#mval * np.exp(-(thresh * thresh) / 2),
+                               self._mask3d([nx, ny, nz], [mx, my, mz], win))
+            ix, iy, iz = np.where(flg)
+            print('Variables',min(ix), max(ix), min(iy), max(iy), min(iz), max(iz))
+        else:
+            flg = np.where(coa_map > thresh, True, False)
+            ix, iy, iz = nx, ny, nz
+
+        smp_weights = coa_map.flatten()
         smp_weights[~flg.flatten()] = np.nan
 
         lc = self.lut.cell_count
@@ -2782,14 +2912,15 @@ class SeisScan(DefaultSeisScan):
 
 
 
-    def _gaufit3d(self, pdf, lx=None, ly=None, lz=None,
-                  thresh=0.8, win=11):
+    def _gaufit3d(self, coa_map, lx=None, ly=None, lz=None,
+                  thresh=0., win=6):
         """
 
 
         Parameters
         ----------
-        pdf :
+        coa_map : 3-d array
+                  marginalised 3d coalescence map
 
         lx : , optional
 
@@ -2797,35 +2928,40 @@ class SeisScan(DefaultSeisScan):
 
         lz : , optional
 
-        smooth : , optional
+        thresh : float (between 0 and 1)
+                 cut-off threshold (percentile) to trim coa_map: only
+                 data above this percentile will be retained, optional
 
-        thresh : , optional
+        win : int
+              window of grid cells (+/- win in x, y and z) around max value in coa_map
+              to perform the fit over, optional
 
-        win : , optional
-
-        mask : , optional
 
         Returns
         -------
-        loc + iloc
+        loc_gau : array-like
+                  [x, y, z] expectation location from 3d gaussian fit
 
-        vec
-
-        sgm
-
-        csgm
-
-        val
+        loc_gau_err : array-like
+                      [x_err, y_err, z_err] one sigma uncertainties from 3d gaussian fit
 
 
         """
-        nx, ny, nz = pdf.shape
-        mx, my, mz = np.unravel_index(np.nanargmax(pdf), pdf.shape)
-        mval = pdf[mx, my, mz]
-        flg = np.logical_and(pdf > thresh,#mval * np.exp(-(thresh * thresh) / 2),
-                           self._mask3d([nx, ny, nz], [mx, my, mz], win))
+        nx, ny, nz = coa_map.shape
+        mx, my, mz = np.unravel_index(np.nanargmax(coa_map), coa_map.shape)
+        mval = coa_map[mx, my, mz]
+        # Only use grid cells above threshold value, and within the specified
+        # window around the coalescence peak
+        flg = np.logical_and(coa_map > thresh,
+                            self._mask3d([nx, ny, nz], [mx, my, mz], win))
+
         ix, iy, iz = np.where(flg)
-        print('Variables',min(ix), max(ix), min(iy), max(iy), min(iz), max(iz))
+
+        # Subtract mean of 3d coalescence map so it is more appropriately
+        # approximated by a gaussian (which goes to zero at infinity)
+        coa_map = coa_map - np.nanmean(coa_map)
+
+        # print('Variables',min(ix), max(ix), min(iy), max(iy), min(iz), max(iz))
         # if self.log:
         #     self.output.write_log(msg)
         # else:
@@ -2852,7 +2988,7 @@ class SeisScan(DefaultSeisScan):
         X = np.c_[x * x, y * y, z * z,
                   x * y, x * z, y * z,
                   x, y, z, np.ones(ncell)].T
-        Y = -np.log(np.clip(pdf.astype(np.float64)[ix, iy, iz],
+        Y = -np.log(np.clip(coa_map.astype(np.float64)[ix, iy, iz],
                             1e-300, np.inf))
 
         X_inv = np.linalg.pinv(X)
@@ -2901,65 +3037,44 @@ class SeisScan(DefaultSeisScan):
 
         Parameters
         ----------
-        map_4d :
+        map_4d : 4-d array
+                 4d coalescence grid output from _compute()
 
 
         Returns
         -------
-        loc :
+        loc : array-like
+              [x, y, z] best-fit location from local fit to the coalescence grid
 
-        loc_err :
+        loc_err : array-like
+                  [x_err, y_err, z_err] one sigma uncertainties associated with loc
 
-        loc_cov :
+        loc_cov : array-like
+                  [x, y, z] best-fit location from covariance fit over entire 3d grid
+                  (most commonly after filtering above a certain percentile).
 
-        loc_err_cov :
+        loc_err_cov : array-like
+                      [x_err, y_err, z_err] one sigma uncertainties associated with loc_cov
 
 
         """
 
-        # Determining the coalescence 3D map
-        coa_map      = np.log(np.sum(np.exp(map_4d), axis=-1))
-        coa_map      = self._gaufilt3d(coa_map)
+        # MARGINALISE: Determining the coalescence 3D map
+        self.coa_map = np.log(np.sum(np.exp(map_4d), axis=-1))
+
+        # Normalise
+        self.coa_map = self.coa_map/np.max(self.coa_map)
 
 
+        ## Determining the location error as an error-ellipse
+        # Calculate global covariance
+        loc_cov, loc_err_cov  = self._covfit3d(np.copy(self.coa_map))
 
-        # Determining the location error as an error-ellipse
-        loc, loc_err, loc_cov, loc_err_cov= self._error_ellipse(np.copy(coa_map))
+        # Fit local gaussian error ellipse
+        smoothed_coa_map = self._gaufilt3d(np.copy(self.coa_map))
+        loc, loc_err = self._gaufit3d(np.copy(smoothed_coa_map), thresh=0.)
 
-        # Changing map ready for plotting
-        self.coa_map = coa_map/np.nanmax(coa_map)
-        self.coa_map[self.coa_map < 0.8] = np.nan
-        self.coa_map = self.coa_map - 0.8
-        self.coa_map = self.coa_map/np.nanmax(self.coa_map)
-        self.coa_map[np.isnan(self.coa_map)] = 0 # Setting back to zero ready for plotting
-
+        # Calculate local covariance
+        # loc, loc_err  = self._covfit3d(np.copy(coa_3d),thresh=0.88)#self._gaufit3d(coa_3d,thresh=0.0)
 
         return loc, loc_err, loc_cov, loc_err_cov
-
-    def _error_ellipse(self, coa_3d):
-        """
-        Function to calculate covariance matrix and expectation hypocentre from
-        coalescence array.
-
-        Parameters
-        ----------
-        coa_3d : array-like
-            Coalescence values for a particular time (x, y, z dimensions)
-
-        Returns
-        -------
-        loc_gau : 
-
-        loc_gau_err :
-
-        loc_cov :
-
-        loc_err_cov
-        """
-
-        # Get point sample coords and weights:
-        loc_gau, loc_gau_err  = self._gaufit3d(np.copy(coa_3d),thresh=0.8)
-        #loc_gau, loc_gau_err  = self._covfit3d(np.copy(coa_3d),thresh=0.8)#self._gaufit3d(coa_3d,thresh=0.0)
-        loc_cov, loc_err_cov  = self._covfit3d(np.copy(coa_3d),thresh=0.8, win=(np.max(self.lut.cell_count)*100))
-
-        return loc_gau, loc_gau_err, loc_cov, loc_err_cov

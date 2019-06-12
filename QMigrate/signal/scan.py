@@ -3078,42 +3078,56 @@ class SeisScan(DefaultSeisScan):
         mval = coa_map[mx, my, mz]
 
                 
-                # Determining window about maximum value and trimming coa grid
+        # Determining window about maximum value and trimming coa grid
         w2 = (win-1)//2
         x1, y1, z1 = np.clip(i - w2, 0 * n, n)
         x2, y2, z2 = np.clip(i + w2 + 1, 0 * n, n)
-        coa_map_trim = coa_map[x1:x2,y1:y2,z1:z2]
 
-        # Defining the original interpolation function
-        xo = np.linspace(0,coa_map_trim.shape[0],len(coa_map_trim))
-        yo = np.linspace(0,coa_map_trim.shape[1],len(coa_map_trim))
-        zo = np.linspace(0,coa_map_trim.shape[2],len(coa_map_trim))
-        xog,yog,zog = np.meshgrid(xo,yo,zo)
-        interpgrid = Rbf(xog.flatten(),yog.flatten(),zog.flatten(),coa_map_trim.flatten(),function='cubic')
 
-        # Creating the new grid for the data
-        xx = np.linspace(0,coa_map_trim.shape[0],len(coa_map_trim)*upscale)
-        yy = np.linspace(0,coa_map_trim.shape[1],len(coa_map_trim)*upscale)
-        zz = np.linspace(0,coa_map_trim.shape[2],len(coa_map_trim)*upscale)
-        xxg,yyg,zzg = np.meshgrid(xx,yy,zz)
-        coa_map_int = interpgrid(xxg.flatten(),yyg.flatten(),zzg.flatten()).reshape(xxg.shape)        
-        mxi, myi, mzi = np.unravel_index(np.nanargmax(coa_map_int), coa_map_int.shape)
-        mxi = mxi/upscale + x1; myi = myi/upscale + y1; mzi = mzi/upscale + z1;
-        print(mxi,myi,mzi); print(mx,my,mz)
+        # If subgrid is not close to the edge
+        if (x2-x1) == (y2 - y1) == (z2-z1):
+            coa_map_trim = coa_map[x1:x2,y1:y2,z1:z2]
 
-        # Run check that spline location is within grid-cell
-        if (abs(mx - mxi) > 1) or (abs(my - myi) > 1) or (abs(mz - mzi) > 1):
-            msg = "Spline location outside grid-cell with maximum coalescence value"
+            # Defining the original interpolation function
+            xo = np.linspace(0,coa_map_trim.shape[0],len(coa_map_trim))
+            yo = np.linspace(0,coa_map_trim.shape[1],len(coa_map_trim))
+            zo = np.linspace(0,coa_map_trim.shape[2],len(coa_map_trim))
+            xog,yog,zog = np.meshgrid(xo,yo,zo)
+            interpgrid = Rbf(xog.flatten(),yog.flatten(),zog.flatten(),coa_map_trim.flatten(),function='cubic')
+
+            # Creating the new grid for the data
+            xx = np.linspace(0,coa_map_trim.shape[0],len(coa_map_trim)*upscale)
+            yy = np.linspace(0,coa_map_trim.shape[1],len(coa_map_trim)*upscale)
+            zz = np.linspace(0,coa_map_trim.shape[2],len(coa_map_trim)*upscale)
+            xxg,yyg,zzg = np.meshgrid(xx,yy,zz)
+            coa_map_int = interpgrid(xxg.flatten(),yyg.flatten(),zzg.flatten()).reshape(xxg.shape)        
+            mxi, myi, mzi = np.unravel_index(np.nanargmax(coa_map_int), coa_map_int.shape)
+            mxi = mxi/upscale + x1; myi = myi/upscale + y1; mzi = mzi/upscale + z1;
+            print(mxi,myi,mzi); print(mx,my,mz)
+
+            # Run check that spline location is within grid-cell
+            if (abs(mx - mxi) > 1) or (abs(my - myi) > 1) or (abs(mz - mzi) > 1):
+                msg = "Spline location outside grid-cell with maximum coalescence value"
+                if self.log:
+                    self.output.write_log(msg)
+                else:
+                    print(msg)
+
+            xyz = self.lut.xyz2loc(np.array([[mxi,myi,mzi]]),inverse=True)
+            loc = self.lut.xyz2coord(xyz)[0]
+
+        else:
+            msg = "Failed to fit spline to maximum coalescence as location at edge of grid\n Gridded Location returned"
             if self.log:
                 self.output.write_log(msg)
             else:
                 print(msg)
 
-        xyz = self.lut.xyz2loc(np.array([[mxi,myi,mzi]]),inverse=True)
-        loc = self.lut.xyz2coord(xyz)[0]
+
+            xyz = self.lut.xyz2loc(np.array([[mx,my,mz]]),inverse=True)
+            loc = self.lut.xyz2coord(xyz)[0]
+
         return loc
-
-
 
     def _location_error(self, map_4d):
         """

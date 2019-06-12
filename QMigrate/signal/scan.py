@@ -17,6 +17,7 @@ import pandas as pd
 from scipy import stats
 from scipy.signal import butter, lfilter, fftconvolve
 from scipy.optimize import curve_fit
+from scipy.interpolate import Rbf
 import numpy as np
 from matplotlib.collections import PatchCollection
 from matplotlib.patches import Rectangle
@@ -34,7 +35,6 @@ import matplotlib.animation as animation
 
 import QMigrate.core.model as cmod
 import QMigrate.core.QMigratelib as ilib
-
 
 def TicTocGenerator():
     # Generator that returns time differences
@@ -977,6 +977,9 @@ class SeisPlot:
                          color=self.line_station_color)
         xy_slice.axhline(y=crd[0][1], linestyle="--", linewidth=2,
                          color=self.line_station_color)
+        xy_slice.scatter(eq["X"], eq["Y"],
+                         150, c="green", marker="*",
+                         label="Maximum Coalescence")
         xy_slice.scatter(eq["LocalGaussian_X"], eq["LocalGaussian_Y"],
                          150, c="pink", marker="*",
                          label="Local Gaussian Location")
@@ -1007,6 +1010,9 @@ class SeisPlot:
                          color=self.line_station_color)
         xz_slice.axhline(y=crd[0][2], linestyle="--", linewidth=2,
                          color=self.line_station_color)
+        xy_slice.scatter(eq["X"], eq["Z"],
+                         150, c="green", marker="*",
+                         label="Maximum Coalescence")
         xz_slice.scatter(eq["LocalGaussian_X"], eq["LocalGaussian_Z"],
                          150, c="pink", marker="*")
         xz_slice.scatter(eq["GlobalCovariance_X"], eq["GlobalCovariance_Z"],
@@ -1034,6 +1040,9 @@ class SeisPlot:
                          color=self.line_station_color)
         yz_slice.axhline(y=crd[0][1], linestyle="--", linewidth=2,
                          color=self.line_station_color)
+        xy_slice.scatter(eq["Z"], eq["Y"],
+                         150, c="green", marker="*",
+                         label="Maximum Coalescence")
         yz_slice.scatter(eq["LocalGaussian_Z"], eq["LocalGaussian_Y"],
                          150, c="pink", marker="*")
         yz_slice.scatter(eq["GlobalCovariance_Z"], eq["GlobalCovariance_Y"],
@@ -1729,15 +1738,17 @@ class SeisScan(DefaultSeisScan):
 
             # Determining earthquake location error
             tic()
-            loc, loc_err, loc_cov, loc_err_cov = self._location_error(map_)
+            loc_spline, loc, loc_err, loc_cov, loc_err_cov = self._location_error(map_)
             toc()
 
-            evt = pd.DataFrame([np.append(event_max.values,
-                                          [loc[0], loc[1], loc[2],
+            evt = pd.DataFrame([[event_max.values[0],
+                                           event_max.values[1],
+                                           loc_spline[0],loc_spline[1],loc_spline[2],
+                                           loc[0], loc[1], loc[2],
                                            loc_err[0], loc_err[1], loc_err[2],
                                            loc_cov[0], loc_cov[1], loc_cov[2],
                                            loc_err_cov[0], loc_err_cov[1],
-                                           loc_err_cov[2]])],
+                                           loc_err_cov[2]]],
                                columns=self.EVENT_FILE_COLS)
             self.output.write_event(evt, evt_id)
 
@@ -2854,14 +2865,14 @@ class SeisScan(DefaultSeisScan):
         z_samples = lz.flatten() * self.lut.cell_size[2]
 
         ssw = np.nansum(smp_weights)
-        print(ssw)
+        #print(ssw)
 
         # Expectation values:
         x_expect = np.nansum(smp_weights * x_samples) / ssw
         y_expect = np.nansum(smp_weights * y_samples) / ssw
         z_expect = np.nansum(smp_weights * z_samples) / ssw
 
-        print(x_expect)
+        #print(x_expect)
 
         # if self.log:
         #     self.output.write_log(msg)
@@ -2913,7 +2924,7 @@ class SeisScan(DefaultSeisScan):
 
 
     def _gaufit3d(self, coa_map, lx=None, ly=None, lz=None,
-                  thresh=0., win=6):
+                  thresh=0., win=11):
         """
 
 
@@ -3032,6 +3043,78 @@ class SeisScan(DefaultSeisScan):
 
         return loc_gau, loc_gau_err
 
+
+    def _splineloc(self, coa_map, win=11, upscale=5):
+        """
+
+
+        Parameters
+        ----------
+        coa_map : 3-d array
+                  marginalised 3d coalescence map
+
+        win : int
+              window of grid cells (+/- win in x, y and z) around max value in coa_map
+              to perform the fit over, optional
+
+        upsacel : int 
+              upscaling factor to increase the grid ready for spline fitting
+
+
+        Returns
+        -------
+        loc : array-like
+                  [x, y, z] expectation location from spline interpolation
+
+
+
+        """
+        #np.save('Coamap',coa_map)
+        nx, ny, nz = coa_map.shape
+        n = np.array([nx, ny, nz])
+
+        mx, my, mz = np.unravel_index(np.nanargmax(coa_map), coa_map.shape)
+        i = np.array([mx, my, mz])
+        mval = coa_map[mx, my, mz]
+
+                
+                # Determining window about maximum value and trimming coa grid
+        w2 = (win-1)//2
+        x1, y1, z1 = np.clip(i - w2, 0 * n, n)
+        x2, y2, z2 = np.clip(i + w2 + 1, 0 * n, n)
+        coa_map_trim = coa_map[x1:x2,y1:y2,z1:z2]
+
+        # Defining the original interpolation function
+        xo = np.linspace(0,coa_map_trim.shape[0],len(coa_map_trim))
+        yo = np.linspace(0,coa_map_trim.shape[1],len(coa_map_trim))
+        zo = np.linspace(0,coa_map_trim.shape[2],len(coa_map_trim))
+        xog,yog,zog = np.meshgrid(xo,yo,zo)
+        interpgrid = Rbf(xog.flatten(),yog.flatten(),zog.flatten(),coa_map_trim.flatten(),function='cubic')
+
+        # Creating the new grid for the data
+        xx = np.linspace(0,coa_map_trim.shape[0],len(coa_map_trim)*upscale)
+        yy = np.linspace(0,coa_map_trim.shape[1],len(coa_map_trim)*upscale)
+        zz = np.linspace(0,coa_map_trim.shape[2],len(coa_map_trim)*upscale)
+        xxg,yyg,zzg = np.meshgrid(xx,yy,zz)
+        coa_map_int = interpgrid(xxg.flatten(),yyg.flatten(),zzg.flatten()).reshape(xxg.shape)        
+        mxi, myi, mzi = np.unravel_index(np.nanargmax(coa_map_int), coa_map_int.shape)
+        mxi = mxi/upscale + x1; myi = myi/upscale + y1; mzi = mzi/upscale + z1;
+        print(mxi,myi,mzi); print(mx,my,mz)
+
+        # Run check that spline location is within grid-cell
+        if (abs(mx - mxi) > 1) or (abs(my - myi) > 1) or (abs(mz - mzi) > 1):
+            msg = "Spline location outside grid-cell with maximum coalescence value"
+            if self.log:
+                self.output.write_log(msg)
+            else:
+                print(msg)
+
+        xyz = self.lut.xyz2loc(np.array([[mxi,myi,mzi]]),inverse=True)
+        loc = self.lut.xyz2coord(xyz)[0]
+        return loc
+
+
+
     def _location_error(self, map_4d):
         """
 
@@ -3071,10 +3154,11 @@ class SeisScan(DefaultSeisScan):
         loc_cov, loc_err_cov  = self._covfit3d(np.copy(self.coa_map))
 
         # Fit local gaussian error ellipse
+        loc_spline       = self._splineloc(np.copy(self.coa_map))
         smoothed_coa_map = self._gaufilt3d(np.copy(self.coa_map))
-        loc, loc_err = self._gaufit3d(np.copy(smoothed_coa_map), thresh=0.)
+        loc, loc_err     = self._gaufit3d(np.copy(smoothed_coa_map), thresh=0.)
 
         # Calculate local covariance
         # loc, loc_err  = self._covfit3d(np.copy(coa_3d),thresh=0.88)#self._gaufit3d(coa_3d,thresh=0.0)
 
-        return loc, loc_err, loc_cov, loc_err_cov
+        return loc_spline, loc, loc_err, loc_cov, loc_err_cov

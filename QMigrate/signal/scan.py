@@ -901,7 +901,7 @@ class SeisPlot:
                                      2 * dCo[0][0], 2 * dCo[0][1], angle=0,
                                      linewidth=2, edgecolor="k",
                                      fill=False,
-                                     label="Global Covariance Error Ellipse")
+                                     label="Global Gaussian Error Ellipse")
         ellipse_YZ = patches.Ellipse((eq["GlobalCovariance_Z"],
                                       eq["GlobalCovariance_Y"]),
                                      2 * dCo[0][2], 2 * dCo[0][1], angle=0,
@@ -935,7 +935,7 @@ class SeisPlot:
                                      2 * dCo[0][0], 2 * dCo[0][1], angle=0,
                                      linewidth=2, edgecolor="b",
                                      fill=False,
-                                     label="Global Covariance Error Ellipse")
+                                     label="Local Gaussian Error Ellipse")
         gellipse_YZ = patches.Ellipse((eq["LocalGaussian_Z"],
                                       eq["LocalGaussian_Y"]),
                                      2 * dCo[0][2], 2 * dCo[0][1], angle=0,
@@ -985,7 +985,7 @@ class SeisPlot:
                          label="Local Gaussian Location")
         xy_slice.scatter(eq["GlobalCovariance_X"], eq["GlobalCovariance_Y"],
                          150, c="blue", marker="*",
-                         label="Global Covariance Location")
+                         label="Global Gaussian Location")
         xy_slice.add_patch(ellipse_XY)
         xy_slice.add_patch(gellipse_XY)
         xy_slice.legend()
@@ -2924,7 +2924,7 @@ class SeisScan(DefaultSeisScan):
 
 
     def _gaufit3d(self, coa_map, lx=None, ly=None, lz=None,
-                  thresh=0., win=11):
+                  thresh=0., win=8):
         """
 
 
@@ -3044,7 +3044,7 @@ class SeisScan(DefaultSeisScan):
         return loc_gau, loc_gau_err
 
 
-    def _splineloc(self, coa_map, win=11, upscale=5):
+    def _splineloc(self, coa_map, win=8, upscale=10):
         """
 
 

@@ -1010,7 +1010,7 @@ class SeisPlot:
                          color=self.line_station_color)
         xz_slice.axhline(y=crd[0][2], linestyle="--", linewidth=2,
                          color=self.line_station_color)
-        xy_slice.scatter(eq["X"], eq["Z"],
+        xz_slice.scatter(eq["X"], eq["Z"],
                          150, c="green", marker="*",
                          label="Maximum Coalescence")
         xz_slice.scatter(eq["LocalGaussian_X"], eq["LocalGaussian_Z"],
@@ -1040,7 +1040,7 @@ class SeisPlot:
                          color=self.line_station_color)
         yz_slice.axhline(y=crd[0][1], linestyle="--", linewidth=2,
                          color=self.line_station_color)
-        xy_slice.scatter(eq["Z"], eq["Y"],
+        yz_slice.scatter(eq["Z"], eq["Y"],
                          150, c="green", marker="*",
                          label="Maximum Coalescence")
         yz_slice.scatter(eq["LocalGaussian_Z"], eq["LocalGaussian_Y"],
@@ -1684,6 +1684,7 @@ class SeisScan(DefaultSeisScan):
                 print(msg)
 
             tic()
+            print("Computing 4D coalescence grid")
 
             w_beg = event["CoaTime"] - 2*self.marginal_window - self.pre_pad
             w_end = event["CoaTime"] + 2*self.marginal_window + self.post_pad
@@ -1738,6 +1739,7 @@ class SeisScan(DefaultSeisScan):
 
             # Determining earthquake location error
             tic()
+            print("Determining earthquake location and uncertainty")
             loc_spline, loc, loc_err, loc_cov, loc_err_cov = self._location_error(map_)
             toc()
 
@@ -2729,7 +2731,7 @@ class SeisScan(DefaultSeisScan):
 
         return stations, p_gauss, s_gauss
 
-    def _gaufilt3d(self, map_3d, sgm=0.4, shp=None):
+    def _gaufilt3d(self, map_3d, sgm=0.8, shp=None):
         """
 
 
@@ -2924,7 +2926,7 @@ class SeisScan(DefaultSeisScan):
 
 
     def _gaufit3d(self, coa_map, lx=None, ly=None, lz=None,
-                  thresh=0., win=8):
+                  thresh=0., win=7):
         """
 
 
@@ -3044,7 +3046,7 @@ class SeisScan(DefaultSeisScan):
         return loc_gau, loc_gau_err
 
 
-    def _splineloc(self, coa_map, win=8, upscale=10):
+    def _splineloc(self, coa_map, win=5, upscale=10):
         """
 
 
@@ -3057,7 +3059,7 @@ class SeisScan(DefaultSeisScan):
               window of grid cells (+/- win in x, y and z) around max value in coa_map
               to perform the fit over, optional
 
-        upsacel : int 
+        upsacel : int
               upscaling factor to increase the grid ready for spline fitting
 
 
@@ -3077,54 +3079,70 @@ class SeisScan(DefaultSeisScan):
         i = np.array([mx, my, mz])
         mval = coa_map[mx, my, mz]
 
-                
+
         # Determining window about maximum value and trimming coa grid
-        w2 = (win-1)//2
+        w2 = (win - 1)//2
         x1, y1, z1 = np.clip(i - w2, 0 * n, n)
         x2, y2, z2 = np.clip(i + w2 + 1, 0 * n, n)
 
 
         # If subgrid is not close to the edge
-        if (x2-x1) == (y2 - y1) == (z2-z1):
-            coa_map_trim = coa_map[x1:x2,y1:y2,z1:z2]
+        if (x2 - x1) == (y2 - y1) == (z2 - z1):
+            coa_map_trim = coa_map[x1:x2, y1:y2, z1:z2]
 
             # Defining the original interpolation function
-            xo = np.linspace(0,coa_map_trim.shape[0],len(coa_map_trim))
-            yo = np.linspace(0,coa_map_trim.shape[1],len(coa_map_trim))
-            zo = np.linspace(0,coa_map_trim.shape[2],len(coa_map_trim))
-            xog,yog,zog = np.meshgrid(xo,yo,zo)
-            interpgrid = Rbf(xog.flatten(),yog.flatten(),zog.flatten(),coa_map_trim.flatten(),function='cubic')
+            xo = np.linspace(0, coa_map_trim.shape[0] - 1, coa_map_trim.shape[0])
+            yo = np.linspace(0, coa_map_trim.shape[1] - 1, coa_map_trim.shape[1])
+            zo = np.linspace(0, coa_map_trim.shape[2] - 1, coa_map_trim.shape[2])
+            xog, yog, zog = np.meshgrid(xo, yo, zo)
+            interpgrid = Rbf(xog.flatten(), yog.flatten(), zog.flatten(),
+                             coa_map_trim.flatten(),
+                             function='cubic')
 
             # Creating the new grid for the data
-            xx = np.linspace(0,coa_map_trim.shape[0],len(coa_map_trim)*upscale)
-            yy = np.linspace(0,coa_map_trim.shape[1],len(coa_map_trim)*upscale)
-            zz = np.linspace(0,coa_map_trim.shape[2],len(coa_map_trim)*upscale)
-            xxg,yyg,zzg = np.meshgrid(xx,yy,zz)
-            coa_map_int = interpgrid(xxg.flatten(),yyg.flatten(),zzg.flatten()).reshape(xxg.shape)        
+            xx = np.linspace(0, coa_map_trim.shape[0] - 1, (coa_map_trim.shape[0] - 1) * upscale + 1)
+            yy = np.linspace(0, coa_map_trim.shape[1] - 1, (coa_map_trim.shape[1] - 1) * upscale + 1)
+            zz = np.linspace(0, coa_map_trim.shape[2] - 1, (coa_map_trim.shape[2] - 1) * upscale + 1)
+            xxg, yyg, zzg = np.meshgrid(xx, yy, zz)
+            coa_map_int = interpgrid(xxg.flatten(), yyg.flatten(), zzg.flatten()).reshape(xxg.shape)
             mxi, myi, mzi = np.unravel_index(np.nanargmax(coa_map_int), coa_map_int.shape)
-            mxi = mxi/upscale + x1; myi = myi/upscale + y1; mzi = mzi/upscale + z1;
-            print(mxi,myi,mzi); print(mx,my,mz)
+            mxi = mxi/upscale + x1
+            myi = myi/upscale + y1
+            mzi = mzi/upscale + z1
+            print(mxi, myi, mzi)
+            print(mx, my, mz)
 
             # Run check that spline location is within grid-cell
             if (abs(mx - mxi) > 1) or (abs(my - myi) > 1) or (abs(mz - mzi) > 1):
-                msg = "Spline location outside grid-cell with maximum coalescence value"
+                msg = "Spline warning: location outside grid-cell with maximum coalescence value"
                 if self.log:
                     self.output.write_log(msg)
                 else:
                     print(msg)
 
-            xyz = self.lut.xyz2loc(np.array([[mxi,myi,mzi]]),inverse=True)
+            xyz = self.lut.xyz2loc(np.array([[mxi, myi, mzi]]), inverse=True)
             loc = self.lut.xyz2coord(xyz)[0]
 
+            # Run check that spline location is within window (should be impossible not to..)
+            if (abs(mx - mxi) > w2) or (abs(my - myi) > w2) or (abs(mz - mzi) > w2):
+                msg = "Spline error: location outside interpolation window!\n Gridded Location returned"
+                if self.log:
+                    self.output.write_log(msg)
+                else:
+                    print(msg)
+
+                xyz = self.lut.xyz2loc(np.array([[mx, my, mz]]), inverse=True)
+                loc = self.lut.xyz2coord(xyz)[0]
+
         else:
-            msg = "Failed to fit spline to maximum coalescence as location at edge of grid\n Gridded Location returned"
+            msg = "Spline error: interpolation window crosses edge of grid!\n Gridded Location returned"
             if self.log:
                 self.output.write_log(msg)
             else:
                 print(msg)
 
 
-            xyz = self.lut.xyz2loc(np.array([[mx,my,mz]]),inverse=True)
+            xyz = self.lut.xyz2loc(np.array([[mx, my, mz]]), inverse=True)
             loc = self.lut.xyz2coord(xyz)[0]
 
         return loc
@@ -3168,9 +3186,9 @@ class SeisScan(DefaultSeisScan):
         loc_cov, loc_err_cov  = self._covfit3d(np.copy(self.coa_map))
 
         # Fit local gaussian error ellipse
-        loc_spline       = self._splineloc(np.copy(self.coa_map))
+        loc_spline = self._splineloc(np.copy(self.coa_map))
         smoothed_coa_map = self._gaufilt3d(np.copy(self.coa_map))
-        loc, loc_err     = self._gaufit3d(np.copy(smoothed_coa_map), thresh=0.)
+        loc, loc_err = self._gaufit3d(np.copy(smoothed_coa_map), thresh=0.)
 
         # Calculate local covariance
         # loc, loc_err  = self._covfit3d(np.copy(coa_3d),thresh=0.88)#self._gaufit3d(coa_3d,thresh=0.0)

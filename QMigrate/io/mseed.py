@@ -28,9 +28,9 @@ class MSEED(object):
         Location of raw mSEED files
     format : str
         File naming format of data archive
-    signal : 
+    signal :
 
-    filtered_signal : 
+    filtered_signal :
 
     stations : pandas Series object
         Series object containing station names
@@ -141,7 +141,8 @@ class MSEED(object):
         self.sampling_rate = sampling_rate
         self.start_time = start_time
         self.end_time = end_time
-        samples = int(round((end_time - start_time) * sampling_rate)) + 1
+
+        samples = int(round((end_time - start_time) * sampling_rate + 1))
         files = self._load_from_path(start_time, end_time)
 
         st = obspy.Stream()
@@ -303,10 +304,12 @@ class MSEED(object):
                         strict_length=False,
                         no_filter=True)
                 elif self.resample:
-                    trace.resample(
-                        sr,
-                        strict_length=False,
-                        no_filter=True)
+                    # trace.resample(
+                    #     sr,
+                    #     strict_length=False,
+                    #     no_filter=True)
+                    trace.interpolate(sr)
+
                 else:
                     msg = "Mismatched sampling rates - cannot decimate data.\n"
                     msg += "To resample data, set .resample = True"

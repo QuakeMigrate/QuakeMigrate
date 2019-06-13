@@ -70,17 +70,6 @@ class QuakeIO:
 
         self.file_sample_rate = None
 
-    def del_scan(self):
-        """
-        Delete an existing .scn file
-
-        """
-
-        fname = (self.run / self.name).with_suffix(".scn")
-        if fname.exists():
-            print("Filename {} already exists - deleting.".format(str(fname)))
-            fname.unlink()
-
     def read_coal4D(self, fname):
         """
         Reads a binary file

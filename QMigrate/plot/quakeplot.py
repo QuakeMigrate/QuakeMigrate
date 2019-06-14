@@ -23,29 +23,7 @@ from matplotlib.patches import Rectangle, Ellipse
 import matplotlib.image as mpimg
 import matplotlib.animation as animation
 
-
-def gaussian_1d(x, a, b, c):
-    """
-    Create a 1-dimensional Gaussian function
-
-    Parameters
-    ----------
-    x :
-
-    a :
-
-    b :
-
-    c :
-
-    Returns
-    -------
-    f :
-
-    """
-
-    f = a * np.exp(-1. * ((x - b) ** 2) / (2 * (c ** 2)))
-    return f
+import QMigrate.util as util
 
 
 class QuakePlot:
@@ -133,7 +111,7 @@ class QuakePlot:
         self.event = self.event[(self.event["DT"] > self.times[0])
                                 & (self.event["DT"] < self.times[-1])]
 
-        self.map_max = np.max(map_)
+        self.map_max = np.nanmax(map_)
 
         self.coal_trace_vline = None
         self.coal_val_vline = None
@@ -212,10 +190,10 @@ class QuakePlot:
                 if pick["Phase"] == "P":
                     self._pick_vlines(z_trace, pick_time, pick_err)
 
-                    yy = gaussian_1d(gau_p["xdata"],
-                                     gau_p["popt"][0],
-                                     gau_p["popt"][1],
-                                     gau_p["popt"][2])
+                    yy = util.gaussian_1d(gau_p["xdata"],
+                                          gau_p["popt"][0],
+                                          gau_p["popt"][1],
+                                          gau_p["popt"][2])
                     gau_dts = [x.datetime for x in gau_p["xdata_dt"]]
                     p_onset.plot(gau_dts, yy)
                     self._pick_vlines(p_onset, pick_time, pick_err)
@@ -223,10 +201,10 @@ class QuakePlot:
                     self._pick_vlines(y_trace, pick_time, pick_err)
                     self._pick_vlines(x_trace, pick_time, pick_err)
 
-                    yy = gaussian_1d(gau_s["xdata"],
-                                     gau_s["popt"][0],
-                                     gau_s["popt"][1],
-                                     gau_s["popt"][2])
+                    yy = util.gaussian_1d(gau_s["xdata"],
+                                          gau_s["popt"][0],
+                                          gau_s["popt"][1],
+                                          gau_s["popt"][2])
                     gau_dts = [x.datetime for x in gau_s["xdata_dt"]]
                     s_onset.plot(gau_dts, yy)
                     self._pick_vlines(s_onset, pick_time, pick_err)
@@ -313,8 +291,8 @@ class QuakePlot:
         dt_max = (self.event["DT"].iloc[np.argmax(self.event["COA"])]).to_pydatetime()
 
         # Determining the marginal window value from the coalescence function
-        map_ = self.coa_map
-        loc = np.where(map_ == np.max(map_))
+        map_ = np.ma.masked_invalid(self.coa_map)
+        loc = np.where(map_ == np.nanmax(map_))
         point = np.array([[loc[0][0],
                            loc[1][0],
                            loc[2][0]]])
@@ -426,6 +404,34 @@ class QuakePlot:
                              2 * dCo[0][0], 2 * dCo[0][2], angle=0,
                              linewidth=2, edgecolor="k", fill=False)
 
+        # --- Determining Error ellipse for Gaussian ---
+        gau_x = eq["LocalGaussian_ErrX"] / self.lut.cell_size[0]
+        gau_y = eq["LocalGaussian_ErrY"] / self.lut.cell_size[1]
+        gau_z = eq["LocalGaussian_ErrZ"] / self.lut.cell_size[2]
+
+        gau_crd = np.array([[eq["LocalGaussian_X"],
+                             eq["LocalGaussian_Y"],
+                             eq["LocalGaussian_Z"]]])
+        gau_loc = self.lut.coord2loc(gau_crd)
+        dGa = abs(gau_crd - self.lut.coord2loc(np.array([[gau_loc[0][0] + gau_x,
+                                                          gau_loc[0][1] + gau_y,
+                                                          gau_loc[0][2] + gau_z]]),
+                                               inverse=True))
+
+        gellipse_XY = Ellipse((eq["LocalGaussian_X"],
+                               eq["LocalGaussian_Y"]),
+                              2 * dGa[0][0], 2 * dGa[0][1], angle=0,
+                              linewidth=2, edgecolor="b", fill=False,
+                              label="Local Gaussian Error Ellipse")
+        gellipse_YZ = Ellipse((eq["LocalGaussian_Z"],
+                               eq["LocalGaussian_Y"]),
+                              2 * dGa[0][2], 2 * dGa[0][1], angle=0,
+                              linewidth=2, edgecolor="b", fill=False)
+        gellipse_XZ = Ellipse((eq["LocalGaussian_X"],
+                               eq["LocalGaussian_Z"]),
+                              2 * dGa[0][0], 2 * dGa[0][2], angle=0,
+                              linewidth=2, edgecolor="b", fill=False)
+
         # ------ Spatial Function ------
         # --- Plotting the marginal window ---
         crd_crnrs = self.lut.xyz2coord(self.lut.grid_corners)
@@ -446,16 +452,15 @@ class QuakePlot:
         xy_slice.add_collection(pc)
         xy_slice.pcolormesh(grid1, grid2, map_[:, :, int(loc[2][0])],
                             cmap=self.cmap, edgecolors="face")
-        # CS = xy_slice.contour(grid1, grid2, map_[:, :, int(loc[2][0])],
-        #                       levels=[0.65, 0.75, 0.95],
-        #                       colors=("g", "m", "k"))
-        # xy_slice.clabel(CS, inline=1, fontsize=10)
         xy_slice.set_xlim([xmin, xmax])
         xy_slice.set_ylim([ymin, ymax])
         xy_slice.axvline(x=crd[0][0], linestyle="--", linewidth=2,
                          color=self.line_station_color)
         xy_slice.axhline(y=crd[0][1], linestyle="--", linewidth=2,
                          color=self.line_station_color)
+        xy_slice.scatter(eq["X"], eq["Y"],
+                         150, c="green", marker="*",
+                         label="Maximum Coalescence")
         xy_slice.scatter(eq["LocalGaussian_X"], eq["LocalGaussian_Y"],
                          150, c="pink", marker="*",
                          label="Local Gaussian Location")
@@ -463,6 +468,7 @@ class QuakePlot:
                          150, c="blue", marker="*",
                          label="Global Covariance Location")
         xy_slice.add_patch(ellipse_XY)
+        xy_slice.add_patch(gellipse_XY)
         xy_slice.legend()
 
         # xz_slice
@@ -485,11 +491,15 @@ class QuakePlot:
                          color=self.line_station_color)
         xz_slice.axhline(y=crd[0][2], linestyle="--", linewidth=2,
                          color=self.line_station_color)
+        xz_slice.scatter(eq["X"], eq["Z"],
+                         150, c="green", marker="*",
+                         label="Maximum Coalescence")
         xz_slice.scatter(eq["LocalGaussian_X"], eq["LocalGaussian_Z"],
                          150, c="pink", marker="*")
         xz_slice.scatter(eq["GlobalCovariance_X"], eq["GlobalCovariance_Z"],
                          150, c="blue", marker="*")
         xz_slice.add_patch(ellipse_XZ)
+        xz_slice.add_patch(gellipse_XZ)
         xz_slice.invert_yaxis()
 
         # yz_slice
@@ -511,11 +521,15 @@ class QuakePlot:
                          color=self.line_station_color)
         yz_slice.axhline(y=crd[0][1], linestyle="--", linewidth=2,
                          color=self.line_station_color)
+        yz_slice.scatter(eq["Z"], eq["Y"],
+                         150, c="green", marker="*",
+                         label="Maximum Coalescence")
         yz_slice.scatter(eq["LocalGaussian_Z"], eq["LocalGaussian_Y"],
                          150, c="pink", marker="*")
         yz_slice.scatter(eq["GlobalCovariance_Z"], eq["GlobalCovariance_Y"],
                          150, c="blue", marker="*")
         yz_slice.add_patch(ellipse_YZ)
+        yz_slice.add_patch(gellipse_YZ)
 
         # --- Plotting the station locations ---
         xy_slice.scatter(self.lut.station_data["Longitude"],

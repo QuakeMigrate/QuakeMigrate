@@ -168,7 +168,6 @@ class DefaultSeisScan(object):
         self.s_bp_filter = [2.0, 12.0, 3]
         self.p_onset_win = [0.2, 1.0]
         self.s_onset_win = [0.2, 1.0]
-        self.detection_threshold = 2.0
         self.time_step = 120
         self.decimate = [1, 1, 1]
         self.sampling_rate = 100.0
@@ -177,10 +176,8 @@ class DefaultSeisScan(object):
         self.pick_threshold = 1.0
 
         self.marginal_window = 30
-        self.minimum_repeat = 30
         self.percent_tt = 0.1
         self.picking_mode = "Gaussian"
-        self.normalise_coalescence = False
         self.output_sampling_rate = None
 
         self.pre_pad = None
@@ -304,14 +301,10 @@ class SeisScan(DefaultSeisScan):
         out += "\n\n\tPre-pad\t\t\t:\t{}".format(self.pre_pad)
         out += "\n\tPost-pad\t\t:\t{}".format(self.post_pad)
         out += "\n\n\tMarginal window\t\t:\t{}".format(self.marginal_window)
-        out += "\n\tMinimum repeat\t\t:\t{}".format(self.minimum_repeat)
-        out += "\n\tDetection threshold\t:\t{}".format(self.detection_threshold)
         out += "\n\tPick threshold\t\t:\t{}".format(self.pick_threshold)
         out += "\n\tPicking mode\t\t:\t{}".format(self.picking_mode)
         out += "\n\tPercent ttime\t\t:\t{}".format(self.percent_tt)
         out += "\n\n\tCentred onset\t\t:\t{}".format(self.onset_centred)
-        out += "\n\tNormalise coalescence\t:\t{}".format(
-            self.normalise_coalescence)
         out += "\n\n\tNumber of CPUs\t\t:\t{}".format(self.n_cores)
 
         return out

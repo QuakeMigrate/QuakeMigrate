@@ -172,7 +172,7 @@ class DefaultSeisScan(object):
         self.time_step = 120
         self.decimate = [1, 1, 1]
         self.sampling_rate = 100.0
-        self.onset_centred = True
+        self.onset_centred = None
 
         self.pick_threshold = 1.0
 
@@ -343,6 +343,10 @@ class SeisScan(DefaultSeisScan):
         # Conduct the continuous compute on the decimated grid
         self.lut = self.lut.decimate(self.decimate)
 
+        # Locate uses the non-centred onset by default
+        if self.onset_centred is None:
+            self.onset_centred = False
+
         # Define pre-pad as a function of the onset windows
         if self.pre_pad is None:
             self.pre_pad = max(self.p_onset_win[1],
@@ -401,6 +405,10 @@ class SeisScan(DefaultSeisScan):
 
         # Conduct the continuous compute on the decimated grid
         self.lut = self.lut.decimate(self.decimate)
+
+        # Locate uses the centred onset by default
+        if self.onset_centred is None:
+            self.onset_centred = True
 
         if self.pre_pad is None:
             self.pre_pad = max(self.p_onset_win[1],

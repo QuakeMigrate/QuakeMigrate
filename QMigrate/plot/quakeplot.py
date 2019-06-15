@@ -23,29 +23,7 @@ from matplotlib.patches import Rectangle, Ellipse
 import matplotlib.image as mpimg
 import matplotlib.animation as animation
 
-
-def gaussian_1d(x, a, b, c):
-    """
-    Create a 1-dimensional Gaussian function
-
-    Parameters
-    ----------
-    x :
-
-    a :
-
-    b :
-
-    c :
-
-    Returns
-    -------
-    f :
-
-    """
-
-    f = a * np.exp(-1. * ((x - b) ** 2) / (2 * (c ** 2)))
-    return f
+import QMigrate.util as util
 
 
 class QuakePlot:
@@ -212,10 +190,10 @@ class QuakePlot:
                 if pick["Phase"] == "P":
                     self._pick_vlines(z_trace, pick_time, pick_err)
 
-                    yy = gaussian_1d(gau_p["xdata"],
-                                     gau_p["popt"][0],
-                                     gau_p["popt"][1],
-                                     gau_p["popt"][2])
+                    yy = util.gaussian_1d(gau_p["xdata"],
+                                          gau_p["popt"][0],
+                                          gau_p["popt"][1],
+                                          gau_p["popt"][2])
                     gau_dts = [x.datetime for x in gau_p["xdata_dt"]]
                     p_onset.plot(gau_dts, yy)
                     self._pick_vlines(p_onset, pick_time, pick_err)
@@ -223,10 +201,10 @@ class QuakePlot:
                     self._pick_vlines(y_trace, pick_time, pick_err)
                     self._pick_vlines(x_trace, pick_time, pick_err)
 
-                    yy = gaussian_1d(gau_s["xdata"],
-                                     gau_s["popt"][0],
-                                     gau_s["popt"][1],
-                                     gau_s["popt"][2])
+                    yy = util.gaussian_1d(gau_s["xdata"],
+                                          gau_s["popt"][0],
+                                          gau_s["popt"][1],
+                                          gau_s["popt"][2])
                     gau_dts = [x.datetime for x in gau_s["xdata_dt"]]
                     s_onset.plot(gau_dts, yy)
                     self._pick_vlines(s_onset, pick_time, pick_err)
@@ -273,7 +251,7 @@ class QuakePlot:
         Writer = animation.writers["ffmpeg"]
         writer = Writer(fps=4, metadata=dict(artist="Ulvetanna"), bitrate=1800)
 
-        fig = self._coalescence_image(idx0)
+        fig = self._coalescence_frame(idx0)
         ani = animation.FuncAnimation(fig, self._video_update,
                                       frames=np.linspace(idx0+1, idx1, 200),
                                       blit=False, repeat=False)
@@ -284,7 +262,7 @@ class QuakePlot:
             ani.save("{}_CoalescenceVideo.mp4".format(output_file),
                      writer=writer)
 
-    def coalescence_marginal(self, output_file=None, earthquake=None):
+    def coalescence_summary(self, output_file=None, earthquake=None):
         """
         Generate a marginal window about the event to determine the error
 
@@ -426,7 +404,6 @@ class QuakePlot:
                              2 * dCo[0][0], 2 * dCo[0][2], angle=0,
                              linewidth=2, edgecolor="k", fill=False)
 
-
         # --- Determining Error ellipse for Gaussian ---
         gau_x = eq["LocalGaussian_ErrX"] / self.lut.cell_size[0]
         gau_y = eq["LocalGaussian_ErrY"] / self.lut.cell_size[1]
@@ -473,7 +450,7 @@ class QuakePlot:
                          np.max(grid2) - np.min(grid2))
         pc = PatchCollection([rect], facecolor="k")
         xy_slice.add_collection(pc)
-        xy_slice.pcolormesh(grid1, grid2, map_[:, :, int(loc[2][0])],
+        xy_slice.pcolormesh(grid1, grid2, np.tranpose(map_[:, :, int(loc[2][0])]),
                             cmap=self.cmap, edgecolors="face")
         xy_slice.set_xlim([xmin, xmax])
         xy_slice.set_ylim([ymin, ymax])
@@ -502,7 +479,7 @@ class QuakePlot:
                          np.max(grid2) - np.min(grid2))
         pc = PatchCollection([rect], facecolor="k")
         xz_slice.add_collection(pc)
-        xz_slice.pcolormesh(grid1, grid2, map_[:, int(loc[1][0]), :],
+        xz_slice.pcolormesh(grid1, grid2, np.tranpose(map_[:, int(loc[1][0]), :]),
                             cmap=self.cmap, edgecolors="face")
         # CS = xz_slice.contour(grid1, grid2, map_[:, int(loc[1][0]), :],
         #                       levels=[0.65, 0.75, 0.95],
@@ -533,7 +510,7 @@ class QuakePlot:
                          np.max(grid2) - np.min(grid2))
         pc = PatchCollection([rect], facecolor="k")
         yz_slice.add_collection(pc)
-        yz_slice.pcolormesh(grid1, grid2, map_[int(loc[0][0]), :, :].transpose(),
+        yz_slice.pcolormesh(grid1, grid2, np.tranpose(map_[int(loc[0][0]), :, :]),
                             cmap=self.cmap, edgecolors="face")
         # CS = xz_slice.contour(grid1, grid2, map_[int(loc[0][0]), :, :].transpose(),
         #                       levels=[0.65, 0.75, 0.95],
@@ -588,7 +565,7 @@ class QuakePlot:
             trace.plot(x, y / np.max(abs(y)) * self.trace_scale + (st_idx + 1),
                        color=color, linewidth=0.5, zorder=1)
 
-    def _coalescence_image(self, tslice_idx):
+    def _coalescence_frame(self, tslice_idx):
         """
         Plots a frame of a coalescence video at a particular time.
 
@@ -708,10 +685,10 @@ class QuakePlot:
         grid1, grid2 = np.mgrid[xmin:xmax:(xmax - xmin) / xcells,
                                 ymin:ymax:(ymax - ymin) / ycells]
         self.xy_plot = xy_slice.pcolormesh(grid1, grid2,
-                                           (self.map[:, :, int(loc[2]),
-                                                     int(tslice_idx - idx0)]
-                                            / self.map_max),
-                                           vmin=0, vmax=1, cmap=self.cmap)
+                                           (np.tranpose(
+                                            self.map[:, :, int(loc[2]),
+                                                     int(tslice_idx - idx0)])
+                                            / self.map_max), cmap=self.cmap)
         xy_slice.set_xlim([xmin, xmax])
         xy_slice.set_ylim([ymin, ymax])
         self.xy_vline = xy_slice.axvline(x=crd[0], linestyle="--", linewidth=2,
@@ -723,10 +700,10 @@ class QuakePlot:
         grid1, grid2 = np.mgrid[xmin:xmax:(xmax - xmin) / xcells,
                                 zmin:zmax:(zmax - zmin) / zcells]
         self.xz_plot = xz_slice.pcolormesh(grid1, grid2,
-                                           (self.map[:, int(loc[1]), :,
-                                                     int(tslice_idx - idx0)]
-                                            / self.map_max),
-                                           vmin=0, vmax=1, cmap=self.cmap)
+                                           (np.tranpose(
+                                            self.map[:, int(loc[1]), :,
+                                                     int(tslice_idx - idx0)])
+                                            / self.map_max), cmap=self.cmap)
         xz_slice.set_xlim([xmin, xmax])
         xz_slice.set_ylim([zmax, zmin])
         self.xz_vline = xz_slice.axvline(x=crd[0], linestyle="--", linewidth=2,
@@ -740,10 +717,10 @@ class QuakePlot:
                                 ymin:ymax:(ymax - ymin) / ycells]
 
         self.yz_plot = yz_slice.pcolormesh(grid1, grid2,
-                                           (np.transpose(self.map[int(loc[0]), :, :,
-                                                                  int(tslice_idx - idx0)])
-                                            / self.map_max),
-                                           vmin=0, vmax=1, cmap=self.cmap)
+                                           (np.transpose(
+                                            self.map[int(loc[0]), :, :,
+                                                     int(tslice_idx - idx0)])
+                                            / self.map_max), cmap=self.cmap)
         yz_slice.set_xlim([zmax, zmin])
         yz_slice.set_ylim([ymin, ymax])
         self.yz_vline = yz_slice.axvline(x=crd[2], linestyle="--", linewidth=2,

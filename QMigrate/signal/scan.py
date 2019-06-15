@@ -1,133 +1,29 @@
 # -*- coding: utf-8 -*-
 """
-Module to perform QuakeMigrate detect, trigger and locate
+Module to perform QuakeMigrate detect and locate
 
 """
 
-import os
-import time
 import warnings
 
-from obspy import UTCDateTime
-from obspy.signal.trigger import classic_sta_lta
-from obspy.signal.invsim import cosine_taper
-import pandas as pd
-from scipy.signal import butter, lfilter, fftconvolve
-from scipy.optimize import curve_fit
-from scipy.interpolate import Rbf
 import numpy as np
-import matplotlib
-try:
-    os.environ["DISPLAY"]
-    matplotlib.use("Qt5Agg")
-except KeyError:
-    matplotlib.use("Agg")
-import matplotlib.pylab as plt
+from obspy import UTCDateTime
+from obspy.signal.invsim import cosine_taper
+from obspy.signal.trigger import classic_sta_lta
+import pandas as pd
+from scipy.interpolate import Rbf
+from scipy.optimize import curve_fit
+from scipy.signal import butter, lfilter, fftconvolve
 
 import QMigrate.core.model as cmod
 import QMigrate.core.QMigratelib as ilib
 import QMigrate.io.quakeio as qio
 import QMigrate.plot.quakeplot as qplot
+import QMigrate.util as util
 
 # Catch warnings as errors
 warnings.filterwarnings("always")
 
-def TicTocGenerator():
-    # Generator that returns time differences
-    ti = 0  # initial time
-    tf = time.time()  # final time
-    while True:
-        ti = tf
-        tf = time.time()
-        yield tf - ti  # returns the time difference
-
-
-TicToc = TicTocGenerator()  # create an instance of the TicTocGen generator
-
-
-# This will be the main function through which we define both tic() and toc()
-def toc(tmp_bool=True):
-    # Prints the time difference yielded by generator instance TicToc
-    tmp_time_interval = next(TicToc)
-    if tmp_bool:
-        print("    \tElapsed time: {:.6f} seconds.\n".format(tmp_time_interval))
-
-
-def tic():
-    # Records a time in TicToc, marks the beginning of a time interval
-    toc(False)
-
-
-def gaussian_1d(x, a, b, c):
-    """
-    Create a 1-dimensional Gaussian function
-
-    Parameters
-    ----------
-    x : array-like
-        array of x values
-
-    a : float / int
-        amplitude (height of gaussian)
-
-    b : float / int
-        mean (centre of gaussian)
-
-    c : float / int
-        sigma (width of gaussian)
-
-    Returns
-    -------
-    f : function
-        one-dimentional gaussian function
-
-    """
-
-    f = a * np.exp(-1. * ((x - b) ** 2) / (2 * (c ** 2)))
-    return f
-
-
-def gaussian_3d(nx, ny, nz, sgm, K):
-    """
-    Create a 3-dimensional Gaussian function
-
-    Parameters
-    ----------
-    nx : array-like
-         array of x values
-
-    ny : array-like
-         array of y values
-
-    nz : array-like
-         array of z values
-
-    sgm : float / int
-          sigma (width of gaussian in all directions)
-
-    Returns
-    -------
-    f : function
-        three-dimensional gaussian function
-
-    """
-
-    nx2 = (nx - 1) / 2
-    ny2 = (ny - 1) / 2
-    nz2 = (nz - 1) / 2
-    x = np.linspace(-nx2, nx2, nx)
-    y = np.linspace(-ny2, ny2, ny)
-    z = np.linspace(-nz2, nz2, nz)
-    ix, iy, iz = np.meshgrid(x, y, z, indexing="ij")
-
-    if np.isscalar(sgm):
-        sgm = np.repeat(sgm, 3)
-    sx, sy, sz = sgm
-
-    f = np.exp(- (ix * ix) / (2 * sx * sx)
-                  - (iy * iy) / (2 * sy * sy)
-                  - (iz * iz) / (2 * sz * sz)) + K
-    return f
 
 def sta_lta_centred(a, nsta, nlta):
     """
@@ -138,10 +34,17 @@ def sta_lta_centred(a, nsta, nlta):
     ----------
     a : array-like
         Signal array
+
     nsta : int
         Number of samples in short-term window
+
     nlta : int
         Number of samples in long-term window
+
+    Returns
+    -------
+    sta / lta : float
+        Ratio of short term average and long term average
 
     """
 
@@ -178,14 +81,22 @@ def onset(sig, stw, ltw, centred=False):
 
     Parameters
     ----------
-    sig :
+    sig : array-like
+        Data signal used to generate an onset function
 
-    stw :
+    stw : float
+        Short term window size
 
-    ltw :
+    ltw : float
+        Long term window size
 
     Returns
     -------
+    onset_raw : array-like
+        Copy of onset function generated from data
+
+    onset : array-like
+        Onset function generated from data
 
     """
 
@@ -208,12 +119,31 @@ def onset(sig, stw, ltw, centred=False):
     return onset_raw, onset
 
 
-def filter(sig, srate, lc, hc, order=3):
+def filter(sig, sampling_rate, lc, hc, order=3):
     """
+    Filter seismic data
+
+    Parameters
+    ----------
+    sig : array-like
+        Data signal to be filtered
+
+    sampling_rate : int
+        Number of samples per second, in Hz
+
+    lc : float
+        Lowpass frequency of filter
+
+    hc : float
+        Highpass frequency of filter
+
+    order : int
+        Number of corners
 
     """
 
-    b1, a1 = butter(order, [2.0*lc/srate, 2.0*hc/srate], btype="band")
+    b1, a1 = butter(order, [2.0 * lc / sampling_rate,
+                            2.0 * hc / sampling_rate], btype="band")
     nchan, nsamp = sig.shape
     fsig = np.copy(sig)
     # sig = detrend(sig)
@@ -234,37 +164,29 @@ class DefaultSeisScan(object):
     """
 
     def __init__(self):
-        self.lookup_table = None
-        self.seis_reader = None
-        self.p_bp_filter = [2.0, 16.0, 3]
-        self.s_bp_filter = [2.0, 12.0, 3]
+        self.p_bp_filter = [2.0, 16.0, 2]
+        self.s_bp_filter = [2.0, 12.0, 2]
         self.p_onset_win = [0.2, 1.0]
         self.s_onset_win = [0.2, 1.0]
-        self.detection_threshold = 4.0
-        self.time_step = 10
+        self.time_step = 120
         self.decimate = [1, 1, 1]
-        self.sampling_rate = 1000.0
-        self.set_onset_centred = None
+        self.sampling_rate = 100.0
+        self.onset_centred = None
 
         self.pick_threshold = 1.0
 
-        self.marginal_window = 30
-        self.minimum_repeat = 30
+        self.marginal_window = 2
         self.percent_tt = 0.1
         self.picking_mode = "Gaussian"
-        self.location_error = 0.95
-        self.normalise_coalescence = False
-        self.deep_learning = False
         self.output_sampling_rate = None
 
         self.pre_pad = None
-        self.time_step = 10.0
         self.n_cores = 1
 
         # Plotting functionality
         self.plot_coal_grid = False
         self.plot_coal_video = False
-        self.plot_coal_picture = False
+        self.plot_coal_summary = True
         self.plot_coal_trace = False
 
         self.xy_files = None
@@ -288,8 +210,10 @@ class SeisScan(DefaultSeisScan):
     -------
     detect(start_time, end_time, log=False)
         Core detection method
-    trigger(start_time, end_time)
-        Core trigger method
+
+    locate(start_time, end_time, cut_mseed=False, log=False)
+        Core locate method
+
     """
 
     raw_data = {}
@@ -309,8 +233,7 @@ class SeisScan(DefaultSeisScan):
                        "GlobalCovariance_ErrX", "GlobalCovariance_ErrY",
                        "GlobalCovariance_ErrZ"]
 
-    def __init__(self, data, lookup_table, reader=None, params=None,
-                 output_path=None, output_name=None):
+    def __init__(self, data, lookup_table, output_path=None, output_name=None):
         """
         Class initialisation method
 
@@ -318,16 +241,11 @@ class SeisScan(DefaultSeisScan):
         ----------
         data :
 
-        lut :
-
-        reader :
-
-        params :
+        lookup_table :
 
         output_path :
 
         output_name :
-
 
         """
 
@@ -337,7 +255,6 @@ class SeisScan(DefaultSeisScan):
         lut = cmod.LUT()
         lut.load(lookup_table)
         self.lut = lut
-        self.seis_reader = reader
 
         if output_path is not None:
             self.output = qio.QuakeIO(output_path, output_name)
@@ -347,22 +264,11 @@ class SeisScan(DefaultSeisScan):
         ttmax = np.max(lut.fetch_map("TIME_S"))
         self.post_pad = round(ttmax + ttmax*0.05)
 
-        # Internal variables
-        if self.set_onset_centred is None:
-            self._onset_centred = False
-        elif self.set_onset_centred is True:
-            self._onset_centred = True
-        elif not self.set_onset_centred:
-            self._onset_centred = False
-        else:
-            msg = 'set_onset_centre must be either True or False !'
-            raise Exception(msg)
-
-        msg = "=" * 126 + "\n"
-        msg += "=" * 126 + "\n"
+        msg = "=" * 120 + "\n"
+        msg += "=" * 120 + "\n"
         msg += "   QuakeMigrate - Coalescence Scanning - Path: {} - Name: {}\n"
-        msg += "=" * 126 + "\n"
-        msg += "=" * 126 + "\n"
+        msg += "=" * 120 + "\n"
+        msg += "=" * 120 + "\n"
         msg += "\n"
         msg = msg.format(self.output.path, self.output.name)
         print(msg)
@@ -394,28 +300,26 @@ class SeisScan(DefaultSeisScan):
         out += "\n\n\tPre-pad\t\t\t:\t{}".format(self.pre_pad)
         out += "\n\tPost-pad\t\t:\t{}".format(self.post_pad)
         out += "\n\n\tMarginal window\t\t:\t{}".format(self.marginal_window)
-        out += "\n\tMinimum repeat\t\t:\t{}".format(self.minimum_repeat)
-        out += "\n\tDetection threshold\t:\t{}".format(self.detection_threshold)
         out += "\n\tPick threshold\t\t:\t{}".format(self.pick_threshold)
         out += "\n\tPicking mode\t\t:\t{}".format(self.picking_mode)
         out += "\n\tPercent ttime\t\t:\t{}".format(self.percent_tt)
-        out += "\n\tLocation error\t\t:\t{}".format(self.location_error)
-        out += "\n\n\tCentred onset\t\t:\t{}".format(self._onset_centred)
-        out += "\n\tNormalise coalescence\t:\t{}".format(
-            self.normalise_coalescence)
+        out += "\n\n\tCentred onset\t\t:\t{}".format(self.onset_centred)
         out += "\n\n\tNumber of CPUs\t\t:\t{}".format(self.n_cores)
 
         return out
 
     def detect(self, start_time, end_time, log=False):
         """
-        Searches through continuous data to find earthquakes
+        Scans through continuous data to find earthquakes by calculating
+        coalescence on a decimated grid
 
         Parameters
         ----------
         start_time : str
+            Time stamp of first sample
 
         end_time : str
+            Time stamp of final sample
 
         log : bool, optional
             Output processing to a log file
@@ -430,6 +334,10 @@ class SeisScan(DefaultSeisScan):
 
         # Conduct the continuous compute on the decimated grid
         self.lut = self.lut.decimate(self.decimate)
+
+        # Detect uses the non-centred onset by default
+        if self.onset_centred is None:
+            self.onset_centred = False
 
         # Define pre-pad as a function of the onset windows
         if self.pre_pad is None:
@@ -441,76 +349,22 @@ class SeisScan(DefaultSeisScan):
         # Detect the possible events from the decimated grid
         self._continuous_compute(start_time, end_time)
 
-    def trigger(self, start_time, end_time, savefig=True, log=False):
-        """
-
-        Parameters
-        ----------
-        start_time : str
-            Start time to perform trigger from
-        end_time : str
-            End time to perform trigger to
-        savefig : bool, optional
-            Saves plots if True
-        log : bool, optional
-            Output processing to a log file
-
-        """
-
-        # Convert times to UTCDateTime objects
-        start_time = UTCDateTime(start_time)
-        end_time = UTCDateTime(end_time)
-
-        self.log = log
-
-        msg = "=" * 126 + "\n"
-        msg += "   TRIGGER - Triggering events from coalescence\n"
-        msg += "=" * 126 + "\n"
-        msg += "\n"
-        msg += "   Parameters specified:\n"
-        msg += "         Start time                = {}\n"
-        msg += "         End   time                = {}\n"
-        msg += "         Number of CPUs            = {}\n"
-        msg += "\n"
-        msg += "         Marginal window           = {} s\n"
-        msg += "         Minimum repeat            = {} s\n\n"
-        msg += "=" * 126 + "\n"
-        msg = msg.format(str(start_time), str(end_time), self.n_cores,
-                         self.marginal_window, self.minimum_repeat)
-
-        if self.log:
-            self.output.write_log(msg)
-        else:
-            print(msg)
-
-        if self.minimum_repeat < self.marginal_window:
-            msg = "Minimum repeat must be greater than or equal to marginal window."
-            raise Exception(msg)
-
-        # Intial detection of the events from .scn file
-        coa_val = self.output.read_decscan()
-        events = self._trigger_scn(coa_val, start_time, end_time)
-
-        if events is None:
-            print("No events above the threshold. Reduce the threshold value")
-        else:
-            self.output.write_triggered_events(events)
-
-        self.plot_scn(events=events, start_time=start_time,
-                      end_time=end_time, stations=self.lut.station_data,
-                      savefig=savefig)
-
     def locate(self, start_time, end_time, cut_mseed=False, log=False):
         """
+        Evaluates the location of events triggered from the detect stage on a
+        non-decimated grid.
 
         Parameters
         ----------
         start_time : str
-            Start time to perform trigger from
+            Time stamp of first sample
+
         end_time : str
-            End time to perform trigger to
+            Time stamp of final sample
+
         cut_mseed : bool, optional
             Saves cut mSEED files if True
+
         log : bool, optional
             Output processing to a log file
 
@@ -522,15 +376,15 @@ class SeisScan(DefaultSeisScan):
 
         self.log = log
 
-        msg = "=" * 126 + "\n"
-        msg += "   LOCATE - Determining earthquake location and error\n"
-        msg += "=" * 126 + "\n"
+        msg = "=" * 120 + "\n"
+        msg += "   LOCATE - Determining earthquake location and uncertainty\n"
+        msg += "=" * 120 + "\n"
         msg += "\n"
         msg += "   Parameters specified:\n"
         msg += "         Start time                = {}\n"
         msg += "         End   time                = {}\n"
         msg += "         Number of CPUs            = {}\n\n"
-        msg += "=" * 126 + "\n"
+        msg += "=" * 120 + "\n"
         msg = msg.format(str(start_time), str(end_time), self.n_cores)
         if self.log:
             self.output.write_log(msg)
@@ -539,20 +393,14 @@ class SeisScan(DefaultSeisScan):
 
         events = self.output.read_triggered_events(start_time, end_time)
 
-        if self.set_onset_centred is None:
-            self._onset_centred = True
-        elif self.set_onset_centred is True:
-            self._onset_centred = True
-        elif self.set_onset_centred is False:
-            self._onset_centred = False
-        else:
-            msg = "set_onset_centre must be either True or False!"
-            raise Exception(msg)
-
         n_evts = len(events)
 
         # Conduct the continuous compute on the decimated grid
         self.lut = self.lut.decimate(self.decimate)
+
+        # Locate uses the centred onset by default
+        if self.onset_centred is None:
+            self.onset_centred = True
 
         if self.pre_pad is None:
             self.pre_pad = max(self.p_onset_win[1],
@@ -567,9 +415,9 @@ class SeisScan(DefaultSeisScan):
 
         for i, event in events.iterrows():
             evt_id = event["EventID"]
-            msg = "=" * 126 + "\n"
+            msg = "=" * 120 + "\n"
             msg += "    EVENT - {} of {} - {}\n"
-            msg += "=" * 126 + "\n"
+            msg += "=" * 120 + "\n"
             msg += "    Determining event location..."
             msg = msg.format(i + 1, n_evts, evt_id)
             if self.log:
@@ -577,13 +425,21 @@ class SeisScan(DefaultSeisScan):
             else:
                 print(msg)
 
-            tic()
+            timer = util.Stopwatch()
             print("    Computing 4D coalescence grid")
 
             w_beg = event["CoaTime"] - 2*self.marginal_window - self.pre_pad
             w_end = event["CoaTime"] + 2*self.marginal_window + self.post_pad
 
-            self.data.read_mseed(w_beg, w_end, self.sampling_rate)
+            try:
+                self.data.read_mseed(w_beg, w_end, self.sampling_rate)
+            except util.ArchiveEmptyException:
+                print("    No files in archive for this time period.")
+                continue
+            except util.DataGapException:
+                print("    All available data for this time period contains gaps.")
+                continue
+
             daten, dsnr, dsnr_norm, dloc, map_ = self._compute(
                                                     w_beg, w_end,
                                                     self.data.signal,
@@ -605,15 +461,14 @@ class SeisScan(DefaultSeisScan):
                 w_beg_mw = event_coa_val_dtmax - self.marginal_window
                 w_end_mw = event_coa_val_dtmax + self.marginal_window
             else:
-                msg = "----- Event {} is outside marginal window.\n"
-                msg += "----- Define more realistic error."
+                msg = "        Event {} is outside marginal window.\n"
+                msg += "        Define more realistic error."
                 msg = msg.format(evt_id)
                 if self.log:
                     self.output.write_log(msg)
                 else:
                     print(msg)
                 continue
-
 
             event = event_coa_val
             event = event[(event["DT"] >= w_beg_mw) & (event["DT"] <= w_end_mw)]
@@ -623,259 +478,112 @@ class SeisScan(DefaultSeisScan):
 
             # Determining the hypocentral location from the maximum over
             # the marginal window.
-            picks, GAUP, GAUS = self._arrival_trigger(event_max, evt_id)
+            picks, GAUP, GAUS = self._arrival_picker(event_max, evt_id)
 
             station_pick = {}
             station_pick["Pick"] = picks
             station_pick["GAU_P"] = GAUP
             station_pick["GAU_S"] = GAUS
-            toc()
+            print(timer())
 
             # Determining earthquake location error
-            tic()
-            print("    Determining earthquake location and uncertainty")
+            timer = util.Stopwatch()
+            print("    Determining earthquake location and uncertainty...")
             loc_spline, loc, loc_err, loc_cov, loc_err_cov = self._location_error(map_)
-            toc()
+            print(timer())
 
-            evt = pd.DataFrame([[event_max.values[0],
-                                           event_max.values[1],
-                                           loc_spline[0],loc_spline[1],loc_spline[2],
-                                           loc[0], loc[1], loc[2],
-                                           loc_err[0], loc_err[1], loc_err[2],
-                                           loc_cov[0], loc_cov[1], loc_cov[2],
-                                           loc_err_cov[0], loc_err_cov[1],
-                                           loc_err_cov[2]]],
+            evt = pd.DataFrame([[event_max.values[0], event_max.values[1],
+                                 loc_spline[0], loc_spline[1], loc_spline[2],
+                                 loc[0], loc[1], loc[2],
+                                 loc_err[0], loc_err[1], loc_err[2],
+                                 loc_cov[0], loc_cov[1], loc_cov[2],
+                                 loc_err_cov[0], loc_err_cov[1],
+                                 loc_err_cov[2]]],
                                columns=self.EVENT_FILE_COLS)
+
+            evt_id = event_max.values[0].astype(str)
+            for char_ in ["-", ":", ".", " ", "Z", "T"]:
+                evt_id = evt_id.str.replace(char_, "")
+
             self.output.write_event(evt, evt_id)
 
             if cut_mseed:
-                print("    Creating cut Mini-SEED")
-                tic()
+                print("    Creating cut Mini-SEED...")
+                timer = util.Stopwatch()
                 self.output.cut_mseed(self.data, evt_id)
-                toc()
+                print(timer())
 
-            # Outputting coalescence grids and triggered events
             if self.plot_coal_trace:
-                tic()
+                timer = util.Stopwatch()
                 print("    Creating station traces...")
-                seis_plot = qplot.QuakePlot(self.lut,
-                                            map_,
-                                            self.coa_map,
-                                            self.data,
-                                            event,
-                                            station_pick,
+                seis_plot = qplot.QuakePlot(self.lut, map_, self.coa_map,
+                                            self.data, event, station_pick,
                                             self.marginal_window)
                 out = str(self.output.run / "traces" / "{}_{}".format(
                     self.output.name,
                     evt_id))
                 seis_plot.coalescence_trace(output_file=out)
                 del seis_plot
-                toc()
+                print(timer())
 
             if self.plot_coal_grid:
-                tic()
+                timer = util.Stopwatch()
                 print("    Creating 4D coalescence grids...")
                 self.output.write_coal4D(map_, evt_id, w_beg, w_end)
-                toc()
+                print(timer())
 
             if self.plot_coal_video:
-                tic()
+                timer = util.Stopwatch()
                 print("    Creating seismic videos...")
-                seis_plot = qplot.QuakePlot(self.lut,
-                                            map_,
-                                            self.coa_map,
-                                            self.data,
-                                            event,
-                                            station_pick,
+                seis_plot = qplot.QuakePlot(self.lut, map_, self.coa_map,
+                                            self.data, event, station_pick,
                                             self.marginal_window)
                 out = str(self.output.run / "videos" / "{}_{}".format(
                     self.output.name,
                     evt_id))
                 seis_plot.coalescence_video(output_file=out)
                 del seis_plot
-                toc()
+                print(timer())
 
-            if self.plot_coal_picture:
-                tic()
+            if self.plot_coal_summary:
+                timer = util.Stopwatch()
                 print("    Creating overview figure...")
-                seis_plot = qplot.QuakePlot(self.lut,
-                                            map_,
-                                            self.coa_map,
-                                            self.data,
-                                            event,
-                                            station_pick,
+                seis_plot = qplot.QuakePlot(self.lut, map_, self.coa_map,
+                                            self.data, event, station_pick,
                                             self.marginal_window)
                 out = str(self.output.run / "summaries" / "{}_{}".format(
                     self.output.name,
                     evt_id))
-                seis_plot.coalescence_marginal(output_file=out,
-                                               earthquake=evt)
+                seis_plot.coalescence_summary(output_file=out,
+                                              earthquake=evt)
                 del seis_plot
-                toc()
+                print(timer())
 
-            print("=" * 126 + "\n")
+            print("=" * 120 + "\n")
 
             del map_, event, station_pick
             self.coa_map = None
 
-    def plot_scn(self, events, start_time, end_time, stations=None, savefig=False):
-        """
-        Plots the data from a .scnmseed file
-
-        Parameters
-        ----------
-        events :
-
-        start_time : UTCDateTime
-
-        end_time : UTCDateTime
-
-        stations :
-
-        savefig : bool, optional
-            Output the plot as a file. The plot is just shown by default.
-
-        TO-DO
-        -----
-        Plot station availability if requested.
-
-        """
-
-        fname = (self.output.run / self.output.name).with_suffix(".scnmseed")
-
-        if fname.exists():
-            # Loading the .scn file
-            data = self.output.read_decscan()
-            data["DT"] = pd.to_datetime(data["DT"].astype(str))
-
-            fig = plt.figure(figsize=(30, 15))
-            fig.patch.set_facecolor("white")
-            coa = plt.subplot2grid((6, 16), (0, 0), colspan=9, rowspan=3)
-            coa_norm = plt.subplot2grid((6, 16), (3, 0), colspan=9, rowspan=3,
-                                        sharex=coa)
-            xy = plt.subplot2grid((6, 16), (0, 10), colspan=4, rowspan=4)
-            xz = plt.subplot2grid((6, 16), (4, 10), colspan=4, rowspan=2,
-                                  sharex=xy)
-            yz = plt.subplot2grid((6, 16), (0, 14), colspan=2, rowspan=4,
-                                  sharey=xy)
-
-            coa.plot(data["DT"], data["COA"], color="blue", zorder=10,
-                     label="Maximum coalescence", linewidth=0.5)
-            coa.get_xaxis().set_ticks([])
-            coa_norm.plot(data["DT"], data["COA_N"], color="blue", zorder=10,
-                          label="Maximum coalescence", linewidth=0.5)
-
-            if events is not None:
-                for i, event in events.iterrows():
-                    if i == 0:
-                        label1 = "Minimum repeat window"
-                        label2 = "Marginal window"
-                        label3 = "Detected events"
-                    else:
-                        label1 = ""
-                        label2 = ""
-                        label3 = ""
-
-                    for plot in [coa, coa_norm]:
-                        plot.axvspan((event["MinTime"]).datetime,
-                                     (event["MaxTime"]).datetime,
-                                     label=label1, alpha=0.5, color="red")
-                        plot.axvline((event["CoaTime"] - self.marginal_window).datetime,
-                                     label=label2, c="m", linestyle="--", linewidth=1.75)
-                        plot.axvline((event["CoaTime"] + self.marginal_window).datetime,
-                                     c="m", linestyle="--", linewidth=1.75)
-                        plot.axvline(event["CoaTime"].datetime, label=label3,
-                                     c="m", linewidth=1.75)
-
-            props = {"boxstyle": "round",
-                     "facecolor": "white",
-                     "alpha": 0.5}
-            coa.set_xlim(start_time.datetime, end_time.datetime)
-            coa.text(.5, .9, "Maximum coalescence",
-                     horizontalalignment="center",
-                     transform=coa.transAxes, bbox=props)
-            coa.legend(loc=2)
-            coa.set_ylabel("Maximum coalescence value")
-            coa_norm.set_xlim(start_time.datetime, end_time.datetime)
-            coa_norm.text(.5, .9, "Normalised maximum coalescence",
-                          horizontalalignment="center",
-                          transform=coa_norm.transAxes, bbox=props)
-            coa_norm.legend(loc=2)
-            coa_norm.set_ylabel("Normalised maximum coalescence value")
-            coa_norm.set_xlabel("DateTime")
-
-            if events is not None:
-                if self.normalise_coalescence:
-                    coa_norm.axhline(self.detection_threshold, c="g",
-                                     label="Detection threshold")
-                else:
-                    coa_norm.axhline(self.detection_threshold, c="g",
-                                     label="Detection threshold")
-
-                # Plotting the scatter of the earthquake locations
-                xy.scatter(events["COA_X"], events["COA_Y"], 50, events["COA_V"])
-                yz.scatter(events["COA_Z"], events["COA_Y"], 50, events["COA_V"])
-                xz.scatter(events["COA_X"], events["COA_Z"], 50, events["COA_V"])
-
-            xy.set_title("Decimated coalescence earthquake locations")
-            xy.get_xaxis().set_ticks([])
-            xy.get_yaxis().set_ticks([])
-
-            yz.yaxis.tick_right()
-            yz.yaxis.set_label_position("right")
-            yz.set_ylabel("Latitude (deg)")
-            yz.set_xlabel("Depth (m)")
-
-            xz.yaxis.tick_right()
-            xz.invert_yaxis()
-            xz.yaxis.set_label_position("right")
-            xz.set_xlabel("Longitude (deg)")
-            xz.set_ylabel("Depth (m)")
-
-            if stations is not None:
-                xy.scatter(stations["Longitude"], stations["Latitude"], 20,)
-                xy.scatter(stations["Longitude"], stations["Latitude"], 15,
-                           marker="^", color="black")
-                xz.scatter(stations["Longitude"], stations["Elevation"], 15,
-                           marker="^", color="black")
-                yz.scatter(stations["Elevation"], stations["Latitude"], 15,
-                           marker="<", color="black")
-                for i, txt in enumerate(stations["Name"]):
-                    xy.annotate(txt, [stations["Longitude"][i],
-                                stations["Latitude"][i]], color="black")
-
-            # Saving figure if defined
-            if savefig:
-                out = self.output.run / "{}_Trigger".format(self.output.name)
-                out = str(out.with_suffix(".pdf"))
-                plt.savefig(out)
-            else:
-                plt.show()
-
-        else:
-            msg = "Please run detect to generate a .scnmseed file."
-            print(msg)
-
     def _continuous_compute(self, start_time, end_time):
         """
-
+        Compute coalescence between two time stamps divided into small time
+        steps.
 
         Parameters
         ----------
-        start_time :
+        start_time : UTCDateTime object
+            Time stamp of first sample
 
-        end_time :
+        end_time : UTCDateTime object
+            Time stamp of final sample
 
         """
-
-        # # Clear existing .scn files
-        # self.output.del_scan()
 
         coalescence_mSEED = None
 
-        msg = "=" * 126 + "\n"
+        msg = "=" * 120 + "\n"
         msg += "   DETECT - Continuous Seismic Processing\n"
-        msg += "=" * 126 + "\n"
+        msg += "=" * 120 + "\n"
         msg += "\n"
         msg += "   Parameters specified:\n"
         msg += "         Start time                = {}\n"
@@ -890,7 +598,7 @@ class SeisScan(DefaultSeisScan):
         msg += "         Onset P [STA, LTA]        = [{}, {}]\n"
         msg += "         Onset S [STA, LTA]        = [{}, {}]\n"
         msg += "\n"
-        msg += "=" * 126
+        msg += "=" * 120
         msg = msg.format(str(start_time), str(end_time), self.time_step,
                          self.n_cores, self.sampling_rate,
                          self.decimate[0], self.decimate[1], self.decimate[2],
@@ -918,21 +626,33 @@ class SeisScan(DefaultSeisScan):
             w_beg = start_time + self.time_step * i - self.pre_pad
             w_end = start_time + self.time_step * (i + 1) + self.post_pad
 
-            msg = ("~" * 27) + " Processing : {} - {} " + ("~" * 27)
+            msg = ("~" * 24) + " Processing : {} - {} " + ("~" * 24)
             msg = msg.format(str(w_beg), str(w_end))
             if self.log:
                 self.output.write_log(msg)
             else:
                 print(msg)
 
-            self.data.read_mseed(w_beg, w_end, self.sampling_rate)
+            try:
+                self.data.read_mseed(w_beg, w_end, self.sampling_rate)
+                daten, dsnr, dsnr_norm, dloc, map_ = self._compute(
+                                                        w_beg, w_end,
+                                                        self.data.signal,
+                                                        self.data.availability)
 
-            daten, dsnr, dsnr_norm, dloc, map_ = self._compute(
-                                                    w_beg, w_end,
-                                                    self.data.signal,
-                                                    self.data.availability)
-
-            dcoord = self.lut.xyz2coord(dloc)
+                dcoord = self.lut.xyz2coord(dloc)
+            except util.ArchiveEmptyException:
+                msg = "!" * 46
+                msg += " No files in archive for this time. "
+                msg += "!" * 46
+                daten, dsnr, dsnr_norm, dcoord = self._empty(w_beg, w_end)
+                continue
+            except util.DataGapException:
+                msg = "!" * 32
+                msg += " All available data for this time period contains gaps. "
+                msg += "!" * 32
+                daten, dsnr, dsnr_norm, dcoord = self._empty(w_beg, w_end)
+                continue
 
             self.output.file_sample_rate = self.output_sampling_rate
             coalescence_mSEED = self.output.write_decscan(coalescence_mSEED,
@@ -944,9 +664,39 @@ class SeisScan(DefaultSeisScan):
 
             del daten, dsnr, dsnr_norm, dloc, map_
 
-        print("=" * 126)
+        print("=" * 120)
 
     def _compute(self, w_beg, w_end, signal, station_availability):
+        """
+        Compute coalescence between two time stamps
+
+        Parameters
+        ----------
+        w_beg : UTCDateTime object
+            Time stamp of first sample in window
+
+        w_end : UTCDateTime object
+            Time stamp of final sample in window
+
+        signal : array-like
+            Data stream
+
+        station_availability : array-like
+            List of available stations
+
+        Returns
+        -------
+        daten :
+
+        dsnr :
+
+        dsnr_norm :
+
+        dloc :
+
+        map_ :
+
+        """
 
         sampling_rate = self.sampling_rate
 
@@ -955,27 +705,12 @@ class SeisScan(DefaultSeisScan):
         sign = signal[1]
         sigz = signal[2]
 
-        # Demeaning the data
-        # sige -= np.mean(sige, axis=1)
-        # sign -= np.mean(sign, axis=1)
-        # sigz -= np.mean(sigz, axis=1)
-
-        if self.deep_learning:
-            msg = "Deep Learning coalescence under development."
-            # msg = "Applying deep learning coalescence technique."
-            print(msg)
-            # dl = DeepLearningPhaseDetection(sige, sign, sigz, sampling_rate)
-            # self.data.p_onset = DL.prob_P
-            # self.data.s_onset = DL.prob_S
-            # self.data.p_onset_raw = DL.prob_P
-            # self.data.s_onset_raw = DL.prob_S
-        else:
-            p_onset_raw, p_onset = self._compute_p_onset(sigz, sampling_rate)
-            s_onset_raw, s_onset = self._compute_s_onset(sige, sign, sampling_rate)
-            self.data.p_onset = p_onset
-            self.data.s_onset = s_onset
-            self.data.p_onset_raw = p_onset_raw
-            self.data.s_onset_raw = s_onset_raw
+        p_onset_raw, p_onset = self._compute_p_onset(sigz, sampling_rate)
+        s_onset_raw, s_onset = self._compute_s_onset(sige, sign, sampling_rate)
+        self.data.p_onset = p_onset
+        self.data.s_onset = s_onset
+        self.data.p_onset_raw = p_onset_raw
+        self.data.s_onset_raw = s_onset_raw
 
         p_s_onset = np.concatenate((self.data.p_onset, self.data.s_onset))
         p_s_onset[np.isnan(p_s_onset)] = 0
@@ -1030,13 +765,18 @@ class SeisScan(DefaultSeisScan):
         Parameters
         ----------
         sig_z : array-like
-            Z-component time-series
+            Z-component time-series data
+
         sampling_rate : int
             Sampling rate in hertz
 
         Returns
         -------
+        p_onset_raw : array-like
+            Onset function generated from raw vertical component data
 
+        p_onset : array-like
+            Onset function generated from filtered vertical component data
 
         """
 
@@ -1046,7 +786,7 @@ class SeisScan(DefaultSeisScan):
         sig_z = self._preprocess_p(sig_z, sampling_rate)
         self.filt_data["sigz"] = sig_z
         p_onset_raw, p_onset = onset(sig_z, stw, ltw,
-                                     centred=self._onset_centred)
+                                     centred=self.onset_centred)
         self.onset_data["sigz"] = p_onset
 
         return p_onset_raw, p_onset
@@ -1060,13 +800,14 @@ class SeisScan(DefaultSeisScan):
         Parameters
         ----------
         sig_z : array-like
-            Z-component time-series
+            Z-component time-series data
+
         sampling_rate : int
             Sampling rate in hertz
 
         Returns
         -------
-        A filtered version of the Z-component time-series
+        A filtered version of the vertical component time-series data
 
         """
 
@@ -1084,16 +825,20 @@ class SeisScan(DefaultSeisScan):
         ----------
         sig_e : array-like
             E-component time-series
+
         sig_n : array-like
             N-component time-series
+
         sampling_rate : int
             Sampling rate in hertz
 
         Returns
         -------
-        s_onset_raw :
+        s_onset_raw : array-like
+            Onset function generated from raw horizontal component data
 
-        s_onset :
+        s_onset : array-like
+            Onset function generated from filtered horizontal component data
 
         """
 
@@ -1104,9 +849,9 @@ class SeisScan(DefaultSeisScan):
         self.filt_data["sige"] = sig_e
         self.filt_data["sign"] = sig_n
         s_e_onset_raw, s_e_onset = onset(sig_e, stw, ltw,
-                                         centred=self._onset_centred)
+                                         centred=self.onset_centred)
         s_n_onset_raw, s_n_onset = onset(sig_n, stw, ltw,
-                                         centred=self._onset_centred)
+                                         centred=self.onset_centred)
         self.onset_data["sige"] = s_e_onset
         self.onset_data["sign"] = s_n_onset
         s_onset = np.sqrt((s_e_onset ** 2 + s_n_onset ** 2) / 2.)
@@ -1143,118 +888,12 @@ class SeisScan(DefaultSeisScan):
 
         return sig_e, sig_n
 
-    def _trigger_scn(self, coa_val, start_time, end_time):
-
-        if self.normalise_coalescence is True:
-            coa_val["COA"] = coa_val["COA_N"]
-
-        coa_val = coa_val[coa_val["COA"] >= self.detection_threshold]
-        coa_val = coa_val[(coa_val["DT"] >= start_time) &
-                          (coa_val["DT"] <= end_time)]
-
-        coa_val = coa_val.reset_index(drop=True)
-
-        if len(coa_val) == 0:
-            msg = "No events triggered at this threshold"
-            print(msg)
-            return None
-
-        event_cols = ["EventNum", "CoaTime", "COA_V", "COA_X", "COA_Y",
-                      "COA_Z", "MinTime", "MaxTime"]
-
-        ss = 1 / self.sampling_rate
-
-        # Determine the initial triggered events
-        init_events = pd.DataFrame(columns=event_cols)
-        c = 0
-        e = 1
-        while c < len(coa_val) - 1:
-            # Determining the index when above the level and maximum value
-            d = c
-
-            while coa_val["DT"].iloc[d] + ss == coa_val["DT"].iloc[d + 1]:
-                d += 1
-                if d + 1 >= len(coa_val) - 2:
-                    d = len(coa_val) - 2
-                    break
-
-            min_idx = c
-            max_idx = d
-            val_idx = np.argmax(coa_val["COA"].iloc[np.arange(c, d + 1)])
-
-            # Determining the times for min, max and max coalescence value
-            t_min = coa_val["DT"].iloc[min_idx]
-            t_max = coa_val["DT"].iloc[max_idx]
-            t_val = coa_val["DT"].iloc[val_idx]
-
-            COA_V = coa_val["COA"].iloc[val_idx]
-            COA_X = coa_val["X"].iloc[val_idx]
-            COA_Y = coa_val["Y"].iloc[val_idx]
-            COA_Z = coa_val["Z"].iloc[val_idx]
-
-            if (t_val - t_min) < self.marginal_window:
-                t_min = t_val - self.marginal_window - self.minimum_repeat
-            else:
-                t_min = t_min - self.minimum_repeat
-
-            if (t_max - t_val) < self.marginal_window:
-                t_max = t_val + self.marginal_window + self.minimum_repeat
-            else:
-                t_max = t_max + self.minimum_repeat
-
-            tmp = pd.DataFrame([[e, t_val,
-                                COA_V, COA_X, COA_Y, COA_Z,
-                                t_min, t_max]],
-                               columns=event_cols)
-            init_events = init_events.append(tmp, ignore_index=True)
-
-            c = d + 1
-            e += 1
-
-        n_evts = len(init_events)
-        evt_num = np.ones((n_evts), dtype=int)
-
-        count = 1
-        for i, event in init_events.iterrows():
-            evt_num[i] = count
-            if (i + 1 < n_evts) and ((event["MaxTime"] - (init_events["CoaTime"].iloc[i + 1] - self.marginal_window)) < 0):
-                count += 1
-        init_events["EventNum"] = evt_num
-
-        events = pd.DataFrame(columns=event_cols)
-        for i in range(1, count + 1):
-            tmp = init_events[init_events["EventNum"] == i]
-            tmp = tmp.reset_index(drop=True)
-            j = np.argmax(tmp["COA_V"])
-            min_mt = np.min(tmp["MinTime"])
-            max_mt = np.max(tmp["MaxTime"])
-            event = pd.DataFrame([[i, tmp["CoaTime"].iloc[j],
-                                   tmp["COA_V"].iloc[j],
-                                   tmp["COA_X"].iloc[j],
-                                   tmp["COA_Y"].iloc[j],
-                                   tmp["COA_Z"].iloc[j],
-                                   min_mt,
-                                   max_mt]],
-                                 columns=event_cols)
-            events = events.append(event, ignore_index=True)
-
-        evt_id = events["CoaTime"].astype(str)
-        for char_ in ["-", ":", ".", " ", "Z", "T"]:
-            evt_id = evt_id.str.replace(char_, "")
-        events["EventID"] = evt_id
-
-        if len(events) == 0:
-            events = None
-
-        return events
-
-    def _gaussian_trigger(self, onset, phase, start_time, p_arrival, s_arrival,
-                          p_ttime, s_ttime):
+    def _gaussian_picker(self, onset, phase, start_time, p_arr, s_arr, ptt, stt):
         """
         Fit a Gaussian to the onset function in order to make a time pick.
 
-        Uses knowledge of approximate trigger index, the short-term average onset
-        window and the signal sampling rate.
+        Uses knowledge of approximate pick index, the short-term average
+        onset window and the signal sampling rate.
 
         Parameters
         ----------
@@ -1264,13 +903,13 @@ class SeisScan(DefaultSeisScan):
             Phase name ("P" or "S")
         start_time : UTCDateTime object
             Start time of data (w_beg)
-        p_arrival : UTCDateTime object
+        p_arr : UTCDateTime object
             Time when P-phase is expected to arrive based on best location.
-        s_arrival : UTCDateTime object
+        s_arr : UTCDateTime object
             Time when S-phase is expected to arrive based on best location.
-        p_ttime : UTCDateTime object
+        ptt : UTCDateTime object
             Traveltime of P-phase
-        s_ttime : UTCDateTime object
+        stt : UTCDateTime object
             Traveltime of S-phase
 
         Returns
@@ -1287,24 +926,19 @@ class SeisScan(DefaultSeisScan):
         mean : UTCDateTime
             mean of gaussian fit to onset function == pick time
 
-
         """
 
-        msg = "Fitting Gaussian for {} - {} - {}"
-        msg = msg.format(phase, str(start_time), str(p_arrival))
-        # print(msg)
-
-        # Determine indices of P and S trigger times
-        pt_idx = int((p_arrival - start_time) * self.sampling_rate)
-        st_idx = int((s_arrival - start_time) * self.sampling_rate)
+        # Determine indices of P and S pick times
+        pt_idx = int((p_arr - start_time) * self.sampling_rate)
+        st_idx = int((s_arr - start_time) * self.sampling_rate)
 
         # Determine P and S pick window upper and lower bounds based on
         # (P-S)/2 -- either this or the next window definition will be
         # used depending on which is wider.
-        pmin_idx = int(pt_idx - (st_idx - pt_idx) / 2) # unnecessary?
+        pmin_idx = int(pt_idx - (st_idx - pt_idx) / 2)  # unnecessary?
         pmax_idx = int(pt_idx + (st_idx - pt_idx) / 2)
         smin_idx = int(st_idx - (st_idx - pt_idx) / 2)
-        smax_idx = int(st_idx + (st_idx - pt_idx) / 2) # unnecessary?
+        smax_idx = int(st_idx + (st_idx - pt_idx) / 2)  # unnecessary?
 
         # Check if index falls outside length of onset function; if so set
         # window to start/end at start/end of data.
@@ -1319,8 +953,8 @@ class SeisScan(DefaultSeisScan):
         # set percentage of total travel time, plus marginal window
 
         # window based on self.percent_tt of P/S travel time
-        pp_ttime = p_ttime * self.percent_tt
-        ps_ttime = s_ttime * self.percent_tt
+        pp_ttime = ptt * self.percent_tt
+        ps_ttime = stt * self.percent_tt
 
         # Add length of marginal window to this. Convert to index.
         P_idxmin_new = int(pt_idx - int((self.marginal_window + pp_ttime)
@@ -1427,7 +1061,7 @@ class SeisScan(DefaultSeisScan):
                       data_half_range / self.sampling_rate]
 
                 # Do the fit
-                popt, pcov = curve_fit(gaussian_1d, x_data, y_data, p0)
+                popt, pcov = curve_fit(util.gaussian_1d, x_data, y_data, p0)
 
                 # Results:
                 #  popt = [height, mean (seconds), sigma (seconds)]
@@ -1464,7 +1098,7 @@ class SeisScan(DefaultSeisScan):
 
         return gaussian_fit, max_onset, sigma, mean
 
-    def _arrival_trigger(self, max_coa, event_name):
+    def _arrival_picker(self, max_coa, event_name):
         """
         Determines arrival times for triggered earthquakes.
 
@@ -1473,11 +1107,17 @@ class SeisScan(DefaultSeisScan):
         max_coa : pandas DataFrame object
             DataFrame containing the maximum coalescence values for a
             given event
+
         event_name : str
             Event ID - used for saving the picks file
 
         Returns
         -------
+        picks : pandas DataFrame object
+
+        p_gauss : array-like
+
+        s_gauss : array-like
 
         """
 
@@ -1513,27 +1153,20 @@ class SeisScan(DefaultSeisScan):
                         onset = s_onset[i]
                         arrival = s_arrival
 
-                    msg = "Fitting Gaussian for  {}  -  {}"
-                    msg = msg.format(phase, str(arrival))
-                    # if self.log:
-                    #     self.output.write_log(msg)
-                    # else:
-                    #     print(msg)
-
-                    gau, max_onset, err, mn = self._gaussian_trigger(onset,
-                                                                     phase,
-                                                                     start_time,
-                                                                     p_arrival,
-                                                                     s_arrival,
-                                                                     p_ttime[i],
-                                                                     s_ttime[i])
+                    gau, max_onset, err, mn = self._gaussian_picker(onset,
+                                                                    phase,
+                                                                    start_time,
+                                                                    p_arrival,
+                                                                    s_arrival,
+                                                                    p_ttime[i],
+                                                                    s_ttime[i])
 
                     if phase == "P":
                         p_gauss = np.hstack([p_gauss, gau])
                     else:
                         s_gauss = np.hstack([s_gauss, gau])
 
-                    picks.iloc[idx] = [self.lut.station_data['Name'][i],
+                    picks.iloc[idx] = [self.lut.station_data["Name"][i],
                                        phase, arrival, mn, err, max_onset]
                     idx += 1
 
@@ -1548,11 +1181,12 @@ class SeisScan(DefaultSeisScan):
         Parameters
         ----------
         map_3d : 3-d array
-                 marginalised 3d coalescence map
+            Marginalised 3-d coalescence map
 
         sgm : float / int
-              sigma value (in grid cells) for the 3d gaussian filter function
-              --> bigger sigma leads to more aggressive (long wavelength) smoothing.
+            Sigma value (in grid cells) for the 3d gaussian filter function
+            --> bigger sigma leads to more aggressive (long wavelength)
+                smoothing.
 
         shp : array-like, optional
             Shape of volume
@@ -1561,7 +1195,7 @@ class SeisScan(DefaultSeisScan):
         Returns
         -------
         smoothed_map_3d : 3-d array
-                          gaussian smoothed 3d coalescence map
+            Gaussian smoothed 3d coalescence map
 
         """
 
@@ -1570,52 +1204,53 @@ class SeisScan(DefaultSeisScan):
         nx, ny, nz = shp
 
         # Normalise
-        map_3d = map_3d/np.nanmax(map_3d)
+        map_3d = map_3d / np.nanmax(map_3d)
 
         # Construct 3d gaussian filter
-        flt = gaussian_3d(nx, ny, nz, sgm, 0.)
+        flt = util.gaussian_3d(nx, ny, nz, sgm, 0.)
         # Convolve map_3d and 3d gaussian filter
         smoothed_map_3d = fftconvolve(map_3d, flt, mode="same")
 
-        # Mirror and convolve again (to avoid 'phase-shift')
-        smoothed_map_3d = smoothed_map_3d[::-1,::-1,::-1]/np.nanmax(smoothed_map_3d)
+        # Mirror and convolve again (to avoid "phase-shift")
+        smoothed_map_3d = smoothed_map_3d[::-1, ::-1, ::-1] \
+            / np.nanmax(smoothed_map_3d)
         smoothed_map_3d = fftconvolve(smoothed_map_3d, flt, mode="same")
 
         # Final mirror and normalise
-        smoothed_map_3d = smoothed_map_3d[::-1,::-1,::-1]/np.nanmax(smoothed_map_3d)
+        smoothed_map_3d = smoothed_map_3d[::-1, ::-1, ::-1] \
+            / np.nanmax(smoothed_map_3d)
 
         return smoothed_map_3d
 
-    def _mask3d(self, n, i, win):
+    def _mask3d(self, n, i, window):
         """
-
+        Creates a mask that can be applied to a grid
 
         Parameters
         ----------
-        n :
+        n : array-like, int
+            Shape of grid
 
-        i :
+        i : array-like, int
+            Location of cell around which to mask
 
-        win :
+        window : int
+            Size of window around cell to mask
 
         Returns
         -------
-        mask
-
+        mask : array-like
+            Masking array
 
         """
 
         n = np.array(n)
         i = np.array(i)
-        w2 = (win-1)//2
+        w2 = (window - 1) // 2
         x1, y1, z1 = np.clip(i - w2, 0 * n, n)
         x2, y2, z2 = np.clip(i + w2 + 1, 0 * n, n)
         mask = np.zeros(n, dtype=np.bool)
         mask[x1:x2, y1:y2, z1:z2] = True
-
-        # removing true if value is np.nan
-        #mask[x1:x2, y1:y2, z1:z2] = ~np.isnan(self.coa_map)[x1:x2, y1:y2, z1:z2]
-
 
         return mask
 
@@ -1626,29 +1261,29 @@ class SeisScan(DefaultSeisScan):
         Parameters
         ----------
         coa_map : 3-d array
-                  marginalised 3d coalescence map
+            Marginalised 3d coalescence map
 
-        thresh : float (between 0 and 1)
-                 cut-off threshold (fractional percentile) to trim coa_map; only
-                 data above this percentile will be retained, optional
+        thresh : float (between 0 and 1), optional
+            Cut-off threshold (fractional percentile) to trim coa_map; only
+            data above this percentile will be retained
 
-        win : int
-              window of grid cells (+/-win in x, y and z) around max value in coa_map
-              to perform the fit over, optional
+        win : int, optional
+            Window of grid cells (+/-win in x, y and z) around max value in
+            coa_map to perform the fit over
 
         Returns
         -------
         loc_cov : array-like
-                  [x, y, z] expectation location from covariance fit
+            [x, y, z] expectation location from covariance fit
 
         loc_err_cov : array-like
-                      [x_err, y_err, z_err] one sigma uncertainties associated with
-                      loc_cov
-
+            [x_err, y_err, z_err] one sigma uncertainties associated with
+            loc_cov
 
         """
-        # Normalise!!
-        coa_map = coa_map/(np.nanmax(coa_map))
+
+        # Normalise
+        coa_map = coa_map / (np.nanmax(coa_map))
 
         # Determining Covariance Location and Error
         nx, ny, nz = coa_map.shape
@@ -1656,10 +1291,10 @@ class SeisScan(DefaultSeisScan):
 
         # If window is specified, clip the grid to only look here.
         if win:
-            flg = np.logical_and(coa_map > thresh,#mval * np.exp(-(thresh * thresh) / 2),
-                               self._mask3d([nx, ny, nz], [mx, my, mz], win))
+            flg = np.logical_and(coa_map > thresh,
+                                 self._mask3d([nx, ny, nz], [mx, my, mz], win))
             ix, iy, iz = np.where(flg)
-            print('Variables',min(ix), max(ix), min(iy), max(iy), min(iz), max(iz))
+            print("Variables", min(ix), max(ix), min(iy), max(iy), min(iz), max(iz))
         else:
             flg = np.where(coa_map > thresh, True, False)
             ix, iy, iz = nx, ny, nz
@@ -1677,39 +1312,31 @@ class SeisScan(DefaultSeisScan):
         z_samples = lz.flatten() * self.lut.cell_size[2]
 
         ssw = np.nansum(smp_weights)
-        #print(ssw)
 
         # Expectation values:
         x_expect = np.nansum(smp_weights * x_samples) / ssw
         y_expect = np.nansum(smp_weights * y_samples) / ssw
         z_expect = np.nansum(smp_weights * z_samples) / ssw
 
-        #print(x_expect)
-
-        # if self.log:
-        #     self.output.write_log(msg)
-        # else:
-        #     print(msg)
-
         # Covariance matrix:
         cov_matrix = np.zeros((3, 3))
         cov_matrix[0, 0] = np.nansum(smp_weights
-                                  * (x_samples - x_expect) ** 2) / ssw
+                                     * (x_samples - x_expect) ** 2) / ssw
         cov_matrix[1, 1] = np.nansum(smp_weights
-                                  * (y_samples - y_expect) ** 2) / ssw
+                                     * (y_samples - y_expect) ** 2) / ssw
         cov_matrix[2, 2] = np.nansum(smp_weights
-                                  * (z_samples - z_expect) ** 2) / ssw
+                                     * (z_samples - z_expect) ** 2) / ssw
         cov_matrix[0, 1] = np.nansum(smp_weights
-                                  * (x_samples - x_expect)
-                                  * (y_samples - y_expect)) / ssw
+                                     * (x_samples - x_expect)
+                                     * (y_samples - y_expect)) / ssw
         cov_matrix[1, 0] = cov_matrix[0, 1]
         cov_matrix[0, 2] = np.nansum(smp_weights
-                                  * (x_samples - x_expect)
-                                  * (z_samples - z_expect)) / ssw
+                                     * (x_samples - x_expect)
+                                     * (z_samples - z_expect)) / ssw
         cov_matrix[2, 0] = cov_matrix[0, 2]
         cov_matrix[1, 2] = np.nansum(smp_weights
-                                  * (y_samples - y_expect)
-                                  * (z_samples - z_expect)) / ssw
+                                     * (y_samples - y_expect)
+                                     * (z_samples - z_expect)) / ssw
         cov_matrix[2, 1] = cov_matrix[1, 2]
 
         # Determining the maximum location, and taking 2xgrid cells positive
@@ -1720,23 +1347,19 @@ class SeisScan(DefaultSeisScan):
                                       z_expect],
                                      dtype=float)
         loc_cov_gc = np.array([[expect_vector_cov[0] / self.lut.cell_size[0],
-                             expect_vector_cov[1] / self.lut.cell_size[1],
-                             expect_vector_cov[2] / self.lut.cell_size[2]]])
+                                expect_vector_cov[1] / self.lut.cell_size[1],
+                                expect_vector_cov[2] / self.lut.cell_size[2]]])
 
         loc_err_cov = np.array([np.sqrt(cov_matrix[0, 0]),
                                 np.sqrt(cov_matrix[1, 1]),
                                 np.sqrt(cov_matrix[2, 2])])
 
-
-        loc_cov = self.lut.xyz2coord(self.lut.xyz2loc(loc_cov_gc, inverse=True))[0]
-
+        loc_cov = self.lut.xyz2coord(self.lut.xyz2loc(loc_cov_gc,
+                                                      inverse=True))[0]
 
         return loc_cov, loc_err_cov
 
-
-
-    def _gaufit3d(self, coa_map, lx=None, ly=None, lz=None,
-                  thresh=0., win=7):
+    def _gaufit3d(self, coa_map, lx=None, ly=None, lz=None, thresh=0., win=7):
         """
 
 
@@ -1751,44 +1374,38 @@ class SeisScan(DefaultSeisScan):
 
         lz : , optional
 
-        thresh : float (between 0 and 1)
-                 cut-off threshold (percentile) to trim coa_map: only
-                 data above this percentile will be retained, optional
+        thresh : float (between 0 and 1), optional
+            Cut-off threshold (percentile) to trim coa_map: only data above
+            this percentile will be retained
 
-        win : int
-              window of grid cells (+/- win in x, y and z) around max value in coa_map
-              to perform the fit over, optional
-
+        win : int, optional
+            Window of grid cells (+/- win in x, y and z) around max value in
+            coa_map to perform the fit over
 
         Returns
         -------
         loc_gau : array-like
-                  [x, y, z] expectation location from 3d gaussian fit
+            [x, y, z] expectation location from 3d gaussian fit
 
         loc_gau_err : array-like
-                      [x_err, y_err, z_err] one sigma uncertainties from 3d gaussian fit
+            [x_err, y_err, z_err] one sigma uncertainties from 3d gaussian fit
 
 
         """
+
         nx, ny, nz = coa_map.shape
         mx, my, mz = np.unravel_index(np.nanargmax(coa_map), coa_map.shape)
-        mval = coa_map[mx, my, mz]
+
         # Only use grid cells above threshold value, and within the specified
         # window around the coalescence peak
         flg = np.logical_and(coa_map > thresh,
-                            self._mask3d([nx, ny, nz], [mx, my, mz], win))
+                             self._mask3d([nx, ny, nz], [mx, my, mz], win))
 
         ix, iy, iz = np.where(flg)
 
         # Subtract mean of 3d coalescence map so it is more appropriately
         # approximated by a gaussian (which goes to zero at infinity)
         coa_map = coa_map - np.nanmean(coa_map)
-
-        # print('Variables',min(ix), max(ix), min(iy), max(iy), min(iz), max(iz))
-        # if self.log:
-        #     self.output.write_log(msg)
-        # else:
-        #     print(msg)
 
         ncell = len(ix)
 
@@ -1848,13 +1465,11 @@ class SeisScan(DefaultSeisScan):
                                inverse=True)
         loc_gau = self.lut.xyz2coord(xyz)[0]
 
-
         loc_gau_err = np.array([gau_3d[2][0] * self.lut.cell_size[0],
                                 gau_3d[2][1] * self.lut.cell_size[1],
                                 gau_3d[2][2] * self.lut.cell_size[2]])
 
         return loc_gau, loc_gau_err
-
 
     def _splineloc(self, coa_map, win=5, upscale=10):
         """
@@ -1863,38 +1478,33 @@ class SeisScan(DefaultSeisScan):
         Parameters
         ----------
         coa_map : 3-d array
-                  marginalised 3d coalescence map
+            Marginalised 3-d coalescence map
 
         win : int
-              window of grid cells (+/- win in x, y and z) around max value in coa_map
-              to perform the fit over, optional
+            Window of grid cells (+/- win in x, y and z) around max value in
+            coa_map to perform the fit over, optional
 
-        upsacel : int
-              upscaling factor to increase the grid ready for spline fitting
-
+        upscale : int
+            Upscaling factor to increase the grid ready for spline fitting
 
         Returns
         -------
         loc : array-like
-                  [x, y, z] expectation location from spline interpolation
-
-
+            [x, y, z] expectation location from spline interpolation
 
         """
-        #np.save('Coamap',coa_map)
+
+        # np.save("Coamap",coa_map)
         nx, ny, nz = coa_map.shape
         n = np.array([nx, ny, nz])
 
         mx, my, mz = np.unravel_index(np.nanargmax(coa_map), coa_map.shape)
         i = np.array([mx, my, mz])
-        mval = coa_map[mx, my, mz]
-
 
         # Determining window about maximum value and trimming coa grid
         w2 = (win - 1)//2
         x1, y1, z1 = np.clip(i - w2, 0 * n, n)
         x2, y2, z2 = np.clip(i + w2 + 1, 0 * n, n)
-
 
         # If subgrid is not close to the edge
         if (x2 - x1) == (y2 - y1) == (z2 - z1):
@@ -1907,7 +1517,7 @@ class SeisScan(DefaultSeisScan):
             xog, yog, zog = np.meshgrid(xo, yo, zo)
             interpgrid = Rbf(xog.flatten(), yog.flatten(), zog.flatten(),
                              coa_map_trim.flatten(),
-                             function='cubic')
+                             function="cubic")
 
             # Creating the new grid for the data
             xx = np.linspace(0, coa_map_trim.shape[0] - 1, (coa_map_trim.shape[0] - 1) * upscale + 1)
@@ -1919,8 +1529,8 @@ class SeisScan(DefaultSeisScan):
             mxi = mxi/upscale + x1
             myi = myi/upscale + y1
             mzi = mzi/upscale + z1
-            print('Spline loc: ', mxi, myi, mzi)
-            print('Gridded loc:', mx, my, mz)
+            print("    \tSpline loc:", mxi, myi, mzi)
+            print("    \tGridded loc:", mx, my, mz)
 
             # Run check that spline location is within grid-cell
             if (abs(mx - mxi) > 1) or (abs(my - myi) > 1) or (abs(mz - mzi) > 1):
@@ -1933,9 +1543,10 @@ class SeisScan(DefaultSeisScan):
             xyz = self.lut.xyz2loc(np.array([[mxi, myi, mzi]]), inverse=True)
             loc = self.lut.xyz2coord(xyz)[0]
 
-            # Run check that spline location is within window (should be impossible not to..)
+            # Run check that spline location is within window
             if (abs(mx - mxi) > w2) or (abs(my - myi) > w2) or (abs(mz - mzi) > w2):
-                msg = "Spline error: location outside interpolation window!\n Gridded Location returned"
+                msg = "Spline error: location outside interpolation window!\n"
+                msg += "Gridded Location returned"
                 if self.log:
                     self.output.write_log(msg)
                 else:
@@ -1945,12 +1556,12 @@ class SeisScan(DefaultSeisScan):
                 loc = self.lut.xyz2coord(xyz)[0]
 
         else:
-            msg = "Spline error: interpolation window crosses edge of grid!\n Gridded Location returned"
+            msg = "Spline error: interpolation window crosses edge of grid!\n"
+            msg += "Gridded Location returned"
             if self.log:
                 self.output.write_log(msg)
             else:
                 print(msg)
-
 
             xyz = self.lut.xyz2loc(np.array([[mx, my, mz]]), inverse=True)
             loc = self.lut.xyz2coord(xyz)[0]
@@ -1965,22 +1576,21 @@ class SeisScan(DefaultSeisScan):
         map_4d : 4-d array
                  4d coalescence grid output from _compute()
 
-
         Returns
         -------
         loc : array-like
-              [x, y, z] best-fit location from local fit to the coalescence grid
+            [x, y, z] best-fit location from local fit to the coalescence grid
 
         loc_err : array-like
-                  [x_err, y_err, z_err] one sigma uncertainties associated with loc
+            [x_err, y_err, z_err] one sigma uncertainties associated with loc
 
         loc_cov : array-like
-                  [x, y, z] best-fit location from covariance fit over entire 3d grid
-                  (most commonly after filtering above a certain percentile).
+            [x, y, z] best-fit location from covariance fit over entire 3d grid
+            (most commonly after filtering above a certain percentile).
 
         loc_err_cov : array-like
-                      [x_err, y_err, z_err] one sigma uncertainties associated with loc_cov
-
+            [x_err, y_err, z_err] one sigma uncertainties associated with
+            loc_cov
 
         """
 
@@ -1990,16 +1600,36 @@ class SeisScan(DefaultSeisScan):
         # Normalise
         self.coa_map = self.coa_map/np.max(self.coa_map)
 
-        ## Determining the location error as an error-ellipse
+        # Determining the location error as an error-ellipse
         # Calculate global covariance
-        loc_cov, loc_err_cov  = self._covfit3d(np.copy(self.coa_map))
+        loc_cov, loc_err_cov = self._covfit3d(np.copy(self.coa_map))
 
         # Fit local gaussian error ellipse
         loc_spline = self._splineloc(np.copy(self.coa_map))
         smoothed_coa_map = self._gaufilt3d(np.copy(self.coa_map))
         loc, loc_err = self._gaufit3d(np.copy(smoothed_coa_map), thresh=0.)
 
-        # Calculate local covariance
-        # loc, loc_err  = self._covfit3d(np.copy(coa_3d),thresh=0.88)#self._gaufit3d(coa_3d,thresh=0.0)
-
         return loc_spline, loc, loc_err, loc_cov, loc_err_cov
+
+    def _empty(self, w_beg, w_end):
+        """
+        Create an empty set of arrays to write to .scnmseed.
+
+        Parameters
+        ----------
+        w_beg : UTCDateTime object
+            Start datetime to read mSEED
+        w_end : UTCDateTime object
+            End datetime to read mSEED
+        """
+
+        tmp = np.arange(w_beg + self.pre_pad,
+                        w_end - self.post_pad + (1 / self.sampling_rate),
+                        1 / self.sampling_rate)
+        daten = [x.datetime for x in tmp]
+
+        dsnr = dsnr_norm = np.zeros(len(daten))
+
+        dcoord = np.zeros((3, len(daten)))
+
+        return daten, dsnr, dsnr_norm, dcoord

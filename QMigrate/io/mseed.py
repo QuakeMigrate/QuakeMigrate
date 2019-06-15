@@ -12,7 +12,8 @@ from itertools import chain
 import obspy
 import numpy as np
 
-import QMigrate.core.model as cmod
+import QMigrate.core.model as qmod
+import QMigrate.util as util
 
 
 class MSEED(object):
@@ -68,7 +69,7 @@ class MSEED(object):
 
         self.resample = False
 
-        lut = cmod.LUT()
+        lut = qmod.LUT()
         lut.load(LUT)
         self.stations = lut.station_data["Name"]
         del lut
@@ -170,6 +171,11 @@ class MSEED(object):
                     for trace in traces:
                         st.remove(trace)
 
+            # Test if the stream is completely empty
+            # (see __nonzero__ for obspy Stream object)
+            if not bool(st):
+                raise util.DataGapException
+
             # Combining the mseed and determining station availability
             st.detrend("linear")
             st.detrend("demean")
@@ -177,9 +183,7 @@ class MSEED(object):
 
             signal, availability = self._station_availability(st, samples)
         except StopIteration:
-            print("No data exist for this time period - creating blank")
-            availability = np.zeros((len(self.stations), 1))
-            signal = np.zeros((3, len(self.stations), int(samples)))
+            raise util.ArchiveEmptyException
 
         self.st = st
         self.signal = signal

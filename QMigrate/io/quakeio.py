@@ -121,19 +121,17 @@ class QuakeIO:
         data = pd.DataFrame()
 
         td = 1 / coa_stats.sampling_rate
-        tmp = np.arange(coa_stats.starttime,
-                        coa_stats.endtime + td,
-                        td)
-        data["DT"] = [x.datetime for x in tmp]
+        data["DT"] = np.arange(coa_stats.starttime,
+                               coa_stats.endtime + td,
+                               td)
+
         data["COA"] = coa.select(station="COA")[0].data / 1e5
         data["COA_N"] = coa.select(station="COA_N")[0].data / 1e5
         data["X"] = coa.select(station="X")[0].data / 1e6
         data["Y"] = coa.select(station="Y")[0].data / 1e6
         data["Z"] = coa.select(station="Z")[0].data / 1e3
 
-        data["DT"] = data["DT"].apply(UTCDateTime)
-
-        return data
+        return data, coa_stats
 
     def write_decscan(self, original_dataset, daten, dsnr, dsnr_norm, dloc, sampling_rate):
         """

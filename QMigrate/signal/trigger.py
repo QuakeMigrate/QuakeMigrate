@@ -118,19 +118,19 @@ def _trigger_scn(coa_data, start_time, end_time, marginal_window,
                  sampling_rate, minimum_repeat):
     """Function to perform the actual triggering"""
 
-    if normalise_coalescence is True:
-        coa_data["COA"] = coa_data["COA_N"]
-
     # Mask based on first and final time stamps and detection threshold
-    coa_data = coa_data[coa_data["COA"] >= detection_threshold]
-    coa_data = coa_data[(coa_data["DT"] >= start_time) &
-                        (coa_data["DT"] <= end_time)]
+    if normalise_coalescence is True:
+        coa_data = coa_data[coa_data["COA_N"] >= detection_threshold]
+        coa_data = coa_data[(coa_data["DT"] >= start_time) &
+                            (coa_data["DT"] <= end_time)]
+    else:
+        coa_data = coa_data[coa_data["COA"] >= detection_threshold]
+        coa_data = coa_data[(coa_data["DT"] >= start_time) &
+                            (coa_data["DT"] <= end_time)]
 
     coa_data = coa_data.reset_index(drop=True)
 
     if len(coa_data) == 0:
-        msg = "    No events triggered at this threshold"
-        print(msg)
         return None
 
     event_cols = ["EventNum", "CoaTime", "COA_V", "COA_X", "COA_Y",
@@ -165,7 +165,10 @@ def _trigger_scn(coa_data, start_time, end_time, marginal_window,
         t_max = coa_data["DT"].iloc[max_idx]
         t_val = coa_data["DT"].iloc[val_idx]
 
-        COA_V = coa_data["COA"].iloc[val_idx]
+        if normalise_coalescence is True:
+            COA_V = coa_data["COA_N"].iloc[val_idx]
+        else:
+            COA_V = coa_data["COA"].iloc[val_idx]
         COA_X = coa_data["X"].iloc[val_idx]
         COA_Y = coa_data["Y"].iloc[val_idx]
         COA_Z = coa_data["Z"].iloc[val_idx]

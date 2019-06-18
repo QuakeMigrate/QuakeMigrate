@@ -158,37 +158,53 @@ def filter(sig, sampling_rate, lc, hc, order=3):
 
 
 class DefaultSeisScan(object):
-    """
-    Contains default parameter information for SeisScan
-
-    """
+    """Default parameter class for SeisScan"""
 
     def __init__(self):
+        """Initialise object"""
+
+        # Filter parameters
         self.p_bp_filter = [2.0, 16.0, 2]
         self.s_bp_filter = [2.0, 12.0, 2]
+
+        # Onset window parameters
         self.p_onset_win = [0.2, 1.0]
         self.s_onset_win = [0.2, 1.0]
-        self.time_step = 120
+
+        # Traveltime lookup table decimation factor
         self.decimate = [1, 1, 1]
+
+        # Time step for continuous compute in detect
+        self.time_step = 120
+
+        # Data sampling rate
         self.sampling_rate = 100.0
+
+        # Centred onset function override
         self.onset_centred = None
 
+        # Pick related parameters
         self.pick_threshold = 1.0
-
-        self.marginal_window = 2
-        self.percent_tt = 0.1
         self.picking_mode = "Gaussian"
-        self.output_sampling_rate = None
+        self.percent_tt = 0.1
 
+        # Marginal window - essentially an estimate of the traveltime error in
+        # the LUT
+        self.marginal_window = 2
+
+        # Default pre-pad for compute
         self.pre_pad = None
+
+        # Number of cores to perform detect/locate on
         self.n_cores = 1
 
-        # Plotting functionality
+        # Plotting toggles
         self.plot_coal_grid = False
         self.plot_coal_video = False
         self.plot_coal_summary = True
         self.plot_coal_trace = False
 
+        # xy files for plotting
         self.xy_files = None
 
 
@@ -269,7 +285,6 @@ class SeisScan(DefaultSeisScan):
         msg += "   QuakeMigrate - Coalescence Scanning - Path: {} - Name: {}\n"
         msg += "=" * 120 + "\n"
         msg += "=" * 120 + "\n"
-        msg += "\n"
         msg = msg.format(self.output.path, self.output.name)
         print(msg)
 
@@ -417,7 +432,7 @@ class SeisScan(DefaultSeisScan):
             evt_id = event["EventID"]
             msg = "=" * 120 + "\n"
             msg += "    EVENT - {} of {} - {}\n"
-            msg += "=" * 120 + "\n"
+            msg += "=" * 120 + "\n\n"
             msg += "    Determining event location..."
             msg = msg.format(i + 1, n_evts, evt_id)
             if self.log:
@@ -434,10 +449,13 @@ class SeisScan(DefaultSeisScan):
             try:
                 self.data.read_mseed(w_beg, w_end, self.sampling_rate)
             except util.ArchiveEmptyException:
-                print("    No files in archive for this time period.")
+                msg = "\tNo files in archive for this time period"
+                print(msg)
                 continue
             except util.DataGapException:
-                print("    All available data for this time period contains gaps.")
+                msg = "\tAll available data for this time period contains gaps"
+                msg += "\n\tor data not available at start/end of time period\n"
+                print(msg)
                 continue
 
             daten, dsnr, dsnr_norm, dloc, map_ = self._compute(
@@ -461,8 +479,10 @@ class SeisScan(DefaultSeisScan):
                 w_beg_mw = event_coa_val_dtmax - self.marginal_window
                 w_end_mw = event_coa_val_dtmax + self.marginal_window
             else:
-                msg = "        Event {} is outside marginal window.\n"
-                msg += "        Define more realistic error."
+                msg = "\tEvent {} is outside marginal window.\n"
+                msg += "\tDefine more realistic error - the marginal window"
+                msg += " should be an estimate of the traveltime error in the\n"
+                msg += "\tlookup table and velocity model.\n"
                 msg = msg.format(evt_id)
                 if self.log:
                     self.output.write_log(msg)
@@ -501,9 +521,9 @@ class SeisScan(DefaultSeisScan):
                                  loc_err_cov[2]]],
                                columns=self.EVENT_FILE_COLS)
 
-            evt_id = event_max.values[0].astype(str)
+            evt_id = str(event_max.values[0])
             for char_ in ["-", ":", ".", " ", "Z", "T"]:
-                evt_id = evt_id.str.replace(char_, "")
+                evt_id = evt_id.replace(char_, "")
 
             self.output.write_event(evt, evt_id)
 
@@ -641,20 +661,23 @@ class SeisScan(DefaultSeisScan):
                                                         self.data.availability)
 
                 dcoord = self.lut.xyz2coord(dloc)
+                del dloc, map_
             except util.ArchiveEmptyException:
-                msg = "!" * 46
-                msg += " No files in archive for this time. "
-                msg += "!" * 46
+                msg = "!" * 24 + " " * 16
+                msg += " No files in archive for this time step "
+                msg += " " * 16 + "!" * 24
+                print(msg)
                 daten, dsnr, dsnr_norm, dcoord = self._empty(w_beg, w_end)
-                continue
             except util.DataGapException:
-                msg = "!" * 32
-                msg += " All available data for this time period contains gaps. "
-                msg += "!" * 32
+                msg = "!" * 24 + " " * 9
+                msg += "All available data for this time period contains gaps"
+                msg += " " * 10 + "!" * 24
+                msg += "\n" + "!" * 24 + " " * 11
+                msg += "or data not available at start/end of time period"
+                msg += " " * 12 + "!" * 24
+                print(msg)
                 daten, dsnr, dsnr_norm, dcoord = self._empty(w_beg, w_end)
-                continue
 
-            self.output.file_sample_rate = self.output_sampling_rate
             coalescence_mSEED = self.output.write_decscan(coalescence_mSEED,
                                                           daten[:-1],
                                                           dsnr[:-1],
@@ -662,7 +685,7 @@ class SeisScan(DefaultSeisScan):
                                                           dcoord[:-1, :],
                                                           self.sampling_rate)
 
-            del daten, dsnr, dsnr_norm, dloc, map_
+            del daten, dsnr, dsnr_norm, dcoord
 
         print("=" * 120)
 
@@ -686,47 +709,52 @@ class SeisScan(DefaultSeisScan):
 
         Returns
         -------
-        daten :
+        daten : array-like
+            Array of UTCDateTime time stamps for the time step
 
         dsnr :
+            Coalescence value through time
 
         dsnr_norm :
+            Normalised coalescence value through time
 
         dloc :
+            Location of maximum coalescence through time
 
         map_ :
+            4-D coalescence map through time
 
         """
-
-        sampling_rate = self.sampling_rate
 
         avail_idx = np.where(station_availability == 1)[0]
         sige = signal[0]
         sign = signal[1]
         sigz = signal[2]
 
-        p_onset_raw, p_onset = self._compute_p_onset(sigz, sampling_rate)
-        s_onset_raw, s_onset = self._compute_s_onset(sige, sign, sampling_rate)
+        p_onset_raw, p_onset = self._compute_p_onset(sigz,
+                                                     self.sampling_rate)
+        s_onset_raw, s_onset = self._compute_s_onset(sige, sign,
+                                                     self.sampling_rate)
         self.data.p_onset = p_onset
         self.data.s_onset = s_onset
         self.data.p_onset_raw = p_onset_raw
         self.data.s_onset_raw = s_onset_raw
 
-        p_s_onset = np.concatenate((self.data.p_onset, self.data.s_onset))
-        p_s_onset[np.isnan(p_s_onset)] = 0
+        ps_onset = np.concatenate((self.data.p_onset, self.data.s_onset))
+        ps_onset[np.isnan(ps_onset)] = 0
 
-        p_ttime = self.lut.fetch_index("TIME_P", sampling_rate)
-        s_ttime = self.lut.fetch_index("TIME_S", sampling_rate)
+        p_ttime = self.lut.fetch_index("TIME_P", self.sampling_rate)
+        s_ttime = self.lut.fetch_index("TIME_S", self.sampling_rate)
         ttime = np.c_[p_ttime, s_ttime]
         del p_ttime, s_ttime
 
-        nchan, tsamp = p_s_onset.shape
+        nchan, tsamp = ps_onset.shape
 
-        pre_smp = int(round(self.pre_pad * int(sampling_rate)))
-        pos_smp = int(round(self.post_pad * int(sampling_rate)))
+        pre_smp = int(round(self.pre_pad * int(self.sampling_rate)))
+        pos_smp = int(round(self.post_pad * int(self.sampling_rate)))
         nsamp = tsamp - pre_smp - pos_smp
 
-        daten = 0.0 - pre_smp / sampling_rate
+        daten = 0.0 - pre_smp / self.sampling_rate
 
         ncell = tuple(self.lut.cell_count)
 
@@ -734,27 +762,21 @@ class SeisScan(DefaultSeisScan):
 
         dind = np.zeros(nsamp, np.int64)
         dsnr = np.zeros(nsamp, np.double)
-        dsnr_norm = np.zeros(nsamp, np.double)
 
-        ilib.scan(p_s_onset, ttime, pre_smp, pos_smp,
-                  nsamp, map_, self.n_cores)
+        ilib.scan(ps_onset, ttime, pre_smp, pos_smp, nsamp, map_, self.n_cores)
         ilib.detect(map_, dsnr, dind, 0, nsamp, self.n_cores)
 
+        # Get dsnr_norm
+        sum_coa = np.sum(map_, axis=(0, 1, 2))
+        dsnr_norm = dsnr / sum_coa
+        dsnr_norm = dsnr_norm * map_.shape[0] * map_.shape[1] * map_.shape[2]
+
         tmp = np.arange(w_beg + self.pre_pad,
-                        w_end - self.post_pad + (1 / sampling_rate),
-                        1 / sampling_rate)
+                        w_end - self.post_pad + (1 / self.sampling_rate),
+                        1 / self.sampling_rate)
         daten = [x.datetime for x in tmp]
         dsnr = np.exp((dsnr / (len(avail_idx) * 2)) - 1.0)
         dloc = self.lut.xyz2index(dind, inverse=True)
-
-        # Determining the normalised coalescence through time
-        sum_coa = np.sum(map_, axis=(0, 1, 2))
-        map_ = map_ / sum_coa[np.newaxis, np.newaxis, np.newaxis, :]
-        ilib.detect(map_, dsnr_norm, dind, 0, nsamp, self.n_cores)
-        dsnr_norm = dsnr_norm * map_.shape[0] * map_.shape[1] * map_.shape[2]
-
-        # Reset map to original coalescence value
-        map_ = map_ * sum_coa[np.newaxis, np.newaxis, np.newaxis, :]
 
         return daten, dsnr, dsnr_norm, dloc, map_
 
@@ -899,16 +921,22 @@ class SeisScan(DefaultSeisScan):
         ----------
         onset :
             Onset function
+
         phase : str
             Phase name ("P" or "S")
+
         start_time : UTCDateTime object
             Start time of data (w_beg)
+
         p_arr : UTCDateTime object
-            Time when P-phase is expected to arrive based on best location.
+            Time when P-phase is expected to arrive based on best location
+
         s_arr : UTCDateTime object
-            Time when S-phase is expected to arrive based on best location.
+            Time when S-phase is expected to arrive based on best location
+
         ptt : UTCDateTime object
             Traveltime of P-phase
+
         stt : UTCDateTime object
             Traveltime of S-phase
 
@@ -1114,10 +1142,13 @@ class SeisScan(DefaultSeisScan):
         Returns
         -------
         picks : pandas DataFrame object
+            DataFrame containing refined pick times
 
         p_gauss : array-like
+            Numpy array stack of Gaussian picks for P phase
 
         s_gauss : array-like
+            Numpy array stack of Gaussian picks for S phase
 
         """
 
@@ -1176,7 +1207,8 @@ class SeisScan(DefaultSeisScan):
 
     def _gaufilt3d(self, map_3d, sgm=0.8, shp=None):
         """
-
+        Smooth the 3-D marginalised coalescence map using a 3-D Gaussian
+        function
 
         Parameters
         ----------
@@ -1190,7 +1222,6 @@ class SeisScan(DefaultSeisScan):
 
         shp : array-like, optional
             Shape of volume
-
 
         Returns
         -------
@@ -1256,7 +1287,7 @@ class SeisScan(DefaultSeisScan):
 
     def _covfit3d(self, coa_map, thresh=0.88, win=None):
         """
-
+        Calculate the 3-D covariance of the marginalised coalescence map
 
         Parameters
         ----------
@@ -1361,18 +1392,19 @@ class SeisScan(DefaultSeisScan):
 
     def _gaufit3d(self, coa_map, lx=None, ly=None, lz=None, thresh=0., win=7):
         """
-
+        Fit a 3-D Gaussian function to a region around the maximum coalescence
+        in the marginalised coalescence map
 
         Parameters
         ----------
-        coa_map : 3-d array
-                  marginalised 3d coalescence map
+        coa_map : array-like
+            Marginalised 3-d coalescence map
 
-        lx : , optional
+        lx : int, optional
 
-        ly : , optional
+        ly : int, optional
 
-        lz : , optional
+        lz : int, optional
 
         thresh : float (between 0 and 1), optional
             Cut-off threshold (percentile) to trim coa_map: only data above
@@ -1385,10 +1417,10 @@ class SeisScan(DefaultSeisScan):
         Returns
         -------
         loc_gau : array-like
-            [x, y, z] expectation location from 3d gaussian fit
+            [x, y, z] expectation location from 3-d Gaussian fit
 
         loc_gau_err : array-like
-            [x_err, y_err, z_err] one sigma uncertainties from 3d gaussian fit
+            [x_err, y_err, z_err] one sigma uncertainties from 3-d Gasussian fit
 
 
         """
@@ -1473,7 +1505,8 @@ class SeisScan(DefaultSeisScan):
 
     def _splineloc(self, coa_map, win=5, upscale=10):
         """
-
+        Fit a 3-D spline function to a region around the maximum coalescence
+        in the marginalised coalescence map
 
         Parameters
         ----------
@@ -1570,6 +1603,10 @@ class SeisScan(DefaultSeisScan):
 
     def _location_error(self, map_4d):
         """
+        Calcuate a set of locations and associated uncertainties using
+        the covariance of the coalescence map and by fitting both a 3-D
+        Gaussian function and a 3-D spline function to a region around the
+        maximum coalescence in the marginalised coalescence map
 
         Parameters
         ----------
@@ -1613,14 +1650,16 @@ class SeisScan(DefaultSeisScan):
 
     def _empty(self, w_beg, w_end):
         """
-        Create an empty set of arrays to write to .scnmseed.
+        Create an empty set of arrays to write to .scnmseed
 
         Parameters
         ----------
         w_beg : UTCDateTime object
             Start datetime to read mSEED
+
         w_end : UTCDateTime object
             End datetime to read mSEED
+
         """
 
         tmp = np.arange(w_beg + self.pre_pad,
@@ -1628,8 +1667,8 @@ class SeisScan(DefaultSeisScan):
                         1 / self.sampling_rate)
         daten = [x.datetime for x in tmp]
 
-        dsnr = dsnr_norm = np.zeros(len(daten))
+        dsnr = dsnr_norm = np.full(len(daten), 0)
 
-        dcoord = np.zeros((3, len(daten)))
+        dcoord = np.full((len(daten), 3), 0)
 
         return daten, dsnr, dsnr_norm, dcoord

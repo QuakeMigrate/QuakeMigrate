@@ -11,7 +11,6 @@ from datetime import datetime, timedelta
 from obspy import UTCDateTime
 import pandas as pd
 import numpy as np
-from matplotlib.collections import PatchCollection
 import matplotlib
 try:
     os.environ["DISPLAY"]
@@ -19,7 +18,7 @@ try:
 except KeyError:
     matplotlib.use("Agg")
 import matplotlib.pylab as plt
-from matplotlib.patches import Rectangle, Ellipse
+from matplotlib.patches import Ellipse
 import matplotlib.image as mpimg
 import matplotlib.animation as animation
 
@@ -264,20 +263,17 @@ class QuakePlot:
 
     def coalescence_summary(self, output_file=None, earthquake=None):
         """
-        Generate a marginal window about the event to determine the error
+        Create summary plot for an event
+
+        Shows the coalescence map sliced through the maximum coalescence, the
+        1-D coalescence value and a gather of the station traces
 
         Parameters
         ----------
         output_file : str, optional
-
-        earthquake : str, optional
-
-        TO-DO
-        -----
-        Redefine the marginal as instead of the whole coalescence period,
-        Gaussian fit to the coalescence value then take the 1st std to
-        define the time window and use this
-
+            Name of file to save plot to
+        earthquake : pandas DataFrame
+            Contains event information
         """
 
         # Event is only in first line of earthquake, reduces chars later on
@@ -359,9 +355,7 @@ class QuakePlot:
                                         edgecolors="black")
 
         # Set coalescence trace limits
-        # trace.set_ylim([0, i + 2])
         trace.set_xlim([(dt_max-0.1).datetime, (self.data.end_time-0.8).datetime])
-        # trace.get_xaxis().set_ticks([])
         trace.yaxis.tick_right()
         trace.yaxis.set_ticks(sidx + 1)
         trace.yaxis.set_ticklabels(self.data.stations)
@@ -373,10 +367,6 @@ class QuakePlot:
         self._plot_coal(coal_val, dt_max.datetime)
 
         # --- Determining Error ellipse for Covariance ---
-        cells = self.lut.cell_count
-        xcells = cells[0]
-        ycells = cells[1]
-        zcells = cells[2]
         cov_x = eq["GlobalCovariance_ErrX"] / self.lut.cell_size[0]
         cov_y = eq["GlobalCovariance_ErrY"] / self.lut.cell_size[1]
         cov_z = eq["GlobalCovariance_ErrZ"] / self.lut.cell_size[2]
@@ -432,104 +422,17 @@ class QuakePlot:
                               2 * dGa[0][0], 2 * dGa[0][2], angle=0,
                               linewidth=2, edgecolor="b", fill=False)
 
-        # ------ Spatial Function ------
-        # --- Plotting the marginal window ---
-        crd_crnrs = self.lut.xyz2coord(self.lut.grid_corners)
-        xmin = min(crd_crnrs[:, 0])
-        xmax = max(crd_crnrs[:, 0])
-        ymin = min(crd_crnrs[:, 1])
-        ymax = max(crd_crnrs[:, 1])
-        zmin = min(crd_crnrs[:, 2])
-        zmax = max(crd_crnrs[:, 2])
-
-        # xy_slice
-        grid1, grid2 = np.mgrid[xmin:xmax:(xmax - xmin) / xcells,
-                                ymin:ymax:(ymax - ymin) / ycells]
-        rect = Rectangle((np.min(grid1), np.min(grid2)),
-                         np.max(grid1) - np.min(grid1),
-                         np.max(grid2) - np.min(grid2))
-        pc = PatchCollection([rect], facecolor="k")
-        xy_slice.add_collection(pc)
-        xy_slice.pcolormesh(grid1, grid2, np.tranpose(map_[:, :, int(loc[2][0])]),
-                            cmap=self.cmap, edgecolors="face")
-        xy_slice.set_xlim([xmin, xmax])
-        xy_slice.set_ylim([ymin, ymax])
-        xy_slice.axvline(x=crd[0][0], linestyle="--", linewidth=2,
-                         color=self.line_station_color)
-        xy_slice.axhline(y=crd[0][1], linestyle="--", linewidth=2,
-                         color=self.line_station_color)
-        xy_slice.scatter(eq["X"], eq["Y"],
-                         150, c="green", marker="*",
-                         label="Maximum Coalescence")
-        xy_slice.scatter(eq["LocalGaussian_X"], eq["LocalGaussian_Y"],
-                         150, c="pink", marker="*",
-                         label="Local Gaussian Location")
-        xy_slice.scatter(eq["GlobalCovariance_X"], eq["GlobalCovariance_Y"],
-                         150, c="blue", marker="*",
-                         label="Global Covariance Location")
-        xy_slice.add_patch(ellipse_XY)
-        xy_slice.add_patch(gellipse_XY)
+        # --- Plot slices through coalescence map ---
+        self._plot_map_slice(xy_slice, eq, map_[:, :, int(loc[2][0])], crd,
+                             "X", "Y", ellipse_XY, gellipse_XY)
         xy_slice.legend()
 
-        # xz_slice
-        grid1, grid2 = np.mgrid[xmin:xmax:(xmax - xmin) / xcells,
-                                zmin:zmax:(zmax - zmin) / zcells]
-        rect = Rectangle((np.min(grid1), np.min(grid2)),
-                         np.max(grid1) - np.min(grid1),
-                         np.max(grid2) - np.min(grid2))
-        pc = PatchCollection([rect], facecolor="k")
-        xz_slice.add_collection(pc)
-        xz_slice.pcolormesh(grid1, grid2, np.tranpose(map_[:, int(loc[1][0]), :]),
-                            cmap=self.cmap, edgecolors="face")
-        # CS = xz_slice.contour(grid1, grid2, map_[:, int(loc[1][0]), :],
-        #                       levels=[0.65, 0.75, 0.95],
-        #                       colors=("g", "m", "k"))
-        # xz_slice.clabel(CS, inline=1, fontsize=10)
-        xz_slice.set_xlim([xmin, xmax])
-        xz_slice.set_ylim([zmax, zmin])
-        xz_slice.axvline(x=crd[0][0], linestyle="--", linewidth=2,
-                         color=self.line_station_color)
-        xz_slice.axhline(y=crd[0][2], linestyle="--", linewidth=2,
-                         color=self.line_station_color)
-        xz_slice.scatter(eq["X"], eq["Z"],
-                         150, c="green", marker="*",
-                         label="Maximum Coalescence")
-        xz_slice.scatter(eq["LocalGaussian_X"], eq["LocalGaussian_Z"],
-                         150, c="pink", marker="*")
-        xz_slice.scatter(eq["GlobalCovariance_X"], eq["GlobalCovariance_Z"],
-                         150, c="blue", marker="*")
-        xz_slice.add_patch(ellipse_XZ)
-        xz_slice.add_patch(gellipse_XZ)
+        self._plot_map_slice(xz_slice, eq, map_[:, int(loc[1][0]), :], crd,
+                             "X", "Z", ellipse_XZ, gellipse_XZ)
         xz_slice.invert_yaxis()
 
-        # yz_slice
-        grid1, grid2 = np.mgrid[zmin:zmax:(zmax - zmin) / zcells,
-                                ymin:ymax:(ymax - ymin) / ycells]
-        rect = Rectangle((np.min(grid1), np.min(grid2)),
-                         np.max(grid1) - np.min(grid1),
-                         np.max(grid2) - np.min(grid2))
-        pc = PatchCollection([rect], facecolor="k")
-        yz_slice.add_collection(pc)
-        yz_slice.pcolormesh(grid1, grid2, np.tranpose(map_[int(loc[0][0]), :, :]),
-                            cmap=self.cmap, edgecolors="face")
-        # CS = xz_slice.contour(grid1, grid2, map_[int(loc[0][0]), :, :].transpose(),
-        #                       levels=[0.65, 0.75, 0.95],
-        #                       colors=("g", "m", "k"))
-        yz_slice.set_xlim([zmax, zmin])
-        yz_slice.set_ylim([ymin, ymax])
-        yz_slice.axvline(x=crd[0][2], linestyle="--", linewidth=2,
-                         color=self.line_station_color)
-        yz_slice.axhline(y=crd[0][1], linestyle="--", linewidth=2,
-                         color=self.line_station_color)
-        yz_slice.scatter(eq["Z"], eq["Y"],
-                         150, c="green", marker="*",
-                         label="Maximum Coalescence")
-        yz_slice.scatter(eq["LocalGaussian_Z"], eq["LocalGaussian_Y"],
-                         150, c="pink", marker="*")
-        yz_slice.scatter(eq["GlobalCovariance_Z"], eq["GlobalCovariance_Y"],
-                         150, c="blue", marker="*")
-        yz_slice.add_patch(ellipse_YZ)
-        yz_slice.add_patch(gellipse_YZ)
+        self._plot_map_slice(yz_slice, eq, np.transpose(map_[int(loc[0][0]), :, :]),
+                             crd, "Y", "Z", ellipse_YZ, gellipse_YZ)
 
         # --- Plotting the station locations ---
         xy_slice.scatter(self.lut.station_data["Longitude"],
@@ -560,7 +463,75 @@ class QuakePlot:
                         dpi=400)
             plt.close("all")
 
+    def _plot_map_slice(self, ax, eq, slice_, crd, c1, c2, ee, gee):
+        """Plot slice through map in a given plane"""
+        crd_crnrs = self.lut.xyz2coord(self.lut.grid_corners)
+        cells = self.lut.cell_count
+
+        # Series of tests to select the correct components for the given slice
+        if c1 == "X":
+            min1, max1 = min(crd_crnrs[:, 0]), max(crd_crnrs[:, 0])
+            size1 = (max1 - min1) / cells[0]
+            idx1 = 0
+        elif c1 == "Y":
+            min2, max2 = min(crd_crnrs[:, 1]), max(crd_crnrs[:, 1])
+            size2 = (max2 - min2) / cells[1]
+            idx2 = 1
+            min1, max1 = min(crd_crnrs[:, 2]), max(crd_crnrs[:, 2])
+            size1 = (max1 - min1) / cells[2]
+            idx1 = 2
+
+        if c2 == "Y":
+            min2, max2 = min(crd_crnrs[:, 1]), max(crd_crnrs[:, 1])
+            size2 = (max2 - min2) / cells[1]
+            idx2 = 1
+        elif c2 == "Z" and c1 == "Y":
+            pass
+        elif c2 == "Z" and c1 == "X":
+            min2, max2 = min(crd_crnrs[:, 2]), max(crd_crnrs[:, 2])
+            size2 = (max2 - min2) / cells[2]
+            idx2 = 2
+
+        # Create meshgrid with shape (X + 1, Y + 1) - pcolormesh uses the grid
+        # values as fenceposts
+        grid1, grid2 = np.mgrid[min1:max1 + size1:size1,
+                                min2:max2 + size2:size2]
+
+        # Ensure that the shape of grid1 and grid2 comply with the shape of the
+        # slice (sometimes floating point errors can carry over and return a
+        # grid with incorrect shape)
+        grid1 = grid1[:slice_.shape[0] + 1, :slice_.shape[1] + 1]
+        grid2 = grid2[:slice_.shape[0] + 1, :slice_.shape[1] + 1]
+        ax.pcolormesh(grid1, grid2, slice_, cmap=self.cmap, edgecolors="face")
+        ax.set_xlim([min1, max1])
+        ax.set_ylim([min2, max2])
+        if c1 == "Y" and c2 == "Z":
+            ax.set_xlim([max1, min1])
+        elif c1 == "X" and c2 == "Z":
+            ax.set_ylim([max2, min2])
+
+        if c1 == "Y":
+            c1, c2 = c2, c1
+
+        ax.axvline(x=crd[0][idx1], linestyle="--", linewidth=2,
+                   color=self.line_station_color)
+        ax.axhline(y=crd[0][idx2], linestyle="--", linewidth=2,
+                   color=self.line_station_color)
+        ax.scatter(eq[c1], eq[c2], 150, c="green", marker="*",
+                   label="Maximum Coalescence")
+        ax.scatter(eq["LocalGaussian_{}".format(c1)],
+                   eq["LocalGaussian_{}".format(c2)],
+                   150, c="pink", marker="*",
+                   label="Local Gaussian Location")
+        ax.scatter(eq["GlobalCovariance_{}".format(c1)],
+                   eq["GlobalCovariance_{}".format(c2)],
+                   150, c="blue", marker="*",
+                   label="Global Covariance Location")
+        ax.add_patch(ee)
+        ax.add_patch(gee)
+
     def _plot_coa_trace(self, trace, x, y, st_idx, color):
+        """Plot coalescence trace"""
         if y.any():
             trace.plot(x, y / np.max(abs(y)) * self.trace_scale + (st_idx + 1),
                        color=color, linewidth=0.5, zorder=1)
@@ -637,7 +608,7 @@ class QuakePlot:
         tps = []
         tss = []
         dt_max = UTCDateTime(dt_max)
-        print(dt_max)
+
         tmp_p = self.lut.get_value_at("TIME_P", point)
         tmp_s = self.lut.get_value_at("TIME_S", point)
         for i in range(ttime_range):
@@ -646,7 +617,7 @@ class QuakePlot:
             tss.append((dt_max + tmp_s[0][i]).datetime)
 
         del tmp_p, tmp_s
-        print(tps)
+
         self.tp_arrival = trace.scatter(tps, (sidx + 1), 50, "pink",
                                         marker="v", zorder=4, linewidth=0.1,
                                         edgecolors="black")
@@ -674,20 +645,22 @@ class QuakePlot:
         xmin = min(crd_crnrs[:, 0])
         xmax = max(crd_crnrs[:, 0])
         xcells = cells[0]
+        xsize = (xmax - xmin) / xcells
         ymin = min(crd_crnrs[:, 1])
         ymax = max(crd_crnrs[:, 1])
         ycells = cells[1]
+        ysize = (ymax - ymin) / ycells
         zmin = min(crd_crnrs[:, 2])
         zmax = max(crd_crnrs[:, 2])
         zcells = cells[2]
+        zsize = (zmax - zmin) / zcells
 
         # xy_slice
-        grid1, grid2 = np.mgrid[xmin:xmax:(xmax - xmin) / xcells,
-                                ymin:ymax:(ymax - ymin) / ycells]
+        grid1, grid2 = np.mgrid[xmin:xmax + xsize:xsize,
+                                ymin:ymax + ysize:ysize]
         self.xy_plot = xy_slice.pcolormesh(grid1, grid2,
-                                           (np.tranpose(
-                                            self.map[:, :, int(loc[2]),
-                                                     int(tslice_idx - idx0)])
+                                           (self.map[:, :, int(loc[2]),
+                                            int(tslice_idx - idx0)]
                                             / self.map_max), cmap=self.cmap)
         xy_slice.set_xlim([xmin, xmax])
         xy_slice.set_ylim([ymin, ymax])
@@ -697,12 +670,11 @@ class QuakePlot:
                                          color="k")
 
         # xz_slice
-        grid1, grid2 = np.mgrid[xmin:xmax:(xmax - xmin) / xcells,
-                                zmin:zmax:(zmax - zmin) / zcells]
+        grid1, grid2 = np.mgrid[xmin:xmax + xsize:xsize,
+                                zmin:zmax + zsize:zsize]
         self.xz_plot = xz_slice.pcolormesh(grid1, grid2,
-                                           (np.tranpose(
-                                            self.map[:, int(loc[1]), :,
-                                                     int(tslice_idx - idx0)])
+                                           (self.map[:, int(loc[1]), :,
+                                            int(tslice_idx - idx0)]
                                             / self.map_max), cmap=self.cmap)
         xz_slice.set_xlim([xmin, xmax])
         xz_slice.set_ylim([zmax, zmin])
@@ -713,8 +685,8 @@ class QuakePlot:
         xz_slice.invert_yaxis()
 
         # yz_slice
-        grid1, grid2 = np.mgrid[zmin:zmax:(zmax - zmin) / zcells,
-                                ymin:ymax:(ymax - ymin) / ycells]
+        grid1, grid2 = np.mgrid[zmin:zmax + zsize:zsize,
+                                ymin:ymax + ysize:ysize]
 
         self.yz_plot = yz_slice.pcolormesh(grid1, grid2,
                                            (np.transpose(
@@ -831,7 +803,7 @@ class QuakePlot:
             print("    \tLogo not plotting")
 
     def _plot_coal(self, plot, tslice):
-        # --- Plotting the Coalescence Function ---
+        """Plot the coalescence function"""
         plot.plot(self.event["DT"], self.event["COA"], zorder=10)
         plot.set_ylabel("Coalescence value")
         plot.set_xlabel("Date-Time")

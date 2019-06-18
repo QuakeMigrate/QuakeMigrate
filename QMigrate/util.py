@@ -7,6 +7,7 @@ Module to contain various utility functions and classes
 import time
 
 import numpy as np
+from obspy import Trace
 
 
 def gaussian_1d(x, a, b, c):
@@ -81,6 +82,38 @@ def gaussian_3d(nx, ny, nz, sgm, K):
     return f
 
 
+def resample(trace, upfactor):
+    """
+    Upsample a data stream by a given factor, prior to decimation
+
+    Parameters
+    ----------
+    trace : obspy Trace object
+        Trace to be upsampled
+    upfactor : int
+        Factor by which to upsample the data in trace
+
+    Returns
+    -------
+    out : obpsy Trace object
+        Upsampled trace
+
+    """
+
+    data = trace.data
+    dnew = np.zeros(len(data) * upfactor - (upfactor - 1))
+    dnew[::upfactor] = data
+    for i in range(1, upfactor):
+        dnew[i::upfactor] = float(i) / upfactor * data[:-1] \
+                     + float(upfactor - i) / upfactor * data[1:]
+
+    out = Trace()
+    out.stats.starttime = trace.stats.starttime
+    out.stats.sampling_rate = int(upfactor * trace.stats.sampling_rate)
+
+    return out
+
+
 class Stopwatch(object):
     """
     Simple stopwatch to measure elapsed wall clock time.
@@ -108,11 +141,24 @@ class ArchiveEmptyException(Exception):
 
 class DataGapException(Exception):
     """
-    Custom exception to handle case when all data has gaps
-    for a given timestep
+    Custom exception to handle case when all data has gaps for a given timestep
 
     """
 
     def __init__(self):
         msg = "DataGapException: All available data had gaps for this timestep."
+        super().__init__(msg)
+
+
+class BadUpfactorException(Exception):
+    """
+    Custom exception to handle case when the chosen upfactor does not create a
+    trace with a sampling rate that can be decimated to the target sampling
+    rate
+
+    """
+
+    def __init__(self):
+        msg = "BadUpfactorException: chosen upfactor cannot be decimated to\n"
+        msg += "target sampling rate."
         super().__init__(msg)

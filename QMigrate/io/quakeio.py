@@ -4,7 +4,6 @@ Module to handle input/output for QuakeMigrate
 
 """
 
-import os
 import pathlib
 from datetime import datetime
 
@@ -12,12 +11,6 @@ import obspy
 from obspy import Stream, Trace, UTCDateTime
 import pandas as pd
 import numpy as np
-import matplotlib
-try:
-    os.environ["DISPLAY"]
-    matplotlib.use("Qt5Agg")
-except KeyError:
-    matplotlib.use("Agg")
 
 
 class QuakeIO:
@@ -30,8 +23,6 @@ class QuakeIO:
     ----------
     path : pathlib Path object
         Location of input/output files
-    file_sample_rate : float
-        Sample rate (units: ms)
 
     Methods
     -------
@@ -60,15 +51,12 @@ class QuakeIO:
         path = pathlib.Path(path)
         if name is None:
             name = datetime.now().strftime("RUN_%Y%m%d_%H%M%S")
-        print("Path = {}, Name = {}".format(str(path), name))
         self.path = path
         self.name = name
         self.run = path / name
 
         # Make output directories
         self._make_directories()
-
-        self.file_sample_rate = None
 
     def read_coal4D(self, fname):
         """

@@ -235,9 +235,9 @@ class MSEED(object):
                         if channel == "Z":
                             signal[2, i, :] = tr.data
 
-            else:
-                # print("Trace not continuously active during this period.")
-                continue
+        # Check to see if no traces were continuously active during this period
+        if not np.any(availability):
+            raise util.DataGapException
 
         return signal, availability
 

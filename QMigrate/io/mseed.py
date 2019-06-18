@@ -122,7 +122,7 @@ class MSEED(object):
         elif path_type == "YEAR_JD/STATION":
             self.format = "{year}_{jday}/{station}_*"
 
-    def read_mseed(self, start_time, end_time, sampling_rate):
+    def read_mseed(self, start_time, end_time, sampling_rate, upfactor=None):
         """
         Reading the required mSEED files for all stations between two times
         and return station availability of the seperate stations during this
@@ -179,7 +179,7 @@ class MSEED(object):
             # Combining the mseed and determining station availability
             st.detrend("linear")
             st.detrend("demean")
-            st = self._downsample(st, sampling_rate)
+            st = self._downsample(st, sampling_rate, upfactor)
 
             signal, availability = self._station_availability(st, samples)
         except StopIteration:
@@ -282,7 +282,7 @@ class MSEED(object):
 
         return files
 
-    def _downsample(self, stream, sr):
+    def _downsample(self, stream, sr, upfactor=None):
         """
         Downsample the MSEED to the designated sampling rate
 
@@ -303,17 +303,17 @@ class MSEED(object):
                     corners=2,
                     zerophase=True)
                 if (trace.stats.sampling_rate % sr) == 0:
-                    trace.decimate(
-                        factor=int(trace.stats.sampling_rate / sr),
-                        strict_length=False,
-                        no_filter=True)
-                elif self.resample:
-                    # trace.resample(
-                    #     sr,
-                    #     strict_length=False,
-                    #     no_filter=True)
-                    trace.interpolate(sr)
-
+                    trace.decimate(factor=int(trace.stats.sampling_rate / sr),
+                                   strict_length=False,
+                                   no_filter=True)
+                elif self.resample and upfactor is not None:
+                    # Check the upsampled sampling rate can be decimated to sr
+                    if int(trace.stats.sampling_rate * upfactor) % sr != 0:
+                        raise util.BadUpfactorException
+                    trace = util.resample(trace, upfactor)
+                    trace.decimate(factor=int(trace.stats.sampling_rate / sr),
+                                   strict_length=False,
+                                   no_filter=True)
                 else:
                     msg = "Mismatched sampling rates - cannot decimate data.\n"
                     msg += "To resample data, set .resample = True"

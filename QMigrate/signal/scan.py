@@ -179,6 +179,8 @@ class DefaultSeisScan(object):
 
         # Data sampling rate
         self.sampling_rate = 100.0
+        self.resample = False
+        self.upfactor = None
 
         # Centred onset function override
         self.onset_centred = None

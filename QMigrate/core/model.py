@@ -1509,10 +1509,9 @@ class LUT(Grid3D, NonLinLoc):
             Path to location to save pickle file
 
         """
-        np.save(filename,self.__dict__)
-        #file = open(filename, "wb")
-        #pickle.dump(self.__dict__, file, 2)
-        #file.close()
+
+        with open(filename, "wb") as f:
+            pickle.dump(self.__dict__, f, 2)
 
     def load(self, filename):
         """

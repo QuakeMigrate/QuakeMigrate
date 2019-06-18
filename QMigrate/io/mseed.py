@@ -68,6 +68,7 @@ class MSEED(object):
         self.filtered_signal = None
 
         self.resample = False
+        self.upfactor = None
 
         lut = qmod.LUT()
         lut.load(LUT)
@@ -122,7 +123,7 @@ class MSEED(object):
         elif path_type == "YEAR_JD/STATION":
             self.format = "{year}_{jday}/{station}_*"
 
-    def read_mseed(self, start_time, end_time, sampling_rate, upfactor=None):
+    def read_mseed(self, start_time, end_time, sampling_rate):
         """
         Reading the required mSEED files for all stations between two times
         and return station availability of the seperate stations during this
@@ -179,7 +180,7 @@ class MSEED(object):
             # Combining the mseed and determining station availability
             st.detrend("linear")
             st.detrend("demean")
-            st = self._downsample(st, sampling_rate, upfactor)
+            st = self._downsample(st, sampling_rate, self.upfactor)
 
             signal, availability = self._station_availability(st, samples)
         except StopIteration:
@@ -310,16 +311,52 @@ class MSEED(object):
                     # Check the upsampled sampling rate can be decimated to sr
                     if int(trace.stats.sampling_rate * upfactor) % sr != 0:
                         raise util.BadUpfactorException
-                    trace = util.resample(trace, upfactor)
+                    stream.remove(trace)
+                    trace = self._upsample(trace, upfactor)
                     trace.decimate(factor=int(trace.stats.sampling_rate / sr),
                                    strict_length=False,
                                    no_filter=True)
+                    stream += trace
                 else:
-                    msg = "Mismatched sampling rates - cannot decimate data.\n"
-                    msg += "To resample data, set .resample = True"
+                    msg = "Mismatched sampling rates - cannot decimate data - "
+                    msg += "to resample data, set .resample = True and choose"
+                    msg += " a suitable upfactor"
                     print(msg)
 
         return stream
+
+    def _upsample(self, trace, upfactor):
+        """
+        Upsample a data stream by a given factor, prior to decimation
+
+        Parameters
+        ----------
+        trace : obspy Trace object
+            Trace to be upsampled
+        upfactor : int
+            Factor by which to upsample the data in trace
+
+        Returns
+        -------
+        out : obpsy Trace object
+            Upsampled trace
+
+        """
+
+        data = trace.data
+        dnew = np.zeros(len(data) * upfactor - (upfactor - 1))
+        dnew[::upfactor] = data
+        for i in range(1, upfactor):
+            dnew[i::upfactor] = float(i) / upfactor * data[:-1] \
+                         + float(upfactor - i) / upfactor * data[1:]
+
+        out = obspy.Trace()
+        out.data = dnew
+        out.stats = trace.stats
+        out.stats.starttime = trace.stats.starttime
+        out.stats.sampling_rate = int(upfactor * trace.stats.sampling_rate)
+
+        return out
 
     @property
     def sample_size(self):

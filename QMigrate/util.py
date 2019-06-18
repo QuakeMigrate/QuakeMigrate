@@ -82,38 +82,6 @@ def gaussian_3d(nx, ny, nz, sgm, K):
     return f
 
 
-def resample(trace, upfactor):
-    """
-    Upsample a data stream by a given factor, prior to decimation
-
-    Parameters
-    ----------
-    trace : obspy Trace object
-        Trace to be upsampled
-    upfactor : int
-        Factor by which to upsample the data in trace
-
-    Returns
-    -------
-    out : obpsy Trace object
-        Upsampled trace
-
-    """
-
-    data = trace.data
-    dnew = np.zeros(len(data) * upfactor - (upfactor - 1))
-    dnew[::upfactor] = data
-    for i in range(1, upfactor):
-        dnew[i::upfactor] = float(i) / upfactor * data[:-1] \
-                     + float(upfactor - i) / upfactor * data[1:]
-
-    out = Trace()
-    out.stats.starttime = trace.stats.starttime
-    out.stats.sampling_rate = int(upfactor * trace.stats.sampling_rate)
-
-    return out
-
-
 class Stopwatch(object):
     """
     Simple stopwatch to measure elapsed wall clock time.

@@ -14,6 +14,7 @@ import os
 import skfmm
 import pyproj
 import numpy as np
+import pandas as pd
 import matplotlib
 from scipy.interpolate import RegularGridInterpolator, griddata, interp1d
 try:
@@ -1002,19 +1003,27 @@ class LUT(Grid3D, NonLinLoc):
 
     """
 
-    def __init__(self, cell_count=[51, 51, 31], cell_size=[30.0, 30.0, 30.0],
-                 azimuth=0.0, dip=0.0):
+    def __init__(self, stations=None, cell_count=[51, 51, 31],
+                 cell_size=[30.0, 30.0, 30.0], azimuth=0.0, dip=0.0):
         """
         Class initialisation method
 
         Parameters
         ----------
+        stations : pandas DataFrame, optional
+            Station information.
+            Columns (in any order): ["Latitude", "Longitude", "Elevation",
+                                     "Name"]
+
         cell_count : array-like
             Number of cells in each dimension of the grid
+
         cell_size : array-like
             Size of a cell in each dimension of the grid
+
         azimuth : float
             Angle between northing vertical plane and grid y-z plane
+
         dip : float
             Angle between horizontal plane and grid x-y plane
 
@@ -1024,7 +1033,7 @@ class LUT(Grid3D, NonLinLoc):
         NonLinLoc.__init__(self)
 
         self.velocity_model = None
-        self.station_data = None
+        self.station_data = stations
         self._maps = {}
         self.data = None
 
@@ -1056,46 +1065,6 @@ class LUT(Grid3D, NonLinLoc):
         #     out += "\n{}".format(vel)
 
         return out
-
-    def stations(self, path, units, delimiter=","):
-        """
-        Reads station information from file
-
-        Parameters
-        ----------
-        path : str
-            Location of file containing station information
-        delimiter : char, optional
-            Station file delimiter, defaults to ","
-        units : str
-
-        """
-
-        import pandas as pd
-
-        stats = pd.read_csv(path, delimiter=delimiter).values
-
-        stn_data = {}
-        if units == "offset":
-            stn_lon, stn_lat = self.xy2lonlat(stats[:, 0].astype("float")
-                                              + self.grid_centre[0],
-                                              stats[:, 1].astype("float")
-                                              + self.grid_centre[1])
-        elif units == "xyz":
-            stn_lon, stn_lat = self.xy2lonlat(stats[:, 0], stats[:, 1])
-        elif units == "lon_lat_elev":
-            stn_lon = stats[:, 0]
-            stn_lat = stats[:, 1]
-        elif units == "lat_lon_elev":
-            stn_lon = stats[:, 1]
-            stn_lat = stats[:, 0]
-
-        stn_data["Longitude"] = stn_lon
-        stn_data["Latitude"] = stn_lat
-        stn_data["Elevation"] = stats[:, 2]
-        stn_data["Name"] = stats[:, 3]
-
-        self.station_data = stn_data
 
     def station_xyz(self, station=None):
         if station is None:
@@ -1261,8 +1230,9 @@ class LUT(Grid3D, NonLinLoc):
         self.maps = {"TIME_P": p_map,
                      "TIME_S": s_map}
 
-    def compute_1d_vmodel(self, p0, p1, gridspec, vmodel, nlloc_dx=0.1,
-                          nlloc_path="", block_model=False):
+    def compute_1d_vmodel(self, p0, p1, gridspec, vmod_file, 
+                          delimiter=",", nlloc_dx=0.1, nlloc_path="",
+                          block_model=False):
         """
         Calculate 3D travel time lookup-tables from a 1D velocity model.
 
@@ -1275,23 +1245,38 @@ class LUT(Grid3D, NonLinLoc):
         ----------
         p0 : dict
             Coordinate projection information
+
         p1 : dict
             Grid projection information
+
         gridspec : array-like
             Contains lon/lat of lower-left corner, lon/lat of upper-right
             corner, min/max grid depth and grid spacing (units: m)
-        vmodel : pandas DataFrame
+
+        vmod_file : str
+            File containing the velocity model to be used to generate the LUT.
             Contains columns with names "depth", "vp" and "vs"
+            NOTE!! Exact column header names are required.
+
+        delimiter : char, optional
+            Delimiter for vmod_file: default = ","
+
         nlloc_dx : float, optional
             NLLoc 2D grid spacing (default: 0.1 km)
+
         nlloc_path : str
             Path to NonLinLoc binaries
+
         block_model : bool
             Interpret velocity model with constant velocity blocks
+
         """
 
         from subprocess import call, check_output, STDOUT
+
+        vmodel = pd.read_csv(vmod_file, delimiter=",")
         self.velocity_model = vmodel
+
         p0_x0, p0_y0, p0_z0 = gridspec[0]
         p0_x1, p0_y1, p0_z1 = gridspec[1]
         dx, dy, dz = gridspec[2]
@@ -1441,8 +1426,6 @@ class LUT(Grid3D, NonLinLoc):
             to True. Default: False
 
         """
-
-        import pandas as pd
 
         if header:
             vmod = pd.read_csv(path, delimiter=delimiter).values

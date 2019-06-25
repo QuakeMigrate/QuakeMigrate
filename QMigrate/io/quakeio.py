@@ -28,6 +28,11 @@ def stations(station_file, delimiter=","):
     delimiter : char, optional
         Station file delimiter, defaults to ","
 
+    Returns
+    -------
+    stn_data : Pandas DataFrame object
+        Columns: "Latitude", "Longitude", "Elevation", "Name"
+
     """
     # stats = pd.read_csv(path, delimiter=delimiter).values
 

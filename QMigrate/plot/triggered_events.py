@@ -1,7 +1,7 @@
 
 # -*- coding: utf-8 -*-
 """
-Module to plot the triggered events on a decimated grid
+Module to plot the triggered events on a decimated grid.
 
 """
 
@@ -21,32 +21,54 @@ def triggered_events(events, start_time, end_time, output, marginal_window,
                      detection_threshold, normalise_coalescence, data=None,
                      stations=None, savefig=False):
     """
-    Plots the data from a .scnmseed file
+    Plots the data from a .decscan file with annotations illustrating the 
+    trigger results: event triggers and marginal windows on the coalescence
+    traces, and map and cross section view of the gridded triggered earthquake
+    locations.
 
     Parameters
     ----------
-    events :
+    events : pandas DataFrame
+        Triggered events output from _trigger_scn().
+        Columns: ["EventNum", "CoaTime", "COA_V", "COA_X", "COA_Y", "COA_Z", 
+                 "MinTime", "MaxTime"]
 
     start_time : UTCDateTime
+        Start time of trigger run.
 
     end_time : UTCDateTime
+        End time of trigger run
 
-    stations :
+    output : QuakeIO class
+        QuakeIO class initialised with output path and output name
+
+    marginal_window : float
+        Estimate of time error over which to marginalise the coalescence
+
+    detection_threshold : float
+        Coalescence value above which to trigger events
+
+    normalise_coalescence : bool
+        If True, use the coalescence normalised by the average background noise
+    
+    data : pandas DataFrame
+        Data output by detect() -- decimated scan
+        Columns: ["COA", "COA_N", "X", "Y", "Z"]
+
+    stations : pandas DataFrame
+        Station information.
+        Columns (in any order): ["Latitude", "Longitude", "Elevation", "Name"]
 
     savefig : bool, optional
-        Output the plot as a file. The plot is just shown by default.
+        Output the plot as a file. The plot is shown by default, and not saved.
 
     """
 
     if data is None:
-        fname = (output.run / output.name).with_suffix(".scnmseed")
-        if fname.exists():
-            data = output.read_decscan()
-        else:
-            msg = "    Please run detect to generate a .scnmseed file."
-            print(msg)
+        data, coa_stats = output.read_decscan(start_time, end_time)
+        del coa_stats
 
-    print("\n    Plotting triggered events on decimated grid...")
+    print("\n\tPlotting triggered events on decimated grid...")
     data["DT"] = pd.to_datetime(data["DT"].astype(str))
 
     fig = plt.figure(figsize=(30, 15))
@@ -82,7 +104,8 @@ def triggered_events(events, start_time, end_time, output, marginal_window,
                              (event["MaxTime"]).datetime,
                              label=label1, alpha=0.5, color="red")
                 plot.axvline((event["CoaTime"] - marginal_window).datetime,
-                             label=label2, c="m", linestyle="--", linewidth=1.75)
+                             label=label2, c="m", linestyle="--", 
+                             linewidth=1.75)
                 plot.axvline((event["CoaTime"] + marginal_window).datetime,
                              c="m", linestyle="--", linewidth=1.75)
                 plot.axvline(event["CoaTime"].datetime, label=label3,
@@ -131,7 +154,6 @@ def triggered_events(events, start_time, end_time, output, marginal_window,
     xz.set_ylabel("Depth (m)")
 
     if stations is not None:
-        xy.scatter(stations["Longitude"], stations["Latitude"], 20,)
         xy.scatter(stations["Longitude"], stations["Latitude"], 15,
                    marker="^", color="black")
         xz.scatter(stations["Longitude"], stations["Elevation"], 15,

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Module to contain various utility functions and classes
+Module that supplies various utility functions and classes.
 
 """
 
@@ -12,7 +12,7 @@ from obspy import Trace
 
 def gaussian_1d(x, a, b, c):
     """
-    Create a 1-dimensional Gaussian function
+    Create a 1-dimensional Gaussian function.
 
     Parameters
     ----------
@@ -36,12 +36,12 @@ def gaussian_1d(x, a, b, c):
     """
 
     f = a * np.exp(-1. * ((x - b) ** 2) / (2 * (c ** 2)))
+
     return f
 
-
-def gaussian_3d(nx, ny, nz, sgm, K):
+def gaussian_3d(nx, ny, nz, sgm):
     """
-    Create a 3-dimensional Gaussian function
+    Create a 3-dimensional Gaussian function.
 
     Parameters
     ----------
@@ -78,9 +78,9 @@ def gaussian_3d(nx, ny, nz, sgm, K):
 
     f = np.exp(- (ix * ix) / (2 * sx * sx)
                - (iy * iy) / (2 * sy * sy)
-               - (iz * iz) / (2 * sz * sz)) + K
-    return f
+               - (iz * iz) / (2 * sz * sz))
 
+    return f
 
 def resample(trace, upfactor):
     """
@@ -131,6 +131,16 @@ class Stopwatch(object):
         return msg
 
 
+class StationFileHeaderException(Exception):
+    """Custom exception to handle incorrect header columns in station file"""
+
+    def __init__(self):
+        msg = "StationFileHeaderException: Station file header does not include"
+        msg += "the required columns\n"
+        msg += "\tRequired columns in header: Latitude, Longitude, Elevation, Name"
+        super().__init__(msg)
+
+
 class ArchiveEmptyException(Exception):
     """Custom exception to handle empty archive"""
 
@@ -138,6 +148,17 @@ class ArchiveEmptyException(Exception):
         msg = "ArchiveEmptyException: No data was available for this timestep."
         super().__init__(msg)
 
+
+class NoDecscanDataException(Exception):
+    """
+    Custom exception to handle case when no .decscan files can be found by
+    read_decscan()
+
+    """
+
+    def __init__(self):
+        msg = "DataGapException: No decscan data found."
+        super().__init__(msg)
 
 class DataGapException(Exception):
     """

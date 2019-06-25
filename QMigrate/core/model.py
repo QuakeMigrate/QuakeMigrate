@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Module to produce gridded traveltime velocity models
+Module to produce cartesian gridded traveltime look-up tables.
 
 """
 
@@ -84,9 +84,9 @@ def _coord_transform_np(p1, p2, loc):
 def _proj(**kwargs):
     projection = kwargs.get("projection")
     if projection == "WGS84":
-        proj = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"  # "+init=EPSG:4326"
+        proj = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
     if projection == "NAD27":
-        proj = "+proj=longlat +ellps=clrk66 +datum=NAD27 +no_defs"  # "+init=EPSG:4267"
+        proj = "+proj=longlat +ellps=clrk66 +datum=NAD27 +no_defs"
     if projection == "UTM":
         zone = _utm_zone(kwargs.get("longitude"))
         proj = "+proj=utm +zone={0:d} +datum=WGS84 +units=m +no_defs"
@@ -121,7 +121,11 @@ def _utm_zone(longitude):
 
 
 def bilinear_interp(pos, gridspec, grid):
+    """
+    Do bi-linear interpolation between 4 data points on the input 1D LUT to
+    calculate the traveltime to nodes on the 3-D grid. 
 
+    """
     if len(pos) == 2:
         x = pos[0]
         z = pos[1]
@@ -312,18 +316,26 @@ def eikonal(ix, iy, iz, dxi, dyi, dzi, V, S):
     ----------
     ix : array-like
         Number of cells in X-direction
+
     iy : array-like
         Number of cells in Y-direction
+
     iz : array-like
         Number of cells in Z-direction
+
     dxi :
         Cell length in X-direction
+
     dyi :
         Cell length in Y-direction
+
     dzi :
         Cell length in Z-direction
+
     V : array-like
-        Contains the speed of interface propagation at each point in the domain
+        Contains the speed of interface propagation at each point in the
+        domain
+
     S : array-like
         ???
 
@@ -355,10 +367,13 @@ class Grid3D(object):
     ----------
     cell_count : array-like
         Number of cells in each dimension of the grid
+
     cell_size : array-like
         Size of a cell in each dimension of the grid
+
     azimuth : float
         Angle between northing vertical plane and grid y-z plane
+
     dip : float
         Angle between horizontal plane and grid x-y plane
 
@@ -366,6 +381,7 @@ class Grid3D(object):
     -------
     lonlat_centre(longitude, latitude)
         Define the longitude and latitude of the centre of the grid
+
     nlloc_grid_centre(origin_lon, origin_lat)
         Define the centre of the grid from NonLinLoc file parameters
 
@@ -379,25 +395,35 @@ class Grid3D(object):
         ----------
         cell_count : array-like
             Number of cells in each dimension of the grid
+
         cell_size : array-like
             Size of a cell in each dimension of the grid
+
         azimuth : float
             Angle between northing vertical plane and grid y-z plane
+
         dip : float
             Angle between horizontal plane and grid x-y plane
+
         sort_order : str
             Determines whether the multi-index should be viewed as indexing in
             row-major (C-style) or column-major (Fortran-style) order.
+
         longitude : float
             Longitude coordinate of the grid centre
+
         latitude : float
             Latitude coordinate of the grid centre
+
         elevation : float
             Elevation coordinate of the top grid layer (units: m)
+
         grid_centre : array-like
             Array containing coordinates of the grid centre
+
         grid_proj : pyproj object
             Grid space projection
+
         coord_proj : pyproj object
             Coordinate space projection
 
@@ -419,6 +445,9 @@ class Grid3D(object):
         self.lcc_standard_parallels = (0.0, 0.0)
 
     def projections(self, grid_proj_type, coord_proj=None):
+        """
+
+        """
         if coord_proj and self._coord_proj is None:
             self.coord_proj = _proj(projection=coord_proj)
         elif self._coord_proj is None:
@@ -428,17 +457,19 @@ class Grid3D(object):
             self.grid_proj = _proj(projection=grid_proj_type,
                                    longitude=self.longitude)
         elif grid_proj_type == "LCC":
-            self.grid_proj = _proj(projection=grid_proj_type, lon0=self.longitude,
+            self.grid_proj = _proj(projection=grid_proj_type,
+                                   lon0=self.longitude,
                                    lat0=self.latitude,
                                    parallel_1=self.lcc_standard_parallels[0],
                                    parallel_2=self.lcc_standard_parallels[1])
         elif grid_proj_type == "TM":
-            self.grid_proj = _proj(projection=grid_proj_type, lon=self.longitude,
+            self.grid_proj = _proj(projection=grid_proj_type,
+                                   lon=self.longitude,
                                    lat=self.latitude)
         else:
             msg = "Projection type must be specified.\n"
-            msg += "SeisLoc currently supports:\n"
-            msg += "        UTM\n"
+            msg += "QuakeMigrate currently supports:\n"
+            msg += "        UTM (Universal Transverse Mercator)\n"
             msg += "        LCC (Lambert Conical Conformic)\n"
             msg += "        TM (Transverse Mercator)"
             raise Exception(msg)
@@ -451,6 +482,7 @@ class Grid3D(object):
         ----------
         longitude : float
             Geographical longitude of grid centre
+
         latitude : float
             Geographical latitude of grid centre
 
@@ -468,6 +500,7 @@ class Grid3D(object):
         ----------
         origin_lon : float
             Geographical longitude of grid origin
+
         origin_lat : float
             Geographical latitude of grid origin
 
@@ -512,7 +545,10 @@ class Grid3D(object):
 
     @property
     def cell_count(self):
-        """Get and set the number of cells in each dimension of the grid."""
+        """
+        Get and set the number of cells in each dimension of the grid.
+
+        """
 
         return self._cell_count
 
@@ -537,6 +573,10 @@ class Grid3D(object):
 
     @cell_size.setter
     def cell_size(self, value):
+        """
+        Get and set the cell size in each dimension of the grid.
+
+        """
         value = np.array(value, dtype="float64")
         if value.size == 1:
             value = np.repeat(value, 3)
@@ -547,7 +587,10 @@ class Grid3D(object):
 
     @property
     def longitude(self):
-        """Get and set the longitude of the grid centre"""
+        """
+        Longitude of the grid centre.
+
+        """
 
         return self._longitude
 
@@ -939,8 +982,6 @@ class LUT(Grid3D, NonLinLoc):
 
     Methods
     -------
-    stations(path, units, delimiter=",")
-        Read in station files
     station_xyz(station=None)
         Returns the xyz position of a specific station relative to the origin
         (default returns all locations)
@@ -1198,6 +1239,7 @@ class LUT(Grid3D, NonLinLoc):
         ----------
         vp : float
             P-wave velocity (units: km / s)
+
         vs : float
             S-wave velocity (units: km / s)
 
@@ -1380,19 +1422,23 @@ class LUT(Grid3D, NonLinLoc):
 
         call(["rm", "-rf", "control.in", "time", "model"])
 
-    def compute_1d_vmodel_skfmm(self, path, header=False, delimiter=","):
+    def compute_1d_vmodel_skfmm(self, vmod_file, header=False, delimiter=","):
         """
         Calculate the travel-time tables for each station in a velocity model
         that varies with depth
 
         Parameters
         ----------
-        z : array-like
-            Depth of each layer in model (units: km)
-        vp : array-like
-            P-wave velocity for each layer in model (units: km / s)
-        vs : array-like
-            S-wave velocity for each layer in model (units: km / s)
+        vmod_file : str
+            File containing the velocity model to be used to generate the LUT.
+            Columns: ["Z", "Vp", "Vs"]
+                Z : Depth of each layer in model (positive up; units: metres)
+                Vp : P-wave velocity for each layer in model (units: km / s)
+                Vs : S-wave velocity for each layer in model (units: km / s)
+
+        header : bool, optional
+            Does the vmod_file supplied have a header line? If so set header
+            to True. Default: False
 
         """
 
@@ -1444,7 +1490,7 @@ class LUT(Grid3D, NonLinLoc):
         """
         raise NotImplementedError
 
-    def read_3d_nlloc_lut(self, path, regrid=False, decimate=[1, 1, 1]):
+    def read_3d_nlloc_lut(self, path, regrid=True, decimate=[1, 1, 1]):
         """
         Calculate the travel-time tables for each station in a velocity model
         that varies over all dimensions.
@@ -1455,6 +1501,10 @@ class LUT(Grid3D, NonLinLoc):
         ----------
         path : str
             Location of .buf and .hdr files
+
+        regrid : bool, optional
+            Currently this has to be set to True for this function to work.
+            *** TO BE FIXED ***
 
         Raises
         ------

@@ -71,11 +71,11 @@ class QuakeIO:
     write_coal4D()
         Write 4D coalescence map to binary numpy file
 
-    read_decscan()
-        Read an existing .decscan file
+    read_coastream()
+        Read an existing .scanmseed file
 
-    write_decscan()
-        Write a new .decscan file
+    write_coastream()
+        Write a new .scanmseed file
 
     write_log()
         Track progress of run and write to log file
@@ -174,18 +174,18 @@ class QuakeIO:
 
         np.save(str(fname), map_4d)
 
-    def read_decscan(self, start_time, end_time):
+    def read_coastream(self, start_time, end_time):
         """
-        Read decscan data from .decscan files between two time stamps. Files
+        Read coastream data from .scanmseed files between two time stamps. Files
         are labelled by year and julian day.
 
         Parameters
         ----------
         start_time : UTCDateTime object
-            start time to read decscan from
+            start time to read coastream from
 
         end_time : UTCDateTime obbject
-            end time to read decscan to
+            end time to read coastream to
 
         Returns
         -------
@@ -200,16 +200,16 @@ class QuakeIO:
 
         """
 
-        dy = 0
-        files = []
         start_day = UTCDateTime(start_time.date)
 
+        dy = 0
+        files = []
         coa = Stream()        
-        # Loop through days trying to read decscan files
-        while start_day + (dy *86400) <= end_time:
+        # Loop through days trying to read coastream files
+        while start_day + (dy * 86400) <= end_time:
             now = start_time + (dy * 86400)
             nowstr = "_{}_{}".format(now.year, now.julday.zfill(3))
-            fname = (self.run / self.name + nowstr).with_suffix(".decscan")
+            fname = (self.run / self.name + nowstr).with_suffix(".scanmseed")
             try:
                 coa += read(str(fname), starttime=start_time,
                                   endtime=end_time, format="MSEED")
@@ -221,9 +221,13 @@ class QuakeIO:
             dy += 1
 
         if not bool(coa):
-            raise util.NoDecscanDataException
+            raise util.NoScanMseedDataException
 
         coa_stats = coa.select(station="COA")[0].stats
+
+        msg = "\t\tSuccessfully read .scanmseed data from {} - {}\n"
+        msg = msg.format(str(start_time), str(end_time))
+        print(msg)
 
         data = pd.DataFrame()
 
@@ -233,7 +237,7 @@ class QuakeIO:
                                td)
 
         # assign to DataFrame column and divide by factor applied in 
-        # write_decscan()
+        # write_coastream()
         data["COA"] = coa.select(station="COA")[0].data / 1e5
         data["COA_N"] = coa.select(station="COA_N")[0].data / 1e5
         data["X"] = coa.select(station="X")[0].data / 1e6
@@ -242,13 +246,13 @@ class QuakeIO:
 
         return data, coa_stats
 
-    def write_decscan(self, st, write_start=None, write_end=None):
+    def write_coastream(self, st, write_start=None, write_end=None):
         """
-        Write a new .decscan file from an obspy Stream object containing the
+        Write a new .scanmseed file from an obspy Stream object containing the
         data output from detect(). Note: values have been multiplied by a
         power of ten, rounded and converted to an int32 array so the data can
         be saved as mSEED with STEIM2 compression. This multiplication factor
-        is removed when the data is read back in with read_decscan().
+        is removed when the data is read back in with read_coastream().
 
         Files are labelled by year and julian day, and split by julian day
         (this behaviour is determined in signal/scan.py).
@@ -260,20 +264,19 @@ class QuakeIO:
             channels: ["COA", "COA_N", "X", "Y", "Z"]
 
         write_start : UTCDateTime object, optional
-            Time from which to write the decscan stream to a file
+            Time from which to write the coastream stream to a file
 
         write_end : UTCDateTime object, optional
-            Time upto which to write the decscan stream to a file
+            Time upto which to write the coastream stream to a file
 
         """
 
         if write_start or write_end:
-            st = st.trim(starttime=write_start,
-                         endtime=(write_end - 1 / st[0].stats.sampling_rate))
+            st = st.trim(starttime=write_start, endtime=write_end)
         
         daystr = "_{}_{}".format(st.stats.starttime.year,
                                  st.stats.starttime.julday.zfill(3))      
-        fname = (self.run / self.name + day_str).with_suffix(".decscan")
+        fname = (self.run / self.name + day_str).with_suffix(".scanmseed")
 
         st.write(str(fname), format="MSEED", encoding="STEIM2")
 
@@ -333,16 +336,31 @@ class QuakeIO:
             data to        
 
         """
-
-        otime = UTCDateTime(event["COA"])
         
         st = data.raw_waveforms
-        st.trim(starttime=otime-pre_cut, endtime=otime+post_cut)
+
+        otime = UTCDateTime(event["COA"])
+        if pre_cut:
+            st.trim(starttime=otime - pre_cut)
+        if post_cut:
+            st.trim(endtime=otime + post_cut)
 
         subdir = "cut_waveforms"
         util._make_directories(self.run, subdir=subdir)
         fname = self.run / subdir / "{}".format(event_name)
-        fname = str(fname.with_suffix(".m"))
+
+        if format is "MSEED":
+            suffix = ".m"
+        elif format is "SAC":
+            suffix = ".sac"
+        elif format is "SEGY":
+            suffix = ".segy"
+        elif format is "GSE2":
+            suffix = ".gse2"
+        else:
+            suffix = ".waveforms"
+
+        fname = str(fname.with_suffix(suffix))
         st.write(str(fname), format=format) #, encoding="STEIM1")
 
     def write_picks(self, stations, event_name):

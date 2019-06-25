@@ -64,7 +64,7 @@ class Trigger:
             Minimum time interval between triggers
 
         pad : float, optional
-            Trigger will attempt to read in decscan data from start_time - pad
+            Trigger will attempt to read in coastream data from start_time - pad
             to end_time + pad. Events will only be triggered if the origin time
             occurs within the trigger window. Default = 120 seconds
 
@@ -154,8 +154,8 @@ class Trigger:
         print("\tReading in decimated scan mSEED...")
         read_start = self.start_time - self.pad
         read_end = self.end_time + self.pad
-        self.coa_data, coa_stats = self.output.read_decscan(read_start,
-                                                            read_end)
+        self.coa_data, coa_stats = self.output.read_coastream(read_start,
+                                                              read_end)
         print("\tDecimated scan mSEED read complete.")
         
         self.sampling_rate = coa_stats.sampling_rate

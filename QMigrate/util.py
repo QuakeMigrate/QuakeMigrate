@@ -149,15 +149,15 @@ class ArchiveEmptyException(Exception):
         super().__init__(msg)
 
 
-class NoDecscanDataException(Exception):
+class NoScanMseedDataException(Exception):
     """
-    Custom exception to handle case when no .decscan files can be found by
-    read_decscan()
+    Custom exception to handle case when no .scanmseed files can be found by
+    read_coastream()
 
     """
 
     def __init__(self):
-        msg = "DataGapException: No decscan data found."
+        msg = "DataGapException: No .scanmseed data found."
         super().__init__(msg)
 
 class DataGapException(Exception):

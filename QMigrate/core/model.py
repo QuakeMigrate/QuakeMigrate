@@ -122,7 +122,7 @@ def _utm_zone(longitude):
 
 def bilinear_interp(pos, gridspec, grid):
     """
-    Do bi-linear interpolation between 4 data points on the input 1D LUT to
+    Do bi-linear interpolation between 4 data points on the input 2-D LUT to
     calculate the traveltime to nodes on the 3-D grid. 
 
     """

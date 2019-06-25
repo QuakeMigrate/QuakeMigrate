@@ -184,9 +184,9 @@ class Archive(object):
         self.start_time = start_time
         self.end_time = end_time
         
-        if not pre_cut:
+        if pre_pad is None:
             pre_pad = 0.
-        if not post_cut:
+        if post_pad is None:
             post_pad = 0.
 
         samples = int(round((end_time - start_time) * sampling_rate + 1))
@@ -337,7 +337,8 @@ class Archive(object):
             # for stat in self.stations.tolist():
             file_format = self.format.format(year=now.year,
                                              month=now.month,
-                                             jday=str(now.julday).zfill(3))
+                                             jday=str(now.julday).zfill(3),
+                                             station="*")
                                              # station=stat)
             files = chain(files, self.archive_path.glob(file_format))
 

@@ -21,7 +21,7 @@ def triggered_events(events, start_time, end_time, output, marginal_window,
                      detection_threshold, normalise_coalescence, data=None,
                      stations=None, savefig=False):
     """
-    Plots the data from a .decscan file with annotations illustrating the 
+    Plots the data from a .scanmseed file with annotations illustrating the 
     trigger results: event triggers and marginal windows on the coalescence
     traces, and map and cross section view of the gridded triggered earthquake
     locations.
@@ -65,7 +65,7 @@ def triggered_events(events, start_time, end_time, output, marginal_window,
     """
 
     if data is None:
-        data, coa_stats = output.read_decscan(start_time, end_time)
+        data, coa_stats = output.read_coastream(start_time, end_time)
         del coa_stats
 
     print("\n\tPlotting triggered events on decimated grid...")

@@ -270,10 +270,10 @@ class DefaultQuakeScan(object):
         n_cores : int
             Number of cores to use on the executing host for detect() /locate()
 
-        continuous_decscan_write : bool
-            Option to continuously write the decscan file outputted by detect()
-            at the end of every time step. Default behaviour is to write at the
-            end of the time period, or the end of each day.
+        continuous_scanmseed_write : bool
+            Option to continuously write the .scanmseed file outputted by
+            detect() at the end of every time step. Default behaviour is to
+            write at the end of the time period, or the end of each day.
 
         plot_event_summary : bool, optional
             Plot event summary figure - see QMigrate.plot.quakeplot for more
@@ -352,8 +352,8 @@ class DefaultQuakeScan(object):
         # Number of cores to perform detect/locate on
         self.n_cores = 1
 
-        # Toggle whether to incrementally write .decscan in detect()
-        self.continuous_write = False
+        # Toggle whether to incrementally write .scanmseed in detect()
+        self.continuous_scanmseed_write = False
 
         # Plotting toggles
         self.plot_event_summary = True
@@ -383,15 +383,15 @@ class QuakeScan(DefaultQuakeScan):
     detect(start_time, end_time, log=False)
         Core detection method -- compute decimated 3-D coalescence continuously
                                  throughout entire time period; output as 
-                                 .decscan (in mSEED format).
+                                 .scanmseed (in mSEED format).
 
     locate(start_time, end_time, log=False)
         Core locate method -- compute 3-D coalescence over short time window
                               around candidate earthquake triggered from 
-                              decscan; output location & uncertainties (.event
-                              file), phase picks (.picks file), plus multiple 
-                              optional plots / data for further analysis and
-                              processing. 
+                              coastream; output location & uncertainties
+                              (.event file), phase picks (.picks file), plus
+                              multiple optional plots / data for further
+                              analysis and processing. 
 
     """
 
@@ -621,19 +621,18 @@ class QuakeScan(DefaultQuakeScan):
 
         self._locate_events(start_time, end_time)
 
-    def _append_decscan(self, original_dataset, daten, max_coa, max_coa_norm, 
-                        loc):
+    def _append_coastream(self, coastream, daten, max_coa, max_coa_norm, loc):
         """
         Append latest timestep of detect() output to obspy.Stream() object.
         Multiply by factor of ["1e5", "1e5", "1e6", "1e6", "1e3"] respectively
         for channels ["COA", "COA_N", "X", "Y", "Z"], round and convert to
-        int32 as this dramatically reduces memory usage, and allows the decscan
-        data to be saved in mSEED format with STEIM2 compression. The
-        multiplication factor is removed when the data is read back in.
+        int32 as this dramatically reduces memory usage, and allows the
+        coastream data to be saved in mSEED format with STEIM2 compression.
+        The multiplication factor is removed when the data is read back in.
 
         Parameters
         ----------
-        original_dataset : obspy Stream object
+        coastream : obspy Stream object
             Data output by detect() so far
             channels: ["COA", "COA_N", "X", "Y", "Z"]
             NOTE these values have been multiplied by a factor and converted to
@@ -653,7 +652,7 @@ class QuakeScan(DefaultQuakeScan):
 
         Returns
         -------
-        original_dataset : obspy Stream object
+        coastream : obspy Stream object
             Data output by detect() so far with most recent timestep appended
             channels: ["COA", "COA_N", "X", "Y", "Z"]
             NOTE these values have been multiplied by a factor and converted to
@@ -683,24 +682,25 @@ class QuakeScan(DefaultQuakeScan):
         st += Stream(Trace(data=round(loc[:, 2] * 1e3).astype(np.int32),
                            header={**{"station": "Z"}, **meta}))
 
-        if original_dataset is not None:
-            original_dataset = original_dataset + st
+        if coastream is not None:
+            coastream = coastream + st
         else:
-            original_dataset = st
+            coastream = st
 
         # Have we moved to the next day? If so write out the file and empty
-        # original_dataset
-        if original_dataset.stats.starttime.julday != \
-            original_dataset.stats.endtime.julday:
-            write_start = original_dataset.stats.starttime
-            write_end = UTCDateTime(original_dataset.stats.endtime.date)
+        # coastream
+        if coastream.stats.starttime.julday != coastream.stats.endtime.julday:
+            write_start = coastream.stats.starttime
+            write_end = UTCDateTime(coastream.stats.endtime.date)
+                        - 1 / coastream[0].stats.sampling_rate
 
-            self.output.write_decscan(original_dataset, write_start, write_end)
+            self.output.write_coastream(coastream, write_start, write_end)
             written = True
 
-            original_dataset = original_dataset.trim(starttime=write_end)
+            coastream = coastream.trim(starttime=write_end
+                                       + 1 / coastream[0].stats.sampling_rate)
 
-        return original_dataset, written
+        return coastream, written
 
     def _continuous_compute(self, start_time, end_time):
         """
@@ -717,7 +717,7 @@ class QuakeScan(DefaultQuakeScan):
 
         """
 
-        decscan = None
+        coastream = None
 
         t_length = self.pre_pad + self.post_pad + self.time_step
         self.pre_pad += np.ceil(t_length * 0.06)
@@ -769,23 +769,23 @@ class QuakeScan(DefaultQuakeScan):
 
             # Append upto sample-before-last (so if end_time is 
             # 2014-08-24T00:00:00, your last sample will be 2014-08-23T23:59:59)
-            decscan, written = self._append_decscan(decscan,
-                                                    daten[:-1],
-                                                    max_coa[:-1],
-                                                    max_coa_norm[:-1],
-                                                    coord[:-1, :],
-                                                    self.sampling_rate)
+            coastream, written = self._append_coastream(coastream,
+                                                        daten[:-1],
+                                                        max_coa[:-1],
+                                                        max_coa_norm[:-1],
+                                                        coord[:-1, :],
+                                                        self.sampling_rate)
             
             del daten, max_coa, max_coa_norm, coord
 
-            if self.continuous_write and not written:
-                self.output.write_decscan(decscan)
+            if self.continuous_scanmseed_write and not written:
+                self.output.write_coastream(coastream)
                 written = True
 
         if not written:
-            self.output.write_decscan(decscan)
+            self.output.write_coastream(coastream)
 
-        del decscan
+        del coastream
 
         print("=" * 120)
 
@@ -943,8 +943,8 @@ class QuakeScan(DefaultQuakeScan):
         Returns
         -------
         daten, max_coa, max_coa_norm, coord : array-like
-            Empty arrays with the correct shape to write to .scnmseed as if
-            they were decscan outputs from _compute() 
+            Empty arrays with the correct shape to write to .scanmseed as if
+            they were coastream outputs from _compute() 
 
         """
 
@@ -958,7 +958,7 @@ class QuakeScan(DefaultQuakeScan):
             if pre_pad < 0:
                 msg = "\t\tWarning: specified pre_cut {} is shorter than"
                 msg += "default pre_pad\n"
-                msg ++ "\t\t\tCutting from pre_pad = {}"
+                msg += "\t\t\tCutting from pre_pad = {}"
                 msg = msg.format(self.pre_cut, self.pre_pad)
                 if self.log:
                     self.output.write_log(msg)
@@ -974,7 +974,7 @@ class QuakeScan(DefaultQuakeScan):
             if post_pad < 0:
                 msg = "\t\tWarning: specified post_cut {} is shorter than"
                 msg += "default post_pad\n"
-                msg ++ "\t\t\tCutting to post_pad = {}"
+                msg += "\t\t\tCutting to post_pad = {}"
                 msg = msg.format(self.post_cut, self.post_pad)
                 if self.log:
                     self.output.write_log(msg)
@@ -1978,7 +1978,7 @@ class QuakeScan(DefaultQuakeScan):
 
     def _empty(self, w_beg, w_end):
         """
-        Create an empty set of arrays to write to .scnmseed ; used where there
+        Create an empty set of arrays to write to .scanmseed ; used where there
         is no data available to run _compute() .
 
         Parameters
@@ -1992,8 +1992,8 @@ class QuakeScan(DefaultQuakeScan):
         Returns
         -------
         daten, max_coa, max_coa_norm, coord : array-like
-            Empty arrays with the correct shape to write to .scnmseed as if
-            they were decscan outputs from _compute() 
+            Empty arrays with the correct shape to write to .scanmseed as if
+            they were coastream outputs from _compute() 
 
         """
 

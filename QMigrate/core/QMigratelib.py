@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-This module requires that 'numpy' is installed in your Python environment.
-
-This module acts as a wrapper for the C-compiled functions that make up the
-core of the QuakeMigrate package.
+Module acting as a wrapper for the C-compiled functions that make up the core
+of the QuakeMigrate package.
 
 """
 
@@ -38,45 +36,60 @@ _qmigratelib.scan4d.argtypes = [c_dPt, c_i32Pt, c_dPt, c_int32, c_int32,
                                 c_int32, c_int32, c_int64, c_int64]
 
 
-def scan(sig, tt, fsmp, lsmp, nsamp, map4d, threads):
+def migrate(sig, tt, fsmp, lsmp, nsamp, map4d, threads):
     """
-    Wrapper for the C-compiled scan4d function
+    Wrapper for the C-compiled scan4d function: computes 4-D coalescence map
+    by back-migrating P and S onset functions.
+
+    Returns output by populating map4d.
 
     Parameters
     ----------
-    sig : 
+    sig : array-like
+        P and S onset functions
 
-    tt : 
+    tt : array-like
+        P and S travel-time lookup-tables
 
     fsmp : int
         First sample in array to scan from
+
     lsmp : int
-        Last sample in array to scan to
+        Last sample in array to scan upto
+
     nsamp : int
         Number of samples in array to scan over
-    map4d : 
+
+    map4d : array-like
+        Empty array with shape of 4-D coalescence map that will be output
 
     threads : int
         Number of threads to perform the scan on
+
     Raises
     ------
     ValueError
-        If there is a mismatch between number of stations for data and look-up
+        If there is a mismatch between number of stations in sig and look-up
         table
+
     ValueError
         If the 4-D array is too small
+
     ValueError
-        If the data array is smaller than the coalescence array
+        If the sig array is smaller than map4d[0, 0, 0, :]
 
     """
 
     nstn, ssmp = sig.shape
+
     if not tt.shape[-1] == nstn:
         msg = "Mismatch between number of stations for data and LUT, {} - {}"
         msg = msg.format(nstn, tt.shape[-1])
         raise ValueError(msg)
+
     ncell = tt.shape[:-1]
     tcell = np.prod(ncell)
+
     if map4d.size < nsamp*tcell:
         msg = "4D-array is too small."
         raise ValueError(msg)
@@ -94,24 +107,31 @@ _qmigratelib.detect4d.argtypes = [c_dPt, c_dPt, c_i64Pt, c_int32,
                                   c_int32, c_int32, c_int64, c_int64]
 
 
-def detect(mmap, dsnr, dind, fsmp, lsmp, threads):
+def find_max_coa(map4d, max_coa, grid_index, fsmp, lsmp, threads):
     """
-    Wrapper for the C-compiled detect4d function
+    Wrapper for the C-compiled detect4d function: finds the maximum
+    coalescence value in the 4-D coalesence grid at each time-step.
+
+    Returns output by populating max_coa and grid_index.
 
     Parameters
     ----------
-    mmap : 
+    map4d : array-like
+        4-D coalescence map
 
-    dsnr : 
+    max_coa : array-like, double
+        empty array with shape of max coa values that will be output
 
-    dind : 
+    grid_index : 
 
-    fsmp : 
+    fsmp : int
+        First sample in array to scan from
 
-    lsmp : 
+    lsmp : int
+        Last sample in array to scan upto
 
-    threads :
-
+    threads : int
+        Number of threads to perform the scan on
 
     Raises
     ------
@@ -120,11 +140,14 @@ def detect(mmap, dsnr, dind, fsmp, lsmp, threads):
 
     """
 
-    nsamp = mmap.shape[-1]
-    ncell = np.prod(mmap.shape[:-1])
-    if dsnr.size < nsamp or dind.size < nsamp:
+    nsamp = map4d.shape[-1]
+    ncell = np.prod(map4d.shape[:-1])
+
+    if max_coa.size < nsamp or grid_index.size < nsamp:
         msg = "Output array size too small, sample count = {}."
         msg = msg.format(nsamp)
         raise ValueError(msg)
-    _qmigratelib.detect4d(mmap, dsnr, dind, c_int32(fsmp), c_int32(lsmp),
-                          c_int32(nsamp), c_int64(ncell), c_int64(threads))
+
+    _qmigratelib.detect4d(map4d, max_coa, grid_index, c_int32(fsmp),
+                          c_int32(lsmp), c_int32(nsamp), c_int64(ncell),
+                          c_int64(threads))

@@ -1,67 +1,89 @@
 # -*- coding: utf-8 -*-
 """
-Module for processing mSEED files.
-
-Provides information on station in a given archive.
+Module for processing waveform files stored in a data archive.
 
 """
 
 import pathlib
 from itertools import chain
 
-import obspy
+from obspy import read, Stream, UTCDateTime
 import numpy as np
 
 import QMigrate.core.model as qmod
 import QMigrate.util as util
+import QMigrate.io.quakeio as qio
 
 
-class MSEED(object):
+class Archive(object):
     """
-    mSEED object
+    Archive object
 
-    Reads data from archive, performs some clean-up and removes any gappy
+    Reads data all available data from archive between specified times. Selects
+    data for requested stations to perform some clean-up and remove any gappy
     recordings.
 
     Attributes
     ----------
-    MSEED_path : pathlib Path object
-        Location of raw mSEED files
+    archive_path : pathlib Path object
+        Location of seismic data archive: e.g.: ./DATA_ARCHIVE
+
     format : str
         File naming format of data archive
-    signal :
 
-    filtered_signal :
+    raw_waveforms : obspy Stream object
+        All raw seismic data found and read in from the archive in the 
+        specified time period 
+    
+    signal : array-like
+        Processed 3-component seismic data at the desired sampling rate only
+        for desired stations with continuous data on all 3 components 
+        throughout the desired time period and where the data could be 
+        successfully resampled to the desired sampling rate
+
+    filtered_signal : array-like
+        Filtered data originally from signal
+
+    resample : bool, optional
+        If true, perform resampling of data which cannot be decimated directly
+        to the desired sampling rate.
 
     stations : pandas Series object
         Series object containing station names
-    st : obspy Stream object
-        List like object containing available traces for given stations
-    resample : bool, optional
 
     Methods
     -------
     path_structure(path_type="YEAR/JD/STATION")
         Set the file naming format of the data archive
-    read_mseed(start_time, end_time, sampling_rate)
-        Read in mSEED data between two times
+
+    read_waveform_data(start_time, end_time, sampling_rate)
+        Read in all waveform data between two times, downsample / resample if
+        required to reach desired sampling rate. Return all raw data as an
+        obspy Stream object and processed data for specified stations as an
+        array for use by QuakeScan. 
 
     """
 
-    def __init__(self, LUT, HOST_PATH):
+    def __init__(self, station_file, delimiter=",", archive_path):
         """
-        MSEED object initialisation
+        Archive object initialisation.
 
         Parameters
         ----------
-        LUT : array-like
-            Lookup table object (only used for station names)
-        HOST_PATH : str
-            Location of raw mSEED files
+        station_file : str
+            File path to QMigrate station file: list of stations selected
+            for QuakeMigrate run. Station file must contain header with
+            columns: ["Latitude", "Longitude", "Elevation", "Name"]
+
+        delimiter : char, optional
+            QMigrate station file delimiter; defaults to ","
+            
+        archive_path : str
+            Location of seismic data archive: e.g.: "./DATA_ARCHIVE"
 
         """
 
-        self.MSEED_path = pathlib.Path(HOST_PATH)
+        self.archive_path = pathlib.Path(archive_path)
 
         self.format = None
         self.signal = None
@@ -69,15 +91,12 @@ class MSEED(object):
 
         self.resample = False
 
-        lut = qmod.LUT()
-        lut.load(LUT)
-        self.stations = lut.station_data["Name"]
-        del lut
+        self.stations = qio.stations(station_file, delimiter=delimiter)["Name"]
         self.st = None
 
     def __str__(self):
         """
-        Return short summary string of the mSEED object
+        Return short summary string of the Archive object.
 
         It will provide information about the archive location and structure,
         data sampling rate and time period over which the archive is being
@@ -85,8 +104,8 @@ class MSEED(object):
 
         """
 
-        out = "QuakeMigrate mSEED object"
-        out += "\n\tHost path\t:\t{}".format(self.MSEED_path)
+        out = "QuakeMigrate Archive object"
+        out += "\n\tArchive path\t:\t{}".format(self.archive_path)
         out += "\n\tPath structure\t:\t{}".format(self.format)
         out += "\n\tResampling\t:\t{}".format(self.resample)
         # out += "\n\tSampling rate\t:\t{}".format(self.sampling_rate)
@@ -98,71 +117,108 @@ class MSEED(object):
 
         return out
 
-    def path_structure(self, path_type="YEAR/JD/STATION"):
+    def path_structure(self, archive_format="YEAR/JD/STATION"):
         """
-        Define the format of the data archive
+        Define the format of the data archive.
 
         Parameters
         ----------
-        path_type : str, optional
+        archive_format : str, optional
             Sets path type for different archive formats
 
         """
 
-        if path_type == "SeisComp3":
+        if archive_format == "SeisComp3":
             self.format = "{year}/*/{station}/*/*.{station}..*.D.{year}.{jday}"
-        elif path_type == "YEAR/JD/*_STATION":
+        elif archive_format == "YEAR/JD/*_STATION_*":
             self.format = "{year}/{jday}/*_{station}_*"
-        elif path_type == "YEAR/JD/STATION":
+        elif archive_format == "YEAR/JD/STATION":
             self.format = "{year}/{jday}/{station}*"
-        elif path_type == "STATION.YEAR.JULIANDAY":
+        elif archive_format == "STATION.YEAR.JULIANDAY":
             self.format = "*{station}.*.{year}.{jday}"
-        elif path_type == "/STATION/STATION.YearMonthDay":
+        elif archive_format == "/STATION/STATION.YearMonthDay":
             self.format = "{station}/{station}.{year}{month:02d}{day:02d}"
-        elif path_type == "YEAR_JD/STATION":
+        elif archive_format == "YEAR_JD/STATION*":
+            self.format = "{year}_{jday}/{station}*"
+        elif archive_format == "YEAR_JD/STATION_*":
             self.format = "{year}_{jday}/{station}_*"
 
-    def read_mseed(self, start_time, end_time, sampling_rate):
+    def read_waveform_data(self, start_time, end_time, sampling_rate
+                           pre_pad=None, post_pad=None):
         """
-        Reading the required mSEED files for all stations between two times
-        and return station availability of the seperate stations during this
-        period
+        Read in the waveform data for all stations in the archive between two 
+        times and return station availability of the stations specified in the
+        station file during this period. Downsample / resample (optional) this
+        data if required to reach desired sampling rate. 
+
+        Output both processed data for stations in station file and all raw
+        data in an obspy Stream object.
+
+        Supports all formats currently supported by obspy, including: "MSEED"
+        (default), "SAC", "SEGY", "GSE2" .
 
         Parameters
         ----------
         start_time : UTCDateTime object
-            Start datetime to read mSEED
+            Start datetime to read waveform data
+
         end_time : UTCDateTime object
-            End datetime to read mSEED
+            End datetime to read waveform data
+
         sampling_rate : int
             Sampling rate in hertz
+
+        pre_pad : float, optional
+            Additional pre pad of data to cut based on user-defined pre_cut
+            parameter. Defaults to none: pre_pad calculated in QuakeScan will
+            be used (included in start_time).
+
+        post_pad : float, optional
+            Additional post pad of data to cut based on user-defined post_cut
+            parameter. Defaults to none: post_pad calculated in QuakeScan will
+            be used (included in end_time).
 
         """
 
         self.sampling_rate = sampling_rate
         self.start_time = start_time
         self.end_time = end_time
+        
+        if not pre_cut:
+            pre_pad = 0.
+        if not post_cut:
+            post_pad = 0.
 
         samples = int(round((end_time - start_time) * sampling_rate + 1))
         files = self._load_from_path(start_time, end_time)
 
-        st = obspy.Stream()
+        st = Stream()
         try:
             first = next(files)
             files = chain([first], files)
             for file in files:
                 file = str(file)
                 try:
-                    st += obspy.read(file, starttime=start_time,
-                                     endtime=end_time)
+                    st += read(file, starttime=start_time-pre_pad,
+                          endtime=end_time+post_pad)
                 except TypeError:
-                    msg = "Station file not mSEED - {}"
+                    msg = "File not compatible with obspy - {}"
                     print(msg.format(file))
                     continue
 
-            # Remove all stations with data gaps greater than
-            # 10.0 milliseconds
+            # Remove all stations with data gaps
             st.merge(method=-1)
+
+            # Make copy of raw waveforms to output if requested, delete st
+            st_raw = st.copy()
+            st = Stream()
+
+            # re-populate st with only stations in station file, and only
+            # data between start and end time needed for QuakeScan
+            for stn in self.stations.tolist():
+                st += st_raw.select(station=stn).trim(starttime=start_time,
+                                                      endtime=end_time)
+
             gaps = st.get_gaps()
             if gaps:
                 stations = np.unique(np.array(gaps)[:, 1]).tolist()
@@ -176,16 +232,18 @@ class MSEED(object):
             if not bool(st):
                 raise util.DataGapException
 
-            # Combining the mseed and determining station availability
+            # Detrend and downsample / resample stream if required
             st.detrend("linear")
             st.detrend("demean")
             st = self._downsample(st, sampling_rate)
 
+            # Combining the data and determining station availability
             signal, availability = self._station_availability(st, samples)
+
         except StopIteration:
             raise util.ArchiveEmptyException
 
-        self.st = st
+        self.raw_waveforms = st_raw
         self.signal = signal
         self.filtered_signal = np.empty((self.signal.shape))
         self.filtered_signal[:] = np.nan
@@ -193,18 +251,22 @@ class MSEED(object):
 
     def _station_availability(self, stream, samples):
         """
-        Determine whether data exist between two times for a given receiver
+        Determine whether continuous data exists between two times for a given
+        station.
 
         Parameters
         ----------
         stream : obspy Stream object
-            Stream containing 3-component trace data for stations
+            Stream containing 3-component data for stations in station file
+
         samples : int
             Number of samples expected in the signal
 
         Returns
         -------
         signal : array-like
+            3-component seismic data only for stations with continuous data
+            on all 3 components throughout the desired time period 
 
         availability : array-like
             Array containing 0s (no data) or 1s (data)
@@ -243,40 +305,41 @@ class MSEED(object):
 
     def _load_from_path(self, start_time, end_time):
         """
-        Retrieves available files between two times
+        Retrieves available files between two times.
 
         Parameters
         ----------
         start_time : UTCDateTime object
-            Start datetime to read mSEED
+            Start datetime to read waveform data
+
         end_time : UTCDateTime object
-            End datetime to read mSEED
+            End datetime to read waveform data
 
         Returns
         -------
         files : generator
-            Iterator object of available mSEED files
+            Iterator object of available waveform data files
 
         """
 
         if self.format is None:
-            print("Specify the path structure using MSEED.path_structure")
+            print("Specify the archive structure using Archive.path_structure")
             return
 
         dy = 0
         files = []
-        start_day = obspy.UTCDateTime(
-            "{}-{}T00:00:00.0".format(start_time.year,
-                                      str(start_time.julday).zfill(3)))
+        start_day = UTCDateTime("{}-{}T00:00:00.0".format(start_time.year,
+                                                          str(start_time.julday).zfill(3)))
+        # Loop through time period by day adding files to list
+        # NOTE! This assumes the archive structure is split into days.
         while start_day + (dy * 86400) <= end_time:
             now = start_time + (dy * 86400)
-            for stat in self.stations.tolist():
-                file_format = self.format.format(
-                    year=now.year,
-                    month=now.month,
-                    jday=str(now.julday).zfill(3),
-                    station=stat)
-                files = chain(files, self.MSEED_path.glob(file_format))
+            # for stat in self.stations.tolist():
+            file_format = self.format.format(year=now.year,
+                                             month=now.month,
+                                             jday=str(now.julday).zfill(3))
+                                             # station=stat)
+            files = chain(files, self.archive_path.glob(file_format))
 
             dy += 1
 
@@ -284,29 +347,32 @@ class MSEED(object):
 
     def _downsample(self, stream, sr):
         """
-        Downsample the MSEED to the designated sampling rate
+        Downsample the stream to the specified sampling rate.
 
         Parameters
         ----------
         stream : obspy Stream object
             Contains list of Trace objects to be downsampled
+
         sr : int
-            Designated sample rate
+            Output sampling rate
+
+        Returns
+        -------
+        stream : obspy Stream object
+            Contains list of Trace objects, with Traces downsampled / resampled
+            where necessary and possible.
 
         """
 
         for trace in stream:
             if sr != trace.stats.sampling_rate:
-                trace.filter(
-                    "lowpass",
-                    freq=float(sr) / 2.000001,
-                    corners=2,
-                    zerophase=True)
+                trace.filter("lowpass", freq=float(sr) / 2.000001, corners=2,
+                             zerophase=True)
                 if (trace.stats.sampling_rate % sr) == 0:
-                    trace.decimate(
-                        factor=int(trace.stats.sampling_rate / sr),
-                        strict_length=False,
-                        no_filter=True)
+                    trace.decimate(factor=int(trace.stats.sampling_rate / sr),
+                                   strict_length=False,
+                                   no_filter=True)
                 elif self.resample:
                     # trace.resample(
                     #     sr,

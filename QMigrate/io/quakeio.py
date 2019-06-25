@@ -1,48 +1,111 @@
 # -*- coding: utf-8 -*-
 """
-Module to handle input/output for QuakeMigrate
+Module to handle input/output for QuakeMigrate.
 
 """
 
 import pathlib
 from datetime import datetime
 
-import obspy
-from obspy import Stream, Trace, UTCDateTime
+from obspy import Stream, Trace, UTCDateTime, read
 import pandas as pd
 import numpy as np
+
+import QMigrate.util as util
+
+
+def stations(station_file, delimiter=","):
+    """
+    Reads station information from file.
+
+    Parameters
+    ----------
+    station_file : str
+        Path to station file. File format:
+        Header line is REQUIRED: Latitude,Longitude,Elevation,Name (any order).
+        Elevation in METRES.
+
+    delimiter : char, optional
+        Station file delimiter, defaults to ","
+
+    """
+    # stats = pd.read_csv(path, delimiter=delimiter).values
+
+    # stn_data = {}
+    # if units == "offset":
+    #     stn_lon, stn_lat = self.xy2lonlat(stats[:, 0].astype("float")
+    #                                       + self.grid_centre[0],
+    #                                       stats[:, 1].astype("float")
+    #                                       + self.grid_centre[1])
+    # elif units == "xyz":
+    #     stn_lon, stn_lat = self.xy2lonlat(stats[:, 0], stats[:, 1])
+
+    stn_data = pd.read_csv(path, delimiter=delimiter)
+
+    if ("Latitude" or "Longitude" or "Elevation" or "Name") \
+    not in stn_data.columns:
+        raise util.StationFileHeaderException
+
+    return stn_data
 
 
 class QuakeIO:
     """
     Input / output control class
 
-    Provides the basic methods for input / output of QuakeMigrate files
+    Provides the basic methods for input / output of QuakeMigrate files.
 
     Attributes
     ----------
     path : pathlib Path object
         Location of input/output files
 
+    name : str, optional
+        Run name
+
     Methods
     -------
-    read_scan()
-        Parse information from an existing .scn file
-    write_scan(daten, dsnr, dloc)
-        Create a new .scn file
-    del_scan()
-        Delete an existing .scn file
+    read_coal4D()
+        Read binary numpy 4D coalescence map file
+
+    write_coal4D()
+        Write 4D coalescence map to binary numpy file
+
+    read_decscan()
+        Read an existing .decscan file
+
+    write_decscan()
+        Write a new .decscan file
+
+    write_log()
+        Track progress of run and write to log file
+
+    write_cut_waveforms(format="MSEED")
+        Write raw cut waveform data (defaults to mSEED format)
+
+    write_picks()
+        Write phase pick data 
+
+    write_event()
+        Write located event data
+
+    read_triggered_events()
+        Read triggered events from file
+
+    write_triggered_events()
+        Write triggered events to file
 
     """
 
     def __init__(self, path, name=None):
         """
-        Class initialisation method
+        Class initialisation method.
 
         Parameters
         ----------
         path : str
-            Path to output directory
+            Path to input / output directory
+
         name: str, optional
             Name of run
 
@@ -55,55 +118,111 @@ class QuakeIO:
         self.name = name
         self.run = path / name
 
-        # Make output directories
-        self._make_directories()
+        # Make run output directory
+        util._make_directories(self.run)
 
     def read_coal4D(self, fname):
         """
-        Reads a binary file
+        Reads a binary numpy file containing 4-D coalescence grid output by
+        _compute() .
 
         Parameters
         ----------
         fname : str or pathlib.Path object
             Location of file to be read
 
+        Returns
+        -------
+        map_4d : array-like
+            4-D coalescence grid
+
         """
 
-        map_ = np.load(fname)
-        return map_
+        map_4d = np.load(fname)
 
-    def write_coal4D(self, map_, event, start_time, end_time):
+        return map_4d
+
+    def write_coal4D(self, map_4d, event_name, start_time, end_time):
         """
-        Outputs a binary file
+        Writes 4-D coalescence grid to a binary numpy file.
 
         Parameters
         ----------
-        map_ :
+        map_4d : array-like
+            4-D coalescence grid output by _compute()
 
-        event :
+        event_name : str
+            event_id for file naming
 
-        start_time :
+        start_time : UTCDateTime
+            start time of 4-D coalescence map
 
-        end_time :
+        end_time : UTCDateTime
+            end time of 4-D coalescence map
 
         """
 
         start_time = UTCDateTime(start_time)
         end_time = UTCDateTime(end_time)
-        fname = self.run / self.name / "{}_{}_{}".format(event,
-                                                         start_time,
-                                                         end_time)
+
+        subdir = "4d_coal_grids"
+        util._make_directories(self.run, subdir=subdir)
+        fname = self.run / subdir / self.name+"{}_{}_{}".format(event_name,
+                                                                start_time,
+                                                                end_time)
         fname = fname.with_suffix(".coal4D")
 
-        np.save(str(fname), map_)
+        np.save(str(fname), map_4d)
 
-    def read_decscan(self):
+    def read_decscan(self, start_time, end_time):
+        """
+        Read decscan data from .decscan files between two time stamps. Files
+        are labelled by year and julian day.
+
+        Parameters
+        ----------
+        start_time : UTCDateTime object
+            start time to read decscan from
+
+        end_time : UTCDateTime obbject
+            end time to read decscan to
+
+        Returns
+        -------
+        data : pandas DataFrame
+            Data output by detect() -- decimated scan
+            Columns: ["COA", "COA_N", "X", "Y", "Z"] - X & Y as lon/lat; z in m
+
+        coa_stats : obspy Trace stats object
+            obspy Trace stats of raw coalescence trace ("COA").
+            Contains keys: network, station, channel, starttime, endtime,
+                           sampling_rate, delta, npts, calib, _format, mseed
+
         """
 
-        """
+        dy = 0
+        files = []
+        start_day = UTCDateTime(start_time.date)
 
-        fname = (self.run / self.name).with_suffix(".scnmseed")
-        coa = obspy.read(str(fname))
+        coa = Stream()        
+        # Loop through days trying to read decscan files
+        while start_day + (dy *86400) <= end_time:
+            now = start_time + (dy * 86400)
+            nowstr = "_{}_{}".format(now.year, now.julday.zfill(3))
+            fname = (self.run / self.name + nowstr).with_suffix(".decscan")
+            try:
+                coa += read(str(fname), starttime=start_time,
+                                  endtime=end_time, format="MSEED")
+            except FileNotFoundError:
+                msg = "No file found for {}-{} !!\n"
+                msg += "\tNo events will be triggered from this day\n"
+                msg.format(now.year, now.julday.zfill(3))
+
+            dy += 1
+
+        if not bool(coa):
+            raise util.NoDecscanDataException
+
         coa_stats = coa.select(station="COA")[0].stats
 
         data = pd.DataFrame()
@@ -113,6 +232,8 @@ class QuakeIO:
                                coa_stats.endtime + td,
                                td)
 
+        # assign to DataFrame column and divide by factor applied in 
+        # write_decscan()
         data["COA"] = coa.select(station="COA")[0].data / 1e5
         data["COA_N"] = coa.select(station="COA_N")[0].data / 1e5
         data["X"] = coa.select(station="X")[0].data / 1e6
@@ -121,52 +242,44 @@ class QuakeIO:
 
         return data, coa_stats
 
-    def write_decscan(self, original_dataset, daten, dsnr, dsnr_norm, dloc, sampling_rate):
+    def write_decscan(self, st, write_start=None, write_end=None):
         """
-        Create a new .scnmseed file
+        Write a new .decscan file from an obspy Stream object containing the
+        data output from detect(). Note: values have been multiplied by a
+        power of ten, rounded and converted to an int32 array so the data can
+        be saved as mSEED with STEIM2 compression. This multiplication factor
+        is removed when the data is read back in with read_decscan().
+
+        Files are labelled by year and julian day, and split by julian day
+        (this behaviour is determined in signal/scan.py).
 
         Parameters
         ----------
-        sampling_rate : int
-            Sampling rate in hertz
+        st : obspy Stream object
+            Output of detect() stored in obspy Stream object with 
+            channels: ["COA", "COA_N", "X", "Y", "Z"]
+
+        write_start : UTCDateTime object, optional
+            Time from which to write the decscan stream to a file
+
+        write_end : UTCDateTime object, optional
+            Time upto which to write the decscan stream to a file
 
         """
 
-        fname = (self.run / self.name).with_suffix(".scnmseed")
+        if write_start or write_end:
+            st = st.trim(starttime=write_start,
+                         endtime=(write_end - 1 / st[0].stats.sampling_rate))
+        
+        daystr = "_{}_{}".format(st.stats.starttime.year,
+                                 st.stats.starttime.julday.zfill(3))      
+        fname = (self.run / self.name + day_str).with_suffix(".decscan")
 
-        dsnr[dsnr > 21474.] = 21474.
-        dsnr_norm[dsnr_norm > 21474.] = 21474.
-
-        npts = len(dsnr)
-        starttime = UTCDateTime(daten[0])
-        meta = {"network": "NW",
-                "npts": npts,
-                "sampling_rate": sampling_rate,
-                "starttime": starttime}
-
-        st = Stream(Trace(data=(dsnr * 1e5).astype(np.int32),
-                          header={**{"station": "COA"}, **meta}))
-        st += Stream(Trace(data=(dsnr_norm * 1e5).astype(np.int32),
-                           header={**{"station": "COA_N"}, **meta}))
-        st += Stream(Trace(data=(dloc[:, 0] * 1e6).astype(np.int32),
-                           header={**{"station": "X"}, **meta}))
-        st += Stream(Trace(data=(dloc[:, 1] * 1e6).astype(np.int32),
-                           header={**{"station": "Y"}, **meta}))
-        st += Stream(Trace(data=(dloc[:, 2] * 1e3).astype(np.int32),
-                           header={**{"station": "Z"}, **meta}))
-
-        if original_dataset is not None:
-            original_dataset = original_dataset + st
-        else:
-            original_dataset = st
-
-        original_dataset.write(str(fname), format="MSEED", encoding=11)
-
-        return original_dataset
+        st.write(str(fname), format="MSEED", encoding="STEIM2")
 
     def write_log(self, message):
         """
-        Method that tracks the progress of a scanning run through time
+        Write a log file to track the progress of a scanning run through time.
 
         Parameters
         ----------
@@ -175,42 +288,79 @@ class QuakeIO:
 
         """
 
-        fname = (self.run / "logs" / self.name).with_suffix(".log")
+        subdir = "logs"
+        util._make_directories(self.run, subdir=subdir)
+        fname = (self.run / subdir / self.name).with_suffix(".log")
         with fname.open(mode="a") as f:
             f.write(message + "\n")
 
-    def cut_mseed(self, data, event_name):
+    def write_cut_waveforms(self, data, event, event_name, format="MSEED",
+                            pre_cut=None, post_cut=None):
         """
-        Output a mSEED file
+        Output raw cut waveform data as a waveform file -- defaults to mSEED.
 
         Parameters
         ----------
-        data :
+        data : Archive object
+            Contains read_waveform_data() method and stores read data in raw
+            and processed state
+
+        event : pandas DataFrame
+            Final event location information.
+            Columns = ["DT", "COA", "X", "Y", "Z",
+                       "LocalGaussian_X", "LocalGaussian_Y", "LocalGaussian_Z",
+                       "LocalGaussian_ErrX", "LocalGaussian_ErrY",
+                       "LocalGaussian_ErrZ", "GlobalCovariance_X",
+                       "GlobalCovariance_Y", "GlobalCovariance_Z",
+                       "GlobalCovariance_ErrX", "GlobalCovariance_ErrY",
+                       "GlobalCovariance_ErrZ"]
+            All X / Y as lon / lat; Z and X / Y / Z uncertainties in metres
 
         event_name : str
-            Event ID
+            event_uid for file naming
+
+        format : str, optional
+            File format to write waveform data to. Options are all file formats
+            supported by obspy, including: "MSEED" (default), "SAC", "SEGY",
+            "GSE2" 
+
+        pre_cut : float, optional
+            Specify how long before the event origin time to cut the waveform
+            data from
+
+        post_cut : float, optional
+            Specify how long after the event origin time to cut the waveform
+            data to        
 
         """
 
-        fname = self.run / "mseed" / "{}_{}".format(self.name, event_name)
-        fname = str(fname.with_suffix(".mseed"))
-        st = data.st
-        st.write(str(fname), format="MSEED", encoding="FLOAT64")
+        otime = UTCDateTime(event["COA"])
+        
+        st = data.raw_waveforms
+        st.trim(starttime=otime-pre_cut, endtime=otime+post_cut)
+
+        subdir = "cut_waveforms"
+        util._make_directories(self.run, subdir=subdir)
+        fname = self.run / subdir / "{}".format(event_name)
+        fname = str(fname.with_suffix(".m"))
+        st.write(str(fname), format=format) #, encoding="STEIM1")
 
     def write_picks(self, stations, event_name):
         """
-        Create a new .stn file
+        Write phase picks to a new .picks file
 
         Parameters
         ----------
         stations : pandas DataFrame object
 
         event_name : str
-
+            event_id for file naming
 
         """
 
-        fname = self.run / "picks" / "{}_{}".format(self.name, event_name)
+        subdir = "picks"
+        util._make_directories(self.run, subdir=subdir)
+        fname = self.run / subdir / "{}".format(event_name)
         fname = str(fname.with_suffix(".picks"))
         stations.to_csv(fname, index=False)
 
@@ -220,19 +370,31 @@ class QuakeIO:
 
         Parameters
         ----------
-        events : pandas DataFrame object
+        event : pandas DataFrame
+            Final event location information.
+            Columns = ["DT", "COA", "X", "Y", "Z",
+                       "LocalGaussian_X", "LocalGaussian_Y", "LocalGaussian_Z",
+                       "LocalGaussian_ErrX", "LocalGaussian_ErrY",
+                       "LocalGaussian_ErrZ", "GlobalCovariance_X",
+                       "GlobalCovariance_Y", "GlobalCovariance_Z",
+                       "GlobalCovariance_ErrX", "GlobalCovariance_ErrY",
+                       "GlobalCovariance_ErrZ"]
+            All X / Y as lon / lat; Z and X / Y / Z uncertainties in metres
 
         event_name : str
-
+            event_uid for file naming
 
         """
 
-        fname = self.run / "events" / "{}_{}".format(self.name, event_name)
+        subdir="events"
+        util._make_directories(self.run, subdir=subdir)
+        fname = self.run / subdir / "{}".format(event_name)
         fname = str(fname.with_suffix(".event"))
         event.to_csv(fname, index=False)
 
     def read_triggered_events(self, start_time, end_time):
         """
+        Read triggered events output by trigger() from csv file.
 
         Parameters
         ----------
@@ -257,27 +419,17 @@ class QuakeIO:
 
     def write_triggered_events(self, events):
         """
-        Create a new triggered events csv
+        Write triggered events output by trigger() to a csv file.
 
         Parameters
         ----------
-        events : pandas DataFrame object
-            Contains information on triggered events
+        events : pandas DataFrame
+            Triggered events output from _trigger_scn().
+            Columns: ["EventNum", "CoaTime", "COA_V", "COA_X", "COA_Y", 
+                      "COA_Z", "MinTime", "MaxTime"]
 
         """
 
         fname = self.run / "{}_TriggeredEvents".format(self.name)
         fname = str(fname.with_suffix(".csv"))
         events.to_csv(fname, index=False)
-
-    def _make_directories(self):
-        """
-
-        """
-
-        self.run.mkdir(exist_ok=True)
-        dirs = ["events", "picks", "traces", "videos",
-                "summaries", "logs", "mseed"]
-        for d in dirs:
-            new_dir = self.run / d
-            new_dir.mkdir(exist_ok=True)

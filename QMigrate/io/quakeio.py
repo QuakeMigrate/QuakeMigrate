@@ -45,7 +45,7 @@ def stations(station_file, delimiter=","):
     # elif units == "xyz":
     #     stn_lon, stn_lat = self.xy2lonlat(stats[:, 0], stats[:, 1])
 
-    stn_data = pd.read_csv(path, delimiter=delimiter)
+    stn_data = pd.read_csv(station_file, delimiter=delimiter)
 
     if ("Latitude" or "Longitude" or "Elevation" or "Name") \
     not in stn_data.columns:

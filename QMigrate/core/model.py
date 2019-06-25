@@ -1324,7 +1324,7 @@ class LUT(Grid3D, NonLinLoc):
             p0_st_z = -self.station_data["Elevation"][i]
             name = self.station_data["Name"][i]
 
-            print("Calculating Travel Time for station", name)
+            print("Calculating travel-times for station", name)
 
             # get the maximum distance from station to corner of grid
             p1_st_loc = _coord_transform_np(p0, p1,
@@ -1542,10 +1542,10 @@ class LUT(Grid3D, NonLinLoc):
             Path to location to save pickle file
 
         """
-        np.save(filename,self.__dict__)
-        #file = open(filename, "wb")
-        #pickle.dump(self.__dict__, file, 2)
-        #file.close()
+
+        file = open(filename, "wb")
+        pickle.dump(self.__dict__, file, 2)
+        file.close()
 
     def load(self, filename):
         """

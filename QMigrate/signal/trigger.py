@@ -158,7 +158,7 @@ class Trigger:
                                                               read_end)
 
         # Check if coa_data found by read_coastream covers whole trigger period
-        msg=""
+        msg = ""
         if coa_stats.starttime > self.start_time:
             msg += "\tWarning! scanmseed data start is after trigger() start_time!\n"
         elif coa_stats.starttime > read_start:

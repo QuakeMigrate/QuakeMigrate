@@ -219,6 +219,7 @@ class QuakeIO:
         if not bool(coa):
             raise util.NoScanMseedDataException
 
+        coa.merge(method=-1)
         coa_stats = coa.select(station="COA")[0].stats
 
         msg = "\t\tSuccessfully read .scanmseed data from {} - {}\n"

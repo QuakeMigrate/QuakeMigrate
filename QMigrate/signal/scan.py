@@ -460,7 +460,7 @@ class QuakeScan(DefaultQuakeScan):
         #  ---> applies to both detect() and locate()
         ttmax = np.max(lut.fetch_map("TIME_S"))
         lta_max = max(self.p_onset_win[1], self.s_onset_win[1])
-        self.post_pad = np.ceil((ttmax + 2 * lta_max) + 30)
+        self.post_pad = np.ceil(ttmax + 2 * lta_max)
 
         msg = "=" * 120 + "\n"
         msg += "=" * 120 + "\n"

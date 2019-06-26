@@ -99,7 +99,6 @@ def triggered_events(events, start_time, end_time, output, marginal_window,
     avail = avail.values
     avail = np.append(avail, [avail[-1]])
     a_times.append(end_time.datetime)
-    print(a_times, avail)
     availability.step(a_times, avail, color="green", where="post")
     availability.set_ylim([0, len(stations["Name"]) + 1])
 

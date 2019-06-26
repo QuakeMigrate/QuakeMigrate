@@ -147,8 +147,20 @@ class NoScanMseedDataException(Exception):
     """
 
     def __init__(self):
-        msg = "DataGapException: No .scanmseed data found."
+        msg = "NoScanMseedDataException: No .scanmseed data found."
         super().__init__(msg)
+
+
+class NoStationAvailabilityDataException(Exception):
+    """
+    Custom exception to handle case when no .StationAvailability files can be
+    found by read_availability()
+
+    """
+
+    def __init__(self):
+        self.msg = "NoStationAvailabilityDataException: No .StationAvailability data found."
+        super().__init__(self.msg)
 
 
 class DataGapException(Exception):

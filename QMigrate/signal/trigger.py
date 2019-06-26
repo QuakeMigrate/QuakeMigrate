@@ -163,9 +163,9 @@ class Trigger:
             msg += "\tWarning! scanmseed data start is after trigger() start_time!\n"
         elif coa_stats.starttime > read_start:
             msg += "\tWarning! No scanmseed data found for pre-pad!\n"
-        if coa_stats.endtime < self.end_time:
+        if coa_stats.endtime < self.end_time - 1 / coa_stats.sampling_rate:
             msg += "\tWarning! scanmseed data end is before trigger() end_time!\n"
-        elif coa_stats.endtime > read_end:
+        elif coa_stats.endtime < read_end:
             msg += "\tWarning! No scanmseed data found for post-pad!\n"
         print(msg)
 

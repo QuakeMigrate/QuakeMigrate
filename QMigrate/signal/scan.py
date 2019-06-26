@@ -720,7 +720,7 @@ class QuakeScan(DefaultQuakeScan):
     def _continuous_compute(self, start_time, end_time):
         """
         Compute coalescence between two time stamps, divided into small time
-        steps.
+        steps. Outputs coastream and station availability data to file.
 
         Parameters
         ----------
@@ -745,10 +745,11 @@ class QuakeScan(DefaultQuakeScan):
             print(msg)
 
         # Initialise pandas DataFrame object to track availability
-        availability = pd.DataFrame(index=np.arange(nsteps),
+        stn_ava_data = pd.DataFrame(index=np.arange(nsteps),
                                     columns=self.data.stations)
 
         for i in range(nsteps):
+            timer=util.Stopwatch()
             w_beg = start_time + self.time_step * i - self.pre_pad
             w_end = start_time + self.time_step * (i + 1) + self.post_pad
 
@@ -765,7 +766,7 @@ class QuakeScan(DefaultQuakeScan):
                                                           w_beg, w_end,
                                                           self.data.signal,
                                                           self.data.availability)
-                availability.loc[i] = self.data.availability
+                stn_ava_data.loc[i] = self.data.availability
                 coord = self.lut.xyz2coord(loc)
 
                 del loc, map_4d
@@ -776,7 +777,7 @@ class QuakeScan(DefaultQuakeScan):
                 msg += " " * 16 + "!" * 24
                 print(msg)
                 daten, max_coa, max_coa_norm, coord = self._empty(w_beg, w_end)
-                availability.loc[i] = self.data.availability
+                stn_ava_data.loc[i] = self.data.availability
 
             except util.DataGapException:
                 msg = "!" * 24 + " " * 9
@@ -787,9 +788,9 @@ class QuakeScan(DefaultQuakeScan):
                 msg += " " * 12 + "!" * 24
                 print(msg)
                 daten, max_coa, max_coa_norm, coord = self._empty(w_beg, w_end)
-                availability.loc[i] = self.data.availability
+                stn_availability.loc[i] = self.data.availability
 
-            availability.rename(index={i: str(w_beg + self.pre_pad)},
+            stn_ava_data.rename(index={i: str(w_beg + self.pre_pad)},
                                 inplace=True)
 
             # Append upto sample-before-last - if end_time is
@@ -807,12 +808,14 @@ class QuakeScan(DefaultQuakeScan):
                 self.output.write_coastream(coastream)
                 written = True
 
+            print(timer())
+
         if not written:
             self.output.write_coastream(coastream)
 
         del coastream
 
-        self.output.write_availability(availability)
+        self.output.write_stn_availability(stn_ava_data)
 
         print("=" * 120)
 

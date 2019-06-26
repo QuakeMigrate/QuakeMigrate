@@ -437,7 +437,7 @@ class Archive(object):
         data = trace.data
         dnew = np.zeros(len(data) * upfactor - (upfactor - 1))
         dnew[::upfactor] = data
-        for i in range(upfactor, 1):
+        for i in range(1, upfactor):
             dnew[i::upfactor] = float(i) / upfactor * data[1:] \
                          + float(upfactor - i) / upfactor * data[:-1]
 

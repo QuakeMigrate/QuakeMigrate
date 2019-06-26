@@ -452,29 +452,83 @@ class QuakeIO:
         fname = str(fname.with_suffix(".csv"))
         events.to_csv(fname, index=False)
 
-    def write_availability(self, availability):
+    def write_stn_availability(self, stn_ava_data):
         """
-        Write out a pandas DataFrame containing station availability
+        Write out csv files (split by julian day) containing station
+        availability data.
 
         Parameters
         ----------
-        availability : pandas DataFrame object
+        stn_ava_data : pandas DataFrame object
             Contains station availability information
 
         """
 
-        fname = self.run / "{}_Availability".format(self.name)
-        fname = str(fname.with_suffix(".csv"))
-        availability.to_csv(fname)
+        times = pd.to_datetime(stn_ava_data.index)
+        datelist = list(set([times[i].date() for i in range(0, len(times))]))
+        stn_ava_data.index = pd.to_datetime(stn_ava_data.index)
 
-    def read_availability(self):
+        for date in datelist:
+            to_write = stn_ava_data[stn_ava_data.index.date == date]
+            to_write.index = [UTCDateTime(to_write.index[i]) \
+                              for i in range(0,len(to_write))]
+            date = UTCDateTime(date)
+            fname = self.run / "{}_{}_{}_StationAvailability".format(self.name,
+                                                              date.year,
+                                                              date.julday)
+            fname = str(fname.with_suffix(".csv"))
+            to_write.to_csv(fname)
+
+    def read_stn_availability(self, start_time, end_time):
         """
-        Read in a pandas DataFrame containing station availability
+        Read in station availability data to a pandas DataFrame
+        from csv files split by Julian day.
+
+        Parameters
+        ----------
+        start_time : UTCDateTime object
+            start time to read stn_ava_data from
+
+        end_time : UTCDateTime obbject
+            end time to read stn_ava_data to
+
+        Returns
+        -------
+        stn_ava_data : pandas DataFrame object
+            Contains station availability information
 
         """
 
-        fname = self.run / "{}_Availability".format(self.name)
-        fname = str(fname.with_suffix(".csv"))
-        availability = pd.read_csv(fname, index_col=0)
+        start_day = UTCDateTime(start_time.date)
 
-        return availability
+        dy = 0
+        files = []
+        stn_ava_data = None
+        # Loop through days trying to read .StationAvailability files
+        while start_day + (dy * 86400) <= end_time:
+            now = start_time + (dy * 86400)
+            filestr = "{}_{}_{}_StationAvailability".format(self.name,
+                                                            str(now.year),
+                                                            str(now.julday).zfill(3))
+            fname = (self.run / filestr).with_suffix(".csv")
+            try:
+                if stn_ava_data is None:
+                    stn_ava_data = pd.read_csv(fname, index_col=0)
+                else:
+                    tmp = pd.read_csv(fname, index_col=0)
+                    stn_ava_data.append(tmp)
+            except FileNotFoundError:
+                msg = "\tNo .StationAvailability file found for day {}-{}!\n"
+                msg = msg.format(str(now.year), str(now.julday).zfill(3))
+                print(msg)
+
+            dy += 1
+
+        if stn_ava_data is None:
+            raise util.NoStationAvailabilityDataException
+
+        msg = "\t\tSuccessfully read .StationAvailability data from {} - {}\n"
+        msg = msg.format(stn_ava_data.index[0], stn_ava_data.index[-1])
+        print(msg)
+
+        return stn_ava_data

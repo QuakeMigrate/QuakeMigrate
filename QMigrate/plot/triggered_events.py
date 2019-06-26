@@ -18,6 +18,8 @@ import numpy as np
 from obspy import UTCDateTime
 import pandas as pd
 
+import QMigrate.util as util
+
 
 def triggered_events(events, start_time, end_time, output, marginal_window,
                      detection_threshold, normalise_coalescence, data=None,
@@ -78,8 +80,8 @@ def triggered_events(events, start_time, end_time, output, marginal_window,
     coa = plt.subplot2grid((6, 16), (0, 0), colspan=9, rowspan=2)
     coa_norm = plt.subplot2grid((6, 16), (2, 0), colspan=9, rowspan=2,
                                 sharex=coa)
-    availability = plt.subplot2grid((6, 16), (4, 0), colspan=9, rowspan=2,
-                                    sharex=coa)
+    numstations = plt.subplot2grid((6, 16), (4, 0), colspan=9, rowspan=2,
+                                   sharex=coa)
     xy = plt.subplot2grid((6, 16), (0, 10), colspan=4, rowspan=4)
     xz = plt.subplot2grid((6, 16), (4, 10), colspan=4, rowspan=2,
                           sharex=xy)
@@ -92,15 +94,19 @@ def triggered_events(events, start_time, end_time, output, marginal_window,
     coa_norm.plot(data["DT"], data["COA_N"], color="blue", zorder=10,
                   label="Maximum coalescence", linewidth=0.2)
 
-    avail = output.read_availability().sum(axis=1).astype(int)
-    a_times = [UTCDateTime(x).datetime for x in avail.index.values]
+    try:
+        stn_ava_data = output.read_stn_availability(start_time,
+                                                    end_time).sum(axis=1).astype(int)
+        a_times = [UTCDateTime(x).datetime for x in stn_ava_data.index.values]
 
-    # Handle last step
-    avail = avail.values
-    avail = np.append(avail, [avail[-1]])
-    a_times.append(end_time.datetime)
-    availability.step(a_times, avail, color="green", where="post")
-    availability.set_ylim([0, len(stations["Name"]) + 1])
+        # Handle last step
+        stn_ava_data = stn_ava_data.values
+        stn_ava_data = np.append(stn_ava_data, [stn_ava_data[-1]])
+        a_times.append(end_time.datetime)
+        numstations.step(a_times, stn_ava_data, color="green", where="post")
+        numstations.set_ylim(ymax=len(stations["Name"]) + 1)
+    except util.NoStationAvailabilityDataException as e:
+        print(e.msg)
 
     if events is not None:
         for i, event in events.iterrows():
@@ -141,8 +147,8 @@ def triggered_events(events, start_time, end_time, output, marginal_window,
     coa_norm.legend(loc=2)
     coa_norm.set_ylabel("Normalised maximum coalescence value")
 
-    availability.set_ylabel("Number of available stations")
-    availability.set_xlabel("DateTime")
+    numstations.set_ylabel("Number of available stations")
+    numstations.set_xlabel("DateTime")
 
     if events is not None:
         if normalise_coalescence:

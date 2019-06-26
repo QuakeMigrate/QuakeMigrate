@@ -7,7 +7,7 @@ Module for processing waveform files stored in a data archive.
 import pathlib
 from itertools import chain
 
-from obspy import read, Stream, UTCDateTime
+from obspy import read, Trace, Stream, UTCDateTime
 import numpy as np
 
 import QMigrate.util as util
@@ -89,6 +89,7 @@ class Archive(object):
         self.filtered_signal = None
 
         self.resample = False
+        self.upfactor = None
 
         self.stations = qio.stations(station_file, delimiter=delimiter)["Name"]
         self.st = None
@@ -199,7 +200,7 @@ class Archive(object):
                 file = str(file)
                 try:
                     st += read(file, starttime=start_time - pre_pad,
-                          endtime=end_time + post_pad)
+                               endtime=end_time + post_pad)
                 except TypeError:
                     msg = "File not compatible with obspy - {}"
                     print(msg.format(file))
@@ -236,7 +237,7 @@ class Archive(object):
             # Detrend and downsample / resample stream if required
             st.detrend("linear")
             st.detrend("demean")
-            st = self._downsample(st, sampling_rate)
+            st = self._downsample(st, sampling_rate, self.upfactor)
 
             # Combining the data and determining station availability
             signal, availability = self._station_availability(st, samples)
@@ -340,14 +341,13 @@ class Archive(object):
                                              month=now.month,
                                              jday=str(now.julday).zfill(3),
                                              station="*")
-                                             # station=stat)
             files = chain(files, self.archive_path.glob(file_format))
 
             dy += 1
 
         return files
 
-    def _downsample(self, stream, sr):
+    def _downsample(self, stream, sr, upfactor=None):
         """
         Downsample the stream to the specified sampling rate.
 
@@ -375,19 +375,56 @@ class Archive(object):
                     trace.decimate(factor=int(trace.stats.sampling_rate / sr),
                                    strict_length=False,
                                    no_filter=True)
-                elif self.resample:
-                    # trace.resample(
-                    #     sr,
-                    #     strict_length=False,
-                    #     no_filter=True)
-                    trace.interpolate(sr)
-
+                elif self.resample and upfactor is not None:
+                    # Check the upsampled sampling rate can be decimated to sr
+                    if int(trace.stats.sampling_rate * upfactor) % sr != 0:
+                        raise util.BadUpfactorException
+                    stream.remove(trace)
+                    trace = self._upsample(trace, upfactor)
+                    trace.decimate(factor=int(trace.stats.sampling_rate / sr),
+                                   strict_length=False,
+                                   no_filter=True)
+                    stream += trace
                 else:
-                    msg = "Mismatched sampling rates - cannot decimate data.\n"
-                    msg += "To resample data, set .resample = True"
+                    msg = "Mismatched sampling rates - cannot decimate data - "
+                    msg += "to resample data, set .resample = True and choose"
+                    msg += " a suitable upfactor"
                     print(msg)
 
         return stream
+
+    def _upsample(self, trace, upfactor):
+        """
+        Upsample a data stream by a given factor, prior to decimation
+
+        Parameters
+        ----------
+        trace : obspy Trace object
+            Trace to be upsampled
+        upfactor : int
+            Factor by which to upsample the data in trace
+
+        Returns
+        -------
+        out : obpsy Trace object
+            Upsampled trace
+
+        """
+
+        data = trace.data
+        dnew = np.zeros(len(data) * upfactor - (upfactor - 1))
+        dnew[::upfactor] = data
+        for i in range(1, upfactor):
+            dnew[i::upfactor] = float(i) / upfactor * data[:-1] \
+                         + float(upfactor - i) / upfactor * data[1:]
+
+        out = Trace()
+        out.data = dnew
+        out.stats = trace.stats
+        out.stats.starttime = trace.stats.starttime
+        out.stats.sampling_rate = int(upfactor * trace.stats.sampling_rate)
+
+        return out
 
     @property
     def sample_size(self):

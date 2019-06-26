@@ -1536,9 +1536,8 @@ class LUT(Grid3D, NonLinLoc):
 
         """
 
-        file = open(filename, "wb")
-        pickle.dump(self.__dict__, file, 2)
-        file.close()
+        with open(filename, "wb") as f:
+            pickle.dump(self.__dict__, f, 2)
 
     def load(self, filename):
         """

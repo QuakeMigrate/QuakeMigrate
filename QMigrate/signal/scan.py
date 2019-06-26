@@ -1029,8 +1029,7 @@ class QuakeScan(DefaultQuakeScan):
                     print(msg)
                 post_pad = None
 
-        self.data.read_waveform_data(w_beg, w_end, self.sampling_rate,
-                                     self.write_cut_waveforms, pre_pad,
+        self.data.read_waveform_data(w_beg, w_end, self.sampling_rate, pre_pad,
                                      post_pad)
 
     def _compute(self, w_beg, w_end, signal, station_availability):

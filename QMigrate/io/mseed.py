@@ -47,6 +47,15 @@ class Archive(object):
         If true, perform resampling of data which cannot be decimated directly
         to the desired sampling rate.
 
+    upfactor : int, optional
+        Factor by which to upsample the data (using _upsample() )to enable it
+        to be decimated to the desired sampling rate.
+            E.g. 40Hz -> 50Hz requires upfactor = 5.
+
+    allstations : bool, optional
+        If True, read all stations in archive for that time period. Else,
+        only read specified stations.
+
     stations : pandas Series object
         Series object containing station names
 
@@ -90,6 +99,8 @@ class Archive(object):
 
         self.resample = False
         self.upfactor = None
+
+        self.read_all_stations = False
 
         self.stations = qio.stations(station_file, delimiter=delimiter)["Name"]
         self.st = None
@@ -144,7 +155,7 @@ class Archive(object):
             self.format = "{year}_{jday}/{station}_*"
 
     def read_waveform_data(self, start_time, end_time, sampling_rate,
-                           allstations=False, pre_pad=None, post_pad=None):
+                           pre_pad=None, post_pad=None):
         """
         Read in the waveform data for all stations in the archive between two
         times and return station availability of the stations specified in the
@@ -167,10 +178,6 @@ class Archive(object):
 
         sampling_rate : int
             Sampling rate in hertz
-
-        allstations : bool, optional
-            If True, read all stations in archive for that time period. Else,
-            only read specified stations.
 
         pre_pad : float, optional
             Additional pre pad of data to cut based on user-defined pre_cut
@@ -311,7 +318,7 @@ class Archive(object):
 
         return signal, availability
 
-    def _load_from_path(self, start_time, end_time, allstations=False):
+    def _load_from_path(self, start_time, end_time):
         """
         Retrieves available files between two times.
 
@@ -322,10 +329,6 @@ class Archive(object):
 
         end_time : UTCDateTime object
             End datetime to read waveform data
-
-        allstations : bool, optional
-            If True, read all stations in archive for that time period. Else,
-            only read specified stations.
 
         Returns
         -------
@@ -346,7 +349,7 @@ class Archive(object):
         # NOTE! This assumes the archive structure is split into days.
         while start_day + (dy * 86400) <= end_time:
             now = start_time + (dy * 86400)
-            if allstations=True:
+            if self.read_all_stations is True:
                 file_format = self.format.format(year=now.year,
                                                  month=now.month,
                                                  jday=str(now.julday).zfill(3),

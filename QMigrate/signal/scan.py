@@ -789,7 +789,8 @@ class QuakeScan(DefaultQuakeScan):
                 daten, max_coa, max_coa_norm, coord = self._empty(w_beg, w_end)
                 availability.loc[i] = self.data.availability
 
-            availability.rename(index={i: str(w_beg)}, inplace=True)
+            availability.rename(index={i: str(w_beg + self.pre_pad)},
+                                inplace=True)
 
             # Append upto sample-before-last - if end_time is
             # 2014-08-24T00:00:00, your last sample will be 2014-08-23T23:59:59

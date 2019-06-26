@@ -358,9 +358,9 @@ class Archive(object):
             else:
                 for stat in self.stations.tolist():
                     file_format = self.format.format(year=now.year,
-                                                 month=now.month,
-                                                 jday=str(now.julday).zfill(3),
-                                                 station=stat)
+                                                     month=now.month,
+                                                     jday=str(now.julday).zfill(3),
+                                                     station=stat)
                     files = chain(files, self.archive_path.glob(file_format))
 
             dy += 1
@@ -389,9 +389,9 @@ class Archive(object):
 
         for trace in stream:
             if sr != trace.stats.sampling_rate:
-                trace.filter("lowpass", freq=float(sr) / 2.000001, corners=2,
-                             zerophase=True)
                 if (trace.stats.sampling_rate % sr) == 0:
+                    trace.filter("lowpass", freq=float(sr) / 2.000001,
+                                 corners=2, zerophase=True)
                     trace.decimate(factor=int(trace.stats.sampling_rate / sr),
                                    strict_length=False,
                                    no_filter=True)
@@ -401,6 +401,8 @@ class Archive(object):
                         raise util.BadUpfactorException
                     stream.remove(trace)
                     trace = self._upsample(trace, upfactor)
+                    trace.filter("lowpass", freq=float(sr) / 2.000001,
+                                 corners=2, zerophase=True)
                     trace.decimate(factor=int(trace.stats.sampling_rate / sr),
                                    strict_length=False,
                                    no_filter=True)
@@ -415,7 +417,8 @@ class Archive(object):
 
     def _upsample(self, trace, upfactor):
         """
-        Upsample a data stream by a given factor, prior to decimation
+        Upsample a data stream by a given factor, prior to decimation. The
+        upsampling is done using a linear interpolation.
 
         Parameters
         ----------
@@ -434,9 +437,9 @@ class Archive(object):
         data = trace.data
         dnew = np.zeros(len(data) * upfactor - (upfactor - 1))
         dnew[::upfactor] = data
-        for i in range(1, upfactor):
-            dnew[i::upfactor] = float(i) / upfactor * data[:-1] \
-                         + float(upfactor - i) / upfactor * data[1:]
+        for i in range(upfactor, 1):
+            dnew[i::upfactor] = float(i) / upfactor * data[1:] \
+                         + float(upfactor - i) / upfactor * data[:-1]
 
         out = Trace()
         out.data = dnew

@@ -15,14 +15,7 @@ import skfmm
 import pyproj
 import numpy as np
 import pandas as pd
-import matplotlib
 from scipy.interpolate import RegularGridInterpolator, griddata, interp1d
-try:
-    os.environ["DISPLAY"]
-    matplotlib.use("Qt5Agg")
-except KeyError:
-    matplotlib.use("Agg")
-import matplotlib.pylab as plt
 
 
 def _cart2sph_np_array(xyz):
@@ -1400,8 +1393,8 @@ class LUT(Grid3D, NonLinLoc):
         self._update_grid_centre()
 
         # Flip TT maps so the indexing is consistent (z ordered from deepest to shallowest)
-        p_travel_times = p_travel_times[...,::-1,:]
-        s_travel_times = s_travel_times[...,::-1,:]
+        p_travel_times = p_travel_times[..., ::-1, :]
+        s_travel_times = s_travel_times[..., ::-1, :]
 
         self.maps = {"TIME_P": p_travel_times, "TIME_S": s_travel_times}
 
@@ -1428,9 +1421,9 @@ class LUT(Grid3D, NonLinLoc):
         """
 
         if header:
-            vmod = pd.read_csv(path, delimiter=delimiter).values
+            vmod = pd.read_csv(vmod_file, delimiter=delimiter).values
         else:
-            vmod = pd.read_csv(path, header=None, delimiter=delimiter).values
+            vmod = pd.read_csv(vmod_file, header=None, delimiter=delimiter).values
         z, vp, vs = vmod[:, 0], vmod[:, 1] * 1000, vmod[:, 2] * 1000
 
         rloc = self.station_xyz()
@@ -1543,9 +1536,8 @@ class LUT(Grid3D, NonLinLoc):
 
         """
 
-        file = open(filename, "wb")
-        pickle.dump(self.__dict__, file, 2)
-        file.close()
+        with open(filename, "wb") as f:
+            pickle.dump(self.__dict__, f, 2)
 
     def load(self, filename):
         """
@@ -1562,16 +1554,6 @@ class LUT(Grid3D, NonLinLoc):
             tmp_dict = pickle.load(f)
 
         self.__dict__.update(tmp_dict)
-
-    def plot_station(self):
-        """
-        Produce a 2D map view of station locations
-
-        """
-
-        plt.scatter(self.station_data["Longitude"],
-                    self.station_data["Latitude"])
-        plt.show()
 
     def plot_3d(self, map_, station, output_file=None):
         """

@@ -14,6 +14,8 @@ try:
 except KeyError:
     matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import numpy as np
+from obspy import UTCDateTime
 import pandas as pd
 
 
@@ -21,7 +23,7 @@ def triggered_events(events, start_time, end_time, output, marginal_window,
                      detection_threshold, normalise_coalescence, data=None,
                      stations=None, savefig=False):
     """
-    Plots the data from a .scanmseed file with annotations illustrating the 
+    Plots the data from a .scanmseed file with annotations illustrating the
     trigger results: event triggers and marginal windows on the coalescence
     traces, and map and cross section view of the gridded triggered earthquake
     locations.
@@ -30,7 +32,7 @@ def triggered_events(events, start_time, end_time, output, marginal_window,
     ----------
     events : pandas DataFrame
         Triggered events output from _trigger_scn().
-        Columns: ["EventNum", "CoaTime", "COA_V", "COA_X", "COA_Y", "COA_Z", 
+        Columns: ["EventNum", "CoaTime", "COA_V", "COA_X", "COA_Y", "COA_Z",
                  "MinTime", "MaxTime"]
 
     start_time : UTCDateTime
@@ -50,7 +52,7 @@ def triggered_events(events, start_time, end_time, output, marginal_window,
 
     normalise_coalescence : bool
         If True, use the coalescence normalised by the average background noise
-    
+
     data : pandas DataFrame
         Data output by detect() -- decimated scan
         Columns: ["COA", "COA_N", "X", "Y", "Z"]
@@ -73,9 +75,11 @@ def triggered_events(events, start_time, end_time, output, marginal_window,
 
     fig = plt.figure(figsize=(30, 15))
     fig.patch.set_facecolor("white")
-    coa = plt.subplot2grid((6, 16), (0, 0), colspan=9, rowspan=3)
-    coa_norm = plt.subplot2grid((6, 16), (3, 0), colspan=9, rowspan=3,
+    coa = plt.subplot2grid((6, 16), (0, 0), colspan=9, rowspan=2)
+    coa_norm = plt.subplot2grid((6, 16), (2, 0), colspan=9, rowspan=2,
                                 sharex=coa)
+    availability = plt.subplot2grid((6, 16), (4, 0), colspan=9, rowspan=2,
+                                    sharex=coa)
     xy = plt.subplot2grid((6, 16), (0, 10), colspan=4, rowspan=4)
     xz = plt.subplot2grid((6, 16), (4, 10), colspan=4, rowspan=2,
                           sharex=xy)
@@ -87,6 +91,16 @@ def triggered_events(events, start_time, end_time, output, marginal_window,
     coa.get_xaxis().set_ticks([])
     coa_norm.plot(data["DT"], data["COA_N"], color="blue", zorder=10,
                   label="Maximum coalescence", linewidth=0.2)
+
+    avail = output.read_availability().sum(axis=1).astype(int)
+    a_times = [UTCDateTime(x).datetime for x in avail.index.values]
+
+    # Handle last step
+    avail = avail.values
+    avail = np.append(avail, [avail[-1]])
+    a_times.append(end_time.datetime)
+    availability.step(a_times, avail, color="green", where="post")
+    availability.set_ylim([0, len(stations["Name"]) + 1])
 
     if events is not None:
         for i, event in events.iterrows():
@@ -104,7 +118,7 @@ def triggered_events(events, start_time, end_time, output, marginal_window,
                              (event["MaxTime"]).datetime,
                              label=label1, alpha=0.5, color="red")
                 plot.axvline((event["CoaTime"] - marginal_window).datetime,
-                             label=label2, c="m", linestyle="--", 
+                             label=label2, c="m", linestyle="--",
                              linewidth=1.75)
                 plot.axvline((event["CoaTime"] + marginal_window).datetime,
                              c="m", linestyle="--", linewidth=1.75)
@@ -126,7 +140,9 @@ def triggered_events(events, start_time, end_time, output, marginal_window,
                   transform=coa_norm.transAxes, bbox=props)
     coa_norm.legend(loc=2)
     coa_norm.set_ylabel("Normalised maximum coalescence value")
-    coa_norm.set_xlabel("DateTime")
+
+    availability.set_ylabel("Number of available stations")
+    availability.set_xlabel("DateTime")
 
     if events is not None:
         if normalise_coalescence:

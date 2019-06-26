@@ -7,7 +7,6 @@ Module that supplies various utility functions and classes.
 import time
 
 import numpy as np
-from obspy import Trace
 
 
 def _make_directories(run, subdir=None):
@@ -29,6 +28,7 @@ def _make_directories(run, subdir=None):
     if subdir:
         new_dir = run / subdir
         new_dir.mkdir(exist_ok=True)
+
 
 def gaussian_1d(x, a, b, c):
     """
@@ -58,6 +58,7 @@ def gaussian_1d(x, a, b, c):
     f = a * np.exp(-1. * ((x - b) ** 2) / (2 * (c ** 2)))
 
     return f
+
 
 def gaussian_3d(nx, ny, nz, sgm):
     """
@@ -101,37 +102,6 @@ def gaussian_3d(nx, ny, nz, sgm):
                - (iz * iz) / (2 * sz * sz))
 
     return f
-
-def resample(trace, upfactor):
-    """
-    Upsample a data stream by a given factor, prior to decimation
-
-    Parameters
-    ----------
-    trace : obspy Trace object
-        Trace to be upsampled
-    upfactor : int
-        Factor by which to upsample the data in trace
-
-    Returns
-    -------
-    out : obpsy Trace object
-        Upsampled trace
-
-    """
-
-    data = trace.data
-    dnew = np.zeros(len(data) * upfactor - (upfactor - 1))
-    dnew[::upfactor] = data
-    for i in range(1, upfactor):
-        dnew[i::upfactor] = float(i) / upfactor * data[:-1] \
-                     + float(upfactor - i) / upfactor * data[1:]
-
-    out = Trace()
-    out.stats.starttime = trace.stats.starttime
-    out.stats.sampling_rate = int(upfactor * trace.stats.sampling_rate)
-
-    return out
 
 
 class Stopwatch(object):
@@ -180,6 +150,7 @@ class NoScanMseedDataException(Exception):
         msg = "DataGapException: No .scanmseed data found."
         super().__init__(msg)
 
+
 class DataGapException(Exception):
     """
     Custom exception to handle case when all data has gaps for a given timestep
@@ -188,7 +159,7 @@ class DataGapException(Exception):
 
     def __init__(self):
         msg = "DataGapException: All available data had gaps for this timestep."
-        msg+= "\n    OR: no data present in the archive for the selected stations"
+        msg += "\n    OR: no data present in the archive for the selected stations"
         super().__init__(msg)
 
 

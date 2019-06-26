@@ -217,12 +217,12 @@ class Trigger:
 
         # Mask based on first and final time stamps and detection threshold
         if self.normalise_coalescence is True:
-            coa_data = self.coa_data[self.coa_data["COA_N"] >= \
+            coa_data = self.coa_data[self.coa_data["COA_N"] >=
                                      self.detection_threshold]
             coa_data = coa_data[(coa_data["DT"] >= start_time) &
                                 (coa_data["DT"] <= end_time)]
         else:
-            coa_data = self.coa_data[self.coa_data["COA"] >= \
+            coa_data = self.coa_data[self.coa_data["COA"] >=
                                      self.detection_threshold]
             coa_data = coa_data[(coa_data["DT"] >= start_time) &
                                 (coa_data["DT"] <= end_time)]

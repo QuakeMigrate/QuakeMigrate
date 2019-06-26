@@ -21,8 +21,15 @@ import QMigrate.io.quakeio as qio
 import QMigrate.plot.quakeplot as qplot
 import QMigrate.util as util
 
-# Catch warnings as errors
-warnings.filterwarnings("always")
+# Filter warnings
+warnings.filterwarnings("ignore", message=("Covariance of the parameters" +
+                                           " could not be estimated"))
+warnings.filterwarnings("ignore", message=("File will be written with more" +
+                                           " than one different record" +
+                                           " lengths. This might have a" +
+                                           " negative influence on the" +
+                                           " compatibility with other" +
+                                           " programs."))
 
 
 def sta_lta_centred(a, nsta, nlta):
@@ -76,6 +83,7 @@ def sta_lta_centred(a, nsta, nlta):
     lta[idx] - dtiny
 
     return sta / lta
+
 
 def onset(sig, stw, ltw, centred=False):
     """
@@ -135,6 +143,7 @@ def onset(sig, stw, ltw, centred=False):
             np.log(onset[i, :], onset[i, :])
 
     return onset_raw, onset
+
 
 def filter(sig, sampling_rate, lc, hc, order=2):
     """
@@ -688,6 +697,7 @@ class QuakeScan(DefaultQuakeScan):
 
         if coastream is not None:
             coastream = coastream + st
+            coastream.merge(method=-1)
         else:
             coastream = st
 
@@ -703,7 +713,7 @@ class QuakeScan(DefaultQuakeScan):
             self.output.write_coastream(coastream, write_start, write_end)
             written = True
 
-            coastream = coastream.trim(starttime=write_end + 1 / sampling_rate)
+            coastream.trim(starttime=write_end + 1 / sampling_rate)
 
         return coastream, written
 
@@ -734,6 +744,10 @@ class QuakeScan(DefaultQuakeScan):
             msg = "Error: Time step has not been specified"
             print(msg)
 
+        # Initialise pandas DataFrame object to track availability
+        availability = pd.DataFrame(index=np.arange(nsteps),
+                                    columns=self.data.stations)
+
         for i in range(nsteps):
             w_beg = start_time + self.time_step * i - self.pre_pad
             w_end = start_time + self.time_step * (i + 1) + self.post_pad
@@ -751,6 +765,7 @@ class QuakeScan(DefaultQuakeScan):
                                                           w_beg, w_end,
                                                           self.data.signal,
                                                           self.data.availability)
+                availability.loc[i] = self.data.availability
                 coord = self.lut.xyz2coord(loc)
 
                 del loc, map_4d
@@ -761,6 +776,7 @@ class QuakeScan(DefaultQuakeScan):
                 msg += " " * 16 + "!" * 24
                 print(msg)
                 daten, max_coa, max_coa_norm, coord = self._empty(w_beg, w_end)
+                availability.loc[i] = self.data.availability
 
             except util.DataGapException:
                 msg = "!" * 24 + " " * 9
@@ -771,9 +787,12 @@ class QuakeScan(DefaultQuakeScan):
                 msg += " " * 12 + "!" * 24
                 print(msg)
                 daten, max_coa, max_coa_norm, coord = self._empty(w_beg, w_end)
+                availability.loc[i] = self.data.availability
 
-            # Append upto sample-before-last (so if end_time is
-            # 2014-08-24T00:00:00, your last sample will be 2014-08-23T23:59:59)
+            availability.rename(index={i: str(w_beg)}, inplace=True)
+
+            # Append upto sample-before-last - if end_time is
+            # 2014-08-24T00:00:00, your last sample will be 2014-08-23T23:59:59
             coastream, written = self._append_coastream(coastream,
                                                         daten[:-1],
                                                         max_coa[:-1],
@@ -791,6 +810,8 @@ class QuakeScan(DefaultQuakeScan):
             self.output.write_coastream(coastream)
 
         del coastream
+
+        self.output.write_availability(availability)
 
         print("=" * 120)
 
@@ -840,9 +861,9 @@ class QuakeScan(DefaultQuakeScan):
                 print(msg)
 
             w_beg = trig_event["CoaTime"] - 2*self.marginal_window \
-                    - self.pre_pad
+                - self.pre_pad
             w_end = trig_event["CoaTime"] + 2*self.marginal_window \
-                    + self.post_pad
+                + self.post_pad
 
             timer = util.Stopwatch()
             print("\tReading waveform data...")
@@ -871,17 +892,17 @@ class QuakeScan(DefaultQuakeScan):
                                                     coord[:, 0],
                                                     coord[:, 1],
                                                     coord[:, 2])).transpose(),
-                                         columns=["DT", "COA", "X", "Y", "Z"])
+                                          columns=["DT", "COA", "X", "Y", "Z"])
             event_coa_data["DT"] = event_coa_data["DT"].apply(UTCDateTime)
             event_coa_data_dtmax = \
-            event_coa_data["DT"].iloc[event_coa_data["COA"].astype("float").idxmax()]
+                event_coa_data["DT"].iloc[event_coa_data["COA"].astype("float").idxmax()]
             w_beg_mw = event_coa_data_dtmax - self.marginal_window
             w_end_mw = event_coa_data_dtmax + self.marginal_window
 
-            if (event_coa_data_dtmax >= trig_event["CoaTime"] \
-                - self.marginal_window) & \
-               (event_coa_data_dtmax <= trig_event["CoaTime"] \
-                + self.marginal_window):
+            if (event_coa_data_dtmax >= trig_event["CoaTime"]
+                - self.marginal_window) \
+               and (event_coa_data_dtmax <= trig_event["CoaTime"]
+                    + self.marginal_window):
                 w_beg_mw = event_coa_data_dtmax - self.marginal_window
                 w_end_mw = event_coa_data_dtmax + self.marginal_window
             else:
@@ -899,7 +920,7 @@ class QuakeScan(DefaultQuakeScan):
                 continue
 
             event_mw_data = event_coa_data
-            event_mw_data = event_mw_data[(event_mw_data["DT"] >= w_beg_mw) & \
+            event_mw_data = event_mw_data[(event_mw_data["DT"] >= w_beg_mw) &
                                           (event_mw_data["DT"] <= w_end_mw)]
             map_4d = map_4d[:, :, :,
                             event_mw_data.index[0]:event_mw_data.index[-1]]
@@ -924,7 +945,7 @@ class QuakeScan(DefaultQuakeScan):
             timer = util.Stopwatch()
             print("\tDetermining earthquake location and uncertainty...")
             loc_spline, loc_gau, loc_gau_err, loc_cov, \
-            loc_cov_err = self._calculate_location(map_4d)
+                loc_cov_err = self._calculate_location(map_4d)
             print(timer())
 
             # Make event dictionary with all final event location data
@@ -1386,11 +1407,10 @@ class QuakeScan(DefaultQuakeScan):
                       data_half_range / self.sampling_rate]
 
                 # Do the fit
-                popt, pcov = curve_fit(util.gaussian_1d, x_data, y_data, p0)
+                popt, _ = curve_fit(util.gaussian_1d, x_data, y_data, p0)
 
                 # Results:
                 #  popt = [height, mean (seconds), sigma (seconds)]
-                #  pcov not used
                 max_onset = popt[0]
                 # Convert mean (pick time) to time
                 mean = start_time + float(popt[1])
@@ -1404,7 +1424,7 @@ class QuakeScan(DefaultQuakeScan):
 
             # If curve_fit fails. Will also spit error message to stdout,
             # though this can be suppressed  - see warnings.filterwarnings()
-            except:
+            except (ValueError, RuntimeError):
                 gaussian_fit = self.DEFAULT_GAUSSIAN_FIT
                 gaussian_fit["PickThreshold"] = threshold
                 sigma = -1
@@ -1726,7 +1746,7 @@ class QuakeScan(DefaultQuakeScan):
             [x, y, z] : expectation location from 3-d Gaussian fit
 
         loc_gau_err : array-like
-            [x_err, y_err, z_err] : one sigma uncertainties from 3-d Gasussian
+            [x_err, y_err, z_err] : one sigma uncertainties from 3-d Gaussian
                                     fit
 
         """
@@ -1746,7 +1766,7 @@ class QuakeScan(DefaultQuakeScan):
         # at infinity)
         coa_map = coa_map - np.nanmean(coa_map)
 
-        ## Fit 3-D gaussian function
+        # Fit 3-D gaussian function
         ncell = len(ix)
 
         if not lx:

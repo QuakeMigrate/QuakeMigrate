@@ -54,7 +54,7 @@ class Trigger:
 
         normalise_coalescence : bool, optional
             If True, use the max coalescence normalised by the average
-            coalescence value in the 3-D grid at each time step 
+            coalescence value in the 3-D grid at each time step
 
         marginal_window : float, optional
             Estimate of time error (derived from estimate of spatial error and
@@ -92,17 +92,17 @@ class Trigger:
 
         # Trigger from normalised max coalescence through time
         self.normalise_coalescence = True
-        
+
         # Marginalise 4D coalescence map over +/- 2 seconds around max
         # time of max coalescence
         self.marginal_window = 2.
-        
+
         # Minumum time interval between triggers. Must be >= 2*marginal_window
         self.minimum_repeat = 4.
 
         # Pad at start and end of trigger run
         self.pad = 120
-        
+
         self.sampling_rate = None
         self.coa_data = None
 
@@ -130,7 +130,7 @@ class Trigger:
         self.end_time = UTCDateTime(end_time)
 
         if self.minimum_repeat < 2 * self.marginal_window:
-            msg = "\tMinimum repeat must be <= 2 * marginal window."
+            msg = "\tMinimum repeat must be >= 2 * marginal window."
             raise Exception(msg)
 
         msg = "=" * 120 + "\n"
@@ -143,31 +143,44 @@ class Trigger:
         msg += "         Detection threshold       = {}\n"
         msg += "         Marginal window           = {} s\n"
         msg += "         Minimum repeat            = {} s\n\n"
-        msg += "         Trigger normalised coalescence - {}\n\n"
+        msg += "         Trigger from normalised coalescence - {}\n\n"
         msg += "=" * 120
-        msg = msg.format(str(self.start_time), str(self.end_time), 
+        msg = msg.format(str(self.start_time), str(self.end_time),
                          str(self.pad), self.detection_threshold,
                          self.marginal_window, self.minimum_repeat,
                          self.normalise_coalescence)
         print(msg)
 
-        print("\tReading in decimated scan mSEED...")
+        print("    Reading in scanmseed...\n")
         read_start = self.start_time - self.pad
         read_end = self.end_time + self.pad
         self.coa_data, coa_stats = self.output.read_coastream(read_start,
                                                               read_end)
-        print("\tDecimated scan mSEED read complete.")
-        
+
+        # Check if coa_data found by read_coastream covers whole trigger period
+        msg=""
+        if coa_stats.starttime > self.start_time:
+            msg += "\tWarning! scanmseed data start is after trigger() start_time!\n"
+        elif coa_stats.starttime > read_start:
+            msg += "\tWarning! No scanmseed data found for pre-pad!\n"
+        if coa_stats.endtime < self.end_time:
+            msg += "\tWarning! scanmseed data end is before trigger() end_time!\n"
+        elif coa_stats.endtime > read_end:
+            msg += "\tWarning! No scanmseed data found for post-pad!\n"
+        print(msg)
+
+        print("    scanmseed read complete.")
+
         self.sampling_rate = coa_stats.sampling_rate
 
-        self.events = _trigger_scn()
+        self.events = self._trigger_scn()
 
         if self.events is None:
             msg = "\tNo events triggered at this threshold - "
             msg += "try reducing the detection threshold."
             print(msg)
         else:
-            self.output.write_triggered_events(events)
+            self.output.write_triggered_events(self.events)
 
         tplot.triggered_events(events=self.events, start_time=self.start_time,
                                end_time=self.end_time, output=self.output,
@@ -183,7 +196,7 @@ class Trigger:
         """
         Function to perform the triggering on the maximum coalescence through
         time data.
-        
+
         Returns
         -------
         events : pandas DataFrame
@@ -196,23 +209,23 @@ class Trigger:
 
         # switch between user-facing minimum repeat definition (minimum repeat
         # interval between event triggers) and internal definition (extra
-        # buffer on top of marginal window within which events can't overlap) 
+        # buffer on top of marginal window within which events can't overlap)
         minimum_repeat = self.minimum_repeat - self.marginal_window
 
         start_time = self.start_time - self.pad
         end_time = self.end_time + self.pad
 
         # Mask based on first and final time stamps and detection threshold
-        if normalise_coalescence is True:
+        if self.normalise_coalescence is True:
             coa_data = self.coa_data[self.coa_data["COA_N"] >= \
                                      self.detection_threshold]
-            coa_data = self.coa_data[(self.coa_data["DT"] >= start_time) &
-                                     (self.coa_data["DT"] <= end_time)]
+            coa_data = coa_data[(coa_data["DT"] >= start_time) &
+                                (coa_data["DT"] <= end_time)]
         else:
             coa_data = self.coa_data[self.coa_data["COA"] >= \
                                      self.detection_threshold]
-            coa_data = self.coa_data[(self.coa_data["DT"] >= start_time) &
-                                     (self.coa_data["DT"] <= end_time)]
+            coa_data = coa_data[(coa_data["DT"] >= start_time) &
+                                (coa_data["DT"] <= end_time)]
 
         coa_data = coa_data.reset_index(drop=True)
 
@@ -243,7 +256,7 @@ class Trigger:
                 max_idx = d
                 val_idx = np.argmax(coa_data["COA"].iloc[np.arange(c, d + 1)])
             except IndexError:
-                # Handling for last sample if it is a single sample above 
+                # Handling for last sample if it is a single sample above
                 # threshold
                 min_idx = max_idx = val_idx = c
 
@@ -261,7 +274,7 @@ class Trigger:
             COA_Z = coa_data["Z"].iloc[val_idx]
 
             # If the first sample above the threshold is within the marginal
-            # window, set min time stamp to: 
+            # window, set min time stamp to:
             # maximum value time - marginal window - minimum repeat
             if (t_val - t_min) < self.marginal_window:
                 t_min = t_val - self.marginal_window - minimum_repeat
@@ -270,7 +283,7 @@ class Trigger:
                 t_min = t_min - minimum_repeat
 
             # If the final sample above the threshold is within the marginal
-            # window,  set the max time stamp to the maximum value time + 
+            # window,  set the max time stamp to the maximum value time +
             # marginal window + minimum repeat
             if (t_max - t_val) < self.marginal_window:
                 t_max = t_val + self.marginal_window + minimum_repeat
@@ -291,7 +304,7 @@ class Trigger:
         evt_num = np.ones((n_evts), dtype=int)
 
         # Iterate over initially triggered events and see if there is overlap
-        # between the final sample in the event window and the edge of the 
+        # between the final sample in the event window and the edge of the
         # marginal window of the next. If so, treat them as the same event
         count = 1
         for i, event in init_events.iterrows():

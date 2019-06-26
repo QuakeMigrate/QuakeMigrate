@@ -32,13 +32,13 @@ class Archive(object):
         File naming format of data archive
 
     raw_waveforms : obspy Stream object
-        All raw seismic data found and read in from the archive in the 
-        specified time period 
-    
+        All raw seismic data found and read in from the archive in the
+        specified time period
+
     signal : array-like
         Processed 3-component seismic data at the desired sampling rate only
-        for desired stations with continuous data on all 3 components 
-        throughout the desired time period and where the data could be 
+        for desired stations with continuous data on all 3 components
+        throughout the desired time period and where the data could be
         successfully resampled to the desired sampling rate
 
     filtered_signal : array-like
@@ -60,11 +60,11 @@ class Archive(object):
         Read in all waveform data between two times, downsample / resample if
         required to reach desired sampling rate. Return all raw data as an
         obspy Stream object and processed data for specified stations as an
-        array for use by QuakeScan. 
+        array for use by QuakeScan.
 
     """
 
-    def __init__(self, station_file, delimiter=",", archive_path):
+    def __init__(self, station_file, archive_path, delimiter=","):
         """
         Archive object initialisation.
 
@@ -77,7 +77,7 @@ class Archive(object):
 
         delimiter : char, optional
             QMigrate station file delimiter; defaults to ","
-            
+
         archive_path : str
             Location of seismic data archive: e.g.: "./DATA_ARCHIVE"
 
@@ -143,13 +143,13 @@ class Archive(object):
         elif archive_format == "YEAR_JD/STATION_*":
             self.format = "{year}_{jday}/{station}_*"
 
-    def read_waveform_data(self, start_time, end_time, sampling_rate
+    def read_waveform_data(self, start_time, end_time, sampling_rate,
                            pre_pad=None, post_pad=None):
         """
-        Read in the waveform data for all stations in the archive between two 
+        Read in the waveform data for all stations in the archive between two
         times and return station availability of the stations specified in the
         station file during this period. Downsample / resample (optional) this
-        data if required to reach desired sampling rate. 
+        data if required to reach desired sampling rate.
 
         Output both processed data for stations in station file and all raw
         data in an obspy Stream object.
@@ -183,14 +183,14 @@ class Archive(object):
         self.sampling_rate = sampling_rate
         self.start_time = start_time
         self.end_time = end_time
-        
+
         if pre_pad is None:
             pre_pad = 0.
         if post_pad is None:
             post_pad = 0.
 
         samples = int(round((end_time - start_time) * sampling_rate + 1))
-        files = self._load_from_path(start_time, end_time)
+        files = self._load_from_path(start_time - pre_pad, end_time + post_pad)
 
         st = Stream()
         try:
@@ -199,8 +199,8 @@ class Archive(object):
             for file in files:
                 file = str(file)
                 try:
-                    st += read(file, starttime=start_time-pre_pad,
-                          endtime=end_time+post_pad)
+                    st += read(file, starttime=start_time - pre_pad,
+                          endtime=end_time + post_pad)
                 except TypeError:
                     msg = "File not compatible with obspy - {}"
                     print(msg.format(file))
@@ -211,13 +211,15 @@ class Archive(object):
 
             # Make copy of raw waveforms to output if requested, delete st
             st_raw = st.copy()
-            st = Stream()
+            st_selected = Stream()
 
             # re-populate st with only stations in station file, and only
             # data between start and end time needed for QuakeScan
             for stn in self.stations.tolist():
-                st += st_raw.select(station=stn).trim(starttime=start_time,
-                                                      endtime=end_time)
+                st_selected += st.select(station=stn)
+            st = st_selected.copy()
+            for tr in st.traces:
+                tr.trim(starttime=start_time, endtime=end_time)
 
             gaps = st.get_gaps()
             if gaps:
@@ -266,7 +268,7 @@ class Archive(object):
         -------
         signal : array-like
             3-component seismic data only for stations with continuous data
-            on all 3 components throughout the desired time period 
+            on all 3 components throughout the desired time period
 
         availability : array-like
             Array containing 0s (no data) or 1s (data)

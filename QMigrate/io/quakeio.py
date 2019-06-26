@@ -7,7 +7,7 @@ Module to handle input/output for QuakeMigrate.
 import pathlib
 from datetime import datetime
 
-from obspy import Stream, Trace, UTCDateTime, read
+from obspy import Stream, UTCDateTime, read
 import pandas as pd
 import numpy as np
 
@@ -89,7 +89,7 @@ class QuakeIO:
         Write raw cut waveform data (defaults to mSEED format)
 
     write_picks()
-        Write phase pick data 
+        Write phase pick data
 
     write_event()
         Write located event data
@@ -172,9 +172,9 @@ class QuakeIO:
 
         subdir = "4d_coal_grids"
         util._make_directories(self.run, subdir=subdir)
-        fname = self.run / subdir / self.name+"{}_{}_{}".format(event_name,
-                                                                start_time,
-                                                                end_time)
+        filestr = "{}_{}_{}_{}".format(self.name, event_name, start_time,
+                                       end_time)
+        fname = self.run / subdir / filestr
         fname = fname.with_suffix(".coal4D")
 
         np.save(str(fname), map_4d)
@@ -209,19 +209,20 @@ class QuakeIO:
 
         dy = 0
         files = []
-        coa = Stream()        
+        coa = Stream()
         # Loop through days trying to read coastream files
         while start_day + (dy * 86400) <= end_time:
             now = start_time + (dy * 86400)
-            nowstr = "_{}_{}".format(now.year, now.julday.zfill(3))
-            fname = (self.run / self.name + nowstr).with_suffix(".scanmseed")
+            filestr = "{}_{}_{}".format(self.name, str(now.year),
+                                        str(now.julday).zfill(3))
+            fname = (self.run / filestr).with_suffix(".scanmseed")
             try:
                 coa += read(str(fname), starttime=start_time,
                                   endtime=end_time, format="MSEED")
             except FileNotFoundError:
-                msg = "No file found for {}-{} !!\n"
-                msg += "\tNo events will be triggered from this day\n"
-                msg.format(now.year, now.julday.zfill(3))
+                msg = "\tNo .scanmseed file found for day {}-{} !!\n"
+                msg = msg.format(str(now.year), str(now.julday).zfill(3))
+                print(msg)
 
             dy += 1
 
@@ -231,7 +232,7 @@ class QuakeIO:
         coa_stats = coa.select(station="COA")[0].stats
 
         msg = "\t\tSuccessfully read .scanmseed data from {} - {}\n"
-        msg = msg.format(str(start_time), str(end_time))
+        msg = msg.format(str(coa_stats.starttime), str(coa_stats.endtime))
         print(msg)
 
         data = pd.DataFrame()
@@ -241,7 +242,7 @@ class QuakeIO:
                                coa_stats.endtime + td,
                                td)
 
-        # assign to DataFrame column and divide by factor applied in 
+        # assign to DataFrame column and divide by factor applied in
         # write_coastream()
         data["COA"] = coa.select(station="COA")[0].data / 1e5
         data["COA_N"] = coa.select(station="COA_N")[0].data / 1e5
@@ -265,7 +266,7 @@ class QuakeIO:
         Parameters
         ----------
         st : obspy Stream object
-            Output of detect() stored in obspy Stream object with 
+            Output of detect() stored in obspy Stream object with
             channels: ["COA", "COA_N", "X", "Y", "Z"]
 
         write_start : UTCDateTime object, optional
@@ -278,10 +279,11 @@ class QuakeIO:
 
         if write_start or write_end:
             st = st.trim(starttime=write_start, endtime=write_end)
-        
-        daystr = "_{}_{}".format(st.stats.starttime.year,
-                                 st.stats.starttime.julday.zfill(3))      
-        fname = (self.run / self.name + day_str).with_suffix(".scanmseed")
+
+        file_str = "{}_{}_{}".format(self.name,
+                                 str(st[0].stats.starttime.year),
+                                 str(st[0].stats.starttime.julday).zfill(3))
+        fname = (self.run / file_str).with_suffix(".scanmseed")
 
         st.write(str(fname), format="MSEED", encoding="STEIM2")
 
@@ -330,7 +332,7 @@ class QuakeIO:
         format : str, optional
             File format to write waveform data to. Options are all file formats
             supported by obspy, including: "MSEED" (default), "SAC", "SEGY",
-            "GSE2" 
+            "GSE2"
 
         pre_cut : float, optional
             Specify how long before the event origin time to cut the waveform
@@ -338,17 +340,19 @@ class QuakeIO:
 
         post_cut : float, optional
             Specify how long after the event origin time to cut the waveform
-            data to        
+            data to
 
         """
-        
+
         st = data.raw_waveforms
 
-        otime = UTCDateTime(event["COA"])
+        otime = UTCDateTime(event["DT"])
         if pre_cut:
-            st.trim(starttime=otime - pre_cut)
+            for tr in st.traces:
+                tr.trim(starttime=otime - pre_cut)
         if post_cut:
-            st.trim(endtime=otime + post_cut)
+            for tr in st.traces:
+                tr.trim(endtime=otime + post_cut)
 
         subdir = "cut_waveforms"
         util._make_directories(self.run, subdir=subdir)
@@ -448,7 +452,7 @@ class QuakeIO:
         ----------
         events : pandas DataFrame
             Triggered events output from _trigger_scn().
-            Columns: ["EventNum", "CoaTime", "COA_V", "COA_X", "COA_Y", 
+            Columns: ["EventNum", "CoaTime", "COA_V", "COA_X", "COA_Y",
                       "COA_Z", "MinTime", "MaxTime"]
 
         """

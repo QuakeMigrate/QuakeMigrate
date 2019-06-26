@@ -37,7 +37,7 @@ class QuakePlot:
         Generate plot of data & characteristic function traces and phase picks
 
     coalescence_video()
-        Generate a video of coalescence over marginal time window about 
+        Generate a video of coalescence over marginal time window about
         earthquake origin time
 
     event_summary()
@@ -47,8 +47,8 @@ class QuakePlot:
 
     logo = (pathlib.Path(__file__) / "QuakeMigrate").with_suffix(".png")
 
-    def __init__(self, lut, map_4d=None, coa_map=None, data, event_mw_data, 
-                 event, phase_picks=None, marginal_window, run_path,
+    def __init__(self, lut, data, event_mw_data, marginal_window, run_path,
+                 event, phase_picks=None, map_4d=None, coa_map=None,
                  options=None):
         """
         Initialisation of QuakePlot object.
@@ -92,7 +92,7 @@ class QuakePlot:
                                                     "SNR"]
                     Each row contains the phase pick from one station/phase.
                 "GAU_P" : array-like, dict
-                    Numpy array stack of Gaussian pick info (each as a dict) 
+                    Numpy array stack of Gaussian pick info (each as a dict)
                     for P phase:
                         {"popt": popt,
                         "xdata": x_data,
@@ -100,7 +100,7 @@ class QuakePlot:
                         "PickValue": max_onset,
                         "PickThreshold": threshold}
                 "GAU_S" : array-like
-                    Numpy array stack of Gaussian pick info (each as a dict) 
+                    Numpy array stack of Gaussian pick info (each as a dict)
                     for S phase: see "GAU_P"
 
         marginal_window : float
@@ -110,7 +110,7 @@ class QuakePlot:
 
         run_path : path
             Path of run directory
-        
+
         ### UNTESTED ###
         options : dict of additional kwargs
             Usage e.g. options={'TraceScaling': True, 'MAPColor': 'r'}
@@ -119,7 +119,7 @@ class QuakePlot:
 
         self.lut = lut
         self.map_4d = map_4d
-        if self.map_4d:
+        if self.map_4d is not None:
             self.map_max = np.nanmax(map_4d)
         self.coa_map = coa_map
 
@@ -158,12 +158,12 @@ class QuakePlot:
                 print(msg)
 
         # start_time and end_time are start of pre-pad and end of post-pad,
-        # respectively. 
+        # respectively.
         tmp = np.arange(self.data.start_time,
                         self.data.end_time + self.data.sample_size,
                         self.data.sample_size)
         self.times = pd.to_datetime([x.datetime for x in tmp])
-        
+
         # Convert event["DT"] to python datetime object
         if not isinstance(self.event_mw_data["DT"].iloc[0], datetime):
             self.event_mw_data["DT"] = [x.datetime for x in \
@@ -173,7 +173,7 @@ class QuakePlot:
         self.event_mw_data = self.event_mw_data[(self.event_mw_data["DT"] > \
                                                  self.times[0])
                                  & (self.event_mw_data["DT"] < self.times[-1])]
-        
+
         self.station_trace_vline = None
         self.coal_val_vline = None
         self.xy_plot = None
@@ -209,7 +209,7 @@ class QuakePlot:
         """
 
         ## This function currently doesn't work due to a float/int issue
-        # point = np.round(self.lut.coord2loc(np.array([[event["X"], 
+        # point = np.round(self.lut.coord2loc(np.array([[event["X"],
         #                                                event["Y"],
         #                                                event["Z"]]]))).astype(int)
 
@@ -251,9 +251,9 @@ class QuakePlot:
                                  self.data.filtered_signal[1, i, :], -1, "b")
             self._plot_signal_trace(z_trace, self.times,
                                  self.data.filtered_signal[2, i, :], -1, "g")
-            p_onset.plot(self.times, self.data.p_onset[i, :], "r", 
+            p_onset.plot(self.times, self.data.p_onset[i, :], "r",
                          linewidth=0.5)
-            s_onset.plot(self.times, self.data.s_onset[i, :], "b", 
+            s_onset.plot(self.times, self.data.s_onset[i, :], "b",
                          linewidth=0.5)
 
             # Defining Pick and Error
@@ -326,15 +326,15 @@ class QuakePlot:
                 plt.savefig(fname)
                 plt.close("all")
 
-    def coalescence_video(self, file_str=None):
+    def coalescence_video(self, file_str):
         """
         Generate a video over the marginal window showing the coalescence map
         and expected arrival times overlain on the station traces.
 
         Parameters
         ----------
-        file_str : str, optional
-            String {run_name}_{event_name} (figure displayed by default)
+        file_str : str
+            String {run_name}_{event_name}
 
         """
 
@@ -350,14 +350,11 @@ class QuakePlot:
                                       frames=np.linspace(idx0+1, idx1, 200),
                                       blit=False, repeat=False)
 
-        if file_str is None:
-            plt.show()
-        else:
-            subdir = "videos"
-            util._make_directories(self.run_path, subdir=subdir)
-            out_str = self.run_path / subdir / file_str
-            ani.save("{}_CoalescenceVideo.mp4".format(out_str),
-                     writer=writer)
+        subdir = "videos"
+        util._make_directories(self.run_path, subdir=subdir)
+        out_str = self.run_path / subdir / file_str
+        ani.save("{}_CoalescenceVideo.mp4".format(out_str),
+                 writer=writer)
 
     def event_summary(self, file_str=None):
         """
@@ -454,7 +451,7 @@ class QuakePlot:
                                         edgecolors="black")
 
         # Set signal trace limits
-        trace.set_xlim([(dt_max-0.1).datetime, 
+        trace.set_xlim([(dt_max-0.1).datetime,
                         (self.data.end_time-0.8).datetime])
         trace.yaxis.tick_right()
         trace.yaxis.set_ticks(sidx + 1)
@@ -531,7 +528,7 @@ class QuakePlot:
                              "X", "Z", ellipse_XZ, gellipse_XZ)
         xz_slice.invert_yaxis()
 
-        self._plot_map_slice(yz_slice, eq, 
+        self._plot_map_slice(yz_slice, eq,
                              np.transpose(coa_map[int(loc[0][0]), :, :]),
                              crd, "Y", "Z", ellipse_YZ, gellipse_YZ)
 
@@ -860,7 +857,7 @@ class QuakePlot:
                                 / self.map_max)[:-1, :-1].ravel())
         self.xz_plot.set_array((self.map_4d[:, loc[1], :, int(idx0 - frame)]
                                 / self.map_max)[:-1, :-1].ravel())
-        self.yz_plot.set_array((np.transpose(self.map_4d[loc[0], :, :, 
+        self.yz_plot.set_array((np.transpose(self.map_4d[loc[0], :, :,
                                                       int(idx0 - frame)])
                                 / self.map_max)[:-1, :-1].ravel())
 
@@ -931,7 +928,7 @@ class QuakePlot:
                                           "Linewidth", "Linestyle"],
                                    header=None)
             for i, f in xy_files.iterrows():
-                xy_file = pd.read_csv(f["File"], names=["Longitude", 
+                xy_file = pd.read_csv(f["File"], names=["Longitude",
                                                         "Latitude"],
                                       header=None)
                 slice_.plot(xy_file["Longitude"], xy_file["Latitude"],

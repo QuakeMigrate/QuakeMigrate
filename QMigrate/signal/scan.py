@@ -7,7 +7,7 @@ Module to perform core QuakeMigrate functions: detect() and locate().
 import warnings
 
 import numpy as np
-from obspy import UTCDateTime
+from obspy import UTCDateTime, Stream, Trace
 from obspy.signal.invsim import cosine_taper
 from obspy.signal.trigger import classic_sta_lta
 import pandas as pd
@@ -258,7 +258,7 @@ class DefaultQuakeScan(object):
             Time window (+/- marginal_window) about the maximum coalescence
             time to marginalise the 4d coalescence grid compouted in locate()
             to estimate the earthquake location and uncertainty. Should be an
-            estimate of the time uncertainty in the earthquake origin time - 
+            estimate of the time uncertainty in the earthquake origin time -
             a combination of the expected spatial error and the seismic
             velocity in the region of the event
 
@@ -266,7 +266,7 @@ class DefaultQuakeScan(object):
             Option to override the default pre-pad duration of data to read
             before computing 4d coalescence in detect() and locate(). Default
             value is calculated from the onset function durations.
-            
+
         n_cores : int
             Number of cores to use on the executing host for detect() /locate()
 
@@ -298,7 +298,7 @@ class DefaultQuakeScan(object):
         cut_waveform_format : str, optional
             File format to write waveform data to. Options are all file formats
             supported by obspy, including: "MSEED" (default), "SAC", "SEGY",
-            "GSE2" 
+            "GSE2"
 
         pre_cut : float, optional
             Specify how long before the event origin time to cut the waveform
@@ -382,16 +382,16 @@ class QuakeScan(DefaultQuakeScan):
     -------
     detect(start_time, end_time, log=False)
         Core detection method -- compute decimated 3-D coalescence continuously
-                                 throughout entire time period; output as 
+                                 throughout entire time period; output as
                                  .scanmseed (in mSEED format).
 
     locate(start_time, end_time, log=False)
         Core locate method -- compute 3-D coalescence over short time window
-                              around candidate earthquake triggered from 
+                              around candidate earthquake triggered from
                               coastream; output location & uncertainties
                               (.event file), phase picks (.picks file), plus
                               multiple optional plots / data for further
-                              analysis and processing. 
+                              analysis and processing.
 
     """
 
@@ -419,7 +419,7 @@ class QuakeScan(DefaultQuakeScan):
         Parameters
         ----------
         data : Archive object
-            Contains information on data archive structure and 
+            Contains information on data archive structure and
             read_waveform_data() method
 
         lookup_table : str
@@ -442,7 +442,7 @@ class QuakeScan(DefaultQuakeScan):
         self.lut = lut
 
         if output_path is not None:
-            self.output = qio.QuakeIO(output_path, output_name)
+            self.output = qio.QuakeIO(output_path, run_name)
         else:
             self.output = None
 
@@ -450,8 +450,8 @@ class QuakeScan(DefaultQuakeScan):
         # station and a grid point plus the LTA (in case onset_centred is True)
         #  ---> applies to both detect() and locate()
         ttmax = np.max(lut.fetch_map("TIME_S"))
-        lta_max = max(self.p_bp_filter[1], self.s_bp_filter[1])
-        t_max = ttmax + 2 * lta_max
+        lta_max = max(self.p_onset_win[1], self.s_onset_win[1])
+        self.post_pad = np.ceil((ttmax + 2 * lta_max))
 
         msg = "=" * 120 + "\n"
         msg += "=" * 120 + "\n"
@@ -496,7 +496,7 @@ class QuakeScan(DefaultQuakeScan):
 
     def detect(self, start_time, end_time, log=False):
         """
-        Scans through continuous data calculating coalescence on a decimated 
+        Scans through continuous data calculating coalescence on a decimated
         3D grid by back-migrating P and S onset (characteristic) functions.
 
         Parameters
@@ -580,7 +580,7 @@ class QuakeScan(DefaultQuakeScan):
         ----------
         start_time : str
             Start time of locate run: earliest event trigger time that will be
-            located 
+            located
 
         end_time : str
             End time of locate run: latest event trigger time that will be
@@ -621,7 +621,8 @@ class QuakeScan(DefaultQuakeScan):
 
         self._locate_events(start_time, end_time)
 
-    def _append_coastream(self, coastream, daten, max_coa, max_coa_norm, loc):
+    def _append_coastream(self, coastream, daten, max_coa, max_coa_norm, loc,
+                          sampling_rate):
         """
         Append latest timestep of detect() output to obspy.Stream() object.
         Multiply by factor of ["1e5", "1e5", "1e6", "1e6", "1e3"] respectively
@@ -650,6 +651,9 @@ class QuakeScan(DefaultQuakeScan):
         loc : array-like
             Location of maximum coalescence through time
 
+        sampling_rate : int
+            Sampling rate that detect is run at.
+
         Returns
         -------
         coastream : obspy Stream object
@@ -657,7 +661,7 @@ class QuakeScan(DefaultQuakeScan):
             channels: ["COA", "COA_N", "X", "Y", "Z"]
             NOTE these values have been multiplied by a factor and converted to
             an int
-            
+
         """
 
         # clip max value of COA to prevent int overflow
@@ -671,15 +675,15 @@ class QuakeScan(DefaultQuakeScan):
                 "sampling_rate": sampling_rate,
                 "starttime": starttime}
 
-        st = Stream(Trace(data=round(max_coa * 1e5).astype(np.int32),
+        st = Stream(Trace(data=np.round(max_coa * 1e5).astype(np.int32),
                           header={**{"station": "COA"}, **meta}))
-        st += Stream(Trace(data=round(max_coa_norm * 1e5).astype(np.int32),
+        st += Stream(Trace(data=np.round(max_coa_norm * 1e5).astype(np.int32),
                            header={**{"station": "COA_N"}, **meta}))
-        st += Stream(Trace(data=round(loc[:, 0] * 1e6).astype(np.int32),
+        st += Stream(Trace(data=np.round(loc[:, 0] * 1e6).astype(np.int32),
                            header={**{"station": "X"}, **meta}))
-        st += Stream(Trace(data=round(loc[:, 1] * 1e6).astype(np.int32),
+        st += Stream(Trace(data=np.round(loc[:, 1] * 1e6).astype(np.int32),
                            header={**{"station": "Y"}, **meta}))
-        st += Stream(Trace(data=round(loc[:, 2] * 1e3).astype(np.int32),
+        st += Stream(Trace(data=np.round(loc[:, 2] * 1e3).astype(np.int32),
                            header={**{"station": "Z"}, **meta}))
 
         if coastream is not None:
@@ -689,16 +693,17 @@ class QuakeScan(DefaultQuakeScan):
 
         # Have we moved to the next day? If so write out the file and empty
         # coastream
-        if coastream.stats.starttime.julday != coastream.stats.endtime.julday:
-            write_start = coastream.stats.starttime
-            write_end = UTCDateTime(coastream.stats.endtime.date)
+        written = False
+        if coastream[0].stats.starttime.julday != \
+           coastream[0].stats.endtime.julday:
+            write_start = coastream[0].stats.starttime
+            write_end = UTCDateTime(coastream[0].stats.endtime.date) \
                         - 1 / coastream[0].stats.sampling_rate
 
             self.output.write_coastream(coastream, write_start, write_end)
             written = True
 
-            coastream = coastream.trim(starttime=write_end
-                                       + 1 / coastream[0].stats.sampling_rate)
+            coastream = coastream.trim(starttime=write_end + 1 / sampling_rate)
 
         return coastream, written
 
@@ -767,7 +772,7 @@ class QuakeScan(DefaultQuakeScan):
                 print(msg)
                 daten, max_coa, max_coa_norm, coord = self._empty(w_beg, w_end)
 
-            # Append upto sample-before-last (so if end_time is 
+            # Append upto sample-before-last (so if end_time is
             # 2014-08-24T00:00:00, your last sample will be 2014-08-23T23:59:59)
             coastream, written = self._append_coastream(coastream,
                                                         daten[:-1],
@@ -775,7 +780,7 @@ class QuakeScan(DefaultQuakeScan):
                                                         max_coa_norm[:-1],
                                                         coord[:-1, :],
                                                         self.sampling_rate)
-            
+
             del daten, max_coa, max_coa_norm, coord
 
             if self.continuous_scanmseed_write and not written:
@@ -799,7 +804,7 @@ class QuakeScan(DefaultQuakeScan):
         ----------
         start_time : UTCDateTime object
            Start time of locate run: earliest event trigger time that will be
-            located 
+            located
 
         end_time : UTCDateTime object
             End time of locate run: latest event trigger time that will be
@@ -834,9 +839,24 @@ class QuakeScan(DefaultQuakeScan):
             else:
                 print(msg)
 
+            w_beg = trig_event["CoaTime"] - 2*self.marginal_window \
+                    - self.pre_pad
+            w_end = trig_event["CoaTime"] + 2*self.marginal_window \
+                    + self.post_pad
+
             timer = util.Stopwatch()
             print("\tReading waveform data...")
-            self._read_event_waveform_data(trig_event)
+            try:
+                self._read_event_waveform_data(trig_event, w_beg, w_end)
+            except util.ArchiveEmptyException:
+                msg = "\tNo files found in archive for this time period"
+                print(msg)
+                continue
+            except util.DataGapException:
+                msg = "\tAll available data for this time period contains gaps"
+                msg += "\n\tOR data not available at start/end of time period\n"
+                print(msg)
+                continue
             print(timer())
 
             timer = util.Stopwatch()
@@ -858,9 +878,10 @@ class QuakeScan(DefaultQuakeScan):
             w_beg_mw = event_coa_data_dtmax - self.marginal_window
             w_end_mw = event_coa_data_dtmax + self.marginal_window
 
-            if (event_coa_data_dtmax >= event["CoaTime"] - self.marginal_window) \
-               and (event_coa_data_dtmax <= event["CoaTime"] + \
-                    self.marginal_window):
+            if (event_coa_data_dtmax >= trig_event["CoaTime"] \
+                - self.marginal_window) & \
+               (event_coa_data_dtmax <= trig_event["CoaTime"] \
+                + self.marginal_window):
                 w_beg_mw = event_coa_data_dtmax - self.marginal_window
                 w_end_mw = event_coa_data_dtmax + self.marginal_window
             else:
@@ -879,8 +900,8 @@ class QuakeScan(DefaultQuakeScan):
 
             event_mw_data = event_coa_data
             event_mw_data = event_mw_data[(event_mw_data["DT"] >= w_beg_mw) & \
-                                          (event["DT"] <= w_end_mw)]
-            map_4d = map_4d[:, :, :, 
+                                          (event_mw_data["DT"] <= w_end_mw)]
+            map_4d = map_4d[:, :, :,
                             event_mw_data.index[0]:event_mw_data.index[-1]]
             event_mw_data = event_mw_data.reset_index(drop=True)
             event_max_coa = event_mw_data.iloc[event_mw_data["COA"].astype("float").idxmax()]
@@ -911,7 +932,7 @@ class QuakeScan(DefaultQuakeScan):
                                    event_max_coa.values[1],
                                    loc_spline[0], loc_spline[1], loc_spline[2],
                                    loc_gau[0], loc_gau[1], loc_gau[2],
-                                   loc_gau_err[0], loc_gau_err[1], 
+                                   loc_gau_err[0], loc_gau_err[1],
                                    loc_gau_err[2],
                                    loc_cov[0], loc_cov[1], loc_cov[2],
                                    loc_cov_err[0], loc_cov_err[1],
@@ -925,11 +946,11 @@ class QuakeScan(DefaultQuakeScan):
 
             print("=" * 120 + "\n")
 
-            del map_4d, event_coa_data, event_mw_data, event_max_coa, 
+            del map_4d, event_coa_data, event_mw_data, event_max_coa, \
                 phase_picks
             self.coa_map = None
 
-    def _read_event_waveform_data(self, event):
+    def _read_event_waveform_data(self, event, w_beg, w_end):
         """
         Read waveform data for a triggered event.
 
@@ -937,20 +958,25 @@ class QuakeScan(DefaultQuakeScan):
         ----------
         event : pandas DataFrame
             Triggered event output from _trigger_scn().
-            Columns: ["EventNum", "CoaTime", "COA_V", "COA_X", "COA_Y", "COA_Z", 
+            Columns: ["EventNum", "CoaTime", "COA_V", "COA_X", "COA_Y", "COA_Z",
                       "MinTime", "MaxTime"]
+
+        w_beg : UTCDateTime object
+            Start datetime to read waveform data
+
+        w_end : UTCDateTime object
+            End datetime to read waveform data
 
         Returns
         -------
         daten, max_coa, max_coa_norm, coord : array-like
             Empty arrays with the correct shape to write to .scanmseed as if
-            they were coastream outputs from _compute() 
+            they were coastream outputs from _compute()
 
         """
 
-        w_beg = event["CoaTime"] - 2*self.marginal_window - self.pre_pad
-        w_end = event["CoaTime"] + 2*self.marginal_window + self.post_pad
-
+        # Extra pre- and post-pad default to None
+        pre_pad = post_pad = None
         if self.pre_cut:
             # only subtract 1*marginal_window so if the event otime moves by
             # this much the selected pre_cut can still be applied
@@ -964,7 +990,7 @@ class QuakeScan(DefaultQuakeScan):
                     self.output.write_log(msg)
                 else:
                     print(msg)
-            pre_pad = None
+                pre_pad = None
 
         if self.post_cut:
             # only subtract 1*marginal_window so if the event otime moves by
@@ -982,22 +1008,8 @@ class QuakeScan(DefaultQuakeScan):
                     print(msg)
                 post_pad = None
 
-        try:
-            self.data.read_waveform_data(w_beg, w_end, self.sampling_rate,
-                                         pre_pad, post_pad)
-
-        except util.ArchiveEmptyException:
-            msg = "\tNo files found in archive for this time period"
-            print(msg)
-
-            continue
-
-        except util.DataGapException:
-            msg = "\tAll available data for this time period contains gaps"
-            msg += "\n\tOR data not available at start/end of time period\n"
-            print(msg)
-
-            continue
+        self.data.read_waveform_data(w_beg, w_end, self.sampling_rate,
+                                     pre_pad, post_pad)
 
     def _compute(self, w_beg, w_end, signal, station_availability):
         """
@@ -1068,7 +1080,7 @@ class QuakeScan(DefaultQuakeScan):
         # Prep empty 4-D coalescence map and run C-compiled ilib.migrate()
         ncell = tuple(self.lut.cell_count)
         map_4d = np.zeros(ncell + (nsamp,), dtype=np.float64)
-        ilib.migrate(ps_onset, ttime, pre_smp, pos_smp, nsamp, map_4d, 
+        ilib.migrate(ps_onset, ttime, pre_smp, pos_smp, nsamp, map_4d,
                      self.n_cores)
 
         # Prep empty coa and loc arrays and run C-compiled ilib.find_max_coa()
@@ -1127,7 +1139,7 @@ class QuakeScan(DefaultQuakeScan):
         filt_sig_z = filter(sig_z, sampling_rate, lc, hc, ord_)
         self.data.filtered_signal[2, :, :] = filt_sig_z
 
-        p_onset_raw, p_onset = onset(sig_z, stw, ltw,
+        p_onset_raw, p_onset = onset(filt_sig_z, stw, ltw,
                                      centred=self.onset_centred)
         self.onset_data["sigz"] = p_onset
 
@@ -1193,7 +1205,7 @@ class QuakeScan(DefaultQuakeScan):
         location.
 
         Uses knowledge of approximate pick index, the short-term average
-        onset window and the signal sampling rate to make an initial estimate 
+        onset window and the signal sampling rate to make an initial estimate
         of a gaussian fit to the onset function.
 
         Parameters
@@ -1430,11 +1442,11 @@ class QuakeScan(DefaultQuakeScan):
                     Each row contains the phase pick from one station/phase.
 
                 "GAU_P" : array-like
-                    Numpy array stack of Gaussian pick info (each as a dict) 
+                    Numpy array stack of Gaussian pick info (each as a dict)
                     for P phase
 
                 "GAU_S" : array-like
-                    Numpy array stack of Gaussian pick info (each as a dict) 
+                    Numpy array stack of Gaussian pick info (each as a dict)
                     for S phase
 
         """
@@ -1443,8 +1455,8 @@ class QuakeScan(DefaultQuakeScan):
         event_xyz = np.array(self.lut.xyz2coord(event_crd,
                                                 inverse=True)).astype(int)[0]
 
-        p_ttime = self.lut.value_at("TIME_P", max_coa_xyz)[0]
-        s_ttime = self.lut.value_at("TIME_S", max_coa_xyz)[0]
+        p_ttime = self.lut.value_at("TIME_P", event_xyz)[0]
+        s_ttime = self.lut.value_at("TIME_S", event_xyz)[0]
 
         # Determining the stations that can be picked on and the phases
         picks = pd.DataFrame(index=np.arange(0, 2 * len(self.data.p_onset)),
@@ -1487,8 +1499,8 @@ class QuakeScan(DefaultQuakeScan):
 
         phase_picks = {}
         phase_picks["Pick"] = picks
-        phase_picks["GAU_P"] = GAUP
-        phase_picks["GAU_S"] = GAUS
+        phase_picks["GAU_P"] = p_gauss
+        phase_picks["GAU_S"] = s_gauss
 
         return phase_picks
 
@@ -1580,7 +1592,7 @@ class QuakeScan(DefaultQuakeScan):
         """
         Calculate the 3-D covariance of the marginalised coalescence map,
         filtered above a percentile threshold {thresh}. Optionally can also
-        perform the fit on a sub-window of the grid around the maximum 
+        perform the fit on a sub-window of the grid around the maximum
         coalescence location.
 
         Parameters
@@ -1593,7 +1605,7 @@ class QuakeScan(DefaultQuakeScan):
             data above this percentile will be retained
 
         win : int, optional
-            Window of grid cells (+/-(win-1)//2 in x, y and z) around max 
+            Window of grid cells (+/-(win-1)//2 in x, y and z) around max
             value in coa_map to perform the fit over
 
         Returns
@@ -1619,7 +1631,7 @@ class QuakeScan(DefaultQuakeScan):
             flg = np.logical_and(coa_map > thresh,
                                  self._mask3d([nx, ny, nz], [mx, my, mz], win))
             ix, iy, iz = np.where(flg)
-            print("Variables", min(ix), max(ix), min(iy), max(iy), min(iz), 
+            print("Variables", min(ix), max(ix), min(iy), max(iy), min(iz),
                   max(iz))
         else:
             flg = np.where(coa_map > thresh, True, False)
@@ -1704,7 +1716,7 @@ class QuakeScan(DefaultQuakeScan):
             this percentile will be retained
 
         win : int, optional
-            Window of grid cells (+/-(win-1)//2 in x, y and z) around max 
+            Window of grid cells (+/-(win-1)//2 in x, y and z) around max
             value in coa_map to perform the fit over
 
         Returns
@@ -1811,7 +1823,7 @@ class QuakeScan(DefaultQuakeScan):
             Marginalised 3-D coalescence map
 
         win : int
-            Window of grid cells (+/-(win-1)//2 in x, y and z) around max 
+            Window of grid cells (+/-(win-1)//2 in x, y and z) around max
             value in coa_map to perform the fit over
 
         upscale : int
@@ -1842,7 +1854,7 @@ class QuakeScan(DefaultQuakeScan):
             coa_map_trim = coa_map[x1:x2, y1:y2, z1:z2]
 
             # Defining the original interpolation function
-            xo = np.linspace(0, coa_map_trim.shape[0] - 1, 
+            xo = np.linspace(0, coa_map_trim.shape[0] - 1,
                              coa_map_trim.shape[0])
             yo = np.linspace(0, coa_map_trim.shape[1] - 1,
                              coa_map_trim.shape[1])
@@ -1854,7 +1866,7 @@ class QuakeScan(DefaultQuakeScan):
                              function="cubic")
 
             # Creating the new interpolated grid
-            xx = np.linspace(0, coa_map_trim.shape[0] - 1, 
+            xx = np.linspace(0, coa_map_trim.shape[0] - 1,
                              (coa_map_trim.shape[0] - 1) * upscale + 1)
             yy = np.linspace(0, coa_map_trim.shape[1] - 1,
                              (coa_map_trim.shape[1] - 1) * upscale + 1)
@@ -1865,15 +1877,15 @@ class QuakeScan(DefaultQuakeScan):
             # Interpolate spline function on new grid
             coa_map_int = interpgrid(xxg.flatten(), yyg.flatten(),
                                      zzg.flatten()).reshape(xxg.shape)
-            
+
             # Calculate max coalescence location on interpolated grid
             mxi, myi, mzi = np.unravel_index(np.nanargmax(coa_map_int),
                                              coa_map_int.shape)
             mxi = mxi/upscale + x1
             myi = myi/upscale + y1
             mzi = mzi/upscale + z1
-            print("\t\tGridded loc:", mx, my, mz)
-            print("\t\tSpline loc:", mxi, myi, mzi)
+            print("\t\tGridded loc: {}   {}   {}".format(mx, my, mz))
+            print("\t\tSpline  loc: {} {} {}".format(mxi, myi, mzi))
 
             # Run check that spline location is within grid-cell
             if (abs(mx - mxi) > 1) or (abs(my - myi) > 1) or \
@@ -1917,9 +1929,9 @@ class QuakeScan(DefaultQuakeScan):
     def _calculate_location(self, map_4d):
         """
         Marginalise 4-D coalescence grid. Calcuate a set of locations and
-        associated uncertainties by: 
+        associated uncertainties by:
             (1) calculating the covariance of the entire coalescence map;
-            (2) fitting a 3-D Gaussian function and .. 
+            (2) fitting a 3-D Gaussian function and ..
             (3) a 3-D spline function ..
                 to a region around the maximum coalescence location in the
                 marginalised 3-D coalescence map.
@@ -1960,7 +1972,7 @@ class QuakeScan(DefaultQuakeScan):
         self.coa_map = self.coa_map/np.max(self.coa_map)
 
         # Fit 3-D spline function to small window around max coalescence
-        # location and interpolate to determine sub-grid maximum coalescence 
+        # location and interpolate to determine sub-grid maximum coalescence
         # location.
         loc_spline = self._splineloc(np.copy(self.coa_map))
 
@@ -1968,7 +1980,7 @@ class QuakeScan(DefaultQuakeScan):
         # location and fit 3-D gaussian function to determine local
         # expectation location and uncertainty
         smoothed_coa_map = self._gaufilt3d(np.copy(self.coa_map))
-        loc_gau, loc_gau_err = self._gaufit3d(np.copy(smoothed_coa_map), 
+        loc_gau, loc_gau_err = self._gaufit3d(np.copy(smoothed_coa_map),
                                               thresh=0.)
 
         # Calculate global covariance expected location and uncertainty
@@ -1993,7 +2005,7 @@ class QuakeScan(DefaultQuakeScan):
         -------
         daten, max_coa, max_coa_norm, coord : array-like
             Empty arrays with the correct shape to write to .scanmseed as if
-            they were coastream outputs from _compute() 
+            they were coastream outputs from _compute()
 
         """
 
@@ -2037,7 +2049,7 @@ class QuakeScan(DefaultQuakeScan):
 
         out_str : str
             String {run_name}_{event_name} (figure displayed by default)
-        
+
         phase_picks: dict
             Phase pick info, with keys:
                 "Pick" : pandas DataFrame
@@ -2054,10 +2066,10 @@ class QuakeScan(DefaultQuakeScan):
 
         if self.plot_event_summary or self.plot_station_traces or \
            self.plot_coal_video:
-            quake_plot = qplot.QuakePlot(self.lut, map_4d, self.coa_map,
-                                         self.data, event_mw_data, event,
-                                         phase_picks, self.marginal_window,
-                                         self.output.run)
+            quake_plot = qplot.QuakePlot(self.lut, self.data, event_mw_data,
+                                         self.marginal_window, self.output.run,
+                                         event, phase_picks, map_4d,
+                                         self.coa_map)
 
         if self.plot_event_summary:
             timer = util.Stopwatch()
@@ -2081,7 +2093,7 @@ class QuakeScan(DefaultQuakeScan):
             print("\tSaving raw cut waveforms...")
             timer = util.Stopwatch()
             self.output.write_cut_waveforms(self.data, event, event_uid,
-                                            format=self.cut_waveform_format,
+                                            self.cut_waveform_format,
                                             self.pre_cut, self.post_cut)
             print(timer())
 

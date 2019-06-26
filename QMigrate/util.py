@@ -10,6 +10,26 @@ import numpy as np
 from obspy import Trace
 
 
+def _make_directories(run, subdir=None):
+    """
+    Make run directory, and optionally make subdirectories within it.
+
+    Parameters
+    ----------
+    run : pathlib Path object
+        Location of parent output directory, named by run name
+
+    subir : string, optional
+        subdir to make within self.run
+
+    """
+
+    run.mkdir(exist_ok=True)
+
+    if subdir:
+        new_dir = run / subdir
+        new_dir.mkdir(exist_ok=True)
+
 def gaussian_1d(x, a, b, c):
     """
     Create a 1-dimensional Gaussian function.
@@ -168,6 +188,7 @@ class DataGapException(Exception):
 
     def __init__(self):
         msg = "DataGapException: All available data had gaps for this timestep."
+        msg+= "\n    OR: no data present in the archive for the selected stations"
         super().__init__(msg)
 
 

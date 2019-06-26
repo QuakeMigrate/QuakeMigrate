@@ -10,7 +10,6 @@ from itertools import chain
 from obspy import read, Stream, UTCDateTime
 import numpy as np
 
-import QMigrate.core.model as qmod
 import QMigrate.util as util
 import QMigrate.io.quakeio as qio
 

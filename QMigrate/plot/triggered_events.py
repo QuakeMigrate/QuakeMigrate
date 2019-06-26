@@ -21,7 +21,7 @@ def triggered_events(events, start_time, end_time, output, marginal_window,
                      detection_threshold, normalise_coalescence, data=None,
                      stations=None, savefig=False):
     """
-    Plots the data from a .scanmseed file with annotations illustrating the 
+    Plots the data from a .scanmseed file with annotations illustrating the
     trigger results: event triggers and marginal windows on the coalescence
     traces, and map and cross section view of the gridded triggered earthquake
     locations.
@@ -30,7 +30,7 @@ def triggered_events(events, start_time, end_time, output, marginal_window,
     ----------
     events : pandas DataFrame
         Triggered events output from _trigger_scn().
-        Columns: ["EventNum", "CoaTime", "COA_V", "COA_X", "COA_Y", "COA_Z", 
+        Columns: ["EventNum", "CoaTime", "COA_V", "COA_X", "COA_Y", "COA_Z",
                  "MinTime", "MaxTime"]
 
     start_time : UTCDateTime
@@ -50,7 +50,7 @@ def triggered_events(events, start_time, end_time, output, marginal_window,
 
     normalise_coalescence : bool
         If True, use the coalescence normalised by the average background noise
-    
+
     data : pandas DataFrame
         Data output by detect() -- decimated scan
         Columns: ["COA", "COA_N", "X", "Y", "Z"]

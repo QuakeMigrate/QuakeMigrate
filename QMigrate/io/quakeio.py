@@ -4,12 +4,12 @@ Module to handle input/output for QuakeMigrate.
 
 """
 
-import pathlib
 from datetime import datetime
+import pathlib
 
+import numpy as np
 from obspy import Stream, UTCDateTime, read
 import pandas as pd
-import numpy as np
 
 import QMigrate.util as util
 
@@ -34,21 +34,11 @@ def stations(station_file, delimiter=","):
         Columns: "Latitude", "Longitude", "Elevation", "Name"
 
     """
-    # stats = pd.read_csv(path, delimiter=delimiter).values
-
-    # stn_data = {}
-    # if units == "offset":
-    #     stn_lon, stn_lat = self.xy2lonlat(stats[:, 0].astype("float")
-    #                                       + self.grid_centre[0],
-    #                                       stats[:, 1].astype("float")
-    #                                       + self.grid_centre[1])
-    # elif units == "xyz":
-    #     stn_lon, stn_lat = self.xy2lonlat(stats[:, 0], stats[:, 1])
 
     stn_data = pd.read_csv(station_file, delimiter=delimiter)
 
     if ("Latitude" or "Longitude" or "Elevation" or "Name") \
-    not in stn_data.columns:
+       not in stn_data.columns:
         raise util.StationFileHeaderException
 
     return stn_data
@@ -181,8 +171,8 @@ class QuakeIO:
 
     def read_coastream(self, start_time, end_time):
         """
-        Read coastream data from .scanmseed files between two time stamps. Files
-        are labelled by year and julian day.
+        Read coastream data from .scanmseed files between two time stamps.
+        Files are labelled by year and julian day.
 
         Parameters
         ----------
@@ -218,9 +208,9 @@ class QuakeIO:
             fname = (self.run / filestr).with_suffix(".scanmseed")
             try:
                 coa += read(str(fname), starttime=start_time,
-                                  endtime=end_time, format="MSEED")
+                            endtime=end_time, format="MSEED")
             except FileNotFoundError:
-                msg = "\tNo .scanmseed file found for day {}-{} !!\n"
+                msg = "\tNo .scanmseed file found for day {}-{}!\n"
                 msg = msg.format(str(now.year), str(now.julday).zfill(3))
                 print(msg)
 
@@ -278,11 +268,11 @@ class QuakeIO:
         """
 
         if write_start or write_end:
-            st = st.trim(starttime=write_start, endtime=write_end)
+            st = st.slice(starttime=write_start, endtime=write_end)
 
         file_str = "{}_{}_{}".format(self.name,
-                                 str(st[0].stats.starttime.year),
-                                 str(st[0].stats.starttime.julday).zfill(3))
+                                     str(st[0].stats.starttime.year),
+                                     str(st[0].stats.starttime.julday).zfill(3))
         fname = (self.run / file_str).with_suffix(".scanmseed")
 
         st.write(str(fname), format="MSEED", encoding="STEIM2")
@@ -304,7 +294,7 @@ class QuakeIO:
         with fname.open(mode="a") as f:
             f.write(message + "\n")
 
-    def write_cut_waveforms(self, data, event, event_name, format="MSEED",
+    def write_cut_waveforms(self, data, event, event_name, data_format="MSEED",
                             pre_cut=None, post_cut=None):
         """
         Output raw cut waveform data as a waveform file -- defaults to mSEED.
@@ -358,19 +348,19 @@ class QuakeIO:
         util._make_directories(self.run, subdir=subdir)
         fname = self.run / subdir / "{}".format(event_name)
 
-        if format is "MSEED":
+        if data_format == "MSEED":
             suffix = ".m"
-        elif format is "SAC":
+        elif data_format == "SAC":
             suffix = ".sac"
-        elif format is "SEGY":
+        elif data_format == "SEGY":
             suffix = ".segy"
-        elif format is "GSE2":
+        elif data_format == "GSE2":
             suffix = ".gse2"
         else:
             suffix = ".waveforms"
 
         fname = str(fname.with_suffix(suffix))
-        st.write(str(fname), format=format) #, encoding="STEIM1")
+        st.write(str(fname), format=data_format)  # , encoding="STEIM1")
 
     def write_picks(self, stations, event_name):
         """
@@ -413,7 +403,7 @@ class QuakeIO:
 
         """
 
-        subdir="events"
+        subdir = "events"
         util._make_directories(self.run, subdir=subdir)
         fname = self.run / subdir / "{}".format(event_name)
         fname = str(fname.with_suffix(".event"))

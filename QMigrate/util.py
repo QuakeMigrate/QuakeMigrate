@@ -30,6 +30,7 @@ def _make_directories(run, subdir=None):
         new_dir = run / subdir
         new_dir.mkdir(exist_ok=True)
 
+
 def gaussian_1d(x, a, b, c):
     """
     Create a 1-dimensional Gaussian function.
@@ -58,6 +59,7 @@ def gaussian_1d(x, a, b, c):
     f = a * np.exp(-1. * ((x - b) ** 2) / (2 * (c ** 2)))
 
     return f
+
 
 def gaussian_3d(nx, ny, nz, sgm):
     """
@@ -101,6 +103,7 @@ def gaussian_3d(nx, ny, nz, sgm):
                - (iz * iz) / (2 * sz * sz))
 
     return f
+
 
 def resample(trace, upfactor):
     """
@@ -180,6 +183,7 @@ class NoScanMseedDataException(Exception):
         msg = "DataGapException: No .scanmseed data found."
         super().__init__(msg)
 
+
 class DataGapException(Exception):
     """
     Custom exception to handle case when all data has gaps for a given timestep
@@ -188,7 +192,7 @@ class DataGapException(Exception):
 
     def __init__(self):
         msg = "DataGapException: All available data had gaps for this timestep."
-        msg+= "\n    OR: no data present in the archive for the selected stations"
+        msg += "\n    OR: no data present in the archive for the selected stations"
         super().__init__(msg)
 
 

@@ -166,13 +166,14 @@ class QuakePlot:
 
         # Convert event["DT"] to python datetime object
         if not isinstance(self.event_mw_data["DT"].iloc[0], datetime):
-            self.event_mw_data["DT"] = [x.datetime for x in \
+            self.event_mw_data["DT"] = [x.datetime for x in
                                         self.event_mw_data["DT"]]
 
         # I think this should do nothing....
-        self.event_mw_data = self.event_mw_data[(self.event_mw_data["DT"] > \
+        self.event_mw_data = self.event_mw_data[(self.event_mw_data["DT"] >
                                                  self.times[0])
-                                 & (self.event_mw_data["DT"] < self.times[-1])]
+                                                & (self.event_mw_data["DT"] <
+                                                   self.times[-1])]
 
         self.station_trace_vline = None
         self.coal_val_vline = None
@@ -208,7 +209,7 @@ class QuakePlot:
 
         """
 
-        ## This function currently doesn't work due to a float/int issue
+        # This function currently doesn't work due to a float/int issue
         # point = np.round(self.lut.coord2loc(np.array([[event["X"],
         #                                                event["Y"],
         #                                                event["Z"]]]))).astype(int)
@@ -246,11 +247,11 @@ class QuakePlot:
 
             # Plotting the traces
             self._plot_signal_trace(x_trace, self.times,
-                                 self.data.filtered_signal[0, i, :], -1, "r")
+                                    self.data.filtered_signal[0, i, :], -1, "r")
             self._plot_signal_trace(y_trace, self.times,
-                                 self.data.filtered_signal[1, i, :], -1, "b")
+                                    self.data.filtered_signal[1, i, :], -1, "b")
             self._plot_signal_trace(z_trace, self.times,
-                                 self.data.filtered_signal[2, i, :], -1, "g")
+                                    self.data.filtered_signal[2, i, :], -1, "g")
             p_onset.plot(self.times, self.data.p_onset[i, :], "r",
                          linewidth=0.5)
             s_onset.plot(self.times, self.data.s_onset[i, :], "b",
@@ -411,24 +412,24 @@ class QuakePlot:
         for i in range(self.data.signal.shape[1]):
             if not self.filtered_signal:
                 self._plot_signal_trace(trace, self.times,
-                                     self.data.signal[0, i, :],
-                                     sidx[i], color="r")
+                                        self.data.signal[0, i, :],
+                                        sidx[i], color="r")
                 self._plot_signal_trace(trace, self.times,
-                                     self.data.signal[1, i, :],
-                                     sidx[i], color="b")
+                                        self.data.signal[1, i, :],
+                                        sidx[i], color="b")
                 self._plot_signal_trace(trace, self.times,
-                                     self.data.signal[2, i, :],
-                                     sidx[i], color="g")
+                                        self.data.signal[2, i, :],
+                                        sidx[i], color="g")
             else:
                 self._plot_signal_trace(trace, self.times,
-                                     self.data.filtered_signal[0, i, :],
-                                     sidx[i], color="r")
+                                        self.data.filtered_signal[0, i, :],
+                                        sidx[i], color="r")
                 self._plot_signal_trace(trace, self.times,
-                                     self.data.filtered_signal[1, i, :],
-                                     sidx[i], color="b")
+                                        self.data.filtered_signal[1, i, :],
+                                        sidx[i], color="b")
                 self._plot_signal_trace(trace, self.times,
-                                     self.data.filtered_signal[2, i, :],
-                                     sidx[i], color="g")
+                                        self.data.filtered_signal[2, i, :],
+                                        sidx[i], color="g")
 
         # --- Plotting the Station Travel Times ---
         ttime_range = self.lut.get_value_at("TIME_P", point[0])[0].shape[0]
@@ -691,24 +692,24 @@ class QuakePlot:
         for i in range(self.data.signal.shape[1]):
             if not self.filtered_signal:
                 self._plot_signal_trace(trace, self.times,
-                                     self.data.signal[0, i, :],
-                                     sidx[i], color="r")
+                                        self.data.signal[0, i, :],
+                                        sidx[i], color="r")
                 self._plot_signal_trace(trace, self.times,
-                                     self.data.signal[1, i, :],
-                                     sidx[i], color="b")
+                                        self.data.signal[1, i, :],
+                                        sidx[i], color="b")
                 self._plot_signal_trace(trace, self.times,
-                                     self.data.signal[2, i, :],
-                                     sidx[i], color="g")
+                                        self.data.signal[2, i, :],
+                                        sidx[i], color="g")
             else:
                 self._plot_signal_trace(trace, self.times,
-                                     self.data.filtered_signal[0, i, :],
-                                     sidx[i], color="r")
+                                        self.data.filtered_signal[0, i, :],
+                                        sidx[i], color="r")
                 self._plot_signal_trace(trace, self.times,
-                                     self.data.filtered_signal[1, i, :],
-                                     sidx[i], color="b")
+                                        self.data.filtered_signal[1, i, :],
+                                        sidx[i], color="b")
                 self._plot_signal_trace(trace, self.times,
-                                     self.data.filtered_signal[2, i, :],
-                                     sidx[i], color="g")
+                                        self.data.filtered_signal[2, i, :],
+                                        sidx[i], color="g")
 
         # --- Plotting the Station Travel Times ---
         ttime_range = self.lut.get_value_at("TIME_P", point)[0].shape[0]
@@ -799,7 +800,7 @@ class QuakePlot:
         self.yz_plot = yz_slice.pcolormesh(grid1, grid2,
                                            (np.transpose(
                                             self.map_4d[int(loc[0]), :, :,
-                                                     int(tslice_idx - idx0)])
+                                                        int(tslice_idx - idx0)])
                                             / self.map_max), cmap=self.cmap)
         yz_slice.set_xlim([zmax, zmin])
         yz_slice.set_ylim([ymin, ymax])
@@ -858,7 +859,7 @@ class QuakePlot:
         self.xz_plot.set_array((self.map_4d[:, loc[1], :, int(idx0 - frame)]
                                 / self.map_max)[:-1, :-1].ravel())
         self.yz_plot.set_array((np.transpose(self.map_4d[loc[0], :, :,
-                                                      int(idx0 - frame)])
+                                                         int(idx0 - frame)])
                                 / self.map_max)[:-1, :-1].ravel())
 
         # Updating the coalescence lines

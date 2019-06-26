@@ -232,6 +232,7 @@ class Archive(object):
             # Test if the stream is completely empty
             # (see __nonzero__ for obspy Stream object)
             if not bool(st):
+                self.availability = np.zeros(len(self.stations))
                 raise util.DataGapException
 
             # Detrend and downsample / resample stream if required
@@ -243,6 +244,7 @@ class Archive(object):
             signal, availability = self._station_availability(st, samples)
 
         except StopIteration:
+            self.availability = np.zeros(len(self.stations))
             raise util.ArchiveEmptyException
 
         self.raw_waveforms = st_raw
@@ -275,7 +277,7 @@ class Archive(object):
 
         """
 
-        availability = np.zeros((len(self.stations), 1))
+        availability = np.zeros(len(self.stations))
         signal = np.zeros((3, len(self.stations), int(samples)))
 
         for i, station in enumerate(self.stations):

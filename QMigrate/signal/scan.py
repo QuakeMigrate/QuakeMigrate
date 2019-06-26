@@ -744,6 +744,10 @@ class QuakeScan(DefaultQuakeScan):
             msg = "Error: Time step has not been specified"
             print(msg)
 
+        # Initialise pandas DataFrame object to track availability
+        availability = pd.DataFrame(index=np.arange(nsteps),
+                                    columns=self.data.stations)
+
         for i in range(nsteps):
             w_beg = start_time + self.time_step * i - self.pre_pad
             w_end = start_time + self.time_step * (i + 1) + self.post_pad
@@ -761,6 +765,7 @@ class QuakeScan(DefaultQuakeScan):
                                                           w_beg, w_end,
                                                           self.data.signal,
                                                           self.data.availability)
+                availability.loc[i] = self.data.availability
                 coord = self.lut.xyz2coord(loc)
 
                 del loc, map_4d
@@ -771,6 +776,7 @@ class QuakeScan(DefaultQuakeScan):
                 msg += " " * 16 + "!" * 24
                 print(msg)
                 daten, max_coa, max_coa_norm, coord = self._empty(w_beg, w_end)
+                availability.loc[i] = self.data.availability
 
             except util.DataGapException:
                 msg = "!" * 24 + " " * 9
@@ -781,6 +787,9 @@ class QuakeScan(DefaultQuakeScan):
                 msg += " " * 12 + "!" * 24
                 print(msg)
                 daten, max_coa, max_coa_norm, coord = self._empty(w_beg, w_end)
+                availability.loc[i] = self.data.availability
+
+            availability.rename(index={i: str(w_beg)}, inplace=True)
 
             # Append upto sample-before-last - if end_time is
             # 2014-08-24T00:00:00, your last sample will be 2014-08-23T23:59:59
@@ -801,6 +810,8 @@ class QuakeScan(DefaultQuakeScan):
             self.output.write_coastream(coastream)
 
         del coastream
+
+        self.output.write_availability(availability)
 
         print("=" * 120)
 
@@ -1395,11 +1406,10 @@ class QuakeScan(DefaultQuakeScan):
                       data_half_range / self.sampling_rate]
 
                 # Do the fit
-                popt, pcov = curve_fit(util.gaussian_1d, x_data, y_data, p0)
+                popt, _ = curve_fit(util.gaussian_1d, x_data, y_data, p0)
 
                 # Results:
                 #  popt = [height, mean (seconds), sigma (seconds)]
-                #  pcov not used
                 max_onset = popt[0]
                 # Convert mean (pick time) to time
                 mean = start_time + float(popt[1])
@@ -1413,7 +1423,7 @@ class QuakeScan(DefaultQuakeScan):
 
             # If curve_fit fails. Will also spit error message to stdout,
             # though this can be suppressed  - see warnings.filterwarnings()
-            except:
+            except (ValueError, RuntimeError):
                 gaussian_fit = self.DEFAULT_GAUSSIAN_FIT
                 gaussian_fit["PickThreshold"] = threshold
                 sigma = -1
@@ -1735,7 +1745,7 @@ class QuakeScan(DefaultQuakeScan):
             [x, y, z] : expectation location from 3-d Gaussian fit
 
         loc_gau_err : array-like
-            [x_err, y_err, z_err] : one sigma uncertainties from 3-d Gasussian
+            [x_err, y_err, z_err] : one sigma uncertainties from 3-d Gaussian
                                     fit
 
         """

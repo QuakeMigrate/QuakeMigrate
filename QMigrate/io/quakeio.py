@@ -450,3 +450,30 @@ class QuakeIO:
         fname = self.run / "{}_TriggeredEvents".format(self.name)
         fname = str(fname.with_suffix(".csv"))
         events.to_csv(fname, index=False)
+
+    def write_availability(self, availability):
+        """
+        Write out a pandas DataFrame containing station availability
+
+        Parameters
+        ----------
+        availability : pandas DataFrame object
+            Contains station availability information
+
+        """
+
+        fname = self.run / "{}_Availability".format(self.name)
+        fname = str(fname.with_suffix(".csv"))
+        availability.to_csv(fname)
+
+    def read_availability(self):
+        """
+        Read in a pandas DataFrame containing station availability
+
+        """
+
+        fname = self.run / "{}_Availability".format(self.name)
+        fname = str(fname.with_suffix(".csv"))
+        availability = pd.read_csv(fname, index_col=0)
+
+        return availability

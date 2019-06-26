@@ -4,28 +4,31 @@ This script will run the trigger stage of QuakeMigrate.
 
 """
 
+# Import required modules
 import QMigrate.signal.trigger as qtrigger
+import QMigrate.io.quakeio as qio
 
 # Set i/o paths
-out_path = "./outputs/runs"
+station_file = "/path/to/station_file"
+out_path = "/path/to/output"
 run_name = "name_of_run"
-
-# Set trigger/locate parameters
-sampling_rate = 50
-normalise_coalescence = True
-detection_threshold = 1.85
-marginal_window = 1
-minimum_repeat = 30
 
 # Time period over which to run trigger
 start_time = "2018-001T00:00:00.0"
 end_time = "2018-002T00:00:00.00"
 
 # Read in station files
-stations = qtrigger.stations("./inputs/stations/stations.in",
-                             units="lat_lon_elev")
+stations = qio.stations(station_file)
+
+# Create a new instance of Trigger
+trig = qtrigger.Trigger(out_path, run_name, stations)
+
+# Set trigger parameters - for a complete list and guidance on how to choose
+# a suitable set of parameters, please consult the documentation
+trig.normalise_coalescence = True
+trig.marginal_window = 1.
+trig.minimum_repeat = 30.
+trig.detection_threshold = 1.75
 
 # Run trigger
-qtrigger.trigger(start_time, end_time, out_path, run_name, marginal_window,
-                 detection_threshold, normalise_coalescence, minimum_repeat,
-                 sampling_rate, stations, savefig=True)
+trig.trigger(start_time, end_time, savefig=False)

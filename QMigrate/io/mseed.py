@@ -441,6 +441,7 @@ class Archive(object):
         out = Trace()
         out.data = dnew
         out.stats = trace.stats
+        out.stats.npts = len(out.data)
         out.stats.starttime = trace.stats.starttime
         out.stats.sampling_rate = int(upfactor * trace.stats.sampling_rate)
 

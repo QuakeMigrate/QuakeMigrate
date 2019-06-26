@@ -144,7 +144,7 @@ class Archive(object):
             self.format = "{year}_{jday}/{station}_*"
 
     def read_waveform_data(self, start_time, end_time, sampling_rate,
-                           pre_pad=None, post_pad=None):
+                           allstations=False, pre_pad=None, post_pad=None):
         """
         Read in the waveform data for all stations in the archive between two
         times and return station availability of the stations specified in the
@@ -167,6 +167,10 @@ class Archive(object):
 
         sampling_rate : int
             Sampling rate in hertz
+
+        allstations : bool, optional
+            If True, read all stations in archive for that time period. Else,
+            only read specified stations.
 
         pre_pad : float, optional
             Additional pre pad of data to cut based on user-defined pre_cut
@@ -305,7 +309,7 @@ class Archive(object):
 
         return signal, availability
 
-    def _load_from_path(self, start_time, end_time):
+    def _load_from_path(self, start_time, end_time, allstations=False):
         """
         Retrieves available files between two times.
 
@@ -316,6 +320,10 @@ class Archive(object):
 
         end_time : UTCDateTime object
             End datetime to read waveform data
+
+        allstations : bool, optional
+            If True, read all stations in archive for that time period. Else,
+            only read specified stations.
 
         Returns
         -------
@@ -336,13 +344,19 @@ class Archive(object):
         # NOTE! This assumes the archive structure is split into days.
         while start_day + (dy * 86400) <= end_time:
             now = start_time + (dy * 86400)
-            # for stat in self.stations.tolist():
-            file_format = self.format.format(year=now.year,
-                                             month=now.month,
-                                             jday=str(now.julday).zfill(3),
-                                             station="*")
-                                             # station=stat)
-            files = chain(files, self.archive_path.glob(file_format))
+            if allstations=True:
+                file_format = self.format.format(year=now.year,
+                                                 month=now.month,
+                                                 jday=str(now.julday).zfill(3),
+                                                 station="*")
+                files = chain(files, self.archive_path.glob(file_format))
+            else:
+                for stat in self.stations.tolist():
+                    file_format = self.format.format(year=now.year,
+                                                 month=now.month,
+                                                 jday=str(now.julday).zfill(3),
+                                                 station=stat)
+                    files = chain(files, self.archive_path.glob(file_format))
 
             dy += 1
 

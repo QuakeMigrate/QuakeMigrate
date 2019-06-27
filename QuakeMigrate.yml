@@ -21,5 +21,4 @@ dependencies:
     - h5py==2.6.0
     - hjson==2.0.2
     - scikit-fmm==2019.1.30
-prefix: /raid1/cb793/miniconda3/envs/QuakeMigrate
 

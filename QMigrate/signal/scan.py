@@ -817,6 +817,8 @@ class QuakeScan(DefaultQuakeScan):
 
         self.output.write_stn_availability(stn_ava_data)
 
+        self.for_test = stn_ava_data
+
         print("=" * 120)
 
     def _locate_events(self, start_time, end_time):

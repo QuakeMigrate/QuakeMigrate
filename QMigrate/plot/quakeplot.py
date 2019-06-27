@@ -392,7 +392,7 @@ class QuakePlot:
         crd = self.lut.coord2loc(point, inverse=True)
 
         # Defining the plots to be represented
-        fig = plt.figure(figsize=(30, 15))
+        fig = plt.figure(figsize=(25, 15))
         fig.patch.set_facecolor("white")
         xy_slice = plt.subplot2grid((3, 5), (0, 0), colspan=2, rowspan=2)
         xz_slice = plt.subplot2grid((3, 5), (2, 0), colspan=2)
@@ -670,7 +670,7 @@ class QuakePlot:
                          self.event_mw_data["Z"].iloc[idx]]])[0, :]
 
         # --- Defining the plot area ---
-        fig = plt.figure(figsize=(30, 15))
+        fig = plt.figure(figsize=(25, 15))
         fig.patch.set_facecolor("white")
         xy_slice = plt.subplot2grid((3, 5), (0, 0), colspan=2, rowspan=2)
         xz_slice = plt.subplot2grid((3, 5), (2, 0), colspan=2)

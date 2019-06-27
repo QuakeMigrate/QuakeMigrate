@@ -104,7 +104,7 @@ def triggered_events(events, start_time, end_time, output, marginal_window,
         stn_ava_data = np.append(stn_ava_data, [stn_ava_data[-1]])
         a_times.append(end_time.datetime)
         numstations.step(a_times, stn_ava_data, color="green", where="post")
-        numstations.set_ylim(ymax=len(stations["Name"]) + 1)
+        numstations.set_ylim(top=len(stations["Name"]) + 1)
     except util.NoStationAvailabilityDataException as e:
         print(e.msg)
 

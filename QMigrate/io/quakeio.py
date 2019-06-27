@@ -464,18 +464,16 @@ class QuakeIO:
 
         """
 
-        times = pd.to_datetime(stn_ava_data.index)
-        datelist = list(set([times[i].date() for i in range(0, len(times))]))
-        stn_ava_data.index = pd.to_datetime(stn_ava_data.index)
+        stn_ava_data.index = times = pd.to_datetime(stn_ava_data.index)
+        datelist = [time.date() for time in times]
 
         for date in datelist:
             to_write = stn_ava_data[stn_ava_data.index.date == date]
-            to_write.index = [UTCDateTime(to_write.index[i]) \
-                              for i in range(0,len(to_write))]
+            to_write.index = [UTCDateTime(idx) for idx in to_write.index]
             date = UTCDateTime(date)
             fname = self.run / "{}_{}_{}_StationAvailability".format(self.name,
-                                                              date.year,
-                                                              date.julday)
+                                                                     date.year,
+                                                                     str(date.julday).zfill(3))
             fname = str(fname.with_suffix(".csv"))
             to_write.to_csv(fname)
 
@@ -502,7 +500,6 @@ class QuakeIO:
         start_day = UTCDateTime(start_time.date)
 
         dy = 0
-        files = []
         stn_ava_data = None
         # Loop through days trying to read .StationAvailability files
         while start_day + (dy * 86400) <= end_time:

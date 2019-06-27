@@ -6,7 +6,7 @@ This script will run the detect stage of QuakeMigrate.
 
 # Import required modules
 import QMigrate.signal.scan as qscan
-import QMigrate.io.mseed as qdata
+import QMigrate.io.data as qdata
 
 # Set i/o paths
 lut_path = "/path/to/lut"

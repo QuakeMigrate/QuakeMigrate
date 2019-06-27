@@ -788,7 +788,7 @@ class QuakeScan(DefaultQuakeScan):
                 msg += " " * 12 + "!" * 24
                 print(msg)
                 daten, max_coa, max_coa_norm, coord = self._empty(w_beg, w_end)
-                stn_availability.loc[i] = self.data.availability
+                stn_ava_data.loc[i] = self.data.availability
 
             stn_ava_data.rename(index={i: str(w_beg + self.pre_pad)},
                                 inplace=True)

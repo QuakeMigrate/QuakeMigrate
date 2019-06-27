@@ -1,31 +1,34 @@
+# -*- coding: utf-8 -*-
+"""
+QuakeMigrate - a Python and C software package for detection and location of
+seismic events using a coherency and coalescence based technique.
+"""
+
 import codecs
+import glob
+import inspect
 import os
 import re
-import time
+from setuptools import setup
 import sys
+import time
+
 import numpy.distutils.misc_util
 
-from setuptools import setup, find_packages, Extension
-from setuptools.dist import Distribution
 
-#
-# https://hynek.me/articles/sharing-your-labor-of-love-pypi-quick-and-dirty/
-#
-###################################################################
+# Directory of the current file
+SETUP_DIRECTORY = os.path.dirname(os.path.abspath(inspect.getfile(
+    inspect.currentframe())))
 
-#
-# Specifying files to Distribute
-# https://docs.python.org/2/distutils/sourcedist.html#specifying-the-files-to-distribute
-#
+LOCAL_PATH = os.path.join(SETUP_DIRECTORY, "setup.py")
 
 NAME = "QuakeMigrate"
-PACKAGES = find_packages(where="src")
-#EXT_MODULE=[Extension('intra.seis.scan01',['ext/scan01.c','ext/scan01module.c'],extra_compile_args=['/openmp'],
-#                           extra_link_args=['-lgomp'])]
-INCLUDE_DIRS=numpy.distutils.misc_util.get_numpy_include_dirs()
 
-META_PATH = os.path.join("src", "QMigrate", "__init__.py")
+INCLUDE_DIRS = numpy.distutils.misc_util.get_numpy_include_dirs()
+
+META_PATH = os.path.join("QMigrate", "__init__.py")
 KEYWORDS = ["Seismic", "Location", "Analysis"]
+
 CLASSIFIERS = [
     "Development Status :: Beta",
     "Intended Audience :: Geophysicist",
@@ -35,28 +38,46 @@ CLASSIFIERS = [
     "Programming Language :: Python :: 3.6",
     "Topic :: Scientific/Engineering",
 ]
-# hjson is not in Conda Repository
-INSTALL_REQUIRES = ['numpy', 'pandas', 'scipy','scikit-fmm', 'pyproj', 'matplotlib', 'vispy', 'pyzmq', 'msgpack-python']
 
+INSTALL_REQUIRES = [
+    'numpy',
+    'pandas==0.19.*',
+    'scipy',
+    'scikit-fmm==2019.1.30',
+    'pyproj',
+    'matplotlib',
+    'vispy',
+    'pyzmq',
+    'msgpack-python']
 
-# ADD A COMPILE STAGE THAT GENERATES THE REQUIRED C-Compile of code. Get working for several operating systems.
-os.system('gcc -shared -fPIC -std=gnu99 ./src/QMigrate/lib/src/onset.c ./src/QMigrate/lib/src/QMigrate.c ./src/QMigrate/lib/src/levinson.c -fopenmp -O0 -o ./src/QMigrate/lib/QMigrate.so')
+# Compile stage for C-library
+os.system('gcc -shared -fPIC -std=gnu99 ./QMigrate/lib/src/QMigrate.c -fopenmp -O0 -o ./QMigrate/lib/QMigrate.so')
 
-
-###################################################################
-
-HERE = os.path.abspath(os.path.dirname(__file__))
 
 def read(*parts):
     """
     Build an absolute path from *parts* and and return the contents of the
     resulting file.  Assume UTF-8 encoding.
     """
-    with codecs.open(os.path.join(HERE, *parts), "rb", "utf-8") as f:
+    with codecs.open(os.path.join(SETUP_DIRECTORY, *parts),
+                     "rb", "utf-8") as f:
         return f.read()
 
 
+def find_packages():
+    """
+    Simple function to find all modules under the current folder.
+    """
+    modules = []
+    for dirpath, _, filenames in os.walk(os.path.join(SETUP_DIRECTORY,
+                                                      "QMigrate")):
+        if "__init__.py" in filenames:
+            modules.append(os.path.relpath(dirpath, SETUP_DIRECTORY))
+    return [_i.replace(os.sep, ".") for _i in modules]
+
+
 META_FILE = read(META_PATH)
+
 
 def find_meta(meta):
     """
@@ -71,27 +92,48 @@ def find_meta(meta):
     raise RuntimeError("Unable to find __{meta}__ string.".format(meta=meta))
 
 
-# class BinaryDistribution(Distribution):
-#     def is_pure(self):
-#         return False
-
-if __name__ == "__main__":
+def setup_package():
+    """Setup package"""
     setup(
-        name=NAME,
-        description=find_meta("description"),
+        name="QMigrate",
         version=find_meta("version") + time.strftime(".%y.%m.%d"),
+        description=find_meta("description"),
+        long_description=read("README.rst"),
         author=find_meta("author"),
         author_email=find_meta("email"),
         maintainer=find_meta("author"),
         maintainer_email=find_meta("email"),
+        classifiers=CLASSIFIERS,
         keywords=KEYWORDS,
-        long_description=read("README.rst"),
-        packages=PACKAGES,
+        packages=find_packages(),
+        zip_safe=False,
+        install_requires=INSTALL_REQUIRES,
         include_package_data=True,
         include_dirs=INCLUDE_DIRS,
-        package_dir={"": "src"},
-        package_data={"QMigrate": ["lib/*.so"]},
-        zip_safe=False,
-        classifiers=CLASSIFIERS,
-        install_requires=INSTALL_REQUIRES,
-    )
+        package_data={"QMigrate": ["lib/*.so"]})
+
+
+if __name__ == "__main__":
+    # clean --all does not remove extensions automatically
+    if 'clean' in sys.argv and '--all' in sys.argv:
+        import shutil
+        # delete complete build directory
+        path = os.path.join(SETUP_DIRECTORY, 'build')
+        try:
+            shutil.rmtree(path)
+        except Exception:
+            pass
+        # delete all shared libs from lib directory
+        path = os.path.join(SETUP_DIRECTORY, 'QMigrate', 'lib')
+        for filename in glob.glob(path + os.sep + '*.pyd'):
+            try:
+                os.remove(filename)
+            except Exception:
+                pass
+        for filename in glob.glob(path + os.sep + '*.so'):
+            try:
+                os.remove(filename)
+            except Exception:
+                pass
+    else:
+        setup_package()

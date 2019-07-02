@@ -9,7 +9,7 @@ import time
 import numpy as np
 
 
-def _make_directories(run, subdir=None):
+def make_directories(run, subdir=None):
     """
     Make run directory, and optionally make subdirectories within it.
 

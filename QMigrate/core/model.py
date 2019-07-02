@@ -199,7 +199,6 @@ def read_2d_nlloc(froot):
         data = struct.unpack("f" * npts, buf)
 
     data = np.reshape(data, (nx, ny, nz), order="C")
-    # print(data.shape)
 
     distance_x = x0 + (np.linspace(0, nx - 1, nx) * dx)
     distance_y = y0 + (np.linspace(0, ny - 1, ny) * dy)

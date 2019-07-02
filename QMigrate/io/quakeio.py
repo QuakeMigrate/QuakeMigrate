@@ -92,7 +92,7 @@ class QuakeIO:
 
     """
 
-    def __init__(self, path, name=None):
+    def __init__(self, path, name=None, log=False):
         """
         Class initialisation method.
 
@@ -113,8 +113,10 @@ class QuakeIO:
         self.name = name
         self.run = path / name
 
+        self.log_ = log
+
         # Make run output directory
-        util._make_directories(self.run)
+        util.make_directories(self.run)
 
     def read_coal4D(self, fname):
         """
@@ -161,7 +163,7 @@ class QuakeIO:
         end_time = UTCDateTime(end_time)
 
         subdir = "4d_coal_grids"
-        util._make_directories(self.run, subdir=subdir)
+        util.make_directories(self.run, subdir=subdir)
         filestr = "{}_{}_{}_{}".format(self.name, event_name, start_time,
                                        end_time)
         fname = self.run / subdir / filestr
@@ -212,7 +214,7 @@ class QuakeIO:
             except FileNotFoundError:
                 msg = "\tNo .scanmseed file found for day {}-{}!\n"
                 msg = msg.format(str(now.year), str(now.julday).zfill(3))
-                print(msg)
+                self.log(msg, self.log_)
 
             dy += 1
 
@@ -224,7 +226,7 @@ class QuakeIO:
 
         msg = "\t\tSuccessfully read .scanmseed data from {} - {}\n"
         msg = msg.format(str(coa_stats.starttime), str(coa_stats.endtime))
-        print(msg)
+        self.log(msg, self.log_)
 
         data = pd.DataFrame()
 
@@ -278,7 +280,7 @@ class QuakeIO:
 
         st.write(str(fname), format="MSEED", encoding="STEIM2")
 
-    def write_log(self, message):
+    def log(self, message, log):
         """
         Write a log file to track the progress of a scanning run through time.
 
@@ -289,11 +291,14 @@ class QuakeIO:
 
         """
 
-        subdir = "logs"
-        util._make_directories(self.run, subdir=subdir)
-        fname = (self.run / subdir / self.name).with_suffix(".log")
-        with fname.open(mode="a") as f:
-            f.write(message + "\n")
+        print(message)
+
+        if log:
+            subdir = "logs"
+            util.make_directories(self.run, subdir=subdir)
+            fname = (self.run / subdir / self.name).with_suffix(".log")
+            with fname.open(mode="a") as f:
+                f.write(message + "\n")
 
     def write_cut_waveforms(self, data, event, event_name, data_format="MSEED",
                             pre_cut=None, post_cut=None):
@@ -346,7 +351,7 @@ class QuakeIO:
                 tr.trim(endtime=otime + post_cut)
 
         subdir = "cut_waveforms"
-        util._make_directories(self.run, subdir=subdir)
+        util.make_directories(self.run, subdir=subdir)
         fname = self.run / subdir / "{}".format(event_name)
 
         if data_format == "MSEED":
@@ -377,7 +382,7 @@ class QuakeIO:
         """
 
         subdir = "picks"
-        util._make_directories(self.run, subdir=subdir)
+        util.make_directories(self.run, subdir=subdir)
         fname = self.run / subdir / "{}".format(event_name)
         fname = str(fname.with_suffix(".picks"))
         stations.to_csv(fname, index=False)
@@ -405,7 +410,7 @@ class QuakeIO:
         """
 
         subdir = "events"
-        util._make_directories(self.run, subdir=subdir)
+        util.make_directories(self.run, subdir=subdir)
         fname = self.run / subdir / "{}".format(event_name)
         fname = str(fname.with_suffix(".event"))
         event.to_csv(fname, index=False)
@@ -517,7 +522,7 @@ class QuakeIO:
             except FileNotFoundError:
                 msg = "\tNo .StationAvailability file found for day {}-{}!\n"
                 msg = msg.format(str(now.year), str(now.julday).zfill(3))
-                print(msg)
+                self.log(msg, self.log_)
 
             dy += 1
 
@@ -526,6 +531,6 @@ class QuakeIO:
 
         msg = "\t\tSuccessfully read .StationAvailability data from {} - {}\n"
         msg = msg.format(stn_ava_data.index[0], stn_ava_data.index[-1])
-        print(msg)
+        self.log(msg, self.log_)
 
         return stn_ava_data

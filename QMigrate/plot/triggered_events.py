@@ -22,8 +22,8 @@ import QMigrate.util as util
 
 
 def triggered_events(events, start_time, end_time, output, marginal_window,
-                     detection_threshold, normalise_coalescence, data=None,
-                     stations=None, savefig=False):
+                     detection_threshold, normalise_coalescence, log,
+                     data=None, stations=None, savefig=False):
     """
     Plots the data from a .scanmseed file with annotations illustrating the
     trigger results: event triggers and marginal windows on the coalescence
@@ -72,7 +72,7 @@ def triggered_events(events, start_time, end_time, output, marginal_window,
         data, coa_stats = output.read_coastream(start_time, end_time)
         del coa_stats
 
-    print("\n\tPlotting triggered events on decimated grid...")
+    output.log("\n\tPlotting triggered events on decimated grid...", log)
     data["DT"] = pd.to_datetime(data["DT"].astype(str))
 
     fig = plt.figure(figsize=(30, 15))
@@ -106,7 +106,7 @@ def triggered_events(events, start_time, end_time, output, marginal_window,
         numstations.step(a_times, stn_ava_data, color="green", where="post")
         numstations.set_ylim(top=len(stations["Name"]) + 1)
     except util.NoStationAvailabilityDataException as e:
-        print(e.msg)
+        output.log(e.msg, log)
 
     if events is not None:
         for i, event in events.iterrows():

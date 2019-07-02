@@ -226,9 +226,9 @@ class QuakePlot:
         # Make output dir for this event outside of loop
         if file_str:
             subdir = "traces"
-            util._make_directories(self.run_path, subdir=subdir)
+            util.make_directories(self.run_path, subdir=subdir)
             out_dir = self.run_path / subdir / event_name
-            util._make_directories(out_dir)
+            util.make_directories(out_dir)
 
         # Looping through all stations
         for i in range(self.data.signal.shape[1]):
@@ -352,7 +352,7 @@ class QuakePlot:
                                       blit=False, repeat=False)
 
         subdir = "videos"
-        util._make_directories(self.run_path, subdir=subdir)
+        util.make_directories(self.run_path, subdir=subdir)
         out_str = self.run_path / subdir / file_str
         ani.save("{}_CoalescenceVideo.mp4".format(out_str),
                  writer=writer)
@@ -559,7 +559,7 @@ class QuakePlot:
         else:
             fig.suptitle("Event Origin Time = {}".format(dt_max.datetime))
             subdir = "summaries"
-            util._make_directories(self.run_path, subdir=subdir)
+            util.make_directories(self.run_path, subdir=subdir)
             out_str = self.run_path / subdir / file_str
             plt.savefig("{}_EventSummary.pdf".format(out_str), dpi=400)
             plt.close("all")

@@ -749,7 +749,7 @@ class QuakeScan(DefaultQuakeScan):
                                     columns=self.data.stations)
 
         for i in range(nsteps):
-            timer=util.Stopwatch()
+            timer = util.Stopwatch()
             w_beg = start_time + self.time_step * i - self.pre_pad
             w_end = start_time + self.time_step * (i + 1) + self.post_pad
 
@@ -816,8 +816,6 @@ class QuakeScan(DefaultQuakeScan):
         del coastream
 
         self.output.write_stn_availability(stn_ava_data)
-
-        self.for_test = stn_ava_data
 
         print("=" * 120)
 

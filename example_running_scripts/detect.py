@@ -21,7 +21,7 @@ end_time = "2018-002T00:00:00.0"
 
 # Create a new instance of Archive and set path structure
 data = qdata.Archive(station_file=station_file, archive_path=data_path)
-data.path_structure(path_type="YEAR/JD/STATION")
+data.path_structure(archive_format="YEAR/JD/STATION")
 
 # Resample data with mismatched sampling rates
 # data.resample = True

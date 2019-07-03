@@ -440,7 +440,7 @@ class QuakeIO:
 
         return events
 
-    def write_triggered_events(self, events):
+    def write_triggered_events(self, events, start_time, end_time):
         """
         Write triggered events output by trigger() to a csv file.
 
@@ -453,7 +453,9 @@ class QuakeIO:
 
         """
 
-        fname = self.run / "{}_TriggeredEvents".format(self.name)
+        fname = self.run / "{}_{}-{}_TriggeredEvents".format(self.name,
+                                                             start_time.julday,
+                                                             end_time.julday)
         fname = str(fname.with_suffix(".csv"))
         events.to_csv(fname, index=False)
 

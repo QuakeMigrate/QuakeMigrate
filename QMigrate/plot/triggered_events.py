@@ -188,7 +188,9 @@ def triggered_events(events, start_time, end_time, output, marginal_window,
 
     # Save figure or open interactive matplotlib window
     if savefig:
-        out = output.run / "{}_Trigger".format(output.name)
+        out = output.run / "{}_{}-{}_Trigger".format(output.name,
+                                                     start_time.julday,
+                                                     end_time.julday)
         out = str(out.with_suffix(".pdf"))
         plt.savefig(out)
     else:

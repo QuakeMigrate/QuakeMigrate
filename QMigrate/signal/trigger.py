@@ -82,8 +82,6 @@ class Trigger:
         else:
             self.output = None
 
-        print(type(self.output))
-
         self.log = log
 
         self.stations = stations
@@ -183,7 +181,8 @@ class Trigger:
             msg += "try reducing the detection threshold."
             self.output.log(msg, self.log)
         else:
-            self.output.write_triggered_events(self.events)
+            self.output.write_triggered_events(self.events, self.start_time,
+                                               self.end_time)
 
         tplot.triggered_events(events=self.events, start_time=self.start_time,
                                end_time=self.end_time, output=self.output,

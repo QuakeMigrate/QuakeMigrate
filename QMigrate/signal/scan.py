@@ -8,17 +8,17 @@ import warnings
 
 import numpy as np
 from obspy import UTCDateTime, Stream, Trace
-from obspy.signal.invsim import cosine_taper
-from obspy.signal.trigger import classic_sta_lta
 import pandas as pd
 from scipy.interpolate import Rbf
 from scipy.optimize import curve_fit
-from scipy.signal import butter, lfilter, fftconvolve
+from scipy.signal import fftconvolve
 
 import QMigrate.core.model as qmod
 import QMigrate.core.QMigratelib as ilib
 import QMigrate.io.quakeio as qio
 import QMigrate.plot.quakeplot as qplot
+import QMigrate.signal.onset as qonset
+import QMigrate.signal.staltaonset as qdonset
 import QMigrate.util as util
 
 # Filter warnings
@@ -30,165 +30,6 @@ warnings.filterwarnings("ignore", message=("File will be written with more" +
                                            " negative influence on the" +
                                            " compatibility with other" +
                                            " programs."))
-
-
-def sta_lta_centred(a, nsta, nlta):
-    """
-    Calculates the ratio of the average signal in a short-term (signal) window
-    to a preceding long-term (noise) window. STA/LTA value is assigned to the
-    end of the LTA / start of the STA.
-
-    Parameters
-    ----------
-    a : array-like
-        Signal array
-
-    nsta : int
-        Number of samples in short-term window
-
-    nlta : int
-        Number of samples in long-term window
-
-    Returns
-    -------
-    sta / lta : array-like
-        Ratio of short term average to average in a preceding long term average
-        window. STA/LTA value is assigned to end of LTA window / start of STA
-        window -- "centred"
-
-    """
-
-    nsta = int(round(nsta))
-    nlta = int(round(nlta))
-
-    # Cumulative sum to calculate moving average
-    sta = np.cumsum(a ** 2)
-    sta = np.require(sta, dtype=np.float)
-    lta = sta.copy()
-
-    # Compute the STA and the LTA
-    sta[nsta:] = sta[nsta:] - sta[:-nsta]
-    sta[nsta:-nsta] = sta[nsta*2:]
-    sta /= nsta
-
-    lta[nlta:] = lta[nlta:] - lta[:-nlta]
-    lta /= nlta
-
-    sta[:(nlta - 1)] = 0
-    sta[-nsta:] = 0
-
-    # Avoid division by zero by setting zero values to tiny float
-    dtiny = np.finfo(0.0).tiny
-    idx = lta < dtiny
-    lta[idx] - dtiny
-
-    return sta / lta
-
-
-def onset(sig, stw, ltw, centred=False):
-    """
-    Calculate STA/LTA onset (characteristic) function from filtered seismic
-    data.
-
-    Parameters
-    ----------
-    sig : array-like
-        Data signal used to generate an onset function
-
-    stw : int
-        Short term window length (# of samples)
-
-    ltw : int
-        Long term window length (# of samples)
-
-    centred : bool, optional
-        Compute centred STA/LTA (STA window is preceded by LTA window; value
-        is assigned to end of LTA window / start of STA window) or classic
-        STA/LTA (STA window is within LTA window; value is assigned to end of
-        STA & LTA windows).
-
-        Centred gives less phase-shifted (late) onset function, and is closer
-        to a Gaussian approximation, but is far more sensitive to data with
-        sharp offsets due to instrument failures. We recommend using classic
-        for detect() and centred for locate() if your data quality allows it.
-        This is the default behaviour; override by setting self.onset_centred.
-
-    Returns
-    -------
-    onset_raw : array-like
-        Raw STA/LTA ratio onset function generated from data
-
-    onset : array-like
-        log10(onset_raw) ; after clipping between -0.2 and infinity.
-
-    """
-
-    stw = int(round(stw))
-    ltw = int(round(ltw))
-
-    n_channels, n_samples = sig.shape
-    onset = np.copy(sig)
-    onset_raw = np.copy(sig)
-    for i in range(n_channels):
-        if np.sum(sig[i, :]) == 0.0:
-            onset[i, :] = 0.0
-            onset_raw[i, :] = onset[i, :]
-        else:
-            if centred is True:
-                onset[i, :] = sta_lta_centred(sig[i, :], stw, ltw)
-            else:
-                onset[i, :] = classic_sta_lta(sig[i, :], stw, ltw)
-            onset_raw[i, :] = onset[i, :]
-            np.clip(1 + onset[i, :], 0.8, np.inf, onset[i, :])
-            np.log(onset[i, :], onset[i, :])
-
-    return onset_raw, onset
-
-
-def filter(sig, sampling_rate, lc, hc, order=2):
-    """
-    Apply zero phase-shift Butterworth band-pass filter to seismic data.
-
-    Parameters
-    ----------
-    sig : array-like
-        Data signal to be filtered
-
-    sampling_rate : int
-        Number of samples per second, in Hz
-
-    lc : float
-        Lowpass frequency of band-pass filter
-
-    hc : float
-        Highpass frequency of band-pass filter
-
-    order : int, optional
-        Number of corners. NOTE: two-pass filter effectively doubles the
-        number of corners.
-
-    Returns
-    -------
-    fsig : array-like
-        Filtered seismic data
-
-    """
-
-    # Construct butterworth band-pass filter
-    b1, a1 = butter(order, [2.0 * lc / sampling_rate,
-                            2.0 * hc / sampling_rate], btype="band")
-    nchan, nsamp = sig.shape
-    fsig = np.copy(sig)
-
-    # Apply cosine taper then apply band-pass filter in both directions
-    for ch in range(0, nchan):
-        fsig[ch, :] = fsig[ch, :] - fsig[ch, 0]
-        tap = cosine_taper(len(fsig[ch, :]), 0.1)
-        fsig[ch, :] = fsig[ch, :] * tap
-        fsig[ch, :] = lfilter(b1, a1, fsig[ch, ::-1])[::-1]
-        fsig[ch, :] = lfilter(b1, a1, fsig[ch, :])
-
-    return fsig
 
 
 class DefaultQuakeScan(object):
@@ -343,10 +184,6 @@ class DefaultQuakeScan(object):
         # Data sampling rate
         self.sampling_rate = 50
 
-        # Centred onset function override -- None means it will be
-        # automatically set in detect() and locate()
-        self.onset_centred = None
-
         # Pick related parameters
         self.pick_threshold = 1.0
         self.picking_mode = "Gaussian"
@@ -421,7 +258,8 @@ class QuakeScan(DefaultQuakeScan):
                        "GlobalCovariance_ErrX", "GlobalCovariance_ErrY",
                        "GlobalCovariance_ErrZ"]
 
-    def __init__(self, data, lookup_table, output_path=None, run_name=None, log=False):
+    def __init__(self, data, lookup_table, output_path=None, run_name=None,
+                 onset=None, log=False):
         """
         Class initialisation method.
 
@@ -449,20 +287,34 @@ class QuakeScan(DefaultQuakeScan):
         lut = qmod.LUT()
         lut.load(lookup_table)
         self.lut = lut
+        self.log = log
 
         if output_path is not None:
             self.output = qio.QuakeIO(output_path, run_name, log)
         else:
             self.output = None
 
+        if onset is None:
+            # Will use the parameters set in scan and the default STA/LTA onset
+            self.onset = qdonset.STALTAOnset(self.sampling_rate)
+        elif isinstance(onset, qonset.Onset):
+            self.onset = onset
+        else:
+            msg = "The Onset object you have created does not inherit from the default"
+            self.output.log(msg, self.log)
+            return
+
+        # Define pre-pad as a function of the onset windows
+        if self.pre_pad is None:
+            self.pre_pad = self.onset.pre_pad
+
         # Define post-pad as a function of the maximum travel-time between a
         # station and a grid point plus the LTA (in case onset_centred is True)
         #  ---> applies to both detect() and locate()
         ttmax = np.max(lut.fetch_map("TIME_S"))
-        lta_max = max(self.p_onset_win[1], self.s_onset_win[1])
-        self.post_pad = np.ceil(ttmax + 2 * lta_max)
+        self.onset.post_pad = ttmax
+        self.post_pad = self.onset.post_pad
 
-        self.log = log
         msg = "=" * 120 + "\n"
         msg += "=" * 120 + "\n"
         msg += "\tQuakeMigrate - Coalescence Scanning - Path: {} - Name: {}\n"
@@ -490,16 +342,16 @@ class QuakeScan(DefaultQuakeScan):
         out += "\n\tBandpass filter S\t:\t[{}, {}, {}]".format(
             self.s_bp_filter[0], self.s_bp_filter[1], self.s_bp_filter[2])
         out += "\n\n\tOnset P [STA, LTA]\t:\t[{}, {}]".format(
-            self.p_onset_win[0], self.p_onset_win[1])
+            self.onset.p_onset_win[0], self.onset.p_onset_win[1])
         out += "\n\tOnset S [STA, LTA]\t:\t[{}, {}]".format(
-            self.s_onset_win[0], self.s_onset_win[1])
+            self.onset.s_onset_win[0], self.onset.s_onset_win[1])
         out += "\n\n\tPre-pad\t\t\t:\t{}".format(self.pre_pad)
         out += "\n\tPost-pad\t\t:\t{}".format(self.post_pad)
         out += "\n\n\tMarginal window\t\t:\t{}".format(self.marginal_window)
         out += "\n\tPick threshold\t\t:\t{}".format(self.pick_threshold)
         out += "\n\tPicking mode\t\t:\t{}".format(self.picking_mode)
         out += "\n\tFraction ttime\t\t:\t{}".format(self.fraction_tt)
-        out += "\n\n\tCentred onset\t\t:\t{}".format(self.onset_centred)
+        out += "\n\n\tCentred onset\t\t:\t{}".format(self.onset.onset_centred)
         out += "\n\n\tNumber of CPUs\t\t:\t{}".format(self.n_cores)
 
         return out
@@ -531,15 +383,8 @@ class QuakeScan(DefaultQuakeScan):
         self.lut = self.lut.decimate(self.decimate)
 
         # Detect uses the non-centred onset by default
-        if self.onset_centred is None:
-            self.onset_centred = False
-
-        # Define pre-pad as a function of the onset windows
-        if self.pre_pad is None:
-            self.pre_pad = max(self.p_onset_win[1],
-                               self.s_onset_win[1]) \
-                           + 3 * max(self.p_onset_win[0],
-                                     self.s_onset_win[0])
+        if self.onset.onset_centred is None:
+            self.onset.onset_centred = False
 
         msg = "=" * 120 + "\n"
         msg += "\tDETECT - Continuous Seismic Processing\n"
@@ -600,6 +445,13 @@ class QuakeScan(DefaultQuakeScan):
         start_time = UTCDateTime(start_time)
         end_time = UTCDateTime(end_time)
 
+        # Decimate LUT
+        self.lut = self.lut.decimate(self.decimate)
+
+        # Locate uses the centred onset by default
+        if self.onset.onset_centred is None:
+            self.onset.onset_centred = True
+
         msg = "=" * 120 + "\n"
         msg += "\tLOCATE - Determining earthquake location and uncertainty\n"
         msg += "=" * 120 + "\n"
@@ -611,13 +463,6 @@ class QuakeScan(DefaultQuakeScan):
         msg += "=" * 120 + "\n"
         msg = msg.format(str(start_time), str(end_time), self.n_cores)
         self.output.log(msg, self.log)
-
-        # Decimate LUT
-        self.lut = self.lut.decimate(self.decimate)
-
-        # Locate uses the centred onset by default
-        if self.onset_centred is None:
-            self.onset_centred = True
 
         self._locate_events(start_time, end_time)
 
@@ -804,7 +649,6 @@ class QuakeScan(DefaultQuakeScan):
         del coastream
 
         self.output.write_stn_availability(stn_ava_data)
-
         self.output.log("=" * 120, self.log)
 
     def _locate_events(self, start_time, end_time):
@@ -824,13 +668,6 @@ class QuakeScan(DefaultQuakeScan):
             located
 
         """
-
-        # Define pre-pad as a function of the onset windows
-        if self.pre_pad is None:
-            self.pre_pad = max(self.p_onset_win[1],
-                               self.s_onset_win[1]) \
-                           + 3 * max(self.p_onset_win[0],
-                                     self.s_onset_win[0])
 
         # Adjust pre- and post-pad to take into account cosine taper
         t_length = self.pre_pad + 4*self.marginal_window + self.post_pad
@@ -1052,18 +889,17 @@ class QuakeScan(DefaultQuakeScan):
         """
 
         avail_idx = np.where(station_availability == 1)[0]
-        sige = signal[0]
-        sign = signal[1]
-        sigz = signal[2]
+        self.onset.sige = signal[0]
+        self.onset.sign = signal[1]
+        self.onset.sigz = signal[2]
 
-        p_onset_raw, p_onset = self._compute_p_onset(sigz,
-                                                     self.sampling_rate)
-        s_onset_raw, s_onset = self._compute_s_onset(sige, sign,
-                                                     self.sampling_rate)
+        p_onset = self.onset.p_onset()
+        s_onset = self.onset.s_onset()
         self.data.p_onset = p_onset
         self.data.s_onset = s_onset
-        self.data.p_onset_raw = p_onset_raw
-        self.data.s_onset_raw = s_onset_raw
+        self.data.filtered_signal[0, :, :] = self.onset.filt_sign
+        self.data.filtered_signal[1, :, :] = self.onset.filt_sige
+        self.data.filtered_signal[2, :, :] = self.onset.filt_sigz
 
         ps_onset = np.concatenate((self.data.p_onset, self.data.s_onset))
         ps_onset[np.isnan(ps_onset)] = 0
@@ -1107,96 +943,6 @@ class QuakeScan(DefaultQuakeScan):
         loc = self.lut.xyz2index(grid_index, inverse=True)
 
         return daten, max_coa, max_coa_norm, loc, map_4d
-
-    def _compute_p_onset(self, sig_z, sampling_rate):
-        """
-        Generates an onset (characteristic) function for the P-phase from the
-        Z-component signal.
-
-        Parameters
-        ----------
-        sig_z : array-like
-            Z-component time-series data
-
-        sampling_rate : int
-            Sampling rate in hertz
-
-        Returns
-        -------
-        p_onset_raw : array-like
-            Onset function generated from raw STA/LTA of vertical component
-            data
-
-        p_onset : array-like
-            Onset function generated from log10(STA/LTA) of vertical
-            component data
-
-        """
-
-        stw, ltw = self.p_onset_win
-        stw = int(stw * sampling_rate) + 1
-        ltw = int(ltw * sampling_rate) + 1
-
-        lc, hc, ord_ = self.p_bp_filter
-        filt_sig_z = filter(sig_z, sampling_rate, lc, hc, ord_)
-        self.data.filtered_signal[2, :, :] = filt_sig_z
-
-        p_onset_raw, p_onset = onset(filt_sig_z, stw, ltw,
-                                     centred=self.onset_centred)
-        self.onset_data["sigz"] = p_onset
-
-        return p_onset_raw, p_onset
-
-    def _compute_s_onset(self, sig_e, sig_n, sampling_rate):
-        """
-        Generates an onset (characteristic) function for the S-phase from the
-        E- and N-components signal.
-
-        Parameters
-        ----------
-        sig_e : array-like
-            E-component time-series
-
-        sig_n : array-like
-            N-component time-series
-
-        sampling_rate : int
-            Sampling rate in hertz
-
-        Returns
-        -------
-        s_onset_raw : array-like
-            Onset function generated from raw STA/LTA of horizontal component
-            data
-
-        s_onset : array-like
-            Onset function generated from log10(STA/LTA) of horizontal
-            component data
-
-        """
-
-        stw, ltw = self.s_onset_win
-        stw = int(stw * sampling_rate) + 1
-        ltw = int(ltw * sampling_rate) + 1
-
-        lc, hc, ord_ = self.s_bp_filter
-        filt_sig_e = filter(sig_e, sampling_rate, lc, hc, ord_)
-        filt_sig_n = filter(sig_n, sampling_rate, lc, hc, ord_)
-        self.data.filtered_signal[0, :, :] = filt_sig_n
-        self.data.filtered_signal[1, :, :] = filt_sig_e
-
-        s_e_onset_raw, s_e_onset = onset(filt_sig_e, stw, ltw,
-                                         centred=self.onset_centred)
-        s_n_onset_raw, s_n_onset = onset(filt_sig_n, stw, ltw,
-                                         centred=self.onset_centred)
-        self.onset_data["sige"] = s_e_onset
-        self.onset_data["sign"] = s_n_onset
-
-        s_onset = np.sqrt((s_e_onset ** 2 + s_n_onset ** 2) / 2.)
-        s_onset_raw = np.sqrt((s_e_onset_raw ** 2 + s_n_onset_raw ** 2) / 2.)
-        self.onset_data["sigs"] = s_onset
-
-        return s_onset_raw, s_onset
 
     def _gaussian_picker(self, onset, phase, start_time, p_arr, s_arr, ptt,
                          stt):
@@ -1301,11 +1047,11 @@ class QuakeScan(DefaultQuakeScan):
 
         # Setting parameters depending on the phase
         if phase == "P":
-            sta_winlen = self.p_onset_win[0]
+            sta_winlen = self.onset.p_onset_win[0]
             win_min = P_idxmin
             win_max = P_idxmax
         if phase == "S":
-            sta_winlen = self.s_onset_win[0]
+            sta_winlen = self.onset.s_onset_win[0]
             win_min = S_idxmin
             win_max = S_idxmax
 
@@ -1892,8 +1638,9 @@ class QuakeScan(DefaultQuakeScan):
             if (abs(mx - mxi) > 1) or (abs(my - myi) > 1) or \
                (abs(mz - mzi) > 1):
                 msg = "\tSpline warning: spline location outside grid cell"
-                msg += "with maximum coalescence value"
+                msg += " with maximum coalescence value"
                 self.output.log(msg, self.log)
+
 
             xyz = self.lut.xyz2loc(np.array([[mxi, myi, mzi]]), inverse=True)
             loc_spline = self.lut.xyz2coord(xyz)[0]
@@ -1961,7 +1708,7 @@ class QuakeScan(DefaultQuakeScan):
         self.coa_map = np.log(np.sum(np.exp(map_4d), axis=-1))
 
         # Normalise
-        self.coa_map = self.coa_map/np.max(self.coa_map)
+        self.coa_map = self.coa_map / np.max(self.coa_map)
 
         # Fit 3-D spline function to small window around max coalescence
         # location and interpolate to determine sub-grid maximum coalescence
@@ -2097,4 +1844,7 @@ class QuakeScan(DefaultQuakeScan):
             self.output.write_coal4D(map_4d, event_uid, t_beg, t_end)
             self.output.log(timer(), self.log)
 
-        del quake_plot
+        try:
+            del quake_plot
+        except NameError:
+            pass

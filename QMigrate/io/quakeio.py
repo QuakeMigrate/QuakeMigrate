@@ -518,7 +518,7 @@ class QuakeIO:
                     stn_ava_data = pd.read_csv(fname, index_col=0)
                 else:
                     tmp = pd.read_csv(fname, index_col=0)
-                    stn_ava_data.append(tmp)
+                    stn_ava_data = pd.concat([stn_ava_data, tmp])
             except FileNotFoundError:
                 msg = "\tNo .StationAvailability file found for day {}-{}!\n"
                 msg = msg.format(str(now.year), str(now.julday).zfill(3))

@@ -17,8 +17,7 @@ import QMigrate.core.model as qmod
 import QMigrate.core.QMigratelib as ilib
 import QMigrate.io.quakeio as qio
 import QMigrate.plot.quakeplot as qplot
-import QMigrate.signal.onset as qonset
-import QMigrate.signal.staltaonset as qdonset
+import QMigrate.signal.onset.onset as qonset
 import QMigrate.util as util
 
 # Filter warnings
@@ -44,24 +43,6 @@ class DefaultQuakeScan(object):
 
         Parameters (all optional)
         ----------
-        p_bp_filter : array-like, [float, float, int]
-            Butterworth bandpass filter specification
-            [lowpass, highpass, corners*]
-            *NOTE: two-pass filter effectively doubles the number of corners.
-
-        s_bp_filter : array-like, [float, float, int]
-            Butterworth bandpass filter specification
-            [lowpass, highpass, corners*]
-            *NOTE: two-pass filter effectively doubles the number of corners.
-
-        p_onset_win : array-like, floats
-            P onset window parameters
-            [STA, LTA]
-
-        s_onset_win : array-like, floats
-            S onset window parameters
-            [STA, LTA]
-
         decimate : array-like, ints
             Decimation factor in each grid axis to apply to the look-up table
             [Dec_x, Dec_y, Dec_z]
@@ -75,19 +56,6 @@ class DefaultQuakeScan(object):
         sampling_rate : int
             Desired sampling rate for input data; sampling rate that detect()
             and locate() will be computed at.
-
-        onset_centred : bool, optional
-            Compute centred STA/LTA (STA window is preceded by LTA window;
-            value is assigned to end of LTA window / start of STA window) or
-            classic STA/LTA (STA window is within LTA window; value is assigned
-            to end of STA & LTA windows).
-
-            Centred gives less phase-shifted (late) onset function, and is
-            closer to a Gaussian approximation, but is far more sensitive to
-            data with sharp offsets due to instrument failures. We recommend
-            using classic for detect() and centred for locate() if your data
-            quality allows it. This is the default behaviour; override by
-            setting this variable.
 
         pick_threshold : float (between 0 and 1)
             For use with picking_mode = 'Gaussian'. Picks will only be made if
@@ -111,11 +79,6 @@ class DefaultQuakeScan(object):
             estimate of the time uncertainty in the earthquake origin time -
             a combination of the expected spatial error and the seismic
             velocity in the region of the event
-
-        pre_pad : float, optional
-            Option to override the default pre-pad duration of data to read
-            before computing 4d coalescence in detect() and locate(). Default
-            value is calculated from the onset function durations.
 
         n_cores : int
             Number of cores to use on the executing host for detect() /locate()
@@ -167,14 +130,6 @@ class DefaultQuakeScan(object):
 
         """
 
-        # Filter parameters
-        self.p_bp_filter = [2.0, 16.0, 2]
-        self.s_bp_filter = [2.0, 12.0, 2]
-
-        # Onset window parameters
-        self.p_onset_win = [0.2, 1.0]
-        self.s_onset_win = [0.2, 1.0]
-
         # Traveltime lookup table decimation factor
         self.decimate = [1, 1, 1]
 
@@ -191,9 +146,6 @@ class DefaultQuakeScan(object):
 
         # Marginal window
         self.marginal_window = 2.
-
-        # Default pre-pad for compute
-        self.pre_pad = None
 
         # Number of cores to perform detect/locate on
         self.n_cores = 1
@@ -258,8 +210,8 @@ class QuakeScan(DefaultQuakeScan):
                        "GlobalCovariance_ErrX", "GlobalCovariance_ErrY",
                        "GlobalCovariance_ErrZ"]
 
-    def __init__(self, data, lookup_table, output_path=None, run_name=None,
-                 onset=None, log=False):
+    def __init__(self, data, lookup_table, onset, output_path=None,
+                 run_name=None, log=False):
         """
         Class initialisation method.
 
@@ -272,12 +224,19 @@ class QuakeScan(DefaultQuakeScan):
         lookup_table : str
             Look-up table file path
 
+        onset : Onset object
+            Contains definitions for the P- and S-phase onset functions
+
         output_path : str
             Path of parent output directory: e.g. ./OUTPUT
 
         run_name : str
             Name of current run: all outputs will be saved in the directory
             output_path/run_name
+
+        log : bool, optional
+            Toggle for logging - default is to print all information to stdout.
+            If True, will also create a log file.
 
         """
 
@@ -287,39 +246,28 @@ class QuakeScan(DefaultQuakeScan):
         lut = qmod.LUT()
         lut.load(lookup_table)
         self.lut = lut
-        self.log = log
+
+        if isinstance(onset, qonset.Onset):
+            self.onset = onset
+        else:
+            raise util.OnsetTypeError
 
         if output_path is not None:
             self.output = qio.QuakeIO(output_path, run_name, log)
         else:
             self.output = None
 
-        if onset is None:
-            # Will use the parameters set in scan and the default STA/LTA onset
-            self.onset = qdonset.STALTAOnset(self.sampling_rate)
-        elif isinstance(onset, qonset.Onset):
-            self.onset = onset
-        else:
-            msg = "The Onset object you have created does not inherit from the default"
-            self.output.log(msg, self.log)
-            return
+        self.log = log
 
-        # Define pre-pad as a function of the onset windows
-        if self.pre_pad is None:
-            self.pre_pad = self.onset.pre_pad
-
-        # Define post-pad as a function of the maximum travel-time between a
-        # station and a grid point plus the LTA (in case onset_centred is True)
-        #  ---> applies to both detect() and locate()
+        # Get pre- and post-pad values from the onset class
+        self.pre_pad = self.onset.pre_pad
         ttmax = np.max(lut.fetch_map("TIME_S"))
         self.onset.post_pad = ttmax
         self.post_pad = self.onset.post_pad
 
-        msg = "=" * 120 + "\n"
-        msg += "=" * 120 + "\n"
+        msg = ("=" * 120 + "\n") * 2
         msg += "\tQuakeMigrate - Coalescence Scanning - Path: {} - Name: {}\n"
-        msg += "=" * 120 + "\n"
-        msg += "=" * 120 + "\n"
+        msg += ("=" * 120 + "\n") * 2
         msg = msg.format(self.output.path, self.output.name)
         self.output.log(msg, self.log)
 
@@ -337,21 +285,12 @@ class QuakeScan(DefaultQuakeScan):
         out += "\n\n\tData sampling rate\t:\t{}".format(self.sampling_rate)
         out += "\n\n\tDecimation\t\t:\t[{}, {}, {}]".format(
             self.decimate[0], self.decimate[1], self.decimate[2])
-        out += "\n\n\tBandpass filter P\t:\t[{}, {}, {}]".format(
-            self.p_bp_filter[0], self.p_bp_filter[1], self.p_bp_filter[2])
-        out += "\n\tBandpass filter S\t:\t[{}, {}, {}]".format(
-            self.s_bp_filter[0], self.s_bp_filter[1], self.s_bp_filter[2])
-        out += "\n\n\tOnset P [STA, LTA]\t:\t[{}, {}]".format(
-            self.onset.p_onset_win[0], self.onset.p_onset_win[1])
-        out += "\n\tOnset S [STA, LTA]\t:\t[{}, {}]".format(
-            self.onset.s_onset_win[0], self.onset.s_onset_win[1])
         out += "\n\n\tPre-pad\t\t\t:\t{}".format(self.pre_pad)
         out += "\n\tPost-pad\t\t:\t{}".format(self.post_pad)
         out += "\n\n\tMarginal window\t\t:\t{}".format(self.marginal_window)
         out += "\n\tPick threshold\t\t:\t{}".format(self.pick_threshold)
         out += "\n\tPicking mode\t\t:\t{}".format(self.picking_mode)
         out += "\n\tFraction ttime\t\t:\t{}".format(self.fraction_tt)
-        out += "\n\n\tCentred onset\t\t:\t{}".format(self.onset.onset_centred)
         out += "\n\n\tNumber of CPUs\t\t:\t{}".format(self.n_cores)
 
         return out
@@ -382,36 +321,21 @@ class QuakeScan(DefaultQuakeScan):
         # Decimate LUT
         self.lut = self.lut.decimate(self.decimate)
 
-        # Detect uses the non-centred onset by default
-        if self.onset.onset_centred is None:
-            self.onset.onset_centred = False
-
         msg = "=" * 120 + "\n"
         msg += "\tDETECT - Continuous Seismic Processing\n"
-        msg += "=" * 120 + "\n"
-        msg += "\n"
+        msg += "=" * 120 + "\n\n"
         msg += "\tParameters specified:\n"
         msg += "\t\tStart time                = {}\n"
         msg += "\t\tEnd   time                = {}\n"
         msg += "\t\tTime step (s)             = {}\n"
-        msg += "\t\tNumber of CPUs            = {}\n"
-        msg += "\n"
+        msg += "\t\tNumber of CPUs            = {}\n\n"
         msg += "\t\tSampling rate             = {}\n"
-        msg += "\t\tGrid decimation [X, Y, Z] = [{}, {}, {}]\n"
-        msg += "\t\tBandpass filter P         = [{}, {}, {}]\n"
-        msg += "\t\tBandpass filter S         = [{}, {}, {}]\n"
-        msg += "\t\tOnset P [STA, LTA]        = [{}, {}]\n"
-        msg += "\t\tOnset S [STA, LTA]        = [{}, {}]\n"
-        msg += "\n"
+        msg += "\t\tGrid decimation [X, Y, Z] = [{}, {}, {}]\n\n"
+        msg += str(self.onset)
         msg += "=" * 120
         msg = msg.format(str(start_time), str(end_time), self.time_step,
                          self.n_cores, self.sampling_rate,
-                         self.decimate[0], self.decimate[1], self.decimate[2],
-                         self.p_bp_filter[0], self.p_bp_filter[1],
-                         self.p_bp_filter[2], self.s_bp_filter[0],
-                         self.s_bp_filter[1], self.s_bp_filter[2],
-                         self.p_onset_win[0], self.p_onset_win[1],
-                         self.s_onset_win[0], self.s_onset_win[1])
+                         self.decimate[0], self.decimate[1], self.decimate[2])
         self.output.log(msg, self.log)
 
         # Detect max coalescence value and location at each time sample
@@ -448,26 +372,21 @@ class QuakeScan(DefaultQuakeScan):
         # Decimate LUT
         self.lut = self.lut.decimate(self.decimate)
 
-        # Locate uses the centred onset by default
-        if self.onset.onset_centred is None:
-            self.onset.onset_centred = True
-
         msg = "=" * 120 + "\n"
         msg += "\tLOCATE - Determining earthquake location and uncertainty\n"
-        msg += "=" * 120 + "\n"
-        msg += "\n"
+        msg += "=" * 120 + "\n\n"
         msg += "\tParameters specified:\n"
-        msg += "\t\tStart time                = {}\n"
-        msg += "\t\tEnd   time                = {}\n"
-        msg += "\t\tNumber of CPUs            = {}\n\n"
+        msg += "\t\tStart time     = {}\n"
+        msg += "\t\tEnd   time     = {}\n"
+        msg += "\t\tNumber of CPUs = {}\n\n"
+        msg += str(self.onset)
         msg += "=" * 120 + "\n"
         msg = msg.format(str(start_time), str(end_time), self.n_cores)
         self.output.log(msg, self.log)
 
         self._locate_events(start_time, end_time)
 
-    def _append_coastream(self, coastream, daten, max_coa, max_coa_norm, loc,
-                          sampling_rate):
+    def _append_coastream(self, coastream, daten, max_coa, max_coa_norm, loc):
         """
         Append latest timestep of detect() output to obspy.Stream() object.
         Multiply by factor of ["1e5", "1e5", "1e6", "1e6", "1e3"] respectively
@@ -496,9 +415,6 @@ class QuakeScan(DefaultQuakeScan):
         loc : array-like
             Location of maximum coalescence through time
 
-        sampling_rate : int
-            Sampling rate that detect is run at.
-
         Returns
         -------
         coastream : obspy Stream object
@@ -517,7 +433,7 @@ class QuakeScan(DefaultQuakeScan):
         starttime = UTCDateTime(daten[0])
         meta = {"network": "NW",
                 "npts": npts,
-                "sampling_rate": sampling_rate,
+                "sampling_rate": self.sampling_rate,
                 "starttime": starttime}
 
         st = Stream(Trace(data=np.round(max_coa * 1e5).astype(np.int32),
@@ -544,12 +460,12 @@ class QuakeScan(DefaultQuakeScan):
            coastream[0].stats.endtime.julday:
             write_start = coastream[0].stats.starttime
             write_end = UTCDateTime(coastream[0].stats.endtime.date) \
-                        - 1 / coastream[0].stats.sampling_rate
+                - 1 / coastream[0].stats.sampling_rate
 
             self.output.write_coastream(coastream, write_start, write_end)
             written = True
 
-            coastream.trim(starttime=write_end + 1 / sampling_rate)
+            coastream.trim(starttime=write_end + 1 / self.sampling_rate)
 
         return coastream, written
 
@@ -632,8 +548,7 @@ class QuakeScan(DefaultQuakeScan):
                                                         daten[:-1],
                                                         max_coa[:-1],
                                                         max_coa_norm[:-1],
-                                                        coord[:-1, :],
-                                                        self.sampling_rate)
+                                                        coord[:-1, :])
 
             del daten, max_coa, max_coa_norm, coord
 
@@ -720,8 +635,8 @@ class QuakeScan(DefaultQuakeScan):
                                                     coord[:, 2])).transpose(),
                                           columns=["DT", "COA", "X", "Y", "Z"])
             event_coa_data["DT"] = event_coa_data["DT"].apply(UTCDateTime)
-            event_coa_data_dtmax = \
-                event_coa_data["DT"].iloc[event_coa_data["COA"].astype("float").idxmax()]
+            idxmax = event_coa_data["COA"].astype("float").idxmax()
+            event_coa_data_dtmax = event_coa_data["DT"].iloc[idxmax]
             w_beg_mw = event_coa_data_dtmax - self.marginal_window
             w_end_mw = event_coa_data_dtmax + self.marginal_window
 
@@ -748,7 +663,8 @@ class QuakeScan(DefaultQuakeScan):
             map_4d = map_4d[:, :, :,
                             event_mw_data.index[0]:event_mw_data.index[-1]]
             event_mw_data = event_mw_data.reset_index(drop=True)
-            event_max_coa = event_mw_data.iloc[event_mw_data["COA"].astype("float").idxmax()]
+            idxmax = event_mw_data["COA"].astype("float").idxmax()
+            event_max_coa = event_mw_data.iloc[idxmax]
 
             # Update event UID; make out_str
             event_uid = str(event_max_coa.values[0])
@@ -802,8 +718,8 @@ class QuakeScan(DefaultQuakeScan):
         ----------
         event : pandas DataFrame
             Triggered event output from _trigger_scn().
-            Columns: ["EventNum", "CoaTime", "COA_V", "COA_X", "COA_Y", "COA_Z",
-                      "MinTime", "MaxTime"]
+            Columns: ["EventNum", "CoaTime", "COA_V", "COA_X", "COA_Y",
+                      "COA_Z", "MinTime", "MaxTime"]
 
         w_beg : UTCDateTime object
             Start datetime to read waveform data
@@ -889,12 +805,13 @@ class QuakeScan(DefaultQuakeScan):
         """
 
         avail_idx = np.where(station_availability == 1)[0]
-        self.onset.sige = signal[0]
-        self.onset.sign = signal[1]
-        self.onset.sigz = signal[2]
+        self.onset.signal = signal
 
         p_onset = self.onset.p_onset()
         s_onset = self.onset.s_onset()
+        if not isinstance(p_onset, np.ndarray) \
+           or not isinstance(s_onset, np.ndarray):
+            raise TypeError
         self.data.p_onset = p_onset
         self.data.s_onset = s_onset
         self.data.filtered_signal[0, :, :] = self.onset.filt_sign
@@ -930,7 +847,7 @@ class QuakeScan(DefaultQuakeScan):
         sum_coa = np.sum(map_4d, axis=(0, 1, 2))
         max_coa_norm = max_coa / sum_coa
         max_coa_norm = max_coa_norm * map_4d.shape[0] * map_4d.shape[1] * \
-                       map_4d.shape[2]
+            map_4d.shape[2]
 
         tmp = np.arange(w_beg + self.pre_pad,
                         w_end - self.post_pad + (1 / self.sampling_rate),
@@ -1226,14 +1143,9 @@ class QuakeScan(DefaultQuakeScan):
                         onset = self.data.s_onset[i]
                         arrival = s_arrival
 
-                    gau, max_onset, err, mn = \
-                                    self._gaussian_picker(onset,
-                                                          phase,
-                                                          self.data.start_time,
-                                                          p_arrival,
-                                                          s_arrival,
-                                                          p_ttime[i],
-                                                          s_ttime[i])
+                    gau, max_onset, err, mn = self._gaussian_picker(
+                        onset, phase, self.data.start_time, p_arrival,
+                        s_arrival, p_ttime[i], s_ttime[i])
 
                     if phase == "P":
                         p_gauss = np.hstack([p_gauss, gau])
@@ -1251,14 +1163,14 @@ class QuakeScan(DefaultQuakeScan):
 
         return phase_picks
 
-    def _gaufilt3d(self, map_3d, sgm=0.8, shp=None):
+    def _gaufilt3d(self, coa_map, sgm=0.8, shp=None):
         """
         Smooth the 3-D marginalised coalescence map using a 3-D Gaussian
         function to enable a better gaussian fit to the data to be calculated.
 
         Parameters
         ----------
-        map_3d : array-like
+        coa_map : array-like
             Marginalised 3-D coalescence map
 
         sgm : float
@@ -1276,28 +1188,28 @@ class QuakeScan(DefaultQuakeScan):
         """
 
         if shp is None:
-            shp = map_3d.shape
+            shp = coa_map.shape
         nx, ny, nz = shp
 
         # Normalise
-        map_3d = map_3d / np.nanmax(map_3d)
+        coa_map = coa_map / np.nanmax(coa_map)
 
         # Construct 3d gaussian filter
         flt = util.gaussian_3d(nx, ny, nz, sgm)
 
         # Convolve map_3d and 3d gaussian filter
-        smoothed_map_3d = fftconvolve(map_3d, flt, mode="same")
+        smoothed_coa_map = fftconvolve(coa_map, flt, mode="same")
 
         # Mirror and convolve again (to avoid "phase-shift")
-        smoothed_map_3d = smoothed_map_3d[::-1, ::-1, ::-1] \
-            / np.nanmax(smoothed_map_3d)
-        smoothed_map_3d = fftconvolve(smoothed_map_3d, flt, mode="same")
+        smoothed_coa_map = smoothed_coa_map[::-1, ::-1, ::-1] \
+            / np.nanmax(smoothed_coa_map)
+        smoothed_coa_map = fftconvolve(smoothed_coa_map, flt, mode="same")
 
         # Final mirror and normalise
-        smoothed_map_3d = smoothed_map_3d[::-1, ::-1, ::-1] \
-            / np.nanmax(smoothed_map_3d)
+        smoothed_coa_map = smoothed_coa_map[::-1, ::-1, ::-1] \
+            / np.nanmax(smoothed_coa_map)
 
-        return smoothed_map_3d
+        return smoothed_coa_map
 
     def _mask3d(self, n, i, window):
         """
@@ -1377,12 +1289,8 @@ class QuakeScan(DefaultQuakeScan):
         if win:
             flg = np.logical_and(coa_map > thresh,
                                  self._mask3d([nx, ny, nz], [mx, my, mz], win))
-            ix, iy, iz = np.where(flg)
-            msg = "Variables", min(ix), max(ix), min(iy), max(iy), min(iz), max(iz)
-            self.output.log(msg, self.log)
         else:
             flg = np.where(coa_map > thresh, True, False)
-            ix, iy, iz = nx, ny, nz
 
         smp_weights = coa_map.flatten()
         smp_weights[~flg.flatten()] = np.nan
@@ -1640,7 +1548,6 @@ class QuakeScan(DefaultQuakeScan):
                 msg = "\tSpline warning: spline location outside grid cell"
                 msg += " with maximum coalescence value"
                 self.output.log(msg, self.log)
-
 
             xyz = self.lut.xyz2loc(np.array([[mxi, myi, mzi]]), inverse=True)
             loc_spline = self.lut.xyz2coord(xyz)[0]

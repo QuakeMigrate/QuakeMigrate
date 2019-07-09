@@ -5,6 +5,7 @@ This script will run the locate stage of QuakeMigrate.
 """
 
 # Import required modules
+import QMigrate.signal.onset.staltaonset as qonset
 import QMigrate.signal.scan as qscan
 import QMigrate.io.data as qdata
 
@@ -27,24 +28,28 @@ data.path_structure(archive_format="YEAR/JD/STATION")
 # data.resample = True
 # data.upfactor = 2
 
+# Create a new instance of Onset object
+onset = qonset.CentredSTALTAOnset(sampling_rate=20)
+onset.p_bp_filter = [2, 9.9, 2]
+onset.s_bp_filter = [2, 9.9, 2]
+onset.p_onset_win = [0.2, 1.5]
+onset.s_onset_win = [0.2, 1.5]
+
 # Create a new instance of SeisScan object
-scan = qscan.QuakeScan(data, lut_path, output_path=out_path, run_name=run_name)
+scan = qscan.QuakeScan(data, lut_path, onset=onset, output_path=out_path,
+                       run_name=run_name, log=False)
 
 # Set locate parameters - for a complete list and guidance on how to choose
 # a suitable set of parameters, please consult the documentation
 scan.sampling_rate = 20
-scan.p_bp_filter = [2, 9.9, 2]
-scan.s_bp_filter = [2, 9.9, 2]
-scan.p_onset_win = [0.2, 1.]
-scan.s_onset_win = [0.2, 1.]
 scan.time_step = 120.
 scan.decimate = [1, 1, 1]
 scan.n_cores = 12
 scan.marginal_window = 1
 
 # Turn on plotting features
-scan.plot_coal_trace = True
-scan.plot_coal_picture = True
+scan.plot_event_summary = True
+scan.plot_station_traces = True
 scan.plot_coal_video = False
 
 # Output cut data

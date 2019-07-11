@@ -2,61 +2,7 @@
 
 A python and C software package for detection and location of seismic events using a coherency and coalescence based technique. The advantages over other software packages is the generation of several visual outputs and information. The simple initiation scripts and examples help the user to define parameters for any seismological situation. The modular and open-source nature of the software package allows for the continued development from many institutions and research groups. 
 
-## Install the software
-Installing all the requirments for QuakeMigrate you can create a new conda environment using the command:
-```
-conda create -n qmigrate python=3.6 pandas=0.19 numpy obspy scikit-fmm
-```
-and then activating the environment by running
-```
-source activate qmigrate
-```
-
-The user then needs to clone the git repository and then installing:
-```
-git clone https://github.com/Ulvetanna/QuakeMigrate.git
-python setup.py install
-```
-
-## Software Manual
-### Introduction
-We are currently developing a usage manual for the software. Outlined below are the main processing stages from our publication currently in prep.
-
-QuakeMigrate uses a modular process for the detection and location of seismic events. An outline of this procedure is displayed in Figure ???. QuakeMigrate can be broadly separated into five modules: Travel Time - Determination or Loading of travel-time look-up tables for each seismic station within a predefined velocity structure; Seismic Data - Definition of the continuous seismic data structure to load; Detect - Determination of the maximum coalescence value for a reduced size model; Trigger - Determination of time periods which exceed a given threshold value; and Location - re-analysis of triggered events to refine event location. The main processing stages are the Detect and Location stages, interfacing with a series of C modules for the efficient calculation of energy coalescence over a given time and space domain. The module structure of the software and the extensive output information allows the user to provide different onset function, travel-time grids and picking methods to allow for continious development of the software package and help improve the user experience.
-
-### TravelTime - Creating a travel-time look-up table
-
-
-#### 1D Velocity Models
-##### skfmm - Stations only within model
-Most simplistic formulation using the python external module to determine the travel-time using a fast marching method. This formulation requires the seismic stations to be within the model. 
-
-This formuation can be run by first defining a LUT instance:
-<<engine='python', engine.path='python3'>>=
-lut = cmod.LUT(STATIONS)
-@ 
-and for a given 1D velocity file
-
-##### NonLinLoc - Stations external to model
-This method allows the inclusion of seismic stations external to the travel-time grid
-
-Define the projection for the pyprj intance 
-```
-p0 = Proj('+proj=latlong +ellps=WGS84')
-p1 = Proj('+proj=lcc +lat_0=60.185 +lon_0=24.820 +ellps=WGS84 +lat_1=60.18 +lat2=60.21')
-```
-
-Create a LUT instance with the inclusions of the stations as a pandas instance
-```
-lut = cmod.LUT(STATIONS)
-```
-
-Compute the travel-time and saving by:
-```
-lut.compute_1d_vmodel_skfmm(VELOCITY)
-lut.save(OUTPUT)
-```
-
+More information on the installation and usage can be found at the [wiki](https://github.com/Ulvetanna/QuakeMigrate/wiki)
 
 ## Built With
 * [pandas](https://pandas.pydata.org/) - Easy-to-use data structures and data analysis tools.

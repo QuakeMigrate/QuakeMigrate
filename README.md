@@ -41,9 +41,12 @@ and for a given 1D velocity file
 This method allows the inclusion of seismic stations external to the travel-time grid
 
 Define the projection for the pyprj intance 
+
 <<engine='python', engine.path='python3'>>=
+```
 p0 = Proj('+proj=latlong +ellps=WGS84')
 p1 = Proj('+proj=lcc +lat_0=60.185 +lon_0=24.820 +ellps=WGS84 +lat_1=60.18 +lat2=60.21')
+```
 @ 
 
 Create a LUT instance with the inclusions of the stations as a pandas instance

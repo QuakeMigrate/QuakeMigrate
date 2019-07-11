@@ -19,9 +19,13 @@ python setup.py install
 ```
 
 ## Software Manual
+###Introduction
 We are currently developing a usage manual for the software. Outlined below are the main processing stages from our publication currently in prep.
 
 QuakeMigrate uses a modular process for the detection and location of seismic events. An outline of this procedure is displayed in Figure ???. QuakeMigrate can be broadly separated into five modules: Travel Time - Determination or Loading of travel-time look-up tables for each seismic station within a predefined velocity structure; Seismic Data - Definition of the continuous seismic data structure to load; Detect - Determination of the maximum coalescence value for a reduced size model; Trigger - Determination of time periods which exceed a given threshold value; and Location - re-analysis of triggered events to refine event location. The main processing stages are the Detect and Location stages, interfacing with a series of C modules for the efficient calculation of energy coalescence over a given time and space domain. The module structure of the software and the extensive output information allows the user to provide different onset function, travel-time grids and picking methods to allow for continious development of the software package and help improve the user experience.
+
+###TravelTime - Creating a travel-time look-up table
+
 
 
 ## Built With

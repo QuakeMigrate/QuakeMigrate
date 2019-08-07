@@ -38,23 +38,15 @@ This example features data from a dense local seismic network over an area of ~ 
 ### Kinabalu
 This example demonstrates QuakeMigrate's ability to detect earthquakes using a limited number of seismometers recording at only 20Hz.
 
----
-# Software Manual
-Coming soon...
 
-# Built With
+<img src="./QMigrate/BuiltWith.png" alt="drawing" height="75"/>
 * [pandas](https://pandas.pydata.org/) - Easy-to-use data structures and data analysis tools.
 * [ObsPy](https://github.com/obspy/obspy/wiki) - Python framework for processing seismological data
 * [scikit-fmm](https://pythonhosted.org/scikit-fmm/) - Python extension module which implements the fast marching method
 * [NumPy](http://www.numpy.org/) - NumPy is the fundamental package for scientific computing with Python
 * [SciPy](https://www.scipy.org/) - Python-based ecosystem of open-source software for mathematics, science, and engineering
 
----
-# Collaborating
-
-
----
-# Authors, Collaboration & Licensing
+<img src="./QMigrate/AuthorCollab.png" alt="drawing" height="75"/>
 
 * **Jonathan Smith** - *Project Leader & Developer* - *Induced Seismicity, Geomechanics and Mitigating Geohazard* [Link](https://www.esc.cam.ac.uk/directory/jonathan-smith)
 * **Tom Winder** - *Project Leader & Developer* - *Volcano Seismology and Earthquake Triggering* [Link](https://www.esc.cam.ac.uk/directory/tom-winder)
@@ -65,8 +57,8 @@ Coming soon...
 Future contributors will be added to this list.
 
 Please contact lead authors for corresponding collaboration.
-   **Jonathan Smith** - jdsmith@caltech.edu
-   **Tom Winder** - tebw2@cam.ac.uk
+* **Jonathan Smith** - jdsmith@caltech.edu
+* **Tom Winder** - tebw2@cam.ac.uk
 
 This project is licensed under the MIT License so can be used freely for academic use and non-comercial gain. Pleasesee the [LICENSE.md](LICENSE.md) file for more details.
 

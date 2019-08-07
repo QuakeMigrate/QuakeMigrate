@@ -314,6 +314,7 @@ class Archive(object):
 
         # Check to see if no traces were continuously active during this period
         if not np.any(availability):
+            self.availability = availability
             raise util.DataGapException
 
         return signal, availability

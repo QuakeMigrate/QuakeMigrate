@@ -389,12 +389,12 @@ class QuakeScan(DefaultQuakeScan):
 
     Methods
     -------
-    detect(start_time, end_time, log=False)
+    detect(start_time, end_time)
         Core detection method -- compute decimated 3-D coalescence continuously
                                  throughout entire time period; output as
                                  .scanmseed (in mSEED format).
 
-    locate(start_time, end_time, log=False)
+    locate(start_time, end_time)
         Core locate method -- compute 3-D coalescence over short time window
                               around candidate earthquake triggered from
                               coastream; output location & uncertainties
@@ -421,7 +421,7 @@ class QuakeScan(DefaultQuakeScan):
                        "GlobalCovariance_ErrX", "GlobalCovariance_ErrY",
                        "GlobalCovariance_ErrZ"]
 
-    def __init__(self, data, lookup_table, output_path=None, run_name=None):
+    def __init__(self, data, lookup_table, output_path=None, run_name=None, log=False):
         """
         Class initialisation method.
 
@@ -451,7 +451,7 @@ class QuakeScan(DefaultQuakeScan):
         self.lut = lut
 
         if output_path is not None:
-            self.output = qio.QuakeIO(output_path, run_name)
+            self.output = qio.QuakeIO(output_path, run_name, log)
         else:
             self.output = None
 
@@ -462,13 +462,14 @@ class QuakeScan(DefaultQuakeScan):
         lta_max = max(self.p_onset_win[1], self.s_onset_win[1])
         self.post_pad = np.ceil(ttmax + 2 * lta_max)
 
+        self.log = log
         msg = "=" * 120 + "\n"
         msg += "=" * 120 + "\n"
         msg += "\tQuakeMigrate - Coalescence Scanning - Path: {} - Name: {}\n"
         msg += "=" * 120 + "\n"
         msg += "=" * 120 + "\n"
         msg = msg.format(self.output.path, self.output.name)
-        print(msg)
+        self.output.log(msg, self.log)
 
     def __str__(self):
         """
@@ -503,7 +504,7 @@ class QuakeScan(DefaultQuakeScan):
 
         return out
 
-    def detect(self, start_time, end_time, log=False):
+    def detect(self, start_time, end_time):
         """
         Scans through continuous data calculating coalescence on a decimated
         3D grid by back-migrating P and S onset (characteristic) functions.
@@ -525,8 +526,6 @@ class QuakeScan(DefaultQuakeScan):
         # Convert times to UTCDateTime objects
         start_time = UTCDateTime(start_time)
         end_time = UTCDateTime(end_time)
-
-        self.log = log
 
         # Decimate LUT
         self.lut = self.lut.decimate(self.decimate)
@@ -568,16 +567,13 @@ class QuakeScan(DefaultQuakeScan):
                          self.s_bp_filter[1], self.s_bp_filter[2],
                          self.p_onset_win[0], self.p_onset_win[1],
                          self.s_onset_win[0], self.s_onset_win[1])
-        if self.log:
-            self.output.write_log(msg)
-        else:
-            print(msg)
+        self.output.log(msg, self.log)
 
         # Detect max coalescence value and location at each time sample
         # within the decimated grid
         self._continuous_compute(start_time, end_time)
 
-    def locate(self, start_time, end_time, log=False):
+    def locate(self, start_time, end_time):
         """
         Re-computes the 3D coalescence on a less decimated grid for a short
         time window around each candidate earthquake triggered from the
@@ -604,8 +600,6 @@ class QuakeScan(DefaultQuakeScan):
         start_time = UTCDateTime(start_time)
         end_time = UTCDateTime(end_time)
 
-        self.log = log
-
         msg = "=" * 120 + "\n"
         msg += "\tLOCATE - Determining earthquake location and uncertainty\n"
         msg += "=" * 120 + "\n"
@@ -616,10 +610,7 @@ class QuakeScan(DefaultQuakeScan):
         msg += "\t\tNumber of CPUs            = {}\n\n"
         msg += "=" * 120 + "\n"
         msg = msg.format(str(start_time), str(end_time), self.n_cores)
-        if self.log:
-            self.output.write_log(msg)
-        else:
-            print(msg)
+        self.output.log(msg, self.log)
 
         # Decimate LUT
         self.lut = self.lut.decimate(self.decimate)
@@ -742,23 +733,20 @@ class QuakeScan(DefaultQuakeScan):
             nsteps = int(np.ceil((end_time - start_time) / self.time_step))
         except AttributeError:
             msg = "Error: Time step has not been specified"
-            print(msg)
+            self.output.log(msg, self.log)
 
         # Initialise pandas DataFrame object to track availability
         stn_ava_data = pd.DataFrame(index=np.arange(nsteps),
                                     columns=self.data.stations)
 
         for i in range(nsteps):
-            timer=util.Stopwatch()
+            timer = util.Stopwatch()
             w_beg = start_time + self.time_step * i - self.pre_pad
             w_end = start_time + self.time_step * (i + 1) + self.post_pad
 
             msg = ("~" * 24) + " Processing : {} - {} " + ("~" * 24)
             msg = msg.format(str(w_beg), str(w_end))
-            if self.log:
-                self.output.write_log(msg)
-            else:
-                print(msg)
+            self.output.log(msg, self.log)
 
             try:
                 self.data.read_waveform_data(w_beg, w_end, self.sampling_rate)
@@ -775,7 +763,7 @@ class QuakeScan(DefaultQuakeScan):
                 msg = "!" * 24 + " " * 16
                 msg += " No files in archive for this time step "
                 msg += " " * 16 + "!" * 24
-                print(msg)
+                self.output.log(msg, self.log)
                 daten, max_coa, max_coa_norm, coord = self._empty(w_beg, w_end)
                 stn_ava_data.loc[i] = self.data.availability
 
@@ -786,7 +774,7 @@ class QuakeScan(DefaultQuakeScan):
                 msg += "\n" + "!" * 24 + " " * 11
                 msg += "or data not available at start/end of time period"
                 msg += " " * 12 + "!" * 24
-                print(msg)
+                self.output.log(msg, self.log)
                 daten, max_coa, max_coa_norm, coord = self._empty(w_beg, w_end)
                 stn_ava_data.loc[i] = self.data.availability
 
@@ -808,7 +796,7 @@ class QuakeScan(DefaultQuakeScan):
                 self.output.write_coastream(coastream)
                 written = True
 
-            print(timer())
+            self.output.log(timer(), self.log)
 
         if not written:
             self.output.write_coastream(coastream)
@@ -817,9 +805,7 @@ class QuakeScan(DefaultQuakeScan):
 
         self.output.write_stn_availability(stn_ava_data)
 
-        self.for_test = stn_ava_data
-
-        print("=" * 120)
+        self.output.log("=" * 120, self.log)
 
     def _locate_events(self, start_time, end_time):
         """
@@ -861,10 +847,7 @@ class QuakeScan(DefaultQuakeScan):
             msg += "=" * 120 + "\n\n"
             msg += "\tDetermining event location...\n"
             msg = msg.format(i + 1, n_evts, event_uid)
-            if self.log:
-                self.output.write_log(msg)
-            else:
-                print(msg)
+            self.output.log(msg, self.log)
 
             w_beg = trig_event["CoaTime"] - 2*self.marginal_window \
                 - self.pre_pad
@@ -872,22 +855,22 @@ class QuakeScan(DefaultQuakeScan):
                 + self.post_pad
 
             timer = util.Stopwatch()
-            print("\tReading waveform data...")
+            self.output.log("\tReading waveform data...", self.log)
             try:
                 self._read_event_waveform_data(trig_event, w_beg, w_end)
             except util.ArchiveEmptyException:
                 msg = "\tNo files found in archive for this time period"
-                print(msg)
+                self.output.log(msg, self.log)
                 continue
             except util.DataGapException:
                 msg = "\tAll available data for this time period contains gaps"
                 msg += "\n\tOR data not available at start/end of time period\n"
-                print(msg)
+                self.output.log(msg, self.log)
                 continue
-            print(timer())
+            self.output.log(timer(), self.log)
 
             timer = util.Stopwatch()
-            print("\tComputing 4D coalescence grid...")
+            self.output.log("\tComputing 4D coalescence grid...", self.log)
 
             daten, max_coa, max_coa_norm, loc, map_4d = self._compute(
                                                       w_beg, w_end,
@@ -919,10 +902,7 @@ class QuakeScan(DefaultQuakeScan):
                 msg += "the seismic velocity in the region of the earthquake\n"
                 msg += "\n" + "=" * 120 + "\n"
                 msg = msg.format(event_uid)
-                if self.log:
-                    self.output.write_log(msg)
-                else:
-                    print(msg)
+                self.output.log(msg, self.log)
                 continue
 
             event_mw_data = event_coa_data
@@ -938,21 +918,21 @@ class QuakeScan(DefaultQuakeScan):
             for char_ in ["-", ":", ".", " ", "Z", "T"]:
                 event_uid = event_uid.replace(char_, "")
             out_str = "{}_{}".format(self.output.name, event_uid)
-            print(timer())
+            self.output.log(timer(), self.log)
 
             # Make phase picks
             timer = util.Stopwatch()
-            print("\tMaking phase picks...")
+            self.output.log("\tMaking phase picks...", self.log)
             phase_picks = self._phase_picker(event_max_coa)
             self.output.write_picks(phase_picks["Pick"], event_uid)
-            print(timer())
+            self.output.log(timer(), self.log)
 
             # Determining earthquake location error
             timer = util.Stopwatch()
-            print("\tDetermining earthquake location and uncertainty...")
+            self.output.log("\tDetermining earthquake location and uncertainty...", self.log)
             loc_spline, loc_gau, loc_gau_err, loc_cov, \
                 loc_cov_err = self._calculate_location(map_4d)
-            print(timer())
+            self.output.log(timer(), self.log)
 
             # Make event dictionary with all final event location data
             event = pd.DataFrame([[event_max_coa.values[0],
@@ -971,7 +951,7 @@ class QuakeScan(DefaultQuakeScan):
             self._optional_locate_outputs(event_mw_data, event, out_str,
                                           phase_picks, event_uid, map_4d)
 
-            print("=" * 120 + "\n")
+            self.output.log("=" * 120 + "\n", self.log)
 
             del map_4d, event_coa_data, event_mw_data, event_max_coa, \
                 phase_picks
@@ -1013,10 +993,8 @@ class QuakeScan(DefaultQuakeScan):
                 msg += "default pre_pad\n"
                 msg += "\t\t\tCutting from pre_pad = {}"
                 msg = msg.format(self.pre_cut, self.pre_pad)
-                if self.log:
-                    self.output.write_log(msg)
-                else:
-                    print(msg)
+                self.output.log(msg, self.log)
+
                 pre_pad = None
 
         if self.post_cut:
@@ -1029,10 +1007,7 @@ class QuakeScan(DefaultQuakeScan):
                 msg += "default post_pad\n"
                 msg += "\t\t\tCutting to post_pad = {}"
                 msg = msg.format(self.post_cut, self.post_pad)
-                if self.log:
-                    self.output.write_log(msg)
-                else:
-                    print(msg)
+                self.output.log(msg, self.log)
                 post_pad = None
 
         self.data.read_waveform_data(w_beg, w_end, self.sampling_rate, pre_pad,
@@ -1657,8 +1632,8 @@ class QuakeScan(DefaultQuakeScan):
             flg = np.logical_and(coa_map > thresh,
                                  self._mask3d([nx, ny, nz], [mx, my, mz], win))
             ix, iy, iz = np.where(flg)
-            print("Variables", min(ix), max(ix), min(iy), max(iy), min(iz),
-                  max(iz))
+            msg = "Variables", min(ix), max(ix), min(iy), max(iy), min(iz), max(iz)
+            self.output.log(msg, self.log)
         else:
             flg = np.where(coa_map > thresh, True, False)
             ix, iy, iz = nx, ny, nz
@@ -1910,18 +1885,15 @@ class QuakeScan(DefaultQuakeScan):
             mxi = mxi/upscale + x1
             myi = myi/upscale + y1
             mzi = mzi/upscale + z1
-            print("\t\tGridded loc: {}   {}   {}".format(mx, my, mz))
-            print("\t\tSpline  loc: {} {} {}".format(mxi, myi, mzi))
+            self.output.log("\t\tGridded loc: {}   {}   {}".format(mx, my, mz), self.log)
+            self.output.log("\t\tSpline  loc: {} {} {}".format(mxi, myi, mzi), self.log)
 
             # Run check that spline location is within grid-cell
             if (abs(mx - mxi) > 1) or (abs(my - myi) > 1) or \
                (abs(mz - mzi) > 1):
                 msg = "\tSpline warning: spline location outside grid cell"
                 msg += "with maximum coalescence value"
-                if self.log:
-                    self.output.write_log(msg)
-                else:
-                    print(msg)
+                self.output.log(msg, self.log)
 
             xyz = self.lut.xyz2loc(np.array([[mxi, myi, mzi]]), inverse=True)
             loc_spline = self.lut.xyz2coord(xyz)[0]
@@ -1931,10 +1903,7 @@ class QuakeScan(DefaultQuakeScan):
                (abs(mz - mzi) > w2):
                 msg = "\t !!!! Spline error: location outside interpolation "
                 msg += "window !!!!\n\t\t\tGridded Location returned"
-                if self.log:
-                    self.output.write_log(msg)
-                else:
-                    print(msg)
+                self.output.log(msg, self.log)
 
                 xyz = self.lut.xyz2loc(np.array([[mx, my, mz]]), inverse=True)
                 loc_spline = self.lut.xyz2coord(xyz)[0]
@@ -1942,10 +1911,7 @@ class QuakeScan(DefaultQuakeScan):
         else:
             msg = "\t !!!! Spline error: interpolation window crosses edge of "
             msg += "grid !!!!\n\t\t\tGridded Location returned"
-            if self.log:
-                self.output.write_log(msg)
-            else:
-                print(msg)
+            self.output.log(msg, self.log)
 
             xyz = self.lut.xyz2loc(np.array([[mx, my, mz]]), inverse=True)
             loc_spline = self.lut.xyz2coord(xyz)[0]
@@ -2099,36 +2065,36 @@ class QuakeScan(DefaultQuakeScan):
 
         if self.plot_event_summary:
             timer = util.Stopwatch()
-            print("\tPlotting event summary figure...")
+            self.output.log("\tPlotting event summary figure...", self.log)
             quake_plot.event_summary(file_str=out_str)
-            print(timer())
+            self.output.log(timer(), self.log)
 
         if self.plot_station_traces:
             timer = util.Stopwatch()
-            print("\tPlotting station traces...")
+            self.output.log("\tPlotting station traces...", self.log)
             quake_plot.station_traces(file_str=out_str, event_name=event_uid)
-            print(timer())
+            self.output.log(timer(), self.log)
 
         if self.plot_coal_video:
             timer = util.Stopwatch()
-            print("\tPlotting coalescence video...")
+            self.output.log("\tPlotting coalescence video...", self.log)
             quake_plot.coalescence_video(file_str=out_str)
-            print(timer())
+            self.output.log(timer(), self.log)
 
         if self.write_cut_waveforms:
-            print("\tSaving raw cut waveforms...")
+            self.output.log("\tSaving raw cut waveforms...", self.log)
             timer = util.Stopwatch()
             self.output.write_cut_waveforms(self.data, event, event_uid,
                                             self.cut_waveform_format,
                                             self.pre_cut, self.post_cut)
-            print(timer())
+            self.output.log(timer(), self.log)
 
         if self.write_4d_coal_grid:
             timer = util.Stopwatch()
-            print("\tSaving 4D coalescence grid...")
+            self.output.log("\tSaving 4D coalescence grid...", self.log)
             t_beg = UTCDateTime(event_mw_data["DT"].iloc[0])
             t_end = UTCDateTime(event_mw_data["DT"].iloc[-1])
             self.output.write_coal4D(map_4d, event_uid, t_beg, t_end)
-            print(timer())
+            self.output.log(timer(), self.log)
 
         del quake_plot

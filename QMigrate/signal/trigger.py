@@ -26,7 +26,7 @@ class Trigger:
 
     """
 
-    def __init__(self, output_path, output_name, stations):
+    def __init__(self, output_path, output_name, stations, log=False):
         """
         Class initialisation method.
 
@@ -78,9 +78,11 @@ class Trigger:
         """
 
         if output_path is not None:
-            self.output = qio.QuakeIO(output_path, output_name)
+            self.output = qio.QuakeIO(output_path, output_name, log)
         else:
             self.output = None
+
+        self.log = log
 
         self.stations = stations
 
@@ -149,9 +151,9 @@ class Trigger:
                          str(self.pad), self.detection_threshold,
                          self.marginal_window, self.minimum_repeat,
                          self.normalise_coalescence)
-        print(msg)
+        self.output.log(msg, self.log)
 
-        print("    Reading in scanmseed...\n")
+        self.output.log("    Reading in scanmseed...\n", self.log)
         read_start = self.start_time - self.pad
         read_end = self.end_time + self.pad
         self.coa_data, coa_stats = self.output.read_coastream(read_start,
@@ -167,9 +169,8 @@ class Trigger:
             msg += "\tWarning! scanmseed data end is before trigger() end_time!\n"
         elif coa_stats.endtime < read_end:
             msg += "\tWarning! No scanmseed data found for post-pad!\n"
-        print(msg)
-
-        print("    scanmseed read complete.")
+        self.output.log(msg, self.log)
+        self.output.log("    scanmseed read complete.", self.log)
 
         self.sampling_rate = coa_stats.sampling_rate
 
@@ -178,19 +179,20 @@ class Trigger:
         if self.events is None:
             msg = "\tNo events triggered at this threshold - "
             msg += "try reducing the detection threshold."
-            print(msg)
+            self.output.log(msg, self.log)
         else:
-            self.output.write_triggered_events(self.events)
+            self.output.write_triggered_events(self.events, self.start_time,
+                                               self.end_time)
 
         tplot.triggered_events(events=self.events, start_time=self.start_time,
                                end_time=self.end_time, output=self.output,
                                marginal_window=self.marginal_window,
                                detection_threshold=self.detection_threshold,
                                normalise_coalescence=self.normalise_coalescence,
-                               data=self.coa_data, stations=self.stations,
-                               savefig=savefig)
+                               log=self.log, data=self.coa_data,
+                               stations=self.stations, savefig=savefig)
 
-        print("=" * 120)
+        self.output.log("=" * 120, self.log)
 
     def _trigger_scn(self):
         """
@@ -316,9 +318,10 @@ class Trigger:
         init_events["EventNum"] = evt_num
 
         events = pd.DataFrame(columns=event_cols)
-        print("\n    Triggering...")
+        self.output.log("\n    Triggering...", self.log)
         for i in range(1, count + 1):
-            print("\tTriggered event {} of {}".format(i, count))
+            self.output.log("\tTriggered event {} of {}".format(i, count),
+                            self.log)
             tmp = init_events[init_events["EventNum"] == i]
             tmp = tmp.reset_index(drop=True)
             j = np.argmax(tmp["COA_V"])

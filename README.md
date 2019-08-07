@@ -1,6 +1,6 @@
 ---
 ---
-# QuakeMigrate: Earthquake Onset Detection and Location
+# <span style="color:blue">some *QuakeMigrate: Earthquake Onset Detection and Location text</span>
 ---
 ---
 

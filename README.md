@@ -11,18 +11,17 @@
 
 
 ---
+<img src="./QMigrate/References.png" alt="drawing" width="500"/>
 
-
-![](./QMigrate/References.png)
 QuakeMigrate is currently in prperation for publication. Once accepted we hope that the publication will have the reference: 
    `Smith, J.D., Winder, T., Hudson, T.S., Bacon, C., Greenfield, T., Drew, J. and R.S. White (2019), QuakeMigrate: Earthquake Onset Detection adn Back-Migration Location Method, Seismological Research Letters.`
 
 
 ---
-<img src="./QMigrate/GettingStarted.png" alt="drawing" width="200"/>
+<img src="./QMigrate/GettingStarted.png" alt="drawing" width="500"/>
 These instructions will get you a copy of QuakeMigrate up and running on your local machine.  
 
-## Prerequisites
+<img src="./QMigrate/Installation.png" alt="drawing" width="500"/>
 We recommend that you use Python environments to isolate the specific dependencies of QuakeMigrate from any other projects you may be working on (see Setting Up an Environment).
 
 ## Setting Up an Environment

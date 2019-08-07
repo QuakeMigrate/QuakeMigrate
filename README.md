@@ -53,7 +53,7 @@ This example features data from a dense local seismic network over an area of ~ 
 This example demonstrates QuakeMigrate's ability to detect earthquakes using a limited number of seismometers recording at only 20Hz.
 
 For each example, you will need to make sure you generate the traveltime lookup table first, as these files are quite large and not stored on GitHub.
-
+---
 # Software Manual
 Coming soon...
 
@@ -64,10 +64,12 @@ Coming soon...
 * [NumPy](http://www.numpy.org/) - NumPy is the fundamental package for scientific computing with Python
 * [SciPy](https://www.scipy.org/) - Python-based ecosystem of open-source software for mathematics, science, and engineering
 
+---
 # Collaborating
 
 Please contact lead authors for corresponding collaboration.
 
+---
 # Authors
 
 * **Jonathan Smith** - *Project Leader & Developer* - *Induced Seismicity, Geomechanics and Mitigating Geohazard* [Link](https://www.esc.cam.ac.uk/directory/jonathan-smith)
@@ -78,6 +80,7 @@ Please contact lead authors for corresponding collaboration.
 
 Future contributors will be added to this list.
 
+---
 # License
 
 This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.

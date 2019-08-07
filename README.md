@@ -1,6 +1,6 @@
 ---
 ---
-# <span style="color:blue">some *QuakeMigrate: Earthquake Onset Detection and Location text</span>
+# <font color='Red'>QuakeMigrate: Earthquake Onset Detection and Location</font>
 ---
 ---
 

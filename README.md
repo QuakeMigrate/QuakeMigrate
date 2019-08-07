@@ -4,14 +4,14 @@
 > QuakeMigrate is a Python and C software package that detects and locates seismic events from raw data, using a migration and coalescence back projection technique. The ability to fine tune the input parameters and analyse the results using a suite of visualisation functions give it an edge over the alternatives. Simple scripts (see the provided examples) allow the user to rapidly deploy the software in any seismological setting. The open source and module nature allows for the continious development with the inclusion of cutting edge techniques. 
 
 ---
-<img src="./QMigrate/References.png" alt="drawing" width="500"/>
+<img src="./QMigrate/References.png" alt="drawing" height="50"/>
 
 QuakeMigrate is currently in prperation for publication. Once accepted we hope that the publication will have the reference: 
    `Smith, J.D., Winder, T., Hudson, T.S., Bacon, C., Greenfield, T., Drew, J. and R.S. White (2019), QuakeMigrate: Earthquake Onset Detection adn Back-Migration Location Method, Seismological Research Letters.`
 
 
 ---
-<img src="./QMigrate/Installation.png" alt="drawing" width="500"/>
+<img src="./QMigrate/Installation.png" alt="drawing" height="50"/>
 We recommend that you use Python environments to isolate the specific dependencies of QuakeMigrate from any other projects you may be working on (see Setting Up an Environment).
 
 ## Setting up an Conda environment
@@ -34,7 +34,7 @@ Feature coming soon...
 - Make sure you have activated your environment (see Setting up an Environment)
 - Run `pip install QuakeMigrate`
 
-<img src="./QMigrate/ExamplesTesting.png" alt="drawing" width="500"/>
+<img src="./QMigrate/ExamplesTesting.png" alt="drawing" height="75"/>
 
 # Examples and Testing
 To ensure your version is working as expected, we have provided a set of examples that demonstrate the various features of QuakeMigrate:

@@ -7,48 +7,37 @@
 <img src="./QMigrate/References.png" alt="drawing" height="50"/>
 
 QuakeMigrate is currently in prperation for publication. Once accepted we hope that the publication will have the reference: 
-   `Smith, J.D., Winder, T., Hudson, T.S., Bacon, C., Greenfield, T., Drew, J. and R.S. White (2019), QuakeMigrate: Earthquake Onset Detection adn Back-Migration Location Method, Seismological Research Letters.`
+  
+  `Smith, J.D., Winder, T., Hudson, T.S., Bacon, C., Greenfield, T., Drew, J. and R.S. White (2019), QuakeMigrate: Earthquake Onset Detection adn Back-Migration Location Method, Seismological Research Letters.`
 
 
 ---
 <img src="./QMigrate/Installation.png" alt="drawing" height="50"/>
-We recommend that you use Python environments to isolate the specific dependencies of QuakeMigrate from any other projects you may be working on (see Setting Up an Environment).
 
-## Setting up an Conda environment
-If you are using conda to manage your Python environments, you can use our QuakeMigrate.yml file to create a minimally complete environment:
+Our installation process can be directly from the GitHub repository. However, we recommend that the user creates a Anaconda environment and installs the required packages using:
 
 `conda env create -f QuakeMigrate.yml`
 
-## Installing the Software
-There are two methods of getting a copy of QuakeMigrate:
+Once the environment is installed the user can install the software using
+`git clone https://github.com/Ulvetanna`
+into the required host directory. 
 
-### From GitHub
-- Fork this repository (see [here](https://help.github.com/en/articles/fork-a-repo) for more details)
-- Clone the repository to your local machine using `git clone <repo link> <target_dir>` (see [here](https://help.github.com/en/articles/cloning-a-repository) for more details)
-- Make sure you have activated your environment (see Setting Up an Environment)
-- Move into the new directory and run `python setup.py install`
-
-### pip install
-Feature coming soon...
-
-- Make sure you have activated your environment (see Setting up an Environment)
-- Run `pip install QuakeMigrate`
+More information on the required version of packages can be found under the setup.py file or in the QuakeMigrate.yml file.
 
 <img src="./QMigrate/ExamplesTesting.png" alt="drawing" height="75"/>
+To ensure your version is working as expected, we have provided a set of examples that demonstrate the various features of QuakeMigrate. Outlined below are the three examples given with the software release. Additional examples will be gradulally uploaded to corresponding GitHub wiki pages.
 
-# Examples and Testing
-To ensure your version is working as expected, we have provided a set of examples that demonstrate the various features of QuakeMigrate:
+To get started with the software we recomend that the user runs the 'Icequake' example, as this provides an insite into the entire processing procedure. 
 
-#### Icequake
+### Antarctic Basal Icequakes
 This example uses data recorded at a high sampling rate on ice. The velocity model is homogeneous.
 
-#### Iceland 
+### Bárðabunga-Holoraun Dyke Propagation, Iceland
 This example features data from a dense local seismic network over an area of ~ 150 x 150 km in Central Iceland. It features a 1D velocity model, and extremely high earthquake rates during the 2014 Bardarbunga-Holuhraun dike intrusion.
 
-#### Kinabalu
+### Kinabalu
 This example demonstrates QuakeMigrate's ability to detect earthquakes using a limited number of seismometers recording at only 20Hz.
 
-For each example, you will need to make sure you generate the traveltime lookup table first, as these files are quite large and not stored on GitHub.
 ---
 # Software Manual
 Coming soon...
@@ -63,10 +52,9 @@ Coming soon...
 ---
 # Collaborating
 
-Please contact lead authors for corresponding collaboration.
 
 ---
-# Authors
+# Authors, Collaboration & Licensing
 
 * **Jonathan Smith** - *Project Leader & Developer* - *Induced Seismicity, Geomechanics and Mitigating Geohazard* [Link](https://www.esc.cam.ac.uk/directory/jonathan-smith)
 * **Tom Winder** - *Project Leader & Developer* - *Volcano Seismology and Earthquake Triggering* [Link](https://www.esc.cam.ac.uk/directory/tom-winder)
@@ -76,8 +64,9 @@ Please contact lead authors for corresponding collaboration.
 
 Future contributors will be added to this list.
 
----
-# License
+Please contact lead authors for corresponding collaboration.
+   **Jonathan Smith** - jdsmith@caltech.edu
+   **Tom Winder** - tebw2@cam.ac.uk
 
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
+This project is licensed under the MIT License so can be used freely for academic use and non-comercial gain. Pleasesee the [LICENSE.md](LICENSE.md) file for more details.
 

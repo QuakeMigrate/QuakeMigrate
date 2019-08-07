@@ -3,10 +3,14 @@
 # <font color='Red'>QuakeMigrate: Earthquake Onset Detection and Location</font>
 ---
 ---
+> QuakeMigrate is a Python and C software package that detects and locates seismic events from raw data, using a migration and coalescence back projection technique. The ability to fine tune the input parameters and analyse the results using a suite of visualisation functions give it an edge over the alternatives. Simple scripts (see the provided examples) allow the user to rapidly deploy the software in any seismological setting. The open source and module nature allows for the continious development with the inclusion of cutting edge techniques. 
 
-QuakeMigrate is a Python and C software package that detects and locates seismic events from raw data, using a migration and coalescence back projection technique. The ability to fine tune the input parameters and analyse the results using a suite of visualisation functions give it an edge over the alternatives. Simple scripts (see the provided examples) allow the user to rapidly deploy the software in any seismological setting.
 
-The open source and module nature allows for the continious development with the inclusion of cutting edge techniques. 
+[![NPM Version][npm-image]][npm-url]
+[![Build Status][travis-image]][travis-url]
+[![Downloads Stats][npm-downloads]][npm-url]
+
+
 
 ---
 

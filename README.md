@@ -3,13 +3,6 @@
 
 > QuakeMigrate is a Python and C software package that detects and locates seismic events from raw data, using a migration and coalescence back projection technique. The ability to fine tune the input parameters and analyse the results using a suite of visualisation functions give it an edge over the alternatives. Simple scripts (see the provided examples) allow the user to rapidly deploy the software in any seismological setting. The open source and module nature allows for the continious development with the inclusion of cutting edge techniques. 
 
-
-[![NPM Version][npm-image]][npm-url]
-[![Build Status][travis-image]][travis-url]
-[![Downloads Stats][npm-downloads]][npm-url]
-
-
-
 ---
 <img src="./QMigrate/References.png" alt="drawing" width="500"/>
 
@@ -18,18 +11,15 @@ QuakeMigrate is currently in prperation for publication. Once accepted we hope t
 
 
 ---
-<img src="./QMigrate/GettingStarted.png" alt="drawing" width="500"/>
-These instructions will get you a copy of QuakeMigrate up and running on your local machine.  
-
 <img src="./QMigrate/Installation.png" alt="drawing" width="500"/>
 We recommend that you use Python environments to isolate the specific dependencies of QuakeMigrate from any other projects you may be working on (see Setting Up an Environment).
 
-## Setting Up an Environment
+## Setting up an Conda environment
 If you are using conda to manage your Python environments, you can use our QuakeMigrate.yml file to create a minimally complete environment:
 
 `conda env create -f QuakeMigrate.yml`
 
-## Installing
+## Installing the Software
 There are two methods of getting a copy of QuakeMigrate:
 
 ### From GitHub
@@ -43,6 +33,8 @@ Feature coming soon...
 
 - Make sure you have activated your environment (see Setting up an Environment)
 - Run `pip install QuakeMigrate`
+
+<img src="./QMigrate/ExamplesTesting.png" alt="drawing" width="500"/>
 
 # Examples and Testing
 To ensure your version is working as expected, we have provided a set of examples that demonstrate the various features of QuakeMigrate:

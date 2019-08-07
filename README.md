@@ -19,7 +19,7 @@ QuakeMigrate is currently in prperation for publication. Once accepted we hope t
 
 
 ---
-![](./QMigrate/GettingStarted.png=1000x)
+<img src="./QMigrate/GettingStarted.png" alt="drawing" width="200"/>
 These instructions will get you a copy of QuakeMigrate up and running on your local machine.  
 
 ## Prerequisites

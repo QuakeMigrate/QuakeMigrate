@@ -1,10 +1,10 @@
 
-![](./QMigrate/Title.png)
+![](./QMigrate/Figures/Title.png)
 
 > QuakeMigrate is a Python and C software package that detects and locates seismic events from raw data, using a migration and coalescence back projection technique. The ability to fine tune the input parameters and analyse the results using a suite of visualisation functions give it an edge over the alternatives. Simple scripts (see the provided examples) allow the user to rapidly deploy the software in any seismological setting. The open source and module nature allows for the continious development with the inclusion of cutting edge techniques. 
 
 ---
-<img src="./QMigrate/References.png" alt="drawing" height="50"/>
+<img src="./QMigrate/Figures/References.png" alt="drawing" height="50"/>
 
 QuakeMigrate is currently in prperation for publication. Once accepted we hope that the publication will have the reference: 
   

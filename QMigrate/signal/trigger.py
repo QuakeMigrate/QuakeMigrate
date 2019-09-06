@@ -109,8 +109,9 @@ class Trigger:
         self.coa_data = None
 
         self.events = None
+        self.region = None
 
-    def trigger(self, start_time, end_time, savefig=True):
+    def trigger(self, start_time, end_time, region=None, savefig=True):
         """
         Trigger candidate earthquakes from decimated scan data.
 
@@ -130,6 +131,7 @@ class Trigger:
         # Convert times to UTCDateTime objects
         self.start_time = UTCDateTime(start_time)
         self.end_time = UTCDateTime(end_time)
+        self.region   = region
 
         if self.minimum_repeat < 2 * self.marginal_window:
             msg = "\tMinimum repeat must be >= 2 * marginal window."
@@ -190,7 +192,7 @@ class Trigger:
                                detection_threshold=self.detection_threshold,
                                normalise_coalescence=self.normalise_coalescence,
                                log=self.log, data=self.coa_data,
-                               stations=self.stations, savefig=savefig)
+                               region=self.region, stations=self.stations, savefig=savefig)
 
         self.output.log("=" * 120, self.log)
 
@@ -340,6 +342,15 @@ class Trigger:
         # Remove events which occur in the pre-pad and post-pad:
         events = events[(events["CoaTime"] >= self.start_time) &
                         (events["CoaTime"] < self.end_time)]
+        
+        if self.region != None:
+            events = events[(events['COA_X'] >= self.region[0]) &
+                            (events['COA_Y'] >= self.region[1]) &
+                            (events['COA_Z'] >= self.region[2]) &
+                            (events['COA_X'] <= self.region[3]) &
+                            (events['COA_Y'] <= self.region[4]) &
+                            (events['COA_Z'] <= self.region[5])]
+
         # Reset EventNum column
         events.loc[:, "EventNum"] = np.arange(1, len(events) + 1)
 

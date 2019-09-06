@@ -12,7 +12,7 @@ QuakeMigrate is currently in prperation for publication. Once accepted we hope t
 
 
 ---
-<img src="./QMigrate/Installation.png" alt="drawing" height="50"/>
+<img src="./QMigrate/Figures/Installation.png" alt="drawing" height="50"/>
 
 Our installation process can be directly from the GitHub repository. However, we recommend that the user creates a Anaconda environment and installs the required packages using:
 
@@ -24,7 +24,7 @@ into the required host directory.
 
 More information on the required version of packages can be found under the setup.py file or in the QuakeMigrate.yml file.
 <!----------------------------------------------------------------------->
-<img src="./QMigrate/RunningSoftware.png" alt="drawing" height="50"/>
+<img src="./QMigrate/Figures/RunningSoftware.png" alt="drawing" height="50"/>
 Outlined in this section are the main processing procedures with the parameter definitions required to run each stage of the QuakeMigrate Software. The main processing procedures can be subdivided into four stages: Travel Time, Seismic Data, Detect, Locate and Trigger. The input and outputs of each stage are represented in the Figure below. 
 
 <img src="./QMigrate/FlowDiagram.pdf" alt="drawing" height="50"/>
@@ -95,7 +95,7 @@ and loaded by running:
 
 <!----------------------------------------------------------------------->
 
-<img src="./QMigrate/ExamplesTesting.png" alt="drawing" height="75"/>
+<img src="./QMigrate/Figures/ExamplesTesting.png" alt="drawing" height="75"/>
 To ensure your version is working as expected, we have provided a set of examples that demonstrate the various features of QuakeMigrate. Outlined below are the three examples given with the software release. Additional examples will be gradulally uploaded to corresponding GitHub wiki pages.
 
 To get started with the software we recomend that the user runs the 'Icequake' example, as this provides an insite into the entire processing procedure. 
@@ -109,14 +109,14 @@ This example features data from a dense local seismic network over an area of ~ 
 ### Kinabalu
 More information to be added shortly ....
 
-<img src="./QMigrate/BuiltWith.png" alt="drawing" height="45"/>
+<img src="./QMigrate/Figures/BuiltWith.png" alt="drawing" height="45"/>
 * [pandas](https://pandas.pydata.org/) - Easy-to-use data structures and data analysis tools.
 * [ObsPy](https://github.com/obspy/obspy/wiki) - Python framework for processing seismological data
 * [scikit-fmm](https://pythonhosted.org/scikit-fmm/) - Python extension module which implements the fast marching method
 * [NumPy](http://www.numpy.org/) - NumPy is the fundamental package for scientific computing with Python
 * [SciPy](https://www.scipy.org/) - Python-based ecosystem of open-source software for mathematics, science, and engineering
 
-<img src="./QMigrate/AuthorCollab.png" alt="drawing" height="75"/>
+<img src="./QMigrate/Figures/AuthorCollab.png" alt="drawing" height="75"/>
 * **Jonathan Smith** - *Project Leader & Developer* - *Induced Seismicity, Geomechanics and Mitigating Geohazard* [Link](https://www.esc.cam.ac.uk/directory/jonathan-smith)
 * **Tom Winder** - *Project Leader & Developer* - *Volcano Seismology and Earthquake Triggering* [Link](https://www.esc.cam.ac.uk/directory/tom-winder)
 * **Tom Hudson**  - *Developer* - *Glacioseismology and Ice dynamics* [Link](https://www.esc.cam.ac.uk/directory/tom-s-hudson)

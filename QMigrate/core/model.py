@@ -117,7 +117,7 @@ def _utm_zone(longitude):
 def bilinear_interp(pos, gridspec, grid):
     """
     Do bi-linear interpolation between 4 data points on the input 2-D LUT to
-    calculate the traveltime to nodes on the 3-D grid. 
+    calculate the traveltime to nodes on the 3-D grid.
 
     """
     if len(pos) == 2:
@@ -1174,7 +1174,8 @@ class LUT(Grid3D, NonLinLoc):
         maps = self.fetch_map(map_, station)
         nc = self.cell_count
         cc = (np.arange(nc[0]), np.arange(nc[1]), np.arange(nc[2]))
-        return RegularGridInterpolator(cc, maps, bounds_error=False)
+        return RegularGridInterpolator(cc, maps, bounds_error=False,
+                                       fill_value=None)
 
     def interpolate(self, map_, loc, station=None):
         interp_fcn = self.interpolator(map_, station)
@@ -1222,7 +1223,7 @@ class LUT(Grid3D, NonLinLoc):
         self.maps = {"TIME_P": p_map,
                      "TIME_S": s_map}
 
-    def compute_1d_vmodel(self, p0, p1, gridspec, vmod_file, 
+    def compute_1d_vmodel(self, p0, p1, gridspec, vmod_file,
                           delimiter=",", nlloc_dx=0.1, nlloc_path="",
                           block_model=False):
         """

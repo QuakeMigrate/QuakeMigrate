@@ -425,6 +425,13 @@ class QuakeIO:
 
         end_time : UTCDateTime object
 
+        Returns
+        -------
+        events : pandas DataFrame
+            Triggered events output from _trigger_scn().
+            Columns: ["EventNum", "CoaTime", "COA_V", "COA_X", "COA_Y",
+                      "COA_Z", "MinTime", "MaxTime"]
+
         """
         fname = self.run / "{}_TriggeredEvents".format(self.name)
         fname = str(fname.with_suffix(".csv"))

@@ -66,6 +66,7 @@ def sta_lta_centred(a, nsta, nlta):
     sta = np.require(sta, dtype=np.float)
     lta = sta.copy()
 
+
     # Compute the STA and the LTA
     sta[nsta:] = sta[nsta:] - sta[:-nsta]
     sta[nsta:-nsta] = sta[nsta*2:]
@@ -80,7 +81,8 @@ def sta_lta_centred(a, nsta, nlta):
     # Avoid division by zero by setting zero values to tiny float
     dtiny = np.finfo(0.0).tiny
     idx = lta < dtiny
-    lta[idx] - dtiny
+    lta[idx] = dtiny
+    sta[idx] = 0.0
 
     return sta / lta
 
@@ -1081,6 +1083,7 @@ class QuakeScan(DefaultQuakeScan):
 
         # Prep empty 4-D coalescence map and run C-compiled ilib.migrate()
         ncell = tuple(self.lut.cell_count)
+
         map_4d = np.zeros(ncell + (nsamp,), dtype=np.float64)
         ilib.migrate(ps_onset, ttime, pre_smp, pos_smp, nsamp, map_4d,
                      self.n_cores)
@@ -1182,6 +1185,7 @@ class QuakeScan(DefaultQuakeScan):
         lc, hc, ord_ = self.s_bp_filter
         filt_sig_e = filter(sig_e, sampling_rate, lc, hc, ord_)
         filt_sig_n = filter(sig_n, sampling_rate, lc, hc, ord_)
+
         self.data.filtered_signal[0, :, :] = filt_sig_n
         self.data.filtered_signal[1, :, :] = filt_sig_e
 
@@ -1193,6 +1197,7 @@ class QuakeScan(DefaultQuakeScan):
         self.onset_data["sign"] = s_n_onset
 
         s_onset = np.sqrt((s_e_onset ** 2 + s_n_onset ** 2) / 2.)
+
         s_onset_raw = np.sqrt((s_e_onset_raw ** 2 + s_n_onset_raw ** 2) / 2.)
         self.onset_data["sigs"] = s_onset
 

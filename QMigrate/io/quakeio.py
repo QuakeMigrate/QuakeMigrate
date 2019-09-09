@@ -426,9 +426,7 @@ class QuakeIO:
         end_time : UTCDateTime object
 
         """
-        fname = self.run / "{}_{}-{}_TriggeredEvents".format(self.name,
-                                                             start_time.julday,
-                                                             end_time.julday)
+        fname = self.run / "{}_TriggeredEvents".format(self.name)
         fname = str(fname.with_suffix(".csv"))
         events = pd.read_csv(fname)
 

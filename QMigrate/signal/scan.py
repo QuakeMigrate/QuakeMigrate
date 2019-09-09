@@ -82,7 +82,7 @@ def sta_lta_centred(a, nsta, nlta):
     dtiny = np.finfo(0.0).tiny
     idx = lta < dtiny
     lta[idx] = dtiny
-    sta[idx] = 0.0
+    # sta[idx] = 0.0
 
     return sta / lta
 

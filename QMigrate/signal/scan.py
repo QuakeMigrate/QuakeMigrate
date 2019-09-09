@@ -78,11 +78,12 @@ def sta_lta_centred(a, nsta, nlta):
     sta[:(nlta - 1)] = 0
     sta[-nsta:] = 0
 
-    # Avoid division by zero by setting zero values to tiny float
+    # Avoid division by zero by setting zero values to tiny float; set sta to
+    # zero so this doesn't result in a very large value for the onset function.
     dtiny = np.finfo(0.0).tiny
     idx = lta < dtiny
     lta[idx] = dtiny
-    # sta[idx] = 0.0
+    sta[idx] = 0.0
 
     return sta / lta
 
@@ -839,7 +840,8 @@ class QuakeScan(DefaultQuakeScan):
         self.pre_pad += np.ceil(t_length * 0.06)
         self.post_pad += np.ceil(t_length * 0.06)
 
-        trig_events = self.output.read_triggered_events(start_time, end_time)
+        trig_events = self.output.read_triggered_events(start_time,
+                                                        end_time).reset_index()
         n_evts = len(trig_events)
 
         for i, trig_event in trig_events.iterrows():

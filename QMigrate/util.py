@@ -159,8 +159,9 @@ class NoStationAvailabilityDataException(Exception):
     """
 
     def __init__(self):
-        self.msg = "NoStationAvailabilityDataException: No .StationAvailability data found."
-        super().__init__(self.msg)
+        msg = "NoStationAvailabilityDataException: No .StationAvailability"
+        msg += "data found."
+        super().__init__(msg)
 
 
 class DataGapException(Exception):
@@ -175,6 +176,22 @@ class DataGapException(Exception):
         super().__init__(msg)
 
 
+class ChannelNameException(Exception):
+    """
+    Custom exception to handle case when waveform data header has channel names
+    which do not conform to the IRIS SEED standard.
+
+    """
+
+    def __init__(self, trace):
+        msg = "ChannelNameException: Channel name header does not conform to\n"
+        msg += "the IRIS SEED standard - 3 characters; ending in 'Z' for\n"
+        msg += "vertical and ending either 'E' & 'N' or '1' & '2' for\n"
+        msg += "horizontal components."
+        msg += "\n    Working on trace: {}".format(trace)
+        super().__init__(msg)
+
+
 class BadUpfactorException(Exception):
     """
     Custom exception to handle case when the chosen upfactor does not create a
@@ -183,7 +200,8 @@ class BadUpfactorException(Exception):
 
     """
 
-    def __init__(self):
+    def __init__(self, trace):
         msg = "BadUpfactorException: chosen upfactor cannot be decimated to\n"
         msg += "target sampling rate."
+        msg += "\n    Working on trace: {}".format(trace)
         super().__init__(msg)

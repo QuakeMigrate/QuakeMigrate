@@ -217,14 +217,15 @@ class Archive(object):
                     print(msg.format(file))
                     continue
 
-            # Remove all stations with data gaps
+            # Merge all traces with contiguous data, or overlapping data which
+            # exactly matches (== st._cleanup(); i.e. no clobber)
             st.merge(method=-1)
 
             # Make copy of raw waveforms to output if requested, delete st
             st_raw = st.copy()
             st_selected = Stream()
 
-            # re-populate st with only stations in station file, and only
+            # Re-populate st with only stations in station file, and only
             # data between start and end time needed for QuakeScan
             for stn in self.stations.tolist():
                 st_selected += st.select(station=stn)
@@ -232,6 +233,7 @@ class Archive(object):
             for tr in st.traces:
                 tr.trim(starttime=start_time, endtime=end_time)
 
+            # Remove stations which have gaps in at least one trace
             gaps = st.get_gaps()
             if gaps:
                 stations = np.unique(np.array(gaps)[:, 1]).tolist()
@@ -302,15 +304,21 @@ class Archive(object):
                     availability[i] = 1
 
                     for tr in tmp_st:
-                        channel = tr.stats.channel[-1]
-                        if channel == "E" or channel == "2":
-                            signal[1, i, :] = tr.data
+                        # Check channel name has 3 characters
+                        try:
+                            channel = tr.stats.channel[2]
+                            # Assign data to signal array by component
+                            if channel == "E" or channel == "2":
+                                signal[1, i, :] = tr.data
+                            elif channel == "N" or channel == "1":
+                                signal[0, i, :] = tr.data
+                            elif channel == "Z":
+                                signal[2, i, :] = tr.data
+                            else:
+                                raise util.ChannelNameException(tr)
 
-                        if channel == "N" or channel == "1":
-                            signal[0, i, :] = tr.data
-
-                        if channel == "Z":
-                            signal[2, i, :] = tr.data
+                        except IndexError:
+                            raise util.ChannelNameException(tr)
 
         # Check to see if no traces were continuously active during this period
         if not np.any(availability):
@@ -399,7 +407,7 @@ class Archive(object):
                 elif self.resample and upfactor is not None:
                     # Check the upsampled sampling rate can be decimated to sr
                     if int(trace.stats.sampling_rate * upfactor) % sr != 0:
-                        raise util.BadUpfactorException
+                        raise util.BadUpfactorException(trace)
                     stream.remove(trace)
                     trace = self._upsample(trace, upfactor)
                     trace.filter("lowpass", freq=float(sr) / 2.000001,

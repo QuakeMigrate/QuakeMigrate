@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-A simple abstract base class that offers access points for users to extend
-QuakeMigrate with custom onset functions that is compatible with the core of
-the package.
+A simple abstract base class with method stubs to enable users to extend
+QuakeMigrate with custom onset functions that remain compatible with the core
+of the package.
 
 """
 
@@ -13,13 +13,24 @@ class Onset(ABC):
     """
     QuakeMigrate default onset function class.
 
+    Attributes
+    ----------
+    sampling_rate : int
+        Desired sampling rate for input data; sampling rate at which the onset
+        functions will be computed.
+
+    pre_pad : float, optional
+        Option to override the default pre-pad duration of data to read before
+        computing 4-D coalescence in detect() and locate().
+
+    post_pad : float
+        Option to override the default post-pad duration of data to read before
+        computing 4-D coalescence in detect() and locate().
+
     Methods
     -------
-    p_onset()
-        Generate an onset function that represents the P-phase arrival
-
-    s_onset()
-        Generate an onset function that represents the S-phase arrival
+    calculate_onsets()
+        Generate onset functions that represent seismic phase arrivals
 
     """
 
@@ -33,7 +44,6 @@ class Onset(ABC):
         self._pre_pad = 0
         self._post_pad = 0
 
-    @abstractmethod
     def __str__(self):
         """
         Return short summary string of the Onset object
@@ -48,13 +58,8 @@ class Onset(ABC):
         return out
 
     @abstractmethod
-    def p_onset(self):
-        """Method stub for p_onset."""
-        pass
-
-    @abstractmethod
-    def s_onset(self):
-        """Method stub for s_onset."""
+    def calculate_onsets(self):
+        """Method stub for calculation of onset functions."""
         pass
 
     @property
@@ -80,18 +85,3 @@ class Onset(ABC):
     def post_pad(self, value):
         """Set property stub for pre_pad."""
         self._post_pad = value
-
-    @property
-    def signal(self):
-        """Get signal"""
-
-        return self._signal
-
-    @signal.setter
-    def signal(self, signal):
-        """Set signal"""
-
-        self._signal = signal
-        self.sige = signal[0]
-        self.sign = signal[1]
-        self.sigz = signal[2]

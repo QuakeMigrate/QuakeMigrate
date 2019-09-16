@@ -33,7 +33,7 @@ def sta_lta_centred(a, nsta, nlta):
     Returns
     -------
     sta / lta : array-like
-        Ratio of short term average to average in a preceding long term average
+        Ratio of short term average window to a preceding long term average
         window. STA/LTA value is assigned to end of LTA window / start of STA
         window -- "centred"
 
@@ -169,7 +169,7 @@ def filter(sig, sampling_rate, lc, hc, order=2):
 
 class ClassicSTALTAOnset(qonset.Onset):
     """
-    QuakeMigrate default onset function class using a classic STA/LTA onset
+    QuakeMigrate default onset function class - uses a classic STA/LTA onset
 
     Attributes
     ----------
@@ -183,13 +183,17 @@ class ClassicSTALTAOnset(qonset.Onset):
         [lowpass, highpass, corners*]
         *NOTE: two-pass filter effectively doubles the number of corners.
 
-    p_onset_win : array-like, floats
+    p_onset_win : array-like, [float, float]
         P onset window parameters
         [STA, LTA]
 
-    s_onset_win : array-like, floats
+    s_onset_win : array-like, [float, float]
         S onset window parameters
         [STA, LTA]
+
+    sampling_rate : int
+        Desired sampling rate for input data; sampling rate at which the onset
+        functions will be computed.
 
     pre_pad : float, optional
         Option to override the default pre-pad duration of data to read
@@ -212,29 +216,18 @@ class ClassicSTALTAOnset(qonset.Onset):
 
     Methods
     -------
-    p_onset()
-        Generate an onset function that represents the P-phase arrival
-
-    s_onset()
-        Generate an onset function that represents the S-phase arrival
+    calculate_onsets()
+        Generate onset functions that represent seismic phase arrivals
 
     """
 
-    def __init__(self, sampling_rate):
+    def __init__(self):
         """
-        Class initialisation method.
-
-        Parameters
-        ----------
-        sampling_rate : int
-            Desired sampling rate for input data; sampling rate that detect()
-            and locate() will be computed at.
+        Classic STA/LTA onset object initialisation.
 
         """
 
         super().__init__()
-
-        self.sampling_rate = sampling_rate
 
         # Default filter parameters
         self.p_bp_filter = [2.0, 16.0, 2]
@@ -275,22 +268,45 @@ class ClassicSTALTAOnset(qonset.Onset):
 
         return out
 
-    def p_onset(self):
+    def calculate_onsets(self, data):
+        """
+        Returns a stacked pair of onset (characteristic) functions for the P-
+        and S- phase arrivals
+
+        Parameters
+        ----------
+        data : Archive object
+            Contains the seismic signal traces
+
+        """
+
+        p_onset, data.filtered_signal[2, :, :] = self._p_onset(data.signal[2])
+        s_onset, data.filtered_signal[1, :, :], \
+            data.filtered_signal[0, :, :] = self._s_onset(data.signal[0],
+                                                          data.signal[1])
+        if not isinstance(p_onset, np.ndarray) \
+           or not isinstance(s_onset, np.ndarray):
+            raise TypeError
+        data.p_onset = p_onset
+        data.s_onset = s_onset
+
+        ps_onset = np.concatenate((p_onset, s_onset))
+        ps_onset[np.isnan(ps_onset)] = 0
+
+        return ps_onset
+
+    def _p_onset(self, sigz):
         """
         Generates an onset (characteristic) function for the P-phase from the
         Z-component signal.
 
         Parameters
         ----------
-        sig_z : array-like
-            Z-component time-series data
-
-        sampling_rate : int
-            Sampling rate in hertz
+        sigz : array-like
+            Z-component time series
 
         Returns
         -------
-
         p_onset : array-like
             Onset function generated from log10(STA/LTA) of vertical
             component data
@@ -302,34 +318,27 @@ class ClassicSTALTAOnset(qonset.Onset):
         ltw = int(ltw * self.sampling_rate) + 1
 
         lc, hc, ord_ = self.p_bp_filter
-        self.filt_sigz = filter(self.sigz, self.sampling_rate, lc, hc, ord_)
+        filt_sigz = filter(sigz, self.sampling_rate, lc, hc, ord_)
 
-        p_onset = onset(self.filt_sigz, stw, ltw, centred=self.onset_centred)
+        p_onset = onset(filt_sigz, stw, ltw, centred=self.onset_centred)
 
-        return p_onset
+        return p_onset, filt_sigz
 
-    def s_onset(self):
+    def _s_onset(self, sige, sign):
         """
         Generates an onset (characteristic) function for the S-phase from the
         E- and N-components signal.
 
         Parameters
         ----------
-        sig_e : array-like
-            E-component time-series
+        sige : array-like
+            E-component time series
 
-        sig_n : array-like
-            N-component time-series
-
-        sampling_rate : int
-            Sampling rate in hertz
+        sign : array-like
+            N-component time series
 
         Returns
         -------
-        s_onset_raw : array-like
-            Onset function generated from raw STA/LTA of horizontal component
-            data
-
         s_onset : array-like
             Onset function generated from log10(STA/LTA) of horizontal
             component data
@@ -341,15 +350,15 @@ class ClassicSTALTAOnset(qonset.Onset):
         ltw = int(ltw * self.sampling_rate) + 1
 
         lc, hc, ord_ = self.s_bp_filter
-        self.filt_sige = filter(self.sige, self.sampling_rate, lc, hc, ord_)
-        self.filt_sign = filter(self.sign, self.sampling_rate, lc, hc, ord_)
+        filt_sige = filter(sige, self.sampling_rate, lc, hc, ord_)
+        filt_sign = filter(sign, self.sampling_rate, lc, hc, ord_)
 
-        s_e_onset = onset(self.filt_sige, stw, ltw, centred=self.onset_centred)
-        s_n_onset = onset(self.filt_sign, stw, ltw, centred=self.onset_centred)
+        s_e_onset = onset(filt_sige, stw, ltw, centred=self.onset_centred)
+        s_n_onset = onset(filt_sign, stw, ltw, centred=self.onset_centred)
 
         s_onset = np.sqrt((s_e_onset ** 2 + s_n_onset ** 2) / 2.)
 
-        return s_onset
+        return s_onset, filt_sige, filt_sign
 
     @property
     def pre_pad(self):
@@ -389,7 +398,7 @@ class ClassicSTALTAOnset(qonset.Onset):
 
 class CentredSTALTAOnset(ClassicSTALTAOnset):
     """
-    QuakeMigrate default onset function class using a centred STA/LTA onset
+    QuakeMigrate default onset function class - uses a centred STA/LTA onset
 
     Attributes
     ----------
@@ -403,17 +412,21 @@ class CentredSTALTAOnset(ClassicSTALTAOnset):
         [lowpass, highpass, corners*]
         *NOTE: two-pass filter effectively doubles the number of corners.
 
-    p_onset_win : array-like, floats
+    p_onset_win : array-like, [float, float]
         P onset window parameters
         [STA, LTA]
 
-    s_onset_win : array-like, floats
+    s_onset_win : array-like, [float, float]
         S onset window parameters
         [STA, LTA]
 
+    sampling_rate : int
+        Desired sampling rate for input data; sampling rate at which the onset
+        functions will be computed.
+
     pre_pad : float, optional
         Option to override the default pre-pad duration of data to read
-        before computing 4d coalescence in detect() and locate(). Default
+        before computing 4-D coalescence in detect() and locate(). Default
         value is calculated from the onset function durations.
 
     onset_centred : bool, optional
@@ -429,30 +442,20 @@ class CentredSTALTAOnset(ClassicSTALTAOnset):
         quality allows it. This is the default behaviour; override by
         setting this variable.
 
-
     Methods
     -------
-    p_onset()
-        Generate an onset function that represents the P-phase arrival
-
-    s_onset()
-        Generate an onset function that represents the S-phase arrival
+    calculate_onsets()
+        Generate onset functions that represent seismic phase arrivals
 
     """
 
-    def __init__(self, sampling_rate):
+    def __init__(self):
         """
-        Class initialisation method.
-
-        Parameters
-        ----------
-        sampling_rate : int
-            Desired sampling rate for input data; sampling rate that detect()
-            and locate() will be computed at.
+        Centred STA/LTA onset object initialisation.
 
         """
 
-        super().__init__(sampling_rate)
+        super().__init__()
 
         # Onset position override
         self.onset_centred = True

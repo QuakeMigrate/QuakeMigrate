@@ -2097,4 +2097,6 @@ class QuakeScan(DefaultQuakeScan):
             self.output.write_coal4D(map_4d, event_uid, t_beg, t_end)
             self.output.log(timer(), self.log)
 
-        del quake_plot
+        # only delete the quake_plot instance if it is initialised
+        if quake_plot:
+            del quake_plot

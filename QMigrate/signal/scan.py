@@ -2104,4 +2104,6 @@ class QuakeScan(DefaultQuakeScan):
             self.output.write_coal4D(map_4d, event_uid, t_beg, t_end)
             self.output.log(timer(), self.log)
 
-        del quake_plot
+        if self.plot_event_summary or self.plot_station_traces or \
+           self.plot_coal_video:
+            del quake_plot

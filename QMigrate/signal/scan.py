@@ -2098,5 +2098,6 @@ class QuakeScan(DefaultQuakeScan):
             self.output.log(timer(), self.log)
 
         # only delete the quake_plot instance if it is initialised
-        if quake_plot:
+        if self.plot_event_summary or self.plot_station_traces or \
+           self.plot_coal_video:
             del quake_plot

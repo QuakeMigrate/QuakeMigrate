@@ -576,7 +576,7 @@ class QuakeScan(DefaultQuakeScan):
         # within the decimated grid
         self._continuous_compute(start_time, end_time)
 
-    def locate(self, start_time, end_time):
+    def locate(self, fname=None, start_time=None, end_time=None):
         """
         Re-computes the 3D coalescence on a less decimated grid for a short
         time window around each candidate earthquake triggered from the
@@ -594,14 +594,21 @@ class QuakeScan(DefaultQuakeScan):
             End time of locate run: latest event trigger time that will be
             located is one sample before this time
 
+        fname : str
+            Filename of triggered events that will be located
+
         log : bool, optional
             Write output to a log file (default: False)
 
         """
+        
+        if not fname and not start_time and not end_time:
+            raise RuntimeError('Need to include one of the input arguments')
 
-        # Convert times to UTCDateTime objects
-        start_time = UTCDateTime(start_time)
-        end_time = UTCDateTime(end_time)
+        if not fname:
+            # Convert times to UTCDateTime objects
+            start_time = UTCDateTime(start_time)
+            end_time = UTCDateTime(end_time)
 
         msg = "=" * 120 + "\n"
         msg += "\tLOCATE - Determining earthquake location and uncertainty\n"
@@ -622,7 +629,10 @@ class QuakeScan(DefaultQuakeScan):
         if self.onset_centred is None:
             self.onset_centred = True
 
-        self._locate_events(start_time, end_time)
+        if fname:
+            self._locate_events(fname)
+        else:
+            self._locate_events(start_time, end_time)
 
     def _append_coastream(self, coastream, daten, max_coa, max_coa_norm, loc,
                           sampling_rate):
@@ -810,7 +820,7 @@ class QuakeScan(DefaultQuakeScan):
 
         self.output.log("=" * 120, self.log)
 
-    def _locate_events(self, start_time, end_time):
+    def _locate_events(self, *args):
         """
         Loop through list of earthquakes read in from trigger results and
         re-compute coalescence; output phase picks, event location and
@@ -818,6 +828,11 @@ class QuakeScan(DefaultQuakeScan):
 
         Parameters
         ----------
+
+        args : 
+            A variable length tuple holding either a start_time - end_time pair
+            or a filename a triggered events to read
+
         start_time : UTCDateTime object
            Start time of locate run: earliest event trigger time that will be
             located
@@ -825,8 +840,21 @@ class QuakeScan(DefaultQuakeScan):
         end_time : UTCDateTime object
             End time of locate run: latest event trigger time that will be
             located
+        
+        fname : str
+            File of triggered events to read
 
         """
+
+        if len(args) == 2:
+            start_time = args[0]
+            end_time = args[1]
+            trig_events = self.output.read_triggered_events_time(start_time,
+                                                        end_time).reset_index()
+        elif len(args) == 1:
+            fname = args[0]
+            trig_events = self.output.read_triggered_events(fname).reset_index()
+        n_evts = len(trig_events)
 
         # Define pre-pad as a function of the onset windows
         if self.pre_pad is None:
@@ -840,9 +868,6 @@ class QuakeScan(DefaultQuakeScan):
         self.pre_pad += np.ceil(t_length * 0.06)
         self.post_pad += np.ceil(t_length * 0.06)
 
-        trig_events = self.output.read_triggered_events(start_time,
-                                                        end_time).reset_index()
-        n_evts = len(trig_events)
 
         for i, trig_event in trig_events.iterrows():
             event_uid = trig_event["EventID"]

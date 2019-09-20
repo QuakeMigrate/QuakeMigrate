@@ -415,7 +415,7 @@ class QuakeIO:
         fname = str(fname.with_suffix(".event"))
         event.to_csv(fname, index=False)
 
-    def read_triggered_events(self, start_time, end_time):
+    def read_triggered_events_time(self, start_time, end_time):
         """
         Read triggered events output by trigger() from csv file.
 
@@ -442,6 +442,30 @@ class QuakeIO:
         events = events[(events["CoaTime"] >= start_time) &
                         (events["CoaTime"] <= end_time)]
 
+        events["MinTime"] = events["MinTime"].apply(UTCDateTime)
+        events["MaxTime"] = events["MaxTime"].apply(UTCDateTime)
+
+        return events
+
+    def read_triggered_events(self, fname):
+        """
+        Read triggered events output by trigger() from csv file.
+
+        Parameters
+        ----------
+        filename : str
+
+        Returns
+        -------
+        events : pandas DataFrame
+            Triggered events output from _trigger_scn().
+            Columns: ["EventNum", "CoaTime", "COA_V", "COA_X", "COA_Y",
+                      "COA_Z", "MinTime", "MaxTime"]
+
+        """
+        events = pd.read_csv(fname)
+
+        events["CoaTime"] = events["CoaTime"].apply(UTCDateTime)
         events["MinTime"] = events["MinTime"].apply(UTCDateTime)
         events["MaxTime"] = events["MaxTime"].apply(UTCDateTime)
 

@@ -23,7 +23,7 @@ import QMigrate.util as util
 
 def triggered_events(events, start_time, end_time, output, marginal_window,
                      detection_threshold, normalise_coalescence, log,
-                     data=None, stations=None, savefig=False):
+                     data=None, region=None, stations=None, savefig=False):
     """
     Plots the data from a .scanmseed file with annotations illustrating the
     trigger results: event triggers and marginal windows on the coalescence

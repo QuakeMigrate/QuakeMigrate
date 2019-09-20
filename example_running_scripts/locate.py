@@ -51,4 +51,5 @@ scan.plot_coal_video = False
 scan.write_cut_waveforms = True
 
 # Run locate
-scan.locate(start_time, end_time)
+scan.locate(start_time=start_time, end_time=end_time)
+# scan.locate(fname="filename_of_triggered_events")

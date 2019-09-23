@@ -119,9 +119,6 @@ class Archive(object):
         out += "\n\tArchive path\t:\t{}".format(self.archive_path)
         out += "\n\tPath structure\t:\t{}".format(self.format)
         out += "\n\tResampling\t:\t{}".format(self.resample)
-        # out += "\n\tSampling rate\t:\t{}".format(self.sampling_rate)
-        # out += "\n\tStart time\t:\t{}".format(str(self.start_time))
-        # out += "\n\tEnd time\t:\t{}".format(str(self.end_time))
         out += "\n\tStations:"
         for station in self.stations:
             out += "\n\t\t{}".format(station)

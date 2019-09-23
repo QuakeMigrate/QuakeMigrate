@@ -116,7 +116,7 @@ class Stopwatch(object):
 
     def __call__(self):
         """Return time elapsed since object initialised"""
-        msg = "    \tElapsed time: {:6f} seconds.\n".format(time.time()
+        msg = "    \t\tElapsed time: {:6f} seconds.".format(time.time()
                                                             - self.start)
         return msg
 
@@ -204,4 +204,17 @@ class BadUpfactorException(Exception):
         msg = "BadUpfactorException: chosen upfactor cannot be decimated to\n"
         msg += "target sampling rate."
         msg += "\n    Working on trace: {}".format(trace)
+        super().__init__(msg)
+
+
+class OnsetTypeError(Exception):
+    """
+    Custom exception to handle case when the onset object passed to QuakeScan
+    is not of the default type defined in QuakeMigrate.
+
+    """
+
+    def __init__(self):
+        msg = "OnsetTypeError: The Onset object you have created does not "
+        msg += "inherit from the default class."
         super().__init__(msg)

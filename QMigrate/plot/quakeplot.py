@@ -48,8 +48,7 @@ class QuakePlot:
     logo = (pathlib.Path(__file__) / "QuakeMigrate").with_suffix(".png")
 
     def __init__(self, lut, data, event_mw_data, marginal_window, run_path,
-                 event, phase_picks=None, map_4d=None, coa_map=None,
-                 options=None):
+                 event, map_4d=None, coa_map=None, options=None):
         """
         Initialisation of QuakePlot object.
 
@@ -127,7 +126,6 @@ class QuakePlot:
 
         self.event_mw_data = event_mw_data
         self.event = event
-        self.phase_picks = phase_picks
 
         self.marginal_window = marginal_window
 
@@ -188,144 +186,6 @@ class QuakePlot:
         self.xz_hline = None
         self.tp_arrival = None
         self.ts_arrival = None
-
-    def station_traces(self, file_str=None, event_name=None):
-        """
-        Plot figures showing the filtered traces for each data component
-        and the characteristic functions calculated from them (P and S) for
-        each station. The search window to make a phase pick is displayed,
-        along with the dynamic pick threshold (defined as a percentile of the
-        background noise level), the phase pick time and its uncertainty (if
-        made) and the gaussian fit to the characteristic function.
-
-        Parameters
-        ----------
-        file_str : str, optional
-            String {run_name}_{evt_id} (figure displayed by default)
-
-        event_name : str, optional
-            Earthquake UID string; for subdirectory naming within directory
-            {run_path}/traces/
-
-        """
-
-        # This function currently doesn't work due to a float/int issue
-        # point = np.round(self.lut.coord2loc(np.array([[event["X"],
-        #                                                event["Y"],
-        #                                                event["Z"]]]))).astype(int)
-
-        loc = np.where(self.coa_map == np.nanmax(self.coa_map))
-        point = np.array([[loc[0][0],
-                           loc[1][0],
-                           loc[2][0]]])
-
-        # Get P- and S-traveltimes at this location
-        ptt = self.lut.get_value_at("TIME_P", point)[0]
-        stt = self.lut.get_value_at("TIME_S", point)[0]
-
-        # Make output dir for this event outside of loop
-        if file_str:
-            subdir = "traces"
-            util.make_directories(self.run_path, subdir=subdir)
-            out_dir = self.run_path / subdir / event_name
-            util.make_directories(out_dir)
-
-        # Looping through all stations
-        for i in range(self.data.signal.shape[1]):
-            station = self.lut.station_data["Name"][i]
-            gau_p = self.phase_picks["GAU_P"][i]
-            gau_s = self.phase_picks["GAU_S"][i]
-            fig = plt.figure(figsize=(30, 15))
-
-            # Defining the plot
-            fig.patch.set_facecolor("white")
-            x_trace = plt.subplot(322)
-            y_trace = plt.subplot(324)
-            z_trace = plt.subplot(321)
-            p_onset = plt.subplot(323)
-            s_onset = plt.subplot(326)
-
-            # Plotting the traces
-            self._plot_signal_trace(x_trace, self.times,
-                                    self.data.filtered_signal[0, i, :], -1, "r")
-            self._plot_signal_trace(y_trace, self.times,
-                                    self.data.filtered_signal[1, i, :], -1, "b")
-            self._plot_signal_trace(z_trace, self.times,
-                                    self.data.filtered_signal[2, i, :], -1, "g")
-            p_onset.plot(self.times, self.data.p_onset[i, :], "r",
-                         linewidth=0.5)
-            s_onset.plot(self.times, self.data.s_onset[i, :], "b",
-                         linewidth=0.5)
-
-            # Defining Pick and Error
-            picks = self.phase_picks["Pick"]
-            phase_picks = picks[picks["Name"] == station].replace(-1, np.nan)
-            phase_picks = phase_picks.reset_index(drop=True)
-
-            for j, pick in phase_picks.iterrows():
-                if np.isnan(pick["PickError"]):
-                    continue
-
-                pick_time = pick["PickTime"]
-                pick_err = pick["PickError"]
-
-                if pick["Phase"] == "P":
-                    self._pick_vlines(z_trace, pick_time, pick_err)
-
-                    yy = util.gaussian_1d(gau_p["xdata"],
-                                          gau_p["popt"][0],
-                                          gau_p["popt"][1],
-                                          gau_p["popt"][2])
-                    gau_dts = [x.datetime for x in gau_p["xdata_dt"]]
-                    p_onset.plot(gau_dts, yy)
-                    self._pick_vlines(p_onset, pick_time, pick_err)
-                else:
-                    self._pick_vlines(y_trace, pick_time, pick_err)
-                    self._pick_vlines(x_trace, pick_time, pick_err)
-
-                    yy = util.gaussian_1d(gau_s["xdata"],
-                                          gau_s["popt"][0],
-                                          gau_s["popt"][1],
-                                          gau_s["popt"][2])
-                    gau_dts = [x.datetime for x in gau_s["xdata_dt"]]
-                    s_onset.plot(gau_dts, yy)
-                    self._pick_vlines(s_onset, pick_time, pick_err)
-
-            dt_max = self.event_mw_data["DT"].iloc[np.argmax(self.event_mw_data["COA"])]
-            dt_max = UTCDateTime(dt_max)
-            self._ttime_vlines(z_trace, dt_max, ptt[i])
-            self._ttime_vlines(p_onset, dt_max, ptt[i])
-            self._ttime_vlines(y_trace, dt_max, stt[i])
-            self._ttime_vlines(x_trace, dt_max, stt[i])
-            self._ttime_vlines(s_onset, dt_max, stt[i])
-
-            p_onset.axhline(gau_p["PickThreshold"])
-            s_onset.axhline(gau_s["PickThreshold"])
-
-            # Refining the window as around the pick time
-            min_t = (dt_max + 0.5 * ptt[i]).datetime
-            max_t = (dt_max + 1.5 * stt[i]).datetime
-
-            x_trace.set_xlim([min_t, max_t])
-            y_trace.set_xlim([min_t, max_t])
-            z_trace.set_xlim([min_t, max_t])
-            p_onset.set_xlim([min_t, max_t])
-            s_onset.set_xlim([min_t, max_t])
-
-            suptitle = "Trace for Station {} - PPick = {}, SPick = {}"
-            suptitle = suptitle.format(station,
-                                       gau_p["PickValue"], gau_s["PickValue"])
-
-            fig.suptitle(suptitle)
-
-            if file_str is None:
-                plt.show()
-            else:
-                out_str = out_dir / file_str
-                fname = "{}_{}.pdf"
-                fname = fname.format(out_str, station)
-                plt.savefig(fname)
-                plt.close("all")
 
     def coalescence_video(self, file_str):
         """
@@ -885,31 +745,6 @@ class QuakePlot:
                                     (np.arange(len(tps)) + 1)])
         self.ts_arrival.set_offsets(np.c_[tss,
                                     (np.arange(len(tss)) + 1)])
-
-    def _pick_vlines(self, trace, pick_time, pick_err):
-        """
-        Plot vlines showing phase pick time and uncertainty.
-
-        """
-
-        trace.axvline((pick_time - pick_err/2).datetime,
-                      linestyle="--")
-        trace.axvline((pick_time + pick_err/2).datetime,
-                      linestyle="--")
-        trace.axvline((pick_time).datetime)
-
-    def _ttime_vlines(self, trace, dt_max, ttime):
-        """
-        Plot vlines showing expected arrival times based on max
-        coalescence location.
-
-        """
-
-        trace.axvline((dt_max + ttime).datetime, color="red")
-        trace.axvline((dt_max + 0.9 * ttime - self.marginal_window).datetime,
-                      color="red", linestyle="--")
-        trace.axvline((dt_max + 1.1 * ttime + self.marginal_window).datetime,
-                      color="red", linestyle="--")
 
     def _plot_xy_files(self, slice_):
         """

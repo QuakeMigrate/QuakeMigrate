@@ -37,13 +37,13 @@ lut.load(lut_path)
 lut = lut.decimate([5, 5, 4])
 
 # Create a new instance of Onset object
-onset = qonset.ClassicSTALTAOnset(sampling_rate=20)
+onset = qonset.ClassicSTALTAOnset()
 onset.p_bp_filter = [2, 9.9, 2]
 onset.s_bp_filter = [2, 9.9, 2]
 onset.p_onset_win = [0.2, 1.5]
 onset.s_onset_win = [0.2, 1.5]
 
-# Create a new instance of SeisScan object
+# Create a new instance of QuakeScan object
 scan = qscan.QuakeScan(data, lut, onset=onset, output_path=out_path,
                        run_name=run_name, log=False)
 

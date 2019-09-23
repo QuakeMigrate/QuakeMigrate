@@ -38,7 +38,7 @@ lut.load(lut_path)
 lut = lut.decimate([1, 1, 1])
 
 # Create a new instance of Onset object
-onset = qonset.CentredSTALTAOnset(sampling_rate=20)
+onset = qonset.CentredSTALTAOnset()
 onset.p_bp_filter = [2, 9.9, 2]
 onset.s_bp_filter = [2, 9.9, 2]
 onset.p_onset_win = [0.2, 1.5]

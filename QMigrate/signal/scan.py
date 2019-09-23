@@ -343,10 +343,6 @@ class QuakeScan(DefaultQuakeScan):
         msg = msg.format(str(start_time), str(end_time), self.n_cores)
         self.output.log(msg, self.log)
 
-        # Locate uses the centred onset by default
-        if self.onset_centred is None:
-            self.onset_centred = True
-
         if fname:
             self._locate_events(fname)
         else:

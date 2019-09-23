@@ -10,14 +10,13 @@ import numpy as np
 from obspy import UTCDateTime, Stream, Trace
 import pandas as pd
 from scipy.interpolate import Rbf
-from scipy.optimize import curve_fit
 from scipy.signal import fftconvolve
 
-import QMigrate.core.model as qmod
 import QMigrate.core.QMigratelib as ilib
 import QMigrate.io.quakeio as qio
 import QMigrate.plot.quakeplot as qplot
 import QMigrate.signal.onset.onset as qonset
+import QMigrate.signal.pick.pick as qpick
 import QMigrate.util as util
 
 # Filter warnings
@@ -43,10 +42,6 @@ class DefaultQuakeScan(object):
 
         Parameters (all optional)
         ----------
-        decimate : array-like, ints
-            Decimation factor in each grid axis to apply to the look-up table
-            [Dec_x, Dec_y, Dec_z]
-
         time_step : float
             Time length (in seconds) of time step used in detect(). Note: total
             detect run duration should be divisible by time_step. Increasing
@@ -57,24 +52,9 @@ class DefaultQuakeScan(object):
             Desired sampling rate for input data; sampling rate that detect()
             and locate() will be computed at.
 
-        pick_threshold : float (between 0 and 1)
-            For use with picking_mode = 'Gaussian'. Picks will only be made if
-            the onset function exceeds this percentile of the noise level
-            (average amplitude of onset function outside pick windows).
-            Recommended starting value: 1.0
-
-        picking_mode : str
-            Currently the only available picking mode is 'Gaussian'
-
-        fraction_tt : float
-            Defines width of time window around expected phase arrival time in
-            which to search for a phase pick as a function of the travel-time
-            from the event location to that station -- should be an estimate of
-            the uncertainty in the velocity model.
-
         marginal_window : float
             Time window (+/- marginal_window) about the maximum coalescence
-            time to marginalise the 4d coalescence grid compouted in locate()
+            time to marginalise the 4-D coalescence grid computed in locate()
             to estimate the earthquake location and uncertainty. Should be an
             estimate of the time uncertainty in the earthquake origin time -
             a combination of the expected spatial error and the seismic
@@ -91,10 +71,6 @@ class DefaultQuakeScan(object):
         plot_event_summary : bool, optional
             Plot event summary figure - see QMigrate.plot.quakeplot for more
             details.
-
-        plot_station_traces : bool, optional
-            Plot data and onset functions overlain by phase picks for each
-            station used in locate()
 
         plot_coal_video : bool, optional
             Plot coalescence video for each earthquake located in locate()
@@ -130,19 +106,11 @@ class DefaultQuakeScan(object):
 
         """
 
-        # Traveltime lookup table decimation factor
-        self.decimate = [1, 1, 1]
-
         # Time step for continuous compute in detect
         self.time_step = 120.
 
         # Data sampling rate
         self.sampling_rate = 50
-
-        # Pick related parameters
-        self.pick_threshold = 1.0
-        self.picking_mode = "Gaussian"
-        self.fraction_tt = 0.1
 
         # Marginal window
         self.marginal_window = 2.
@@ -193,15 +161,6 @@ class QuakeScan(DefaultQuakeScan):
 
     """
 
-    raw_data = {}
-    filt_data = {}
-    onset_data = {}
-
-    DEFAULT_GAUSSIAN_FIT = {"popt": 0,
-                            "xdata": 0,
-                            "xdata_dt": 0,
-                            "PickValue": -1}
-
     EVENT_FILE_COLS = ["DT", "COA", "X", "Y", "Z",
                        "LocalGaussian_X", "LocalGaussian_Y", "LocalGaussian_Z",
                        "LocalGaussian_ErrX", "LocalGaussian_ErrY",
@@ -210,7 +169,7 @@ class QuakeScan(DefaultQuakeScan):
                        "GlobalCovariance_ErrX", "GlobalCovariance_ErrY",
                        "GlobalCovariance_ErrZ"]
 
-    def __init__(self, data, lookup_table, onset, output_path=None,
+    def __init__(self, data, lut, onset, picker=None, output_path=None,
                  run_name=None, log=False):
         """
         Class initialisation method.
@@ -221,11 +180,15 @@ class QuakeScan(DefaultQuakeScan):
             Contains information on data archive structure and
             read_waveform_data() method
 
-        lookup_table : str
-            Look-up table file path
+        lut : LUT object
+            Contains the travel-time lookup tables for P- and S-phases,
+            computed for some pre-defined velocity model
 
         onset : Onset object
             Contains definitions for the P- and S-phase onset functions
+
+        picker : PhasePicker object
+            Wraps methods to perform phase picking on the seismic data
 
         output_path : str
             Path of parent output directory: e.g. ./OUTPUT
@@ -243,14 +206,20 @@ class QuakeScan(DefaultQuakeScan):
         DefaultQuakeScan.__init__(self)
 
         self.data = data
-        lut = qmod.LUT()
-        lut.load(lookup_table)
         self.lut = lut
 
         if isinstance(onset, qonset.Onset):
             self.onset = onset
         else:
             raise util.OnsetTypeError
+
+        if picker is None:
+            pass
+        elif isinstance(picker, qpick.PhasePicker):
+            self.picker = picker
+            self.picker.lut = lut
+        else:
+            raise util.PickerTypeError
 
         if output_path is not None:
             self.output = qio.QuakeIO(output_path, run_name, log)
@@ -280,24 +249,19 @@ class QuakeScan(DefaultQuakeScan):
 
         """
 
-        out = "QuakeMigrate parameters"
+        out = "Scan parameters:"
         out += "\n\tTime step\t\t:\t{}".format(self.time_step)
         out += "\n\n\tData sampling rate\t:\t{}".format(self.sampling_rate)
-        out += "\n\n\tDecimation\t\t:\t[{}, {}, {}]".format(
-            self.decimate[0], self.decimate[1], self.decimate[2])
         out += "\n\n\tPre-pad\t\t\t:\t{}".format(self.pre_pad)
         out += "\n\tPost-pad\t\t:\t{}".format(self.post_pad)
         out += "\n\n\tMarginal window\t\t:\t{}".format(self.marginal_window)
-        out += "\n\tPick threshold\t\t:\t{}".format(self.pick_threshold)
-        out += "\n\tPicking mode\t\t:\t{}".format(self.picking_mode)
-        out += "\n\tFraction ttime\t\t:\t{}".format(self.fraction_tt)
         out += "\n\n\tNumber of CPUs\t\t:\t{}".format(self.n_cores)
 
         return out
 
     def detect(self, start_time, end_time):
         """
-        Scans through continuous data calculating coalescence on a decimated
+        Scans through continuous data calculating coalescence on a (decimated)
         3D grid by back-migrating P and S onset (characteristic) functions.
 
         Parameters
@@ -309,44 +273,36 @@ class QuakeScan(DefaultQuakeScan):
             End time of continuous scan (last sample returned will be that
             which immediately precedes this time stamp)
 
-        log : bool, optional
-            Write output to a log file (default: False)
-
         """
 
         # Convert times to UTCDateTime objects
         start_time = UTCDateTime(start_time)
         end_time = UTCDateTime(end_time)
 
-        # Decimate LUT
-        self.lut = self.lut.decimate(self.decimate)
-
         msg = "=" * 120 + "\n"
         msg += "\tDETECT - Continuous Seismic Processing\n"
         msg += "=" * 120 + "\n\n"
-        msg += "\tParameters specified:\n"
+        msg += "\tParameters:\n"
         msg += "\t\tStart time                = {}\n"
         msg += "\t\tEnd   time                = {}\n"
         msg += "\t\tTime step (s)             = {}\n"
         msg += "\t\tNumber of CPUs            = {}\n\n"
-        msg += "\t\tSampling rate             = {}\n"
-        msg += "\t\tGrid decimation [X, Y, Z] = [{}, {}, {}]\n\n"
+        msg += "\t\tSampling rate             = {}\n\n"
         msg += str(self.onset)
         msg += "=" * 120
         msg = msg.format(str(start_time), str(end_time), self.time_step,
-                         self.n_cores, self.sampling_rate,
-                         self.decimate[0], self.decimate[1], self.decimate[2])
+                         self.n_cores, self.sampling_rate)
         self.output.log(msg, self.log)
 
         # Detect max coalescence value and location at each time sample
-        # within the decimated grid
+        # within the (decimated) grid
         self._continuous_compute(start_time, end_time)
 
     def locate(self, start_time, end_time):
         """
-        Re-computes the 3D coalescence on a less decimated grid for a short
+        Re-computes the 3D coalescence on an undecimated grid for a short
         time window around each candidate earthquake triggered from the
-        decimated continuous detect scan. Calculates event location and
+        (decimated) continuous detect scan. Calculates event location and
         uncertainties, makes phase arrival picks, plus multiple optional
         plotting / data outputs for further analysis and processing.
 
@@ -360,26 +316,21 @@ class QuakeScan(DefaultQuakeScan):
             End time of locate run: latest event trigger time that will be
             located is one sample before this time
 
-        log : bool, optional
-            Write output to a log file (default: False)
-
         """
 
         # Convert times to UTCDateTime objects
         start_time = UTCDateTime(start_time)
         end_time = UTCDateTime(end_time)
 
-        # Decimate LUT
-        self.lut = self.lut.decimate(self.decimate)
-
         msg = "=" * 120 + "\n"
         msg += "\tLOCATE - Determining earthquake location and uncertainty\n"
         msg += "=" * 120 + "\n\n"
-        msg += "\tParameters specified:\n"
+        msg += "\tParameters:\n"
         msg += "\t\tStart time     = {}\n"
         msg += "\t\tEnd   time     = {}\n"
         msg += "\t\tNumber of CPUs = {}\n\n"
         msg += str(self.onset)
+        msg += str(self.picker)
         msg += "=" * 120 + "\n"
         msg = msg.format(str(start_time), str(end_time), self.n_cores)
         self.output.log(msg, self.log)
@@ -484,6 +435,7 @@ class QuakeScan(DefaultQuakeScan):
 
         """
 
+        # Initialise coastream object
         coastream = None
 
         t_length = self.pre_pad + self.post_pad + self.time_step
@@ -495,6 +447,7 @@ class QuakeScan(DefaultQuakeScan):
         except AttributeError:
             msg = "Error: Time step has not been specified"
             self.output.log(msg, self.log)
+            return
 
         # Initialise pandas DataFrame object to track availability
         stn_ava_data = pd.DataFrame(index=np.arange(nsteps),
@@ -512,9 +465,7 @@ class QuakeScan(DefaultQuakeScan):
             try:
                 self.data.read_waveform_data(w_beg, w_end, self.sampling_rate)
                 daten, max_coa, max_coa_norm, loc, map_4d = self._compute(
-                                                          w_beg, w_end,
-                                                          self.data.signal,
-                                                          self.data.availability)
+                                                          w_beg, w_end)
                 stn_ava_data.loc[i] = self.data.availability
                 coord = self.lut.xyz2coord(loc)
 
@@ -625,9 +576,7 @@ class QuakeScan(DefaultQuakeScan):
             self.output.log("\tComputing 4D coalescence grid...", self.log)
 
             daten, max_coa, max_coa_norm, loc, map_4d = self._compute(
-                                                      w_beg, w_end,
-                                                      self.data.signal,
-                                                      self.data.availability)
+                                                      w_beg, w_end)
             coord = self.lut.xyz2coord(np.array(loc).astype(int))
             event_coa_data = pd.DataFrame(np.array((daten, max_coa,
                                                     coord[:, 0],
@@ -676,7 +625,8 @@ class QuakeScan(DefaultQuakeScan):
             # Make phase picks
             timer = util.Stopwatch()
             self.output.log("\tMaking phase picks...", self.log)
-            phase_picks = self._phase_picker(event_max_coa)
+            self.picker.pick_phases(self.data, event_max_coa)
+            phase_picks = self.picker.phase_picks
             self.output.write_picks(phase_picks["Pick"], event_uid)
             self.output.log(timer(), self.log)
 
@@ -766,7 +716,7 @@ class QuakeScan(DefaultQuakeScan):
         self.data.read_waveform_data(w_beg, w_end, self.sampling_rate, pre_pad,
                                      post_pad)
 
-    def _compute(self, w_beg, w_end, signal, station_availability):
+    def _compute(self, w_beg, w_end):
         """
         Compute 3-D coalescence between two time stamps.
 
@@ -777,13 +727,6 @@ class QuakeScan(DefaultQuakeScan):
 
         w_end : UTCDateTime object
             Time stamp of final sample in window
-
-        signal : array-like
-            Pre-processed continuous 3-component data stream for all available
-            stations -- linearly detrended, de-meaned, resampled if necessary
-
-        station_availability : array-like
-            List of available stations
 
         Returns
         -------
@@ -804,30 +747,18 @@ class QuakeScan(DefaultQuakeScan):
 
         """
 
-        avail_idx = np.where(station_availability == 1)[0]
-        self.onset.signal = signal
+        avail_idx = np.where(self.data.availability == 1)[0]
 
-        p_onset = self.onset.p_onset()
-        s_onset = self.onset.s_onset()
-        if not isinstance(p_onset, np.ndarray) \
-           or not isinstance(s_onset, np.ndarray):
-            raise TypeError
-        self.data.p_onset = p_onset
-        self.data.s_onset = s_onset
-        self.data.filtered_signal[0, :, :] = self.onset.filt_sign
-        self.data.filtered_signal[1, :, :] = self.onset.filt_sige
-        self.data.filtered_signal[2, :, :] = self.onset.filt_sigz
-
-        ps_onset = np.concatenate((self.data.p_onset, self.data.s_onset))
-        ps_onset[np.isnan(ps_onset)] = 0
+        onsets = self.onset.calculate_onsets(self.data)
+        nchan, tsamp = onsets.shape
 
         p_ttime = self.lut.fetch_index("TIME_P", self.sampling_rate)
         s_ttime = self.lut.fetch_index("TIME_S", self.sampling_rate)
         ttime = np.c_[p_ttime, s_ttime]
         del p_ttime, s_ttime
 
-        nchan, tsamp = ps_onset.shape
-
+        # Calculate the number of samples in the pre-pad, post-pad and main
+        # window
         pre_smp = int(round(self.pre_pad * int(self.sampling_rate)))
         pos_smp = int(round(self.post_pad * int(self.sampling_rate)))
         nsamp = tsamp - pre_smp - pos_smp
@@ -835,7 +766,7 @@ class QuakeScan(DefaultQuakeScan):
         # Prep empty 4-D coalescence map and run C-compiled ilib.migrate()
         ncell = tuple(self.lut.cell_count)
         map_4d = np.zeros(ncell + (nsamp,), dtype=np.float64)
-        ilib.migrate(ps_onset, ttime, pre_smp, pos_smp, nsamp, map_4d,
+        ilib.migrate(onsets, ttime, pre_smp, pos_smp, nsamp, map_4d,
                      self.n_cores)
 
         # Prep empty coa and loc arrays and run C-compiled ilib.find_max_coa()
@@ -861,312 +792,10 @@ class QuakeScan(DefaultQuakeScan):
 
         return daten, max_coa, max_coa_norm, loc, map_4d
 
-    def _gaussian_picker(self, onset, phase, start_time, p_arr, s_arr, ptt,
-                         stt):
-        """
-        Fit a Gaussian to the onset function in order to make a time pick with
-        an associated uncertainty. Uses the same STA/LTA onset (characteristic)
-        function as is migrated through the grid to calculate the earthquake
-        location.
-
-        Uses knowledge of approximate pick index, the short-term average
-        onset window and the signal sampling rate to make an initial estimate
-        of a gaussian fit to the onset function.
-
-        Parameters
-        ----------
-        onset : array-like
-            Onset (characteristic) function
-
-        phase : str
-            Phase name ("P" or "S")
-
-        start_time : UTCDateTime object
-            Start time of data (w_beg)
-
-        p_arr : UTCDateTime object
-            Time when P-phase is expected to arrive based on best location
-
-        s_arr : UTCDateTime object
-            Time when S-phase is expected to arrive based on best location
-
-        ptt : UTCDateTime object
-            Traveltime of P-phase
-
-        stt : UTCDateTime object
-            Traveltime of S-phase
-
-        Returns
-        -------
-        gaussian_fit : dictionary
-            gaussian fit parameters: {"popt": popt,
-                                      "xdata": x_data,
-                                      "xdata_dt": x_data_dt,
-                                      "PickValue": max_onset,
-                                      "PickThreshold": threshold}
-
-        max_onset : float
-            amplitude of gaussian fit to onset function
-
-        sigma : float
-            sigma of gaussian fit to onset function
-
-        mean : UTCDateTime
-            mean of gaussian fit to onset function == pick time
-
-        """
-
-        # Determine indices of P and S pick times
-        pt_idx = int((p_arr - start_time) * self.sampling_rate)
-        st_idx = int((s_arr - start_time) * self.sampling_rate)
-
-        # Determine P and S pick window upper and lower bounds based on
-        # (P-S)/2 -- either this or the next window definition will be
-        # used depending on which is wider.
-        pmin_idx = int(pt_idx - (st_idx - pt_idx) / 2)
-        pmax_idx = int(pt_idx + (st_idx - pt_idx) / 2)
-        smin_idx = int(st_idx - (st_idx - pt_idx) / 2)
-        smax_idx = int(st_idx + (st_idx - pt_idx) / 2)
-
-        # Check if index falls outside length of onset function; if so set
-        # window to start/end at start/end of data.
-        for idx in [pmin_idx, pmax_idx, smin_idx, smax_idx]:
-            if idx < 0:
-                idx = 0
-            if idx > len(onset):
-                idx = len(onset)
-
-        # Defining the bounds to search for the event over
-        # Determine P and S pick window upper and lower bounds based on
-        # set percentage of total travel time, plus marginal window
-
-        # window based on self.fraction_tt of P/S travel time
-        pp_ttime = ptt * self.fraction_tt
-        ps_ttime = stt * self.fraction_tt
-
-        # Add length of marginal window to this. Convert to index.
-        P_idxmin_new = int(pt_idx - int((self.marginal_window + pp_ttime)
-                                        * self.sampling_rate))
-        P_idxmax_new = int(pt_idx + int((self.marginal_window + pp_ttime)
-                                        * self.sampling_rate))
-        S_idxmin_new = int(st_idx - int((self.marginal_window + ps_ttime)
-                                        * self.sampling_rate))
-        S_idxmax_new = int(st_idx + int((self.marginal_window + ps_ttime)
-                                        * self.sampling_rate))
-
-        # Setting so the search region can't be bigger than (P-S)/2:
-        # compare the two window definitions; if (P-S)/2 window is
-        # smaller then use this (to avoid picking the wrong phase).
-        P_idxmin = np.max([pmin_idx, P_idxmin_new])
-        P_idxmax = np.min([pmax_idx, P_idxmax_new])
-        S_idxmin = np.max([smin_idx, S_idxmin_new])
-        S_idxmax = np.min([smax_idx, S_idxmax_new])
-
-        # Setting parameters depending on the phase
-        if phase == "P":
-            sta_winlen = self.onset.p_onset_win[0]
-            win_min = P_idxmin
-            win_max = P_idxmax
-        if phase == "S":
-            sta_winlen = self.onset.s_onset_win[0]
-            win_min = S_idxmin
-            win_max = S_idxmax
-
-        # Find index of maximum value of onset function in the appropriate
-        # pick window
-        max_onset = np.argmax(onset[win_min:win_max]) + win_min
-        # Trim the onset function in the pick window
-        onset_trim = onset[win_min:win_max]
-
-        # Only keep the onset function outside the pick windows to
-        # calculate the pick threshold
-        onset_threshold = onset.copy()
-        onset_threshold[P_idxmin:P_idxmax] = -1
-        onset_threshold[S_idxmin:S_idxmax] = -1
-        onset_threshold = onset_threshold[onset_threshold > -1]
-
-        # Calculate the pick threshold: either user-specified percentile of
-        # data outside pick windows, or 88th percentile within the relevant
-        # pick window (whichever is bigger).
-        threshold = np.percentile(onset_threshold, self.pick_threshold * 100)
-        threshold_window = np.percentile(onset_trim, 88)
-        threshold = np.max([threshold, threshold_window])
-
-        # Remove data within the pick window that is lower than the threshold
-        tmp = (onset_trim - threshold).any() > 0
-
-        # If there is any data that meets this requirement...
-        if onset[max_onset] >= threshold and tmp:
-            exceedence = np.where((onset_trim - threshold) > 0)[0]
-            exceedence_dist = np.zeros(len(exceedence))
-
-            # Really faffy process to identify the period of data which is
-            # above the threshold around the highest value of the onset
-            # function.
-            d = 1
-            e = 0
-            while e < len(exceedence_dist) - 1:
-                if e == len(exceedence_dist):
-                    exceedence_dist[e] = d
-                else:
-                    if exceedence[e + 1] == exceedence[e] + 1:
-                        exceedence_dist[e] = d
-                    else:
-                        exceedence_dist[e] = d
-                        d += 1
-                e += 1
-
-            # Find the indices for this period of data
-            tmp = exceedence_dist[np.argmax(onset_trim[exceedence])]
-            tmp = np.where(exceedence_dist == tmp)
-
-            # Add one data point below the threshold at each end of this period
-            gau_idxmin = exceedence[tmp][0] + win_min - 1
-            gau_idxmax = exceedence[tmp][-1] + win_min + 2
-
-            # Initial guess for gaussian half-width based on onset function
-            # STA window length
-            data_half_range = int(sta_winlen * self.sampling_rate / 2)
-
-            # Select data to fit the gaussian to
-            x_data = np.arange(gau_idxmin, gau_idxmax, dtype=float)
-            x_data = x_data / self.sampling_rate
-            y_data = onset[gau_idxmin:gau_idxmax]
-
-            # Convert indices to times
-            x_data_dt = np.array([])
-            for i in range(len(x_data)):
-                x_data_dt = np.hstack([x_data_dt, start_time + x_data[i]])
-
-            # Try to fit a gaussian.
-            try:
-                # Initial parameters are:
-                #  height = max value of onset function
-                #  mean   = time of max value
-                #  sigma  = data half-range (calculated above)
-                p0 = [np.max(y_data),
-                      float(gau_idxmin + np.argmax(y_data))
-                      / self.sampling_rate,
-                      data_half_range / self.sampling_rate]
-
-                # Do the fit
-                popt, _ = curve_fit(util.gaussian_1d, x_data, y_data, p0)
-
-                # Results:
-                #  popt = [height, mean (seconds), sigma (seconds)]
-                max_onset = popt[0]
-                # Convert mean (pick time) to time
-                mean = start_time + float(popt[1])
-                sigma = np.absolute(popt[2])
-
-                gaussian_fit = {"popt": popt,
-                                "xdata": x_data,
-                                "xdata_dt": x_data_dt,
-                                "PickValue": max_onset,
-                                "PickThreshold": threshold}
-
-            # If curve_fit fails. Will also spit error message to stdout,
-            # though this can be suppressed  - see warnings.filterwarnings()
-            except (ValueError, RuntimeError):
-                gaussian_fit = self.DEFAULT_GAUSSIAN_FIT
-                gaussian_fit["PickThreshold"] = threshold
-                sigma = -1
-                mean = -1
-                max_onset = -1
-
-        # If onset function does not exceed threshold in pick window
-        else:
-            gaussian_fit = self.DEFAULT_GAUSSIAN_FIT
-            gaussian_fit["PickThreshold"] = threshold
-            sigma = -1
-            mean = -1
-            max_onset = -1
-
-        return gaussian_fit, max_onset, sigma, mean
-
-    def _phase_picker(self, event):
-        """
-        Picks phase arrival times for located earthquakes.
-
-        Parameters
-        ----------
-        event : pandas DataFrame
-            Contains data about located event.
-            Columns: ["DT", "COA", "X", "Y", "Z"] - X and Y as lon/lat; Z in m
-
-        Returns
-        -------
-        phase_picks : dict
-            With keys:
-                "Pick" : pandas DataFrame
-                    Phase pick times with columns: ["Name", "Phase",
-                                                    "ModelledTime",
-                                                    "PickTime", "PickError",
-                                                    "SNR"]
-                    Each row contains the phase pick from one station/phase.
-
-                "GAU_P" : array-like
-                    Numpy array stack of Gaussian pick info (each as a dict)
-                    for P phase
-
-                "GAU_S" : array-like
-                    Numpy array stack of Gaussian pick info (each as a dict)
-                    for S phase
-
-        """
-
-        event_crd = np.array([event[["X", "Y", "Z"]].values])
-        event_xyz = np.array(self.lut.xyz2coord(event_crd,
-                                                inverse=True)).astype(int)[0]
-
-        p_ttime = self.lut.value_at("TIME_P", event_xyz)[0]
-        s_ttime = self.lut.value_at("TIME_S", event_xyz)[0]
-
-        # Determining the stations that can be picked on and the phases
-        picks = pd.DataFrame(index=np.arange(0, 2 * len(self.data.p_onset)),
-                             columns=["Name", "Phase", "ModelledTime",
-                                      "PickTime", "PickError", "SNR"])
-
-        p_gauss = np.array([])
-        s_gauss = np.array([])
-        idx = 0
-        for i in range(len(self.data.p_onset)):
-            p_arrival = event["DT"] + p_ttime[i]
-            s_arrival = event["DT"] + s_ttime[i]
-
-            if self.picking_mode == "Gaussian":
-                for phase in ["P", "S"]:
-                    if phase == "P":
-                        onset = self.data.p_onset[i]
-                        arrival = p_arrival
-                    else:
-                        onset = self.data.s_onset[i]
-                        arrival = s_arrival
-
-                    gau, max_onset, err, mn = self._gaussian_picker(
-                        onset, phase, self.data.start_time, p_arrival,
-                        s_arrival, p_ttime[i], s_ttime[i])
-
-                    if phase == "P":
-                        p_gauss = np.hstack([p_gauss, gau])
-                    else:
-                        s_gauss = np.hstack([s_gauss, gau])
-
-                    picks.iloc[idx] = [self.lut.station_data["Name"][i],
-                                       phase, arrival, mn, err, max_onset]
-                    idx += 1
-
-        phase_picks = {}
-        phase_picks["Pick"] = picks
-        phase_picks["GAU_P"] = p_gauss
-        phase_picks["GAU_S"] = s_gauss
-
-        return phase_picks
-
     def _gaufilt3d(self, coa_map, sgm=0.8, shp=None):
         """
         Smooth the 3-D marginalised coalescence map using a 3-D Gaussian
-        function to enable a better gaussian fit to the data to be calculated.
+        function to enable a better Gaussian fit to the data to be calculated.
 
         Parameters
         ----------
@@ -1174,7 +803,7 @@ class QuakeScan(DefaultQuakeScan):
             Marginalised 3-D coalescence map
 
         sgm : float
-            Sigma value (in grid cells) for the 3d gaussian filter function;
+            Sigma value (in grid cells) for the 3-D Gaussian filter function;
             bigger sigma leads to more aggressive (long wavelength) smoothing
 
         shp : array-like, optional
@@ -1574,7 +1203,7 @@ class QuakeScan(DefaultQuakeScan):
 
     def _calculate_location(self, map_4d):
         """
-        Marginalise 4-D coalescence grid. Calcuate a set of locations and
+        Marginalise 4-D coalescence grid. Calculate a set of locations and
         associated uncertainties by:
             (1) calculating the covariance of the entire coalescence map;
             (2) fitting a 3-D Gaussian function and ..
@@ -1671,7 +1300,6 @@ class QuakeScan(DefaultQuakeScan):
         """
         Deal with optional outputs in locate():
             plot_event_summary()
-            plot_station_traces()
             plot_coal_video()
             write_cut_waveforms()
             write_4d_coal_grid()
@@ -1714,8 +1342,7 @@ class QuakeScan(DefaultQuakeScan):
            self.plot_coal_video:
             quake_plot = qplot.QuakePlot(self.lut, self.data, event_mw_data,
                                          self.marginal_window, self.output.run,
-                                         event, phase_picks, map_4d,
-                                         self.coa_map)
+                                         event, map_4d, self.coa_map)
 
         if self.plot_event_summary:
             timer = util.Stopwatch()
@@ -1723,11 +1350,9 @@ class QuakeScan(DefaultQuakeScan):
             quake_plot.event_summary(file_str=out_str)
             self.output.log(timer(), self.log)
 
-        if self.plot_station_traces:
-            timer = util.Stopwatch()
-            self.output.log("\tPlotting station traces...", self.log)
-            quake_plot.station_traces(file_str=out_str, event_name=event_uid)
-            self.output.log(timer(), self.log)
+        if self.picker.plot_phase_picks:
+            self.picker.plot(file_str=out_str, event_uid=event_uid,
+                             run_path=self.output.run)
 
         if self.plot_coal_video:
             timer = util.Stopwatch()
@@ -1755,3 +1380,23 @@ class QuakeScan(DefaultQuakeScan):
             del quake_plot
         except NameError:
             pass
+
+    @property
+    def sampling_rate(self):
+        """Get sampling_rate"""
+        return self._sampling_rate
+
+    @sampling_rate.setter
+    def sampling_rate(self, value):
+        """
+        Set sampling_rate and try set for the onset and picker objects, if they
+        exist.
+
+        """
+
+        try:
+            self.onset.sampling_rate = value
+            self.picker.sampling_rate = value
+        except AttributeError:
+            pass
+        self._sampling_rate = value

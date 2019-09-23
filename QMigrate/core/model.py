@@ -964,7 +964,7 @@ class NonLinLoc:
 
 class LUT(Grid3D, NonLinLoc):
     """
-    Look-Up Table class
+    Lookup table class
 
     Inherits from Grid3D and NonLinLoc classes
 

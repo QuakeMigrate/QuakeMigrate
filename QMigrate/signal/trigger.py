@@ -82,8 +82,6 @@ class Trigger:
         else:
             self.output = None
 
-        print(type(self.output))
-
         self.log = log
 
         self.stations = stations
@@ -247,21 +245,17 @@ class Trigger:
         while c <= len(coa_data) - 1:
             # Determining the index when above the level and maximum value
             d = c
-
             try:
                 # Check the next sample in the list has the correct time stamp
                 while coa_data["DT"].iloc[d] + ss == coa_data["DT"].iloc[d + 1]:
                     d += 1
                     if d + 1 >= len(coa_data):
-                        d = len(coa_data)
                         break
-                min_idx = c
-                max_idx = d
-                val_idx = np.argmax(coa_data["COA"].iloc[np.arange(c, d + 1)])
             except IndexError:
-                # Handling for last sample if it is a single sample above
-                # threshold
-                min_idx = max_idx = val_idx = c
+                pass
+            min_idx = c
+            max_idx = d
+            val_idx = np.argmax(coa_data["COA"].iloc[np.arange(min_idx, max_idx+1)])
 
             # Determining the times for min, max and max coalescence value
             t_min = coa_data["DT"].iloc[min_idx]

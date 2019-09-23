@@ -162,11 +162,18 @@ class GaussianPicker(qpick.PhasePicker):
 
         self.phase_picks = phase_picks
 
-        # Write out phase picks
+    def write_picks(self, event_uid):
+        """
+        Write phase picks to a new .picks file
 
-        # # Make phase pick plots
-        # if self.plot_phase_picks:
-        #     self.plot(p_ttime, s_ttime)
+        Parameters
+        ----------
+        event_uid : str
+            event ID for file naming
+
+        """
+
+        self.output.write_picks(self.phase_picks["Pick"], event_uid)
 
     def _gaussian_picker(self, onset, phase, start_time, p_arr, s_arr, ptt, stt):
         """

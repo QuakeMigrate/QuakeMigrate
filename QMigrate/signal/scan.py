@@ -208,6 +208,11 @@ class QuakeScan(DefaultQuakeScan):
         self.data = data
         self.lut = lut
 
+        if output_path is not None:
+            self.output = qio.QuakeIO(output_path, run_name, log)
+        else:
+            self.output = None
+
         if isinstance(onset, qonset.Onset):
             self.onset = onset
         else:
@@ -218,13 +223,9 @@ class QuakeScan(DefaultQuakeScan):
         elif isinstance(picker, qpick.PhasePicker):
             self.picker = picker
             self.picker.lut = lut
+            self.picker.output = self.output
         else:
             raise util.PickerTypeError
-
-        if output_path is not None:
-            self.output = qio.QuakeIO(output_path, run_name, log)
-        else:
-            self.output = None
 
         self.log = log
 
@@ -626,8 +627,7 @@ class QuakeScan(DefaultQuakeScan):
             timer = util.Stopwatch()
             self.output.log("\tMaking phase picks...", self.log)
             self.picker.pick_phases(self.data, event_max_coa)
-            phase_picks = self.picker.phase_picks
-            self.output.write_picks(phase_picks["Pick"], event_uid)
+            self.picker.write_picks(event_uid)
             self.output.log(timer(), self.log)
 
             # Determining earthquake location error
@@ -652,12 +652,11 @@ class QuakeScan(DefaultQuakeScan):
             self.output.write_event(event, event_uid)
 
             self._optional_locate_outputs(event_mw_data, event, out_str,
-                                          phase_picks, event_uid, map_4d)
+                                          event_uid, map_4d)
 
             self.output.log("=" * 120 + "\n", self.log)
 
-            del map_4d, event_coa_data, event_mw_data, event_max_coa, \
-                phase_picks
+            del map_4d, event_coa_data, event_mw_data, event_max_coa
             self.coa_map = None
 
     def _read_event_waveform_data(self, event, w_beg, w_end):
@@ -1296,7 +1295,7 @@ class QuakeScan(DefaultQuakeScan):
         return daten, max_coa, max_coa_norm, coord
 
     def _optional_locate_outputs(self, event_mw_data, event, out_str,
-                                 phase_picks, event_uid, map_4d):
+                                 event_uid, map_4d):
         """
         Deal with optional outputs in locate():
             plot_event_summary()
@@ -1323,12 +1322,6 @@ class QuakeScan(DefaultQuakeScan):
 
         out_str : str
             String {run_name}_{event_name} (figure displayed by default)
-
-        phase_picks: dict
-            Phase pick info, with keys:
-                "Pick" : pandas DataFrame
-                "GAU_P" : array-like, dict
-                "GAU_S" : array-like, dict
 
         event_uid : str
             UID of earthquake: "YYYYMMDDHHMMSSFFFF"

@@ -368,16 +368,16 @@ class QuakeIO:
         fname = str(fname.with_suffix(suffix))
         st.write(str(fname), format=data_format)  # , encoding="STEIM1")
 
-    def write_picks(self, stations, event_name):
+    def write_picks(self, phase_picks, event_name):
         """
         Write phase picks to a new .picks file
 
         Parameters
         ----------
-        stations : pandas DataFrame object
+        phase_picks : pandas DataFrame object
 
         event_name : str
-            event_id for file naming
+            event ID for file naming
 
         """
 
@@ -385,7 +385,7 @@ class QuakeIO:
         util.make_directories(self.run, subdir=subdir)
         fname = self.run / subdir / "{}".format(event_name)
         fname = str(fname.with_suffix(".picks"))
-        stations.to_csv(fname, index=False)
+        phase_picks.to_csv(fname, index=False)
 
     def write_event(self, event, event_name):
         """

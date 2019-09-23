@@ -63,7 +63,7 @@ class GaussianPicker(qpick.PhasePicker):
                             "xdata_dt": 0,
                             "PickValue": -1}
 
-    def __init__(self, onset, data):
+    def __init__(self, onset=None):
         """Class initialisation method."""
 
         self.onset = onset
@@ -99,6 +99,11 @@ class GaussianPicker(qpick.PhasePicker):
             Columns: ["DT", "COA", "X", "Y", "Z"] - X and Y as lon/lat; Z in m
 
         """
+
+        # If an Onset object has been provided to the picker, recalculate the
+        # onset functions for the data
+        if self.onset is not None:
+            _ = self.onset.calculate_onsets(waveform_data)
 
         self.data = waveform_data
         self.event = event
@@ -516,8 +521,8 @@ class GaussianPicker(qpick.PhasePicker):
         """
 
         if y.any():
-            trace.plot(x, y / np.max(abs(y)) + (st_idx + 1),
-                       color=color, linewidth=0.5, zorder=1)
+            trace.plot(x, y / np.max(abs(y)) + (st_idx + 1), color=color,
+                       linewidth=0.5, zorder=1)
 
     def _pick_vlines(self, trace, pick_time, pick_err):
         """

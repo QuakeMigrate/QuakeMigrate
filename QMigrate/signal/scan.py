@@ -7,10 +7,11 @@ Module to perform core QuakeMigrate functions: detect() and locate().
 import warnings
 
 import numpy as np
-from obspy import UTCDateTime, Stream, Trace
+from obspy import UTCDateTime, Stream, Trace, read_inventory
+from obspy.signal.invsim import paz_2_amplitude_value_of_freq_resp, paz_2_amplitude_value_of_freq_resp
 import pandas as pd
 from scipy.interpolate import Rbf
-from scipy.signal import fftconvolve
+from scipy.signal import fftconvolve, find_peaks
 
 import QMigrate.core.QMigratelib as ilib
 import QMigrate.io.quakeio as qio
@@ -167,10 +168,10 @@ class QuakeScan(DefaultQuakeScan):
                        "LocalGaussian_ErrZ", "GlobalCovariance_X",
                        "GlobalCovariance_Y", "GlobalCovariance_Z",
                        "GlobalCovariance_ErrX", "GlobalCovariance_ErrY",
-                       "GlobalCovariance_ErrZ"]
+                       "GlobalCovariance_ErrZ", "ML", "ML_Err"]
 
     def __init__(self, data, lut, onset, picker=None, output_path=None,
-                 run_name=None, log=False):
+                 run_name=None, get_amplitudes=True, do_mag_calc=False, log=False):
         """
         Class initialisation method.
 
@@ -228,6 +229,29 @@ class QuakeScan(DefaultQuakeScan):
             raise util.PickerTypeError
 
         self.log = log
+        
+        if do_mag_calc:
+            self.amplitudes = True
+            self.amplitude_parameters = {}
+            self.mag_calc = True
+            self.magnitude_parameters = {}
+        elif get_amplitudes:
+            self.amplitudes = True
+            self.amplitude_parameters = {}
+            self.mag_calc = False
+            self.magnitude_parameters = None
+        else:
+            self.amplitudes = False
+            self.amplitude_parameters = None
+            self.mag_calc = False
+            self.magnitude_parameters = None
+        
+        # different to the obspy values
+        # http://www.iris.washington.edu/pipermail/sac-help/2013-March/001430.html
+        self.WOODANDERSON = {'poles' : [-5.49779 + 5.60886j, -5.49779 - 5.60886j],
+                            'zeros' : [0j, 0j],
+                            'sensitivity' : 2080,
+                            'gain' : 1.}
 
         # Get pre- and post-pad values from the onset class
         self.pre_pad = self.onset.pre_pad
@@ -347,6 +371,7 @@ class QuakeScan(DefaultQuakeScan):
             self._locate_events(fname)
         else:
             self._locate_events(start_time, end_time)
+
 
     def _append_coastream(self, coastream, daten, max_coa, max_coa_norm, loc):
         """
@@ -669,6 +694,20 @@ class QuakeScan(DefaultQuakeScan):
                 loc_cov_err = self._calculate_location(map_4d)
             self.output.log(timer(), self.log)
 
+            if self.amplitudes:
+                self.output.log("\tCalculating magnitude...", self.log)
+                self._get_amplitudes(event_max_coa.values[0], (loc_gau[0], loc_gau[1], loc_gau[2]))
+                self.write_amplitudes(event_uid)
+            
+            if self.mag_calc:
+                self.output.log("\tCalculating magnitude...", self.log)
+                self.mag_calc.calculate_magnitudes()
+                self.mag_calc.write_magnitudes(event_uid)
+                self.output.log(timer(), self.log)
+            else:
+                self.ML = -9.9
+                self.ML_error = -9.9
+
             # Make event dictionary with all final event location data
             event = pd.DataFrame([[event_max_coa.values[0],
                                    event_max_coa.values[1],
@@ -677,8 +716,8 @@ class QuakeScan(DefaultQuakeScan):
                                    loc_gau_err[0], loc_gau_err[1],
                                    loc_gau_err[2],
                                    loc_cov[0], loc_cov[1], loc_cov[2],
-                                   loc_cov_err[0], loc_cov_err[1],
-                                   loc_cov_err[2]]],
+                                   loc_cov_err[0], loc_cov_err[1], loc_cov_err[2], 
+                                   self.ML, self.ML_error]],
                                  columns=self.EVENT_FILE_COLS)
 
             self.output.write_event(event, event_uid)
@@ -690,6 +729,195 @@ class QuakeScan(DefaultQuakeScan):
 
             del map_4d, event_coa_data, event_mw_data, event_max_coa
             self.coa_map = None
+
+    def _get_amplitudes(self, otime, loc, method='quick'):
+        from obspy.geodetics.base import gps2dist_azimuth
+
+        if not self.amplitude_parameters:
+            raise AttributeError('Need to define a set of amplitude parameters.\nSee documentation')
+
+        if not quick:
+            from obspy.io.xseed import Parser
+            dataless = Parser(self.amplitude_parameters['dataless_file'])
+            try:
+                water_level = self.amplitude_parameters['water_level']
+            except KeyError:
+                water_level = None
+            try:
+                pre_filt = self.amplitude_parameters['pre_filt']
+            except KeyError:
+                pre_filt = None
+        else:
+            inv = read_inventory(self.amplitude_parameters['dataless_xml'])
+
+        # grab the required parameters
+        evlo, evla, evdp = loc
+        evdp /= 1000. # convert the depth to metres
+        pdata = self.picker.phase_picks['Pick']
+        npicks = int(len(pdata) / 2)
+
+        # initialise an output array
+        amplitudes = np.zeros((int(npicks * 3), 10))
+
+        # loop over the picks
+        i = 0
+        row = 0
+        index = []
+        while i < int(npicks * 2):
+            station = pdata['Name'].values[i]
+            assert self.data.stations['Name'].values[i] == station
+            stla = self.data.stations['Latitude'].values[i]
+            stlo = self.data.stations['Longitude'].values[i]
+            stel = self.data.stations['Elevation'].values[i] / 1000.
+
+            pick_1 = pdata['PickTime'].values[i]
+            pick_1_phase = pdata['Phase'].values[i]
+            if pick_1 == '-1':
+                pick_1 = pdata['ModelledTime'].values[i]
+            else:
+                pick_1 = UTCDateTime(pick_1)
+
+            pick_2 = pdata['PickTime'].values[i + 1]
+            pick_2_phase = pdata['Phase'].values[i + 1]
+            if pick_2 == '-1':
+                pick_2 = pdata['ModelledTime'].values[i+1]
+            elif pick_2:
+                pick_2 = UTCDateTime(pick_2)
+            
+            st = self.data.copy().select(station=station)
+            if len(st) == 0:
+                i += 2
+                continue
+
+            # get the station coordinates
+            edist, _, _ = gps2dist_azimuth(evla, evlo, stla, stlo)
+            edist /= 1000.
+            zdist = evdp + stel
+            
+            if not quick:
+                st.simulate(seedresp={'filename': dataless, 'units': "DIS"}, 
+                            paz_simulate=self.WOODANDERSON, 
+                            pre_filt=None, taper=False, water_level=30)
+
+            for j, tr in enumerate(st):
+
+                index.append(tr.id)
+               
+                picks = sorted([[pick_1, pick_1_phase], [pick_2, pick_2_phase]])
+                assert picks[0][0] < picks[1][0]
+                windows = [[picks[0][0], picks[1][0] - 1.],
+                    [picks[1][0] - 1., picks[1][0] + self.amplitude_parameters['noise_win']]]
+
+                if quick:
+                    gain = paz_2_amplitude_value_of_freq_resp(self.WOODANDERSON, aprx_f) * self.WOODANDERSON['sensitivity']
+                    gain /= np.abs(data.stats.response.get_evalresp_response_for_frequencies([aprx_f], output='DISP'))
+
+                amplitudes[row + j, 0:2] = edist, zdist
+                for stime, etime in windows:
+                    data = tr.slice(stime, etime)
+                
+                    famp, aprx_f = self._peak_to_trough_amplitude(data)
+
+                    if quick:
+                        famp *= gain
+                    
+                    amplitudes[row + j, k] = famp
+                    amplitudes[row + j, k + 1] = aprx_f
+                    k += 2
+                
+                # grab a noise window
+                data = tr.slice(picks[0][0] - 3. - self.amplitude_parameters['noise_win'], 
+                                picks[0][0] - 3.)
+                noise = np.std(data.data)
+                if quick:
+                    noise *= gain
+                amplitudes[row + j, 6] = noise * 2.
+            i += 1
+            row += 3
+                
+        self.amplitudes = pd.DataFrame(amplitudes, 
+                                columns=['epi_dist', 'depth', 
+                                        'P_amp', 'P_freq', 
+                                        'S_amp', 'S_freq', 
+                                        'Error'],
+                                index=index)    
+                
+                
+
+                
+    def _peak_to_trough_amplitude(self, trace):
+        prom_mult = self.amplitude_parameters['prominence_multiplier']
+        peaks, _ = find_peaks(trace.data, prominence=prom_mult * np.max(np.abs(trace.data)))
+        troughs, _ = find_peaks(-trace.data, prominence=prom_mult * np.max(np.abs(trace.data)))        
+
+        if len(peaks) == 0 or len(troughs) == 0:
+            full_amp = -9.9
+
+        elif len(peaks) == 1 and len(troughs) == 1:
+            full_amp = np.abs(trace.data[peaks] - trace.data[troughs])
+
+        elif len(peaks) == len(troughs) and peaks[0] < troughs[0]:
+            full_peak_1 = np.abs(trace.data[peaks] - trace.data[troughs])
+            full_peak_2 = np.abs(trace.data[peaks[1:]] - trace.data[troughs[:-1]])
+            if np.max(full_peak_1) >= np.max(full_peak_2):
+                pos = np.argmax(full_peak_1)
+                full_amp = np.max(full_peak_1)
+            else:
+                pos = np.argmax(full_peak_2)
+                peaks = peaks[1:]
+                troughs = troughs[:-1]
+                full_amp = np.max(full_peak_2)
+
+        elif len(peaks) == len(troughs) and peaks[0] > troughs[0]:
+            full_peak_1 = np.abs(trace.data[peaks] - trace.data[troughs])
+            full_peak_2 = np.abs(trace.data[peaks[:-1]] - trace.data[troughs[1:]])
+            if np.max(full_peak_1) >= np.max(full_peak_2):
+                pos = np.argmax(full_peak_1)
+                full_amp = np.max(full_peak_1)
+            else:
+                pos = np.argmax(full_peak_2)
+                peaks = peaks[:-1]
+                troughs = troughs[1:]
+                full_amp = np.max(full_peak_2)
+            
+        elif not np.abs(len(peaks) - len(troughs)) == 1:
+            raise ValueError('HELP')
+
+        elif len(peaks) > len(troughs):
+            assert peaks[0] < troughs[0]
+            full_peak_1 = np.abs(trace.data[peaks[:-1]] - trace.data[troughs])
+            full_peak_2 = np.abs(trace.data[peaks[1:]] - trace.data[troughs])
+            if np.max(full_peak_1) >= np.max(full_peak_2):
+                pos = np.argmax(full_peak_1)
+                peaks = peaks[:-1]
+                troughs = troughs
+                full_amp = np.max(full_peak_1)
+            else:
+                pos = np.argmax(full_peak_2)
+                peaks = peaks[1:]
+                troughs = troughs
+                full_amp = np.max(full_peak_2)
+
+        elif len(peaks) < len(troughs):
+            assert peaks[0] > troughs[0]
+            full_peak_1 = np.abs(trace.data[peaks] - trace.data[troughs[1:]])
+            full_peak_2 = np.abs(trace.data[peaks] - trace.data[troughs[:-1]])
+            if np.max(full_peak_1) >= np.max(full_peak_2):
+                pos = np.argmax(full_peak_1)
+                peaks = peaks
+                troughs = troughs[1:]
+                full_amp = np.max(full_peak_1)
+            else:
+                pos = np.argmax(full_peak_2)
+                peaks = peaks
+                troughs = troughs[:-1]
+                full_amp = np.max(full_peak_2)   
+
+        peak_t = trace.times()[peaks[pos]]
+        trough_t = trace.times()[troughs[pos]]
+        approx_freq = 1. / (np.abs(peak_t - trough_t) * 2.) 
+
+        return full_amp, approx_freq
 
     def _read_event_waveform_data(self, event, w_beg, w_end):
         """

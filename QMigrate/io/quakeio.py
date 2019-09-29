@@ -387,6 +387,25 @@ class QuakeIO:
         fname = str(fname.with_suffix(".picks"))
         phase_picks.to_csv(fname, index=False)
 
+    def write_amplitudes(self, amplitudes, event_name):
+        """
+        Write phase picks to a new .picks file
+
+        Parameters
+        ----------
+        amplitudes : pandas DataFrame object
+
+        event_name : str
+            event ID for file naming
+
+        """
+
+        subdir = "amplitudes"
+        util.make_directories(self.run, subdir=subdir)
+        fname = self.run / subdir / "{}".format(event_name)
+        fname = str(fname.with_suffix(".amps"))
+        amplitudes.to_csv(fname, index=False)
+
     def write_event(self, event, event_name):
         """
         Create a new .event file

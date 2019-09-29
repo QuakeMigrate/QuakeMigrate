@@ -26,6 +26,22 @@ end_time = "2018-002T00:00:00.0"
 data = qdata.Archive(station_file=station_file, archive_path=data_path)
 data.path_structure(archive_format="YEAR/JD/STATION")
 
+# extract the amplitude information and magnitude
+amp_param = {'pre_filt' : None, # pre-filter used in the instrument correction
+            'water_level' : 30, # water-level used in the instrument correction
+            'dataless_filt' : 'path_to_dataless_SEED', # path to dataless SEED volume
+            'noise_win' : 10., # length of the noise and S-wave window
+            'prominence_multiplier' : 0.5} # the prominence of the extracted peaks (see scipy.signal.find_peaks)
+mag_param = {'station_corrections' : {}, # dictionary of trace_id - correction paire
+            'amplitude_feature' : 'S_amp', # which amplitude feature to make the calculation from
+            'use_hyp_distance' : True, # use hypocentral rather than epicentral distance
+            'A0' : 'keir2006', # which A0 attenuation correction to apply, a function can be directly passed here
+            'trace_filter' : '.[BH]H[NE]$', # which traces to calculate magnitude from 
+            'dist_filter' : False, # filter based on distance
+            'use_only_picked' : False, # use only those traces which have been picked by the autopicker
+            'noise_filter' : 4., # a factor to multiply the noise by to remove traces with high noise levels
+            'weighted' : True} # do a weighted mean
+
 # Resample data with mismatched sampling rates
 # data.resample = True
 # data.upfactor = 2
@@ -73,6 +89,13 @@ scan.plot_coal_video = False
 
 # Output cut data
 scan.write_cut_waveforms = True
+
+# turn on magnitude and amplitude extraction
+scan.amplitudes = True
+scan.quicks_amps = False
+scan.amplitude_parameters = amp_param
+scan.mag_calc = True
+scan.magnitude_parameters = mag_param
 
 # Run locate
 scan.locate(start_time=start_time, end_time=end_time)

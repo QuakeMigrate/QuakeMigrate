@@ -9,6 +9,7 @@ import warnings
 import numpy as np
 from obspy import UTCDateTime, Stream, Trace, read_inventory
 from obspy.signal.invsim import paz_2_amplitude_value_of_freq_resp, paz_2_amplitude_value_of_freq_resp
+from obspy.io.xseed import Parser
 from obspy.geodetics.base import gps2dist_azimuth
 import pandas as pd
 from scipy.interpolate import Rbf
@@ -20,7 +21,7 @@ import QMigrate.plot.quakeplot as qplot
 import QMigrate.signal.onset.onset as qonset
 import QMigrate.signal.pick.pick as qpick
 import QMigrate.util as util
-from Qmigrate.signal.magnitudes.mag_functions import calculate_magnitudes, calculate_mean_magnitude
+from QMigrate.signal.magnitudes.mag_functions import calculate_magnitudes, calculate_mean_magnitude
 
 # Filter warnings
 warnings.filterwarnings("ignore", message=("Covariance of the parameters" +
@@ -703,7 +704,7 @@ class QuakeScan(DefaultQuakeScan):
             self.output.log(timer(), self.log)
 
             if self.amplitudes:
-                self.output.log("\tCalculating magnitude...", self.log)
+                self.output.log("\tGetting amplitudes...", self.log)
                 amps = self._get_amplitudes(event_max_coa.values[0], 
                                     (loc_gau[0], loc_gau[1], loc_gau[2]))
                 self.output.write_amplitudes(amps, event_uid)
@@ -745,9 +746,8 @@ class QuakeScan(DefaultQuakeScan):
         if not self.amplitude_parameters:
             raise AttributeError('Need to define a set of amplitude parameters.\nSee documentation')
 
+        dataless = Parser(self.amplitude_parameters['dataless_file'])
         if not self.quick_amps:
-            from obspy.io.xseed import Parser
-            dataless = Parser(self.amplitude_parameters['dataless_file'])
             try:
                 water_level = self.amplitude_parameters['water_level']
             except KeyError:
@@ -774,15 +774,21 @@ class QuakeScan(DefaultQuakeScan):
         index = []
         while i < int(npicks * 2):
             station = pdata['Name'].values[i]
-            assert self.data.stations['Name'].values[i//2] == station
-            stla = self.data.stations['Latitude'].values[i//2]
-            stlo = self.data.stations['Longitude'].values[i//2]
-            stel = self.data.stations['Elevation'].values[i//2] / 1000.
+            if (i) % 10 == 8:
+                print('{:6}'.format(station))
+            elif (i) % 10 == 0:
+                print('\t{:6}'.format(station), end=' ')
+            else:
+                print('{:6}'.format(station), end=' ')
+            assert self.lut.station_data['Name'].values[i//2] == station
+            stla = self.lut.station_data['Latitude'].values[i//2]
+            stlo = self.lut.station_data['Longitude'].values[i//2]
+            stel = self.lut.station_data['Elevation'].values[i//2] / 1000.
 
             pick_1 = pdata['PickTime'].values[i]
             pick_1_phase = pdata['Phase'].values[i]
             picked = False
-            if pick_1 == '-1':
+            if pick_1 == -1:
                 pick_1 = pdata['ModelledTime'].values[i]
             else:
                 pick_1 = UTCDateTime(pick_1)
@@ -790,21 +796,27 @@ class QuakeScan(DefaultQuakeScan):
 
             pick_2 = pdata['PickTime'].values[i + 1]
             pick_2_phase = pdata['Phase'].values[i + 1]
-            if pick_2 == '-1':
+            if pick_2 == -1:
                 pick_2 = pdata['ModelledTime'].values[i+1]
             elif pick_2:
                 pick_2 = UTCDateTime(pick_2)
                 picked = True
-            
-            st = self.data.copy().select(station=station)
-            if len(st) == 0:
-                i += 2
-                continue
 
             # get the station coordinates
             edist, _, _ = gps2dist_azimuth(evla, evlo, stla, stlo)
             edist /= 1000.
             zdist = evdp + stel
+
+            st = self.data.raw_waveforms.copy().select(station=station)
+            if len(st) == 0:
+                i += 2
+                for chan in ['N', 'E', 'Z']:
+                    index += ['.' + station + '..' + chan]
+                    amplitudes[row, 0:2] = edist, zdist
+                    amplitudes[row, 2:7] = np.nan
+                    amplitudes[row, 7] = 0
+                    row += 1
+                continue
             
             if not self.quick_amps:
                 st.simulate(seedresp={'filename': dataless, 'units': "DIS"}, 
@@ -817,21 +829,27 @@ class QuakeScan(DefaultQuakeScan):
                
                 picks = sorted([[pick_1, pick_1_phase], [pick_2, pick_2_phase]])
                 assert picks[0][0] < picks[1][0]
-                windows = [[picks[0][0], picks[1][0] - 1.],
-                    [picks[1][0] - 1., picks[1][0] + self.amplitude_parameters['noise_win']]]
-
-                if self.quick_amps:
-                    gain = paz_2_amplitude_value_of_freq_resp(self.WOODANDERSON, aprx_f) * self.WOODANDERSON['sensitivity']
-                    gain /= np.abs(data.stats.response.get_evalresp_response_for_frequencies([aprx_f], output='DISP'))
+                if np.abs(picks[0][0] - picks[1][0]) < 1:
+                    windows = [[picks[0][0], picks[1][0]],
+                        [picks[1][0], picks[1][0] + self.amplitude_parameters['noise_win']]]
+                else:
+                    windows = [[picks[0][0], picks[1][0] - 1.],
+                        [picks[1][0] - 1., picks[1][0] + self.amplitude_parameters['noise_win']]]
 
                 amplitudes[row + j, 0:2] = edist, zdist
+                k = 2
                 for stime, etime in windows:
                     data = tr.slice(stime, etime)
                 
                     famp, aprx_f = self._peak_to_trough_amplitude(data)
 
                     if self.quick_amps:
-                        famp *= gain
+                        # get the response from the dataless SEED volume
+                        blockettes = dataless._select(tr.id, datetime=tr.stats.starttime)
+                        resp = dataless.get_response_for_channel(blockettes[1:], '')
+                        gain = paz_2_amplitude_value_of_freq_resp(self.WOODANDERSON, aprx_f) * self.WOODANDERSON['sensitivity']
+                        gain /= np.abs(resp.get_evalresp_response_for_frequencies([aprx_f], output='DISP'))
+                        famp = gain * famp
                     
                     amplitudes[row + j, k] = famp
                     amplitudes[row + j, k + 1] = aprx_f
@@ -853,19 +871,24 @@ class QuakeScan(DefaultQuakeScan):
                                 'P_amp', 'P_freq', 
                                 'S_amp', 'S_freq', 
                                 'Error', 'is_picked'],
-                        index=index)    
+                        index=index)  
+        print()  
         return amplitudes
                         
     def _peak_to_trough_amplitude(self, trace):
-        prom_mult = self.amplitude_parameters['prominence_multiplier']
+        try:
+            prom_mult = self.amplitude_parameters['prominence_multiplier']
+        except KeyError:
+            prom_mult = 0.
         peaks, _ = find_peaks(trace.data, prominence=prom_mult * np.max(np.abs(trace.data)))
         troughs, _ = find_peaks(-trace.data, prominence=prom_mult * np.max(np.abs(trace.data)))        
 
         if len(peaks) == 0 or len(troughs) == 0:
-            full_amp = -9.9
+            return -9.9, -9.9
 
         elif len(peaks) == 1 and len(troughs) == 1:
             full_amp = np.abs(trace.data[peaks] - trace.data[troughs])
+            pos = 0
 
         elif len(peaks) == len(troughs) and peaks[0] < troughs[0]:
             full_peak_1 = np.abs(trace.data[peaks] - trace.data[troughs])
@@ -892,7 +915,9 @@ class QuakeScan(DefaultQuakeScan):
                 full_amp = np.max(full_peak_2)
             
         elif not np.abs(len(peaks) - len(troughs)) == 1:
-            raise ValueError('HELP')
+            # there are two peaks or two troughs next to one 
+            # another
+            return -9.9, -9.9
 
         elif len(peaks) > len(troughs):
             assert peaks[0] < troughs[0]
@@ -928,7 +953,7 @@ class QuakeScan(DefaultQuakeScan):
         trough_t = trace.times()[troughs[pos]]
         approx_freq = 1. / (np.abs(peak_t - trough_t) * 2.) 
 
-        return full_amp, approx_freq
+        return full_amp / 2., approx_freq
 
     def _read_event_waveform_data(self, event, w_beg, w_end):
         """

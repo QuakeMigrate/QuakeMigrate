@@ -35,7 +35,7 @@ def calculate_mean_magnitude(obj, params):
     
     if 'noise_filter' in params and params['noise_filter']:
         feat = obj[params['amplitude_feature']].values
-        noise = obj[params['Error']].values
+        noise = obj['Error'].values
         obj = obj[feat >= noise * params['noise_filter']]
     
     if len(obj) == 0:
@@ -48,8 +48,8 @@ def calculate_mean_magnitude(obj, params):
     else:
         wght = np.ones_like(mag)
     
-    mean_mag = (mag * wght) / np.sum(wght)
-    mean_mag_error = np.sqrt((np.sum((mag - mean_mag) * wght) / np.sum(wght)) ** 2.)
+    mean_mag = np.sum((mag * wght)) / np.sum(wght)
+    mean_mag_error = np.sqrt((np.sum(np.square((mag - mean_mag) * wght)) / np.sum(wght)))
 
     return mean_mag, mean_mag_error
 
@@ -82,20 +82,36 @@ def calculate_magnitudes(obj, params):
     except KeyError:
         stcorr = {}
 
+    if 'amplitude_multiplier' in params and 'amplitude_multiplier':
+        multiplier = params['amplitude_multiplier']
+    else:
+        multiplier = 1000.
+
     idx = obj.index
-    amp = obj[params['amplitude_feature']].values
-    amp_err = obj['Error'].values
+    amp = obj[params['amplitude_feature']].values * multiplier
+    amp_err = obj['Error'].values * multiplier
+
+    # remove those amplitudes where the noise is greater than the amplitude
+    with np.errstate(invalid='ignore'):
+        amp[amp < amp_err] = np.nan
+
+    # remove those amplitudes equal to zero (no measuremnet)
+    amp[amp==0.] = np.nan
+
     if params['use_hyp_distance']:
         dist = np.sqrt(np.square(obj['epi_dist'].values) + np.square(obj['depth'].values))
     else:
         dist = obj['epi_dist'].values
+    dist[dist==0.] = np.nan
 
-    obs['Magnitude'] = calc_mag(idx, amp, dist, obj['A0'], stcorr)
-    mag_error_upper = calc_mag(idx, amp + amp_err, dist, obj['A0'], stcorr)
-    mag_error_lower = calc_mag(idx, amp - amp_err, dist, obj['A0'], stcorr)
-    obs['Magnitude_err'] = mag_error_upper - mag_error_lower
+    obj['Magnitude'] = calc_mag(idx, amp, dist, params['A0'], stcorr)
 
-    return obs
+    # get the error
+    mag_error_upper = calc_mag(idx, amp + amp_err, dist, params['A0'], stcorr)
+    mag_error_lower = calc_mag(idx, amp - amp_err, dist, params['A0'], stcorr)
+    obj['Magnitude_err'] = mag_error_upper - mag_error_lower
+
+    return obj
 
 def calc_mag(trace_ids, amplitudes,
         dist, A0_calib, station_corrections):

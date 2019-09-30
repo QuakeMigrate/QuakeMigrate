@@ -30,8 +30,7 @@ data.path_structure(archive_format="YEAR/JD/STATION")
 amp_param = {'pre_filt' : None, # pre-filter used in the instrument correction
             'water_level' : 30, # water-level used in the instrument correction
             'dataless_filt' : 'path_to_dataless_SEED', # path to dataless SEED volume
-            'noise_win' : 10., # length of the noise and S-wave window
-            'prominence_multiplier' : 0.5} # the prominence of the extracted peaks (see scipy.signal.find_peaks)
+            'noise_win' : 10.} # length of the noise and S-wave window
 mag_param = {'station_corrections' : {}, # dictionary of trace_id - correction paire
             'amplitude_feature' : 'S_amp', # which amplitude feature to make the calculation from
             'use_hyp_distance' : True, # use hypocentral rather than epicentral distance

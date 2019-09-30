@@ -404,7 +404,7 @@ class QuakeIO:
         util.make_directories(self.run, subdir=subdir)
         fname = self.run / subdir / "{}".format(event_name)
         fname = str(fname.with_suffix(".amps"))
-        amplitudes.to_csv(fname, index=False)
+        amplitudes.to_csv(fname, index=True)
 
     def write_event(self, event, event_name):
         """

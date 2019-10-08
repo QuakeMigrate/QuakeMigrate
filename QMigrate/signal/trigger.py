@@ -247,17 +247,17 @@ class Trigger:
             coa_data = self.coa_data
             tChunk = self.dynamic_offset[0] * 60 #n min chunks
             nChunks = (len(coa_data[coaString]) / self.sampling_rate) / tChunk
-
+            #import pdb; pdb.set_trace()
             inds = np.floor(np.linspace(0,len(coa_data[coaString]) - (tChunk*self.sampling_rate),nChunks)).astype(int)
-            inde = inds + (inds[1]-inds[0])
+            inde = inds.copy()
+            inde[:-1] = inds[1:]
             inde[-1] = len(coa_data[coaString]) 
             correctedThreshold = np.zeros(coa_data[coaString].shape)
-            # import pdb; pdb.set_trace()
+
             for ii in range(0,len(inds)):
-                correctedThreshold[inds[ii]:inde[ii]] = np.ones(correctedThreshold[inds[ii]:inde[ii]].shape)*(np.percentile(coa_data[coaString].iloc[inds[ii]:inde[ii]],99)*self.dynamic_offset[1])
+                correctedThreshold[inds[ii]:inde[ii]] = np.ones(correctedThreshold[inds[ii]:inde[ii]].shape)*np.power(np.percentile(coa_data[coaString].iloc[inds[ii]:inde[ii]],95),self.dynamic_offset[1])
             self.coa_data["Th"] = correctedThreshold
-            coa_data = coa_data[np.greater_equal(coa_data[coaString],correctedThreshold)]
-            #import pdb; pdb.set_trace()
+            coa_data = coa_data[np.greater(coa_data[coaString],correctedThreshold)]
             coa_data = coa_data[(coa_data["DT"] >= start_time) &
                 (coa_data["DT"] <= end_time)]
             #import pdb; pdb.set_trace()

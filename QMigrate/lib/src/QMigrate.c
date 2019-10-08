@@ -1,5 +1,6 @@
 
 #include <stdint.h>
+#include <math.h>
 
 #ifndef _OPENMP
     #define STRING2(x) #x
@@ -28,13 +29,16 @@
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
 
-EXPORT void scan4d(double *sigPt, int32_t *indPt, double *mapPt, int32_t fsmp, int32_t lsmp, int32_t nsamp, int32_t nstation, int64_t ncell, int64_t threads)
+EXPORT void scan4d(double *sigPt, int32_t *indPt, double *mapPt, int32_t fsmp, int32_t lsmp, int32_t nsamp, int32_t nstation, int64_t ncell, int64_t threads, int64_t samplingRate, int8_t modeT, int64_t dropTime)
 {
     double  *stnPt, *stkPt;
     int32_t *ttpPt;
     int32_t ttp, tend;
     int32_t to, tm, st;
     int64_t cell;
+    double attenuate = 1.0;
+    double dropTime_S = dropTime * 1.68;
+    int trueNstations = (int) nstation/2;
 
     /* omp_set_num_threads(threads); */
 
@@ -43,13 +47,44 @@ EXPORT void scan4d(double *sigPt, int32_t *indPt, double *mapPt, int32_t fsmp, i
     for (cell=0; cell<ncell; cell++)
     {
         stkPt = &mapPt[cell * (int64_t) nsamp];
-        ttpPt = &indPt[cell * (int64_t) nstation];
-        for(st=0; st<nstation; st++)
+        ttpPt = &indPt[cell * (int64_t) nstation]; //first half of stations are P, second half are S
+        for(st=0; st<trueNstations; st++)
         {
             ttp   = MAX(0,ttpPt[st]);
             stnPt = &sigPt[st*(fsmp + lsmp + nsamp) + ttp + fsmp];
+            if (modeT == 0)
+            {
+                attenuate = 1;
+                    if (((double)(ttp)/(double)samplingRate) > (double)dropTime)
+                    {
+                        attenuate = 0;
+                    }
+            }
+            if (modeT == 1)
+            {
+                attenuate = exp( -0.5 * ((double)(ttp) / (double)(samplingRate)) / (double)dropTime );
+            }
             for(tm=0; tm<nsamp; tm++)
-                stkPt[tm] += stnPt[tm];
+                stkPt[tm] += attenuate * stnPt[tm];
+        }
+        for(st=trueNstations; st<nstation; st++)
+        {
+            ttp   = MAX(0,ttpPt[st]);
+            stnPt = &sigPt[st*(fsmp + lsmp + nsamp) + ttp + fsmp];
+            if (modeT == 0)
+            {
+                attenuate = 1;
+                if (((double)(ttp)/(double)samplingRate) > (double)dropTime_S)
+                {
+                    attenuate = 0;
+                }
+            }
+            if (modeT == 1)
+            {
+                attenuate = exp( -0.5 * ((double)(ttp) / (double)(samplingRate)) / (double)dropTime );
+            }
+            for(tm=0; tm<nsamp; tm++)
+                stkPt[tm] += attenuate * stnPt[tm];
         }
     }
 }

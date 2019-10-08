@@ -199,10 +199,8 @@ class Archive(object):
             pre_pad = 0.
         if post_pad is None:
             post_pad = 0.
-
         samples = int(round((end_time - start_time) * sampling_rate + 1))
         files = self._load_from_path(start_time - pre_pad, end_time + post_pad)
-
         st = Stream()
         try:
             first = next(files)

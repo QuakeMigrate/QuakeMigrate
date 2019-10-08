@@ -723,18 +723,19 @@ class Grid3D(object):
             xmin, ymin, zmin = np.min(corners, axis=0)
             xmax, ymax, zmax = np.max(corners, axis=0)
 
-            if x < xmin:
-                x = np.array([xmin + self.cell_size[0] / 2])
-            if x > xmax:
-                x = np.array([xmax - self.cell_size[0] / 2])
-            if y < ymin:
-                y = np.array([ymin + self.cell_size[1] / 2])
-            if y > ymax:
-                y = np.array([ymax - self.cell_size[1] / 2])
-            if z < zmin:
-                z = np.array([zmin + self.cell_size[2] / 2])
-            if z > zmax:
-                z = np.array([zmax - self.cell_size[2] / 2])
+            #print(x < xmin)
+            if (x < xmin).any():
+                x[x < xmin] = np.array([xmin + self.cell_size[0] / 2])
+            if (x > xmax).any():
+                x[x > xmax] = np.array([xmax - self.cell_size[0] / 2])
+            if (y < ymin).any():
+                y[y < ymin] = np.array([ymin + self.cell_size[1] / 2])
+            if (y > ymax).any():
+                y[y > ymax] = np.array([ymax - self.cell_size[1] / 2])
+            if (z < zmin).any():
+                z[z < zmin] = np.array([zmin + self.cell_size[2] / 2])
+            if (z > zmax).any():
+                z[z > zmax] = np.array([zmax - self.cell_size[2] / 2])
 
             return np.array([x, y, z]).transpose()
         else:
@@ -879,6 +880,7 @@ class NonLinLoc:
         self.NLLoc_data = np.array(data).reshape(self.NLLoc_n[0],
                                                  self.NLLoc_n[1],
                                                  self.NLLoc_n[2])
+        #import pdb; pdb.set_trace() #BQL
 
     def nlloc_project_grid(self):
         """
@@ -931,7 +933,7 @@ class NonLinLoc:
 
 
         """
-
+        #import pdb; pdb.set_trace() ##BQL
         centre = self.NLLoc_org + self.NLLoc_size * (self.NLLoc_n - 1) / 2
         self.centre = centre * [1000, 1000, -1000]
         self.elevation = self.NLLoc_org[2] * -1000
@@ -1497,6 +1499,8 @@ class LUT(Grid3D, NonLinLoc):
 
             # Reading in P-wave
             self.nlloc_load_file("{}.P.{}.time".format(path, name))
+            # self.NLLoc_data = self.NLLoc_data[:,:,:100] ###BQL, delete later
+            # self.NLLoc_n[2] = 100 ##BQL, delete later
             if not regrid:
                 self.nlloc_project_grid()
             else:
@@ -1510,16 +1514,20 @@ class LUT(Grid3D, NonLinLoc):
                 except MemoryError:
                     msg = "P- and S-traveltime maps exceed available memory."
                     raise MemoryError(msg)
-
+            #import pdb; pdb.set_trace() ##BQL
             p_map[..., st] = self.NLLoc_data
 
             self.nlloc_load_file("{}.S.{}.time".format(path, name))
+            # self.NLLoc_data = self.NLLoc_data[:,:,:100] ###BQL, delete later
+            # self.NLLoc_n[2] = 100 ##BQL, delete later
+            
             if not regrid:
                 self.nlloc_project_grid()
             else:
                 self.nlloc_regrid(decimate)
 
             s_map[..., st] = self.NLLoc_data
+            
 
         self.maps = {"TIME_P": p_map,
                      "TIME_S": s_map}
@@ -1536,7 +1544,7 @@ class LUT(Grid3D, NonLinLoc):
         """
 
         with open(filename, "wb") as f:
-            pickle.dump(self.__dict__, f, 2)
+            pickle.dump(self.__dict__, f, 4) ##BQL, changed to pickle protocol 4
 
     def load(self, filename):
         """

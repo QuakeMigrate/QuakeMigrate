@@ -33,10 +33,10 @@ else:  # posix
 
 
 _qmigratelib.scan4d.argtypes = [c_dPt, c_i32Pt, c_dPt, c_int32, c_int32,
-                                c_int32, c_int32, c_int64, c_int64]
+                                c_int32, c_int32, c_int64, c_int64, c_int64,c_int8,c_int64]
 
 
-def migrate(sig, tt, fsmp, lsmp, nsamp, map4d, threads):
+def migrate(sig, tt, fsmp, lsmp, nsamp, map4d, threads, samplingRate,mode,dropTime): #edited by BQL: added sampling rate
     """
     Wrapper for the C-compiled scan4d function: computes 4-D coalescence map
     by back-migrating P and S onset functions.
@@ -79,7 +79,7 @@ def migrate(sig, tt, fsmp, lsmp, nsamp, map4d, threads):
         If the sig array is smaller than map4d[0, 0, 0, :]
 
     """
-
+    #import pdb; pdb.set_trace()
     nstn, ssmp = sig.shape
 
     if not tt.shape[-1] == nstn:
@@ -98,9 +98,21 @@ def migrate(sig, tt, fsmp, lsmp, nsamp, map4d, threads):
         msg = "Data array smaller than coalescence array."
         raise ValueError(msg)
 
+    modeT = 2
+
+    if mode == 'box':
+        modeT = 0
+    elif mode == 'expo':
+        modeT = 1
+    elif mode == 'none':
+        modeT = 2
+    else:
+        msg = "Please enter 'box','none' or 'expo' for distance decay"
+        raise ValueError(msg)
+    
     _qmigratelib.scan4d(sig, tt, map4d, c_int32(fsmp), c_int32(lsmp),
                         c_int32(nsamp), c_int32(nstn),  c_int64(tcell),
-                        c_int64(threads))
+                        c_int64(threads),c_int64(samplingRate),c_int8(modeT),c_int64(dropTime)) #BQL added sampling rate, and 2 distance dropoff settings
 
 
 _qmigratelib.detect4d.argtypes = [c_dPt, c_dPt, c_i64Pt, c_int32,

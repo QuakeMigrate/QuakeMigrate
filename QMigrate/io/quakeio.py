@@ -242,6 +242,8 @@ class QuakeIO:
         data["X"] = coa.select(station="X")[0].data / 1e6
         data["Y"] = coa.select(station="Y")[0].data / 1e6
         data["Z"] = coa.select(station="Z")[0].data / 1e3
+        if coa.select(station="Th"): 
+            data["Th"] = coa.select(station="Th")[0].data / 1e5 ##BQL
 
         return data, coa_stats
 
@@ -278,7 +280,13 @@ class QuakeIO:
                                      str(st[0].stats.starttime.julday).zfill(3))
         fname = (self.run / file_str).with_suffix(".scanmseed")
 
+        #try:
+        #import pdb; pdb.set_trace()
         st.write(str(fname), format="MSEED", encoding="STEIM2")
+        # except:
+        #     for tr in st:
+        #         tr.data = tr.data.clip(-2e30, 2e30)
+        #     st.write(str(fname), format="MSEED", encoding="STEIM2")
 
     def log(self, message, log):
         """
@@ -426,7 +434,10 @@ class QuakeIO:
         end_time : UTCDateTime object
 
         """
-        fname = self.run / "{}_TriggeredEvents".format(self.name)
+        fname = self.run / "{}_{}-{}_TriggeredEvents".format(self.name,
+                                                             start_time.julday,
+                                                             end_time.julday) #BQL replaced
+        #fname = self.run / "{}_TriggeredEvents".format(self.name)
         fname = str(fname.with_suffix(".csv"))
         events = pd.read_csv(fname)
 

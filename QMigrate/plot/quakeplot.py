@@ -142,7 +142,7 @@ class QuakePlot:
             self.cmap = "hot_r"
             self.line_station_color = "black"
             self.plot_stats = True
-            self.filtered_signal = True
+            self.filtered_signal = False
             self.xy_files = None
         else:
             try:
@@ -409,6 +409,7 @@ class QuakePlot:
         else:
             sidx = np.argsort(self.data.stations)[::-1]
 
+        #import pdb; pdb.set_trace() #BQL
         for i in range(self.data.signal.shape[1]):
             if not self.filtered_signal:
                 self._plot_signal_trace(trace, self.times,
@@ -457,6 +458,7 @@ class QuakePlot:
         trace.yaxis.tick_right()
         trace.yaxis.set_ticks(sidx + 1)
         trace.yaxis.set_ticklabels(self.data.stations)
+
         self.station_trace_vline = trace.axvline(dt_max.datetime, 0, 1000,
                                                  linestyle="--", linewidth=2,
                                                  color="r")

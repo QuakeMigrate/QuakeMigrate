@@ -52,6 +52,14 @@ class Trigger:
         detection_threshold : float, optional
             Coalescence value above which to trigger events
 
+        static_threshold : boolean
+            whether to use a static threshold, or dynamic based on current noise
+
+        dynamic_offset : [float, float]
+            float1 : number of minutes on which to calculate current noise, 
+            expressed as 99th percentile of coalescence stream
+            float2: number on which to vertically offset the dynamic threshold from the 99th percentile
+
         normalise_coalescence : bool, optional
             If True, use the max coalescence normalised by the average
             coalescence value in the 3-D grid at each time step
@@ -109,6 +117,8 @@ class Trigger:
         self.coa_data = None
 
         self.events = None
+
+        self.static_threshold = True
 
     def trigger(self, start_time, end_time, savefig=True):
         """
@@ -217,17 +227,41 @@ class Trigger:
         start_time = self.start_time - self.pad
         end_time = self.end_time + self.pad
 
-        # Mask based on first and final time stamps and detection threshold
-        if self.normalise_coalescence is True:
-            coa_data = self.coa_data[self.coa_data["COA_N"] >=
-                                     self.detection_threshold]
-            coa_data = coa_data[(coa_data["DT"] >= start_time) &
-                                (coa_data["DT"] <= end_time)]
+        if self.normalise_coalescence is True: ##
+            coaString = "COA_N" ##
         else:
-            coa_data = self.coa_data[self.coa_data["COA"] >=
+            coaString = "COA"
+
+        # Mask based on first and final time stamps and detection threshold
+        if self.static_threshold: #BQL
+
+
+            coa_data = self.coa_data[self.coa_data[coaString] >=
                                      self.detection_threshold]
             coa_data = coa_data[(coa_data["DT"] >= start_time) &
                                 (coa_data["DT"] <= end_time)]
+            self.coa_data["Th"]= np.ones(self.coa_data[coaString].shape)*self.detection_threshold
+
+        ### BQL ###
+        else: #dynamic threshold by splitting
+            coa_data = self.coa_data
+            tChunk = self.dynamic_offset[0] * 60 #n min chunks
+            nChunks = (len(coa_data[coaString]) / self.sampling_rate) / tChunk
+
+            inds = np.floor(np.linspace(0,len(coa_data[coaString]) - (tChunk*self.sampling_rate),nChunks)).astype(int)
+            inde = inds + (inds[1]-inds[0])
+            inde[-1] = len(coa_data[coaString]) 
+            correctedThreshold = np.zeros(coa_data[coaString].shape)
+            # import pdb; pdb.set_trace()
+            for ii in range(0,len(inds)):
+                correctedThreshold[inds[ii]:inde[ii]] = np.ones(correctedThreshold[inds[ii]:inde[ii]].shape)*(np.percentile(coa_data[coaString].iloc[inds[ii]:inde[ii]],99)*self.dynamic_offset[1])
+            self.coa_data["Th"] = correctedThreshold
+            coa_data = coa_data[np.greater_equal(coa_data[coaString],correctedThreshold)]
+            #import pdb; pdb.set_trace()
+            coa_data = coa_data[(coa_data["DT"] >= start_time) &
+                (coa_data["DT"] <= end_time)]
+            #import pdb; pdb.set_trace()
+        ### BQL ###
 
         coa_data = coa_data.reset_index(drop=True)
 
@@ -252,11 +286,15 @@ class Trigger:
                 while coa_data["DT"].iloc[d] + ss == coa_data["DT"].iloc[d + 1]:
                     d += 1
                     if d + 1 >= len(coa_data):
-                        d = len(coa_data)
+                        d = len(coa_data) - 1 #BQL change from "d = len(coa_data)" to "d = len(coa_data) - 1" 
                         break
                 min_idx = c
                 max_idx = d
-                val_idx = np.argmax(coa_data["COA"].iloc[np.arange(c, d + 1)])
+                #val_idx = np.argmax(coa_data["COA"].iloc[np.arange(c, d + 1)])
+                if self.normalise_coalescence is True:
+                    val_idx = np.argmax(coa_data["COA_N"].iloc[np.arange(c, d+1)]) 
+                else:
+                    val_idx = np.argmax(coa_data["COA"].iloc[np.arange(c, d+1)]) 
             except IndexError:
                 # Handling for last sample if it is a single sample above
                 # threshold
@@ -264,6 +302,7 @@ class Trigger:
 
             # Determining the times for min, max and max coalescence value
             t_min = coa_data["DT"].iloc[min_idx]
+            #import pdb; pdb.set_trace()
             t_max = coa_data["DT"].iloc[max_idx]
             t_val = coa_data["DT"].iloc[val_idx]
 

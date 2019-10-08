@@ -18,6 +18,7 @@ from scipy.signal import butter, lfilter, fftconvolve
 import QMigrate.core.model as qmod
 import QMigrate.core.QMigratelib as ilib
 import QMigrate.io.quakeio as qio
+import QMigrate.io.quakeML as qml
 import QMigrate.plot.quakeplot as qplot
 import QMigrate.util as util
 
@@ -324,6 +325,16 @@ class DefaultQuakeScan(object):
             map. File should contain two columns ["Longitude", "Latitude"].
             ** NOTE ** - do not include a header line in either file.
 
+        distDropoff : str, optional
+            Options for distance decay of onset:
+            'box' for sharp dropoff
+            'expo' for exponential decay
+            'none' for no dropoff (default)
+
+        maxDist : int, optional
+            time within which to apply Distance Dropoff. 
+            units of time for box, referring to time for P-wave to travel. 
+            units of (attenuation factor Q/angular frequency omega) for expo. We assume the Qp = Qs (for now)
         """
 
         # Filter parameters
@@ -378,6 +389,16 @@ class DefaultQuakeScan(object):
 
         # xy files for plotting
         self.xy_files = None
+
+        # Distance dropoff, default to none
+        self.distDropoff = 'none'
+        self.maxDist = 0
+
+        # Minimum number of stations required to compute coalescence
+        self.stationMin = 0
+
+        # Machine learning toolkit
+        self.GPD = True
 
 
 class QuakeScan(DefaultQuakeScan):
@@ -667,6 +688,10 @@ class QuakeScan(DefaultQuakeScan):
         # clip max value of COA to prevent int overflow
         max_coa[max_coa > 21474.] = 21474.
         max_coa_norm[max_coa_norm > 21474.] = 21474.
+        max_coa[max_coa < -21474.] = -21474. #BQL
+        max_coa_norm[max_coa_norm < -21474.] = -21474. #BQL
+        dThreshold = np.zeros(max_coa.shape) #BQL
+
 
         npts = len(max_coa)
         starttime = UTCDateTime(daten[0])
@@ -685,6 +710,8 @@ class QuakeScan(DefaultQuakeScan):
                            header={**{"station": "Y"}, **meta}))
         st += Stream(Trace(data=np.round(loc[:, 2] * 1e3).astype(np.int32),
                            header={**{"station": "Z"}, **meta}))
+        st += Stream(Trace(data=np.round(dThreshold * 1e5).astype(np.int32), #BQL
+                           header={**{"station": "Th"}, **meta}))
 
         if coastream is not None:
             coastream = coastream + st
@@ -920,12 +947,13 @@ class QuakeScan(DefaultQuakeScan):
             out_str = "{}_{}".format(self.output.name, event_uid)
             self.output.log(timer(), self.log)
 
-            # Make phase picks
+            # # Make phase picks
             timer = util.Stopwatch()
             self.output.log("\tMaking phase picks...", self.log)
             phase_picks = self._phase_picker(event_max_coa)
             self.output.write_picks(phase_picks["Pick"], event_uid)
             self.output.log(timer(), self.log)
+            # phase_picks={}
 
             # Determining earthquake location error
             timer = util.Stopwatch()
@@ -947,6 +975,8 @@ class QuakeScan(DefaultQuakeScan):
                                  columns=self.EVENT_FILE_COLS)
 
             self.output.write_event(event, event_uid)
+
+            self.output.write_cut_waveforms(self.data, event, event_uid, data_format="MSEED",pre_cut = 5, post_cut = 30) #BQL
 
             self._optional_locate_outputs(event_mw_data, event, out_str,
                                           phase_picks, event_uid, map_4d)
@@ -1013,7 +1043,7 @@ class QuakeScan(DefaultQuakeScan):
         self.data.read_waveform_data(w_beg, w_end, self.sampling_rate, pre_pad,
                                      post_pad)
 
-    def _compute(self, w_beg, w_end, signal, station_availability):
+    def _compute(self, w_beg, w_end, signal, station_availability): 
         """
         Compute 3-D coalescence between two time stamps.
 
@@ -1031,6 +1061,9 @@ class QuakeScan(DefaultQuakeScan):
 
         station_availability : array-like
             List of available stations
+        
+        stationMin
+            Minimum number of stations for coa to be calculated. coa values set to 0 otherwise
 
         Returns
         -------
@@ -1052,14 +1085,28 @@ class QuakeScan(DefaultQuakeScan):
         """
 
         avail_idx = np.where(station_availability == 1)[0]
+        #import pdb; pdb.set_trace()
         sige = signal[0]
         sign = signal[1]
         sigz = signal[2]
+        #import pdb; pdb.set_trace()
 
-        p_onset_raw, p_onset = self._compute_p_onset(sigz,
-                                                     self.sampling_rate)
-        s_onset_raw, s_onset = self._compute_s_onset(sige, sign,
-                                                     self.sampling_rate)
+        if self.GPD == True:
+
+            gpd = qml.GPD(signal,self.sampling_rate,0.05)
+            gpd.compute_onset()
+            p_onset     = gpd.onset[0,...]
+            p_onset_raw = gpd.onset[0,...]
+            s_onset     = gpd.onset[1,...]
+            s_onset_raw = gpd.onset[1,...]
+
+        else:
+            p_onset_raw, p_onset = self._compute_p_onset(sigz,
+                                                         self.sampling_rate)
+            s_onset_raw, s_onset = self._compute_s_onset(sige, sign,
+                                                         self.sampling_rate)
+
+
         self.data.p_onset = p_onset
         self.data.s_onset = s_onset
         self.data.p_onset_raw = p_onset_raw
@@ -1082,27 +1129,63 @@ class QuakeScan(DefaultQuakeScan):
         # Prep empty 4-D coalescence map and run C-compiled ilib.migrate()
         ncell = tuple(self.lut.cell_count)
         map_4d = np.zeros(ncell + (nsamp,), dtype=np.float64)
-        ilib.migrate(ps_onset, ttime, pre_smp, pos_smp, nsamp, map_4d,
-                     self.n_cores)
+
+        if len(avail_idx)>=self.stationMin: #BQL, only populate if enough stations
+            ilib.migrate(ps_onset, ttime, pre_smp, pos_smp, nsamp, map_4d,
+                     self.n_cores,self.sampling_rate,self.distDropoff,self.maxDist) #edited by BQL to include sampling rate and distance dropoff
 
         # Prep empty coa and loc arrays and run C-compiled ilib.find_max_coa()
         max_coa = np.zeros(nsamp, np.double)
+        max_coa_norm = max_coa
         grid_index = np.zeros(nsamp, np.int64)
-        ilib.find_max_coa(map_4d, max_coa, grid_index, 0, nsamp, self.n_cores)
 
-        # Get max_coa_norm
-        sum_coa = np.sum(map_4d, axis=(0, 1, 2))
-        max_coa_norm = max_coa / sum_coa
-        max_coa_norm = max_coa_norm * map_4d.shape[0] * map_4d.shape[1] * \
-                       map_4d.shape[2]
+        if len(avail_idx)>=self.stationMin: #BQL, only populate if enough stations
+            ilib.find_max_coa(map_4d, max_coa, grid_index, 0, nsamp, self.n_cores)
 
+            # Get max_coa_norm
+            sum_coa = np.sum(map_4d, axis=(0, 1, 2))
+            max_coa_norm = max_coa / sum_coa
+            max_coa_norm = max_coa_norm * map_4d.shape[0] * map_4d.shape[1] * \
+                           map_4d.shape[2]
+
+
+            #import pdb; pdb.set_trace()
+            ##BQL implement normalise by number of stations properly if distance dropoff used
+            if self.distDropoff == 'none':
+                # Calculate max_coa (with correction for number of stations)
+                max_coa = np.exp((max_coa / (len(avail_idx) * 2)))# - 1.0) 
+            else: #if distance dropoff is applied, need to calculate actual number of stations used in the calculation
+                station_totalWeight = 0
+                origin_index = grid_index[np.argmax(max_coa)]
+                if self.distDropoff == 'box':
+                    for avail_station in avail_idx:
+                        #calculate for P
+                        temp = np.array(self.lut.fetch_map('TIME_P')[:,:,:,avail_station]).flatten()
+                        tempTT = temp[origin_index]
+                        if (tempTT < self.maxDist):
+                            station_totalWeight = station_totalWeight + 1
+                        #calculate for S
+                        temp = np.array(self.lut.fetch_map('TIME_S')[:,:,:,avail_station]).flatten()
+                        tempTT = temp[origin_index]
+                        if (tempTT < self.maxDist*1.68):
+                            station_totalWeight = station_totalWeight + 1   
+
+                if self.distDropoff == 'expo':
+                    for avail_station in avail_idx:
+                        temp = np.array(self.lut.fetch_map('TIME_P')[:,:,:,avail_station]).flatten()
+                        tempTT = temp[origin_index]
+                        station_totalWeight = station_totalWeight + np.exp(-0.5 / self.maxDist * tempTT)
+                        temp = np.array(self.lut.fetch_map('TIME_S')[:,:,:,avail_station]).flatten()
+                        tempTT = temp[origin_index]
+                        station_totalWeight = station_totalWeight + np.exp(-0.5 / self.maxDist * tempTT)
+                max_coa = np.exp(max_coa / station_totalWeight)
+                print(station_totalWeight)
+
+        #import pdb; pdb.set_trace()
         tmp = np.arange(w_beg + self.pre_pad,
                         w_end - self.post_pad + (1 / self.sampling_rate),
                         1 / self.sampling_rate)
         daten = [x.datetime for x in tmp]
-
-        # Calculate max_coa (with correction for number of stations)
-        max_coa = np.exp((max_coa / (len(avail_idx) * 2)) - 1.0)
 
         loc = self.lut.xyz2index(grid_index, inverse=True)
 
@@ -1197,6 +1280,18 @@ class QuakeScan(DefaultQuakeScan):
         self.onset_data["sigs"] = s_onset
 
         return s_onset_raw, s_onset
+
+
+    def _compute_GPD(signal,sampling_rate,TrainedPath):
+        '''
+            
+
+
+        '''
+
+
+
+
 
     def _gaussian_picker(self, onset, phase, start_time, p_arr, s_arr, ptt,
                          stt):
@@ -1320,14 +1415,21 @@ class QuakeScan(DefaultQuakeScan):
         onset_threshold = onset.copy()
         onset_threshold[P_idxmin:P_idxmax] = -1
         onset_threshold[S_idxmin:S_idxmax] = -1
-        onset_threshold = onset_threshold[onset_threshold > -1]
-
-        # Calculate the pick threshold: either user-specified percentile of
-        # data outside pick windows, or 88th percentile within the relevant
-        # pick window (whichever is bigger).
-        threshold = np.percentile(onset_threshold, self.pick_threshold * 100)
-        threshold_window = np.percentile(onset_trim, 88)
-        threshold = np.max([threshold, threshold_window])
+        onset_threshold = onset_threshold[~np.isnan(onset_threshold)] #BQL
+        onset_threshold = onset_threshold[~np.isinf(onset_threshold)] #BQL
+        if len(onset_threshold) > 0:
+            onset_threshold = onset_threshold[onset_threshold > -1] ##this line can be problematic sometimes
+        if len(onset_threshold) > 0: #BQL, sometimes onset_threshold is empty
+            #print(onset_threshold)
+  
+            # Calculate the pick threshold: either user-specified percentile of
+            # data outside pick windows, or 88th percentile within the relevant
+            # pick window (whichever is bigger).
+            threshold = np.percentile(onset_threshold, self.pick_threshold * 100)
+            threshold_window = np.percentile(onset_trim, 88)
+            threshold = np.max([threshold, threshold_window])
+        else:
+            threshold = np.percentile(onset_trim, 88)
 
         # Remove data within the pick window that is lower than the threshold
         tmp = (onset_trim - threshold).any() > 0
@@ -2097,7 +2199,4 @@ class QuakeScan(DefaultQuakeScan):
             self.output.write_coal4D(map_4d, event_uid, t_beg, t_end)
             self.output.log(timer(), self.log)
 
-        # only delete the quake_plot instance if it is initialised
-        if self.plot_event_summary or self.plot_station_traces or \
-           self.plot_coal_video:
-            del quake_plot
+        del quake_plot

@@ -6,7 +6,6 @@ dependencies:
   - ffmpeg=3.4.1*=2
   - ipython
   - jupyter
-  - libgcc-ng
   - matplotlib
   - numpy
   - obspy
@@ -14,7 +13,7 @@ dependencies:
   - pip
   - pyqt
   - python
-  - scipy
+  - scipy>=1.1
   - pyproj
   - pip:
     - cython==0.24.1

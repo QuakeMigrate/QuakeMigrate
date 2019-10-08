@@ -8,11 +8,13 @@ Module to plot the triggered events on a decimated grid.
 import os
 
 import matplotlib
-try:
-    os.environ["DISPLAY"]
-    matplotlib.use("Qt5Agg")
-except KeyError:
-    matplotlib.use("Agg")
+from sys import platform
+if not platform == 'darwin':
+    try:
+        os.environ["DISPLAY"]
+        matplotlib.use("Qt5Agg")
+    except KeyError:
+        matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 from obspy import UTCDateTime

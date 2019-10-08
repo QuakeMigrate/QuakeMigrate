@@ -71,8 +71,11 @@ def find_packages():
     modules = []
     for dirpath, _, filenames in os.walk(os.path.join(SETUP_DIRECTORY,
                                                       "QMigrate")):
+        print(dirpath)
+        print(filenames)
         if "__init__.py" in filenames:
             modules.append(os.path.relpath(dirpath, SETUP_DIRECTORY))
+    print(modules)
     return [_i.replace(os.sep, ".") for _i in modules]
 
 

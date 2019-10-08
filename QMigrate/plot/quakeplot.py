@@ -12,11 +12,13 @@ from obspy import UTCDateTime
 import pandas as pd
 import numpy as np
 import matplotlib
-try:
-    os.environ["DISPLAY"]
-    matplotlib.use("Qt5Agg")
-except KeyError:
-    matplotlib.use("Agg")
+from sys import platform
+if not platform == 'darwin':
+    try:
+        os.environ["DISPLAY"]
+        matplotlib.use("Qt5Agg")
+    except KeyError:
+        matplotlib.use("Agg")
 import matplotlib.pylab as plt
 from matplotlib.patches import Ellipse
 import matplotlib.image as mpimg

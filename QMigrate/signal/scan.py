@@ -175,7 +175,7 @@ class QuakeScan(DefaultQuakeScan):
 
     def __init__(self, data, lut, onset, picker=None, output_path=None,
                  run_name=None, get_amplitudes=True, do_mag_calc=False, 
-                 quick_amplitudes=False, log=False):
+                 quick_amplitudes=False, get_polarities=True, log=False):
         """
         Class initialisation method.
 
@@ -231,6 +231,11 @@ class QuakeScan(DefaultQuakeScan):
             self.picker.output = self.output
         else:
             raise util.PickerTypeError
+
+        if get_polarities:
+            self.polarity = True
+        else:
+            self.polarity = False
 
         self.log = log
         
@@ -692,9 +697,12 @@ class QuakeScan(DefaultQuakeScan):
             # Make phase picks
             timer = util.Stopwatch()
             self.output.log("\tMaking phase picks...", self.log)
-            self.picker.pick_phases(self.data, event_max_coa)
+            self.picker.pick_phases(self.data, event_max_coa, 
+                                    do_pol=self.polarity)
             self.picker.write_picks(event_uid)
             self.output.log(timer(), self.log)
+
+            
 
             # Determining earthquake location error
             timer = util.Stopwatch()
@@ -709,7 +717,7 @@ class QuakeScan(DefaultQuakeScan):
                                     (loc_gau[0], loc_gau[1], loc_gau[2]))
                 self.output.write_amplitudes(amps, event_uid)
             
-            if self.mag_calc:
+            if self.amplitudes and self.mag_calc:
                 self.output.log("\tCalculating magnitude...", self.log)
                 mags = calculate_magnitudes(amps, self.magnitude_parameters)
                 self.output.write_amplitudes(mags, event_uid)
@@ -775,11 +783,11 @@ class QuakeScan(DefaultQuakeScan):
         while i < int(npicks * 2):
             station = pdata['Name'].values[i]
             if (i) % 10 == 8:
-                print('{:6}'.format(station))
+                print('{:6}'.format(station), flush=True)
             elif (i) % 10 == 0:
-                print('\t{:6}'.format(station), end=' ')
+                print('\t{:6}'.format(station), end=' ', flush=True)
             else:
-                print('{:6}'.format(station), end=' ')
+                print('{:6}'.format(station), end=' ', flush=True)
             assert self.lut.station_data['Name'].values[i//2] == station
             stla = self.lut.station_data['Latitude'].values[i//2]
             stlo = self.lut.station_data['Longitude'].values[i//2]

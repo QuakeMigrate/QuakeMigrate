@@ -12,6 +12,7 @@ import pandas as pd
 from scipy.optimize import curve_fit
 
 import QMigrate.signal.pick.pick as qpick
+from QMigrate.signal.polarity.autopol import obspy_trace_fn
 import QMigrate.util as util
 
 
@@ -88,7 +89,7 @@ class GaussianPicker(qpick.PhasePicker):
 
         return out
 
-    def pick_phases(self, waveform_data, event):
+    def pick_phases(self, waveform_data, event, do_pol=True):
         """
         Picks phase arrival times for located earthquakes.
 
@@ -125,7 +126,8 @@ class GaussianPicker(qpick.PhasePicker):
         # Determining the stations that can be picked on and the phases
         picks = pd.DataFrame(index=np.arange(0, 2 * len(self.data.p_onset)),
                              columns=["Name", "Phase", "ModelledTime",
-                                      "PickTime", "PickError", "SNR"])
+                                      "PickTime", "PickError", "SNR", 
+                                      "pPosPol", "pNegPol"])
 
         p_gauss = np.array([])
         s_gauss = np.array([])
@@ -145,14 +147,36 @@ class GaussianPicker(qpick.PhasePicker):
                 gau, max_onset, err, mn = self._gaussian_picker(
                     onset, phase, self.data.start_time, p_arrival,
                     s_arrival, self.p_ttime[i], self.s_ttime[i])
+                
+                print('helpme', mn, err)
 
+                pPos, pNeg = 0., 0.
                 if phase == "P":
                     p_gauss = np.hstack([p_gauss, gau])
+
+                    if mn > 0.:
+                        wf = self.data.raw_waveforms.copy().select(station=self.lut.station_data["Name"][i],
+                                                                    channel='*Z')
+                        assert len(wf) == 1
+                        wf = wf[0]
+                        wf.detrend('linear')
+                        wf.taper(type='cosine', max_percentage=0.05)
+                        # wf.filter('highpass', freq=0.5)
+                        print(wf)
+                        print(self.lut.station_data["Name"][i])
+                        print(mn, err)
+                        noise = wf.slice(wf.stats.starttime, mn)
+                        noise_std = noise.data.std()
+                        pPos, pNeg = obspy_trace_fn(wf, mn, noise_std, err,
+                                                    time_pdf='gaussian',
+                                                    return_all=False)
+                        print(pPos, pNeg)
                 else:
                     s_gauss = np.hstack([s_gauss, gau])
 
                 picks.iloc[idx] = [self.lut.station_data["Name"][i],
-                                   phase, arrival, mn, err, max_onset]
+                                   phase, arrival, mn, err, max_onset,
+                                   pPos, pNeg]
                 idx += 1
 
         phase_picks = {}

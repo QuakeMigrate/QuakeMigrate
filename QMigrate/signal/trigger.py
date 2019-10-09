@@ -255,7 +255,9 @@ class Trigger:
             correctedThreshold = np.zeros(coa_data[coaString].shape)
 
             for ii in range(0,len(inds)):
-                correctedThreshold[inds[ii]:inde[ii]] = np.ones(correctedThreshold[inds[ii]:inde[ii]].shape)*np.power(np.percentile(coa_data[coaString].iloc[inds[ii]:inde[ii]],95),self.dynamic_offset[1])
+                #import pdb; pdb.set_trace()
+                correctedThreshold[inds[ii]:inde[ii]] = np.ones(correctedThreshold[inds[ii]:inde[ii]].shape)*(1+coa_data[coaString].iloc[inds[ii]:inde[ii]].mad()*self.dynamic_offset[1])
+                #correctedThreshold[inds[ii]:inde[ii]] = np.ones(correctedThreshold[inds[ii]:inde[ii]].shape)*np.power(np.percentile(coa_data[coaString].iloc[inds[ii]:inde[ii]],95),self.dynamic_offset[1])
             self.coa_data["Th"] = correctedThreshold
             coa_data = coa_data[np.greater(coa_data[coaString],correctedThreshold)]
             coa_data = coa_data[(coa_data["DT"] >= start_time) &

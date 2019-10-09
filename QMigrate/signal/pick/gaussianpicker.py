@@ -147,8 +147,6 @@ class GaussianPicker(qpick.PhasePicker):
                 gau, max_onset, err, mn = self._gaussian_picker(
                     onset, phase, self.data.start_time, p_arrival,
                     s_arrival, self.p_ttime[i], self.s_ttime[i])
-                
-                print('helpme', mn, err)
 
                 pPos, pNeg = 0., 0.
                 if phase == "P":
@@ -162,15 +160,11 @@ class GaussianPicker(qpick.PhasePicker):
                         wf.detrend('linear')
                         wf.taper(type='cosine', max_percentage=0.05)
                         # wf.filter('highpass', freq=0.5)
-                        print(wf)
-                        print(self.lut.station_data["Name"][i])
-                        print(mn, err)
                         noise = wf.slice(wf.stats.starttime, mn)
                         noise_std = noise.data.std()
                         pPos, pNeg = obspy_trace_fn(wf, mn, noise_std, err,
                                                     time_pdf='gaussian',
                                                     return_all=False)
-                        print(pPos, pNeg)
                 else:
                     s_gauss = np.hstack([s_gauss, gau])
 

@@ -11,7 +11,13 @@ import pandas as pd
 import QMigrate.io.quakeio as qio
 import QMigrate.plot.triggered_events as tplot
 
-
+def mad(data, axis=None):
+    m = np.mean(data, axis)
+    return np.mean(np.absolute(data - m[:, None]), axis), m
+def chunks_to_trace(a, new_shape):
+    b = np.broadcast_to(a[:, None], new_shape)
+    b = np.reshape(b, np.product(new_shape))
+    return b
 class Trigger:
     """
     QuakeMigrate triggering class
@@ -26,7 +32,7 @@ class Trigger:
 
     """
 
-    def __init__(self, output_path, output_name, stations, log=False):
+    def __init__(self, output_path, output_name, stations, log=False, dynamic_thresh=False):
         """
         Class initialisation method.
 
@@ -90,7 +96,12 @@ class Trigger:
         self.end_time = None
 
         # Detection threshold above which to trigger events
-        self.detection_threshold = 1.5
+        if not dynamic_thresh:
+            self.detection_threshold = 1.5
+        else:
+            self.detection_threshold = 'dynamic'
+            self.mad_window_length = 3600. # 1 hour
+            self.mad_multiplier = 6.
 
         # Trigger from normalised max coalescence through time
         self.normalise_coalescence = True
@@ -145,14 +156,24 @@ class Trigger:
         msg += "         End   time                = {}\n"
         msg += "         Pre/post pad              = {} s\n\n"
         msg += "         Detection threshold       = {}\n"
+        if self.detection_threshold == 'dynamic':
+            msg += "         MAD Window                = {}\n"
+            msg += "         MAD Multiplier            = {}\n"
         msg += "         Marginal window           = {} s\n"
         msg += "         Minimum repeat            = {} s\n\n"
         msg += "         Trigger from normalised coalescence - {}\n\n"
         msg += "=" * 120
-        msg = msg.format(str(self.start_time), str(self.end_time),
-                         str(self.pad), self.detection_threshold,
-                         self.marginal_window, self.minimum_repeat,
-                         self.normalise_coalescence)
+        if self.detection_threshold == 'dynamic':
+            msg = msg.format(str(self.start_time), str(self.end_time),
+                            str(self.pad), self.detection_threshold,
+                            self.mad_window_length, self.mad_multiplier,
+                            self.marginal_window, self.minimum_repeat,
+                            self.normalise_coalescence)  
+        else:
+            msg = msg.format(str(self.start_time), str(self.end_time),
+                            str(self.pad), self.detection_threshold,
+                            self.marginal_window, self.minimum_repeat,
+                            self.normalise_coalescence)
         self.output.log(msg, self.log)
 
         self.output.log("    Reading in scanmseed...\n", self.log)
@@ -189,7 +210,7 @@ class Trigger:
         tplot.triggered_events(events=self.events, start_time=self.start_time,
                                end_time=self.end_time, output=self.output,
                                marginal_window=self.marginal_window,
-                               detection_threshold=self.detection_threshold,
+                               detection_threshold=self.threshold,
                                normalise_coalescence=self.normalise_coalescence,
                                log=self.log, data=self.coa_data,
                                region=self.region, stations=self.stations, savefig=savefig)
@@ -219,17 +240,29 @@ class Trigger:
         start_time = self.start_time - self.pad
         end_time = self.end_time + self.pad
 
-        # Mask based on first and final time stamps and detection threshold
-        if self.normalise_coalescence is True:
-            coa_data = self.coa_data[self.coa_data["COA_N"] >=
-                                     self.detection_threshold]
-            coa_data = coa_data[(coa_data["DT"] >= start_time) &
-                                (coa_data["DT"] <= end_time)]
+        # grab the correct coalesence trace
+        if self.normalise_coalescence:
+            coa_in = self.coa_data["COA_N"]
         else:
-            coa_data = self.coa_data[self.coa_data["COA"] >=
-                                     self.detection_threshold]
-            coa_data = coa_data[(coa_data["DT"] >= start_time) &
-                                (coa_data["DT"] <= end_time)]
+            coa_in = self.coa_data["COA"]
+
+        # calculate the dynamic threshold - if required
+        if self.detection_threshold == 'dynamic':
+            breaks = np.array(range(len(coa_in)))
+            breaks = breaks[breaks % int(self.mad_window_length * self.sampling_rate) == 0][1:]
+            # split the data in window_length chunks
+            chunks = np.array(np.split(coa_in, breaks))
+            mad_chunks, mean_chunks = mad(chunks, axis=1)
+            mad_trace = chunks_to_trace(mad_chunks, chunks.shape)
+            mean_trace = chunks_to_trace(mean_chunks, chunks.shape)
+            self.threshold = mean_trace + (mad_trace * self.mad_multiplier)
+        else:
+            self.threshold = np.zeros_like(coa_in) + self.detection_threshold
+
+        # Mask based on first and final time stamps and detection threshold
+        coa_data = self.coa_data[coa_in >= self.threshold]
+        coa_data = coa_data[(coa_data["DT"] >= start_time) &
+                            (coa_data["DT"] <= end_time)]
 
         coa_data = coa_data.reset_index(drop=True)
 

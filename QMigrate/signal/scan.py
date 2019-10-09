@@ -14,6 +14,8 @@ from obspy.geodetics.base import gps2dist_azimuth
 import pandas as pd
 from scipy.interpolate import Rbf
 from scipy.signal import fftconvolve, find_peaks
+from matplotlib import pyplot as plt
+from obspy.signal.filter import envelope
 
 import QMigrate.core.QMigratelib as ilib
 import QMigrate.io.quakeio as qio
@@ -844,10 +846,14 @@ class QuakeScan(DefaultQuakeScan):
                     windows = [[picks[0][0], picks[1][0] - 1.],
                         [picks[1][0] - 1., picks[1][0] + self.amplitude_parameters['noise_win']]]
 
+
                 amplitudes[row + j, 0:2] = edist, zdist
                 k = 2
                 for stime, etime in windows:
-                    data = tr.slice(stime, etime)
+                    # add 5% for tapering
+                    tot_window_5 = (etime - stime) / 20.
+                    data = tr.slice(stime - tot_window_5, 
+                                    etime + tot_window_5)
                 
                     famp, aprx_f = self._peak_to_trough_amplitude(data)
 
@@ -888,8 +894,20 @@ class QuakeScan(DefaultQuakeScan):
             prom_mult = self.amplitude_parameters['prominence_multiplier']
         except KeyError:
             prom_mult = 0.
+
+        trace.detrend('linear')
+        trace.taper(0.05)
+
+        # plt.figure()
+        # plt.plot(trace.data, 'k-')
+        # env = envelope(trace.data)
+        # plt.plot(env, 'k:')
+        # plt.plot(-env, 'k:')
+        
         peaks, _ = find_peaks(trace.data, prominence=prom_mult * np.max(np.abs(trace.data)))
         troughs, _ = find_peaks(-trace.data, prominence=prom_mult * np.max(np.abs(trace.data)))        
+        # plt.plot(peaks, trace.data[peaks], 'ro')
+        # plt.plot(troughs, trace.data[troughs], 'bo')
 
         if len(peaks) == 0 or len(troughs) == 0:
             return -9.9, -9.9
@@ -960,6 +978,11 @@ class QuakeScan(DefaultQuakeScan):
         peak_t = trace.times()[peaks[pos]]
         trough_t = trace.times()[troughs[pos]]
         approx_freq = 1. / (np.abs(peak_t - trough_t) * 2.) 
+
+        # plt.plot(peaks[pos], trace.data[peaks[pos]], 'gs')
+        # plt.plot(troughs[pos], trace.data[troughs[pos]], 'gs')
+        # print(full_amp, np.max(env))
+        # plt.show()
 
         return full_amp / 2., approx_freq
 

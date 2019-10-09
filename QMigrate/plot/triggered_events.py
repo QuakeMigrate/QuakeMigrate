@@ -154,11 +154,13 @@ def triggered_events(events, start_time, end_time, output, marginal_window,
 
     if events is not None:
         if normalise_coalescence:
-            coa_norm.axhline(detection_threshold, c="g",
-                             label="Detection threshold")
+            # coa_norm.axhline(detection_threshold, c="g",
+            #                  label="Detection threshold")
+            coa_norm.plot(data["DT"], detection_threshold, 'g-')
         else:
-            coa_norm.axhline(detection_threshold, c="g",
-                             label="Detection threshold")
+            # coa_norm.axhline(detection_threshold, c="g",
+            #                  label="Detection threshold")
+            coa.plot(data["DT"], detection_threshold, 'g-')
 
         # Plotting the scatter of the earthquake locations
         xy.scatter(events["COA_X"], events["COA_Y"], 50, events["COA_V"])

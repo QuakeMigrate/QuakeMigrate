@@ -11,9 +11,68 @@ import pandas as pd
 import QMigrate.io.quakeio as qio
 import QMigrate.plot.triggered_events as tplot
 
-def mad(data, axis=None):
-    m = np.mean(data, axis)
-    return np.mean(np.absolute(data - m[:, None]), axis), m
+def _contains_nan(a, nan_policy='propagate'):
+    policies = ['propagate', 'raise', 'omit']
+    if nan_policy not in policies:
+        raise ValueError("nan_policy must be one of {%s}" %
+                         ', '.join("'%s'" % s for s in policies))
+    try:
+        # Calling np.sum to avoid creating a huge array into memory
+        # e.g. np.isnan(a).any()
+        with np.errstate(invalid='ignore'):
+            contains_nan = np.isnan(np.sum(a))
+    except TypeError:
+        # This can happen when attempting to sum things which are not
+        # numbers (e.g. as in the function `mode`). Try an alternative method:
+        try:
+            contains_nan = np.nan in set(a.ravel())
+        except TypeError:
+            # Don't know what to do. Fall back to omitting nan values and
+            # issue a warning.
+            contains_nan = False
+            nan_policy = 'omit'
+            warnings.warn("The input array could not be properly checked for nan "
+                          "values. nan values will be ignored.", RuntimeWarning)
+
+    if contains_nan and nan_policy == 'raise':
+        raise ValueError("The input contains nan values")
+
+    return (contains_nan, nan_policy)
+
+def mad(x, axis=0, center=np.median, scale=1.4826,
+                              nan_policy='propagate'):
+
+    # from scipy v1.3 source
+    x = np.asarray(x)
+
+    # Consistent with `np.var` and `np.std`.
+    if not x.size:
+        return np.nan
+
+    contains_nan, nan_policy = _contains_nan(x, nan_policy)
+
+    if contains_nan and nan_policy == 'propagate':
+        return np.nan
+
+    if contains_nan and nan_policy == 'omit':
+        # Way faster than carrying the masks around
+        arr = np.ma.masked_invalid(x).compressed()
+    else:
+        arr = x
+
+    if axis is None:
+        med = center(arr)
+        mad = np.median(np.abs(arr - med))
+    else:
+        med = np.apply_over_axes(center, arr, axis)
+        mad = np.median(np.abs(arr - med), axis=axis)
+
+    return scale * mad
+
+def mad_chunk(chunks, axis=None):
+    mads = np.asarray([mad(chunk, scale=1.) for chunk in chunks])
+    means = np.asarray([np.mean(chunk) for chunk in chunks])
+    return mads, means
 def chunks_to_trace(a, new_shape):
     b = np.broadcast_to(a[:, None], new_shape)
     b = np.reshape(b, np.product(new_shape))
@@ -251,10 +310,14 @@ class Trigger:
             breaks = np.array(range(len(coa_in)))
             breaks = breaks[breaks % int(self.mad_window_length * self.sampling_rate) == 0][1:]
             # split the data in window_length chunks
-            chunks = np.array(np.split(coa_in, breaks))
-            mad_chunks, mean_chunks = mad(chunks, axis=1)
-            mad_trace = chunks_to_trace(mad_chunks, chunks.shape)
-            mean_trace = chunks_to_trace(mean_chunks, chunks.shape)
+            chunks = np.split(coa_in.values, breaks)
+            mad_values, mean_values = mad_chunk(chunks)
+            mad_trace = chunks_to_trace(mad_values, (len(chunks), len(chunks[0])))
+            mean_trace = chunks_to_trace(mean_values, (len(chunks), len(chunks[0])))
+            print(mad_trace.shape, coa_in.values.shape)
+            mad_trace = mad_trace[:len(coa_in)]
+            mean_trace = mean_trace[:len(coa_in)]
+            print(mad_trace.shape, mean_trace.shape)
             self.threshold = mean_trace + (mad_trace * self.mad_multiplier)
         else:
             self.threshold = np.zeros_like(coa_in) + self.detection_threshold

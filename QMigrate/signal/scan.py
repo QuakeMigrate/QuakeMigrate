@@ -783,6 +783,7 @@ class QuakeScan(DefaultQuakeScan):
         row = 0
         index = []
         while i < int(npicks * 2):
+            faff = 0
             station = pdata['Name'].values[i]
             if (i) % 10 == 8:
                 print('{:6}'.format(station), flush=True)
@@ -818,6 +819,7 @@ class QuakeScan(DefaultQuakeScan):
             zdist = evdp + stel
 
             st = self.data.raw_waveforms.copy().select(station=station)
+            st.merge(method=1, fill_value='interpolate')
             if len(st) == 0:
                 i += 2
                 for chan in ['N', 'E', 'Z']:
@@ -827,6 +829,20 @@ class QuakeScan(DefaultQuakeScan):
                     amplitudes[row, 7] = 0
                     row += 1
                 continue
+            elif len(st) == 3:
+                pass
+            elif len(st) < 3:
+                for chan in ['N', 'E', 'Z']:
+                    if len(st.select(channel='*'+chan)) == 0:
+                        print('No', chan, 'component')
+                        index += ['.' + station + '..' + chan]
+                        amplitudes[row, 0:2] = edist, zdist
+                        amplitudes[row, 2:7] = np.nan
+                        amplitudes[row, 7] = 0
+                        row += 1
+                        faff += 1
+            else:
+                print(st)
             
             if not self.quick_amps:
                 st.simulate(seedresp={'filename': dataless, 'units': "DIS"}, 
@@ -854,6 +870,11 @@ class QuakeScan(DefaultQuakeScan):
                     tot_window_5 = (etime - stime) / 20.
                     data = tr.slice(stime - tot_window_5, 
                                     etime + tot_window_5)
+                    if len(data) == 0 or np.all(data.data == 0.) or np.all(data.data == data.data.mean()):
+                        amplitudes[row + j, k] = np.nan
+                        amplitudes[row + j, k + 1] = np.nan
+                        k += 2
+                        continue
                 
                     famp, aprx_f = self._peak_to_trough_amplitude(data)
 
@@ -879,7 +900,8 @@ class QuakeScan(DefaultQuakeScan):
                 amplitudes[row + j, 7] = picked
             i += 2
             row += 3
-                
+            row -= faff
+        print(amplitudes.shape, len(index))
         amplitudes = pd.DataFrame(amplitudes, 
                         columns=['epi_dist', 'depth', 
                                 'P_amp', 'P_freq', 

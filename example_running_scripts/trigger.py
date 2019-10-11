@@ -29,6 +29,9 @@ trig.normalise_coalescence = True
 trig.marginal_window = 1.
 trig.minimum_repeat = 30.
 trig.detection_threshold = 1.75
+# if the detection threshold is set to 'dynamic'
+#trig.mad_window_length = 3600.
+#trig.mad_multiplier = 3.5
 
 # Run trigger
 trig.trigger(start_time, end_time, savefig=False)

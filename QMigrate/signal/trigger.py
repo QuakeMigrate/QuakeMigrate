@@ -131,7 +131,7 @@ class Trigger:
         # Convert times to UTCDateTime objects
         self.start_time = UTCDateTime(start_time)
         self.end_time = UTCDateTime(end_time)
-        self.region   = region
+        self.region = region
 
         if self.minimum_repeat < 2 * self.marginal_window:
             msg = "\tMinimum repeat must be >= 2 * marginal window."
@@ -338,8 +338,8 @@ class Trigger:
         # Remove events which occur in the pre-pad and post-pad:
         events = events[(events["CoaTime"] >= self.start_time) &
                         (events["CoaTime"] < self.end_time)]
-        
-        if self.region != None:
+
+        if self.region is not None:
             events = events[(events['COA_X'] >= self.region[0]) &
                             (events['COA_Y'] >= self.region[1]) &
                             (events['COA_Z'] >= self.region[2]) &

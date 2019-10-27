@@ -213,7 +213,6 @@ class ClassicSTALTAOnset(qonset.Onset):
         quality allows it. This is the default behaviour; override by
         setting this variable.
 
-
     Methods
     -------
     calculate_onsets()

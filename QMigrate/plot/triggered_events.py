@@ -69,8 +69,7 @@ def triggered_events(events, start_time, end_time, output, marginal_window,
     """
 
     if data is None:
-        data, coa_stats = output.read_coastream(start_time, end_time)
-        del coa_stats
+        data, _ = output.read_coastream(start_time, end_time)
 
     output.log("\n\tPlotting triggered events on decimated grid...", log)
     data["DT"] = pd.to_datetime(data["DT"].astype(str))
@@ -166,12 +165,12 @@ def triggered_events(events, start_time, end_time, output, marginal_window,
     xy.set_title("Decimated coalescence earthquake locations")
 
     yz.yaxis.tick_right()
-    yz.invert_xaxis()
     yz.yaxis.set_label_position("right")
     yz.set_ylabel("Latitude (deg)")
     yz.set_xlabel("Depth (m)")
 
     xz.yaxis.set_label_position("right")
+    xz.invert_yaxis()
     xz.set_xlabel("Longitude (deg)")
     xz.set_ylabel("Depth (m)")
 

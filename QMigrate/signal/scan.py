@@ -231,8 +231,7 @@ class QuakeScan(DefaultQuakeScan):
 
         # Get pre- and post-pad values from the onset class
         self.pre_pad = self.onset.pre_pad
-        ttmax = np.max(lut.fetch_map("TIME_S"))
-        self.onset.post_pad = ttmax
+        self.onset.post_pad = lut.max_ttime
         self.post_pad = self.onset.post_pad
 
         msg = ("=" * 120 + "\n") * 2
@@ -475,12 +474,9 @@ class QuakeScan(DefaultQuakeScan):
 
             try:
                 self.data.read_waveform_data(w_beg, w_end, self.sampling_rate)
-                daten, max_coa, max_coa_norm, loc, map_4d = self._compute(
-                                                          w_beg, w_end)
+                daten, max_coa, max_coa_norm, coord, _ = self._compute(
+                                                              w_beg, w_end)
                 stn_ava_data.loc[i] = self.data.availability
-                coord = self.lut.xyz2coord(loc)
-
-                del loc, map_4d
 
             except util.ArchiveEmptyException:
                 msg = "!" * 24 + " " * 16
@@ -608,9 +604,8 @@ class QuakeScan(DefaultQuakeScan):
             timer = util.Stopwatch()
             self.output.log("\tComputing 4D coalescence grid...", self.log)
 
-            daten, max_coa, max_coa_norm, loc, map_4d = self._compute(
-                                                      w_beg, w_end)
-            coord = self.lut.xyz2coord(np.array(loc).astype(int))
+            daten, max_coa, max_coa_norm, coord, map_4d = self._compute(
+                                                               w_beg, w_end)
             event_coa_data = pd.DataFrame(np.array((daten, max_coa,
                                                     coord[:, 0],
                                                     coord[:, 1],
@@ -770,8 +765,9 @@ class QuakeScan(DefaultQuakeScan):
         max_coa_norm : array-like
             Normalised coalescence value through time
 
-        loc : array-like
-            Location of maximum coalescence through time
+        coord : array-like
+            Location of maximum coalescence through time in input projection
+            space.
 
         map_4d : array-like
             4-D coalescence map
@@ -783,32 +779,27 @@ class QuakeScan(DefaultQuakeScan):
         onsets = self.onset.calculate_onsets(self.data)
         nchan, tsamp = onsets.shape
 
-        p_ttime = self.lut.fetch_index("TIME_P", self.sampling_rate)
-        s_ttime = self.lut.fetch_index("TIME_S", self.sampling_rate)
-        ttime = np.c_[p_ttime, s_ttime]
-        del p_ttime, s_ttime
+        ttimes = self.lut.ttimes(self.sampling_rate)
 
-        # Calculate the number of samples in the pre-pad, post-pad and main
-        # window
+        # Calculate no. of samples in the pre-pad, post-pad and main window
         pre_smp = int(round(self.pre_pad * int(self.sampling_rate)))
         pos_smp = int(round(self.post_pad * int(self.sampling_rate)))
         nsamp = tsamp - pre_smp - pos_smp
 
         # Prep empty 4-D coalescence map and run C-compiled ilib.migrate()
         ncell = tuple(self.lut.cell_count)
-
         map_4d = np.zeros(ncell + (nsamp,), dtype=np.float64)
-        ilib.migrate(onsets, ttime, pre_smp, pos_smp, nsamp, map_4d,
+        ilib.migrate(onsets, ttimes, pre_smp, pos_smp, nsamp, map_4d,
                      self.n_cores)
 
-        # Prep empty coa and loc arrays and run C-compiled ilib.find_max_coa()
+        # Prep empty coalescence and unraveled grid index arrays and run
+        # C-compiled ilib.find_max_coa()
         max_coa = np.zeros(nsamp, np.double)
-        grid_index = np.zeros(nsamp, np.int64)
-        ilib.find_max_coa(map_4d, max_coa, grid_index, 0, nsamp, self.n_cores)
+        max_coa_idx = np.zeros(nsamp, np.int64)
+        ilib.find_max_coa(map_4d, max_coa, max_coa_idx, 0, nsamp, self.n_cores)
 
         # Get max_coa_norm
-        sum_coa = np.sum(map_4d, axis=(0, 1, 2))
-        max_coa_norm = max_coa / sum_coa
+        max_coa_norm = max_coa / np.sum(map_4d, axis=(0, 1, 2))
         max_coa_norm = max_coa_norm * map_4d.shape[0] * map_4d.shape[1] * \
             map_4d.shape[2]
 
@@ -820,9 +811,11 @@ class QuakeScan(DefaultQuakeScan):
         # Calculate max_coa (with correction for number of stations)
         max_coa = np.exp((max_coa / (len(avail_idx) * 2)) - 1.0)
 
-        loc = self.lut.xyz2index(grid_index, inverse=True)
+        # Convert the flat grid indices (of maximum coalescence) to coordinates
+        # in the input projection space.
+        coord = self.lut.index2coord(max_coa_idx, unravel=True)
 
-        return daten, max_coa, max_coa_norm, loc, map_4d
+        return daten, max_coa, max_coa_norm, coord, map_4d
 
     def _gaufilt3d(self, coa_map, sgm=0.8, shp=None):
         """
@@ -852,13 +845,10 @@ class QuakeScan(DefaultQuakeScan):
             shp = coa_map.shape
         nx, ny, nz = shp
 
-        # Normalise
-        coa_map = coa_map / np.nanmax(coa_map)
-
-        # Construct 3d gaussian filter
+        # Construct 3-D Gaussian filter
         flt = util.gaussian_3d(nx, ny, nz, sgm)
 
-        # Convolve map_3d and 3d gaussian filter
+        # Convolve map_3d and 3-D Gaussian filter
         smoothed_coa_map = fftconvolve(coa_map, flt, mode="same")
 
         # Mirror and convolve again (to avoid "phase-shift")
@@ -918,99 +908,72 @@ class QuakeScan(DefaultQuakeScan):
         Parameters
         ----------
         coa_map : array-like
-            Marginalised 3-D coalescence map
+            Marginalised 3-D coalescence map.
 
         thresh : float (between 0 and 1), optional
             Cut-off threshold (fractional percentile) to trim coa_map; only
-            data above this percentile will be retained
+            data above this percentile will be retained.
 
         win : int, optional
             Window of grid cells (+/-(win-1)//2 in x, y and z) around max
-            value in coa_map to perform the fit over
+            value in coa_map to perform the fit over.
 
         Returns
         -------
-        loc_cov : array-like
-            [x, y, z] : expectation location from covariance fit
+        location : array-like, [x, y, z]
+            Expectation location from covariance fit.
 
-        loc_cov_err : array-like
-            [x_err, y_err, z_err] : one sigma uncertainties associated with
-                                    loc_cov
+        uncertainty : array-like, [sx, sy, sz]
+            One sigma uncertainties on expectation location from covariance
+            fit.
 
         """
 
-        # Normalise
-        coa_map = coa_map / (np.nanmax(coa_map))
-
         # Get shape of 3-D coalescence map and max coalesence grid location
-        nx, ny, nz = coa_map.shape
-        mx, my, mz = np.unravel_index(np.nanargmax(coa_map), coa_map.shape)
+        shape = coa_map.shape
+        ijk = np.unravel_index(np.nanargmax(coa_map), coa_map.shape)
 
         # If window is specified, clip the grid to only look here.
         if win:
-            flg = np.logical_and(coa_map > thresh,
-                                 self._mask3d([nx, ny, nz], [mx, my, mz], win))
+            flag = np.logical_and(coa_map > thresh, self._mask3d(shape, ijk,
+                                                                 win))
         else:
-            flg = np.where(coa_map > thresh, True, False)
+            flag = np.where(coa_map > thresh, True, False)
 
-        smp_weights = coa_map.flatten()
-        smp_weights[~flg.flatten()] = np.nan
+        # Treat the coalescence values in the grid as the sample weights
+        sw = coa_map.flatten()
+        sw[~flag.flatten()] = np.nan
+        ssw = np.nansum(sw)
 
-        lc = self.lut.cell_count
-        # Ordering below due to handedness of the grid
-        ly, lx, lz = np.meshgrid(np.arange(lc[1]),
-                                 np.arange(lc[0]),
-                                 np.arange(lc[2]))
-        x_samples = lx.flatten() * self.lut.cell_size[0]
-        y_samples = ly.flatten() * self.lut.cell_size[1]
-        z_samples = lz.flatten() * self.lut.cell_size[2]
-
-        ssw = np.nansum(smp_weights)
+        # Get the x, y and z samples on which to perform the fit
+        cc = self.lut.cell_count
+        cs = self.lut.cell_size
+        grid = np.meshgrid(np.arange(cc[0]), np.arange(cc[1]),
+                           np.arange(cc[2]), indexing="ij")
+        xs, ys, zs = [g.flatten() * size for g, size in zip(grid, cs)]
 
         # Expectation values:
-        x_expect = np.nansum(smp_weights * x_samples) / ssw
-        y_expect = np.nansum(smp_weights * y_samples) / ssw
-        z_expect = np.nansum(smp_weights * z_samples) / ssw
+        xe, ye, ze = [np.nansum(sw * s) / ssw for s in [xs, ys, zs]]
 
         # Covariance matrix:
         cov_matrix = np.zeros((3, 3))
-        cov_matrix[0, 0] = np.nansum(smp_weights
-                                     * (x_samples - x_expect) ** 2) / ssw
-        cov_matrix[1, 1] = np.nansum(smp_weights
-                                     * (y_samples - y_expect) ** 2) / ssw
-        cov_matrix[2, 2] = np.nansum(smp_weights
-                                     * (z_samples - z_expect) ** 2) / ssw
-        cov_matrix[0, 1] = np.nansum(smp_weights
-                                     * (x_samples - x_expect)
-                                     * (y_samples - y_expect)) / ssw
+        cov_matrix[0, 0] = np.nansum(sw * (xs - xe) ** 2) / ssw
+        cov_matrix[1, 1] = np.nansum(sw * (ys - ye) ** 2) / ssw
+        cov_matrix[2, 2] = np.nansum(sw * (zs - ze) ** 2) / ssw
+        cov_matrix[0, 1] = np.nansum(sw * (xs - xe) * (ys - ye)) / ssw
         cov_matrix[1, 0] = cov_matrix[0, 1]
-        cov_matrix[0, 2] = np.nansum(smp_weights
-                                     * (x_samples - x_expect)
-                                     * (z_samples - z_expect)) / ssw
+        cov_matrix[0, 2] = np.nansum(sw * (xs - xe) * (zs - ze)) / ssw
         cov_matrix[2, 0] = cov_matrix[0, 2]
-        cov_matrix[1, 2] = np.nansum(smp_weights
-                                     * (y_samples - y_expect)
-                                     * (z_samples - z_expect)) / ssw
+        cov_matrix[1, 2] = np.nansum(sw * (ys - ye) * (zs - ze)) / ssw
         cov_matrix[2, 1] = cov_matrix[1, 2]
 
-        expect_vector_cov = np.array([x_expect,
-                                      y_expect,
-                                      z_expect],
-                                     dtype=float)
-        loc_cov_gc = np.array([[expect_vector_cov[0] / self.lut.cell_size[0],
-                                expect_vector_cov[1] / self.lut.cell_size[1],
-                                expect_vector_cov[2] / self.lut.cell_size[2]]])
-        loc_cov_err = np.array([np.sqrt(cov_matrix[0, 0]),
-                                np.sqrt(cov_matrix[1, 1]),
-                                np.sqrt(cov_matrix[2, 2])])
+        location_xyz = self.lut.ll_corner + np.array([xe, ye, ze])
+        location = self.lut.coord2grid(location_xyz, inverse=True)[0]
+        uncertainty = np.diag(np.sqrt(abs(cov_matrix)))
 
-        # Convert grid location to XYZ / coordinates
-        xyz = self.lut.xyz2loc(loc_cov_gc, inverse=True)
-        loc_cov = self.lut.xyz2coord(xyz)[0]
+        return location, uncertainty
 
-        return loc_cov, loc_cov_err
-
-    def _gaufit3d(self, coa_map, lx=None, ly=None, lz=None, thresh=0., win=7):
+    def _gaufit3d(self, coa_map, thresh=0., win=7):
         """
         Fit a 3-D Gaussian function to a region around the maximum coalescence
         location in the 3-D marginalised coalescence map: return expectation
@@ -1019,66 +982,48 @@ class QuakeScan(DefaultQuakeScan):
         Parameters
         ----------
         coa_map : array-like
-            Marginalised 3-d coalescence map
-
-        lx : int, optional
-
-        ly : int, optional
-
-        lz : int, optional
+            Marginalised 3-D coalescence map.
 
         thresh : float (between 0 and 1), optional
             Cut-off threshold (percentile) to trim coa_map: only data above
-            this percentile will be retained
+            this percentile will be retained.
 
         win : int, optional
             Window of grid cells (+/-(win-1)//2 in x, y and z) around max
-            value in coa_map to perform the fit over
+            value in coa_map to perform the fit over.
 
         Returns
         -------
-        loc_gau : array-like
-            [x, y, z] : expectation location from 3-d Gaussian fit
+        location : array-like, [x, y, z]
+            Expectation location from 3-D Gaussian fit.
 
-        loc_gau_err : array-like
-            [x_err, y_err, z_err] : one sigma uncertainties from 3-d Gaussian
-                                    fit
+        uncertainty : array-like, [sx, sy, sz]
+            One sigma uncertainties on expectation location from 3-D Gaussian
+            fit.
 
         """
 
         # Get shape of 3-D coalescence map and max coalesence grid location
-        nx, ny, nz = coa_map.shape
-        mx, my, mz = np.unravel_index(np.nanargmax(coa_map), coa_map.shape)
+        shape = coa_map.shape
+        ijk = np.unravel_index(np.nanargmax(coa_map), shape)
 
         # Only use grid cells above threshold value, and within the specified
         # window around the coalescence peak
-        flg = np.logical_and(coa_map > thresh,
-                             self._mask3d([nx, ny, nz], [mx, my, mz], win))
-        ix, iy, iz = np.where(flg)
+        flag = np.logical_and(coa_map > thresh, self._mask3d(shape, ijk, win))
+        ix, iy, iz = np.where(flag)
 
         # Subtract mean of entire 3-D coalescence map from the local grid
-        # window so it is better approximated by a gaussian (which goes to zero
+        # window so it is better approximated by a Gaussian (which goes to zero
         # at infinity)
         coa_map = coa_map - np.nanmean(coa_map)
 
-        # Fit 3-D gaussian function
+        # Fit 3-D Gaussian function
         ncell = len(ix)
 
-        if not lx:
-            lx = np.arange(nx)
-            ly = np.arange(ny)
-            lz = np.arange(nz)
+        ls = [np.arange(n) for n in shape]
 
-        if lx.ndim == 3:
-            iloc = [lx[mx, my, mz], ly[mx, my, mz], lz[mx, my, mz]]
-            x = lx[ix, iy, iz] - iloc[0]
-            y = ly[ix, iy, iz] - iloc[1]
-            z = lz[ix, iy, iz] - iloc[2]
-        else:
-            iloc = [lx[mx], ly[my], lz[mz]]
-            x = lx[ix] - iloc[0]
-            y = ly[iy] - iloc[1]
-            z = lz[iz] - iloc[2]
+        # Get ijk indices for points in the sub-grid
+        x, y, z = [l[idx] - i for l, idx, i in zip(ls, np.where(flag), ijk)]
 
         X = np.c_[x * x, y * y, z * z,
                   x * y, x * z, y * z,
@@ -1112,20 +1057,15 @@ class QuakeScan(DefaultQuakeScan):
         csgm = np.sqrt(0.5 / np.clip(np.abs(M.diagonal()), 1e-10, np.inf))
 
         # Convert back to whole-grid coordinates
-        gau_3d = [loc + iloc, vec, sgm, csgm, val]
+        gau_3d = [loc + ijk, vec, sgm, csgm, val]
 
         # Convert grid location to XYZ / coordinates
-        xyz = self.lut.xyz2loc(np.array([[gau_3d[0][0],
-                                          gau_3d[0][1],
-                                          gau_3d[0][2]]]),
-                               inverse=True)
-        loc_gau = self.lut.xyz2coord(xyz)[0]
+        location = [[gau_3d[0][0], gau_3d[0][1], gau_3d[0][2]]]
+        location = self.lut.index2coord(location)[0]
 
-        loc_gau_err = np.array([gau_3d[2][0] * self.lut.cell_size[0],
-                                gau_3d[2][1] * self.lut.cell_size[1],
-                                gau_3d[2][2] * self.lut.cell_size[2]])
+        uncertainty = sgm * self.lut.cell_size
 
-        return loc_gau, loc_gau_err
+        return location, uncertainty
 
     def _splineloc(self, coa_map, win=5, upscale=10):
         """
@@ -1136,19 +1076,19 @@ class QuakeScan(DefaultQuakeScan):
         Parameters
         ----------
         coa_map : array-like
-            Marginalised 3-D coalescence map
+            Marginalised 3-D coalescence map.
 
         win : int
             Window of grid cells (+/-(win-1)//2 in x, y and z) around max
-            value in coa_map to perform the fit over
+            value in coa_map to perform the fit over.
 
         upscale : int
-            Upscaling factor to interpolate the fitted 3-D spline function by
+            Upscaling factor to interpolate the fitted 3-D spline function by.
 
         Returns
         -------
-        loc_spline : array-like
-            [x, y, z] : max coalescence location from spline interpolation
+        location : array-like, [x, y, z]
+            Max coalescence location from spline interpolation.
 
         """
 
@@ -1210,8 +1150,7 @@ class QuakeScan(DefaultQuakeScan):
                 msg += " with maximum coalescence value"
                 self.output.log(msg, self.log)
 
-            xyz = self.lut.xyz2loc(np.array([[mxi, myi, mzi]]), inverse=True)
-            loc_spline = self.lut.xyz2coord(xyz)[0]
+            location = self.lut.coord2grid([[mxi, myi, mzi]], inverse=True)[0]
 
             # Run check that spline location is within window
             if (abs(mx - mxi) > w2) or (abs(my - myi) > w2) or \
@@ -1220,18 +1159,15 @@ class QuakeScan(DefaultQuakeScan):
                 msg += "window !!!!\n\t\t\tGridded Location returned"
                 self.output.log(msg, self.log)
 
-                xyz = self.lut.xyz2loc(np.array([[mx, my, mz]]), inverse=True)
-                loc_spline = self.lut.xyz2coord(xyz)[0]
-
+                location = self.lut.coord2grid([[mx, my, mz]], inverse=True)[0]
         else:
             msg = "\t !!!! Spline error: interpolation window crosses edge of "
             msg += "grid !!!!\n\t\t\tGridded Location returned"
             self.output.log(msg, self.log)
 
-            xyz = self.lut.xyz2loc(np.array([[mx, my, mz]]), inverse=True)
-            loc_spline = self.lut.xyz2coord(xyz)[0]
+            location = self.lut.coord2grid([[mx, my, mz]], inverse=True)[0]
 
-        return loc_spline
+        return location
 
     def _calculate_location(self, map_4d):
         """
@@ -1276,19 +1212,18 @@ class QuakeScan(DefaultQuakeScan):
         self.coa_map = np.log(np.sum(np.exp(map_4d), axis=-1))
 
         # Normalise
-        self.coa_map = self.coa_map / np.max(self.coa_map)
+        self.coa_map = self.coa_map / np.nanmax(self.coa_map)
 
         # Fit 3-D spline function to small window around max coalescence
         # location and interpolate to determine sub-grid maximum coalescence
         # location.
         loc_spline = self._splineloc(np.copy(self.coa_map))
 
-        # Apply gaussian smoothing to small window around max coalescence
-        # location and fit 3-D gaussian function to determine local
+        # Apply Gaussian smoothing to small window around max coalescence
+        # location and fit 3-D Gaussian function to determine local
         # expectation location and uncertainty
         smoothed_coa_map = self._gaufilt3d(np.copy(self.coa_map))
-        loc_gau, loc_gau_err = self._gaufit3d(np.copy(smoothed_coa_map),
-                                              thresh=0.)
+        loc_gau, loc_gau_err = self._gaufit3d(smoothed_coa_map, thresh=0.)
 
         # Calculate global covariance expected location and uncertainty
         loc_cov, loc_cov_err = self._covfit3d(np.copy(self.coa_map))

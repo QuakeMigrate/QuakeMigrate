@@ -41,6 +41,8 @@ def stations(station_file, delimiter=","):
        not in stn_data.columns:
         raise util.StationFileHeaderException
 
+    stn_data["Elevation"] = stn_data["Elevation"].apply(lambda x: -1*x)
+
     return stn_data
 
 

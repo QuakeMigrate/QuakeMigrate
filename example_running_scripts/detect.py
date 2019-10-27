@@ -5,7 +5,7 @@ This script will run the detect stage of QuakeMigrate.
 """
 
 # Import required modules
-import QMigrate.core.model as qmod
+import QMigrate.lut.lut as qlut
 import QMigrate.io.data as qdata
 import QMigrate.signal.onset.staltaonset as qonset
 import QMigrate.signal.scan as qscan
@@ -30,8 +30,7 @@ data.path_structure(archive_format="YEAR/JD/STATION")
 # data.upfactor = 2
 
 # Load the LUT
-lut = qmod.LUT()
-lut.load(lut_path)
+lut = qlut.LUT(lut_file=lut_path)
 
 # Decimate the lookup table in each dimension
 lut = lut.decimate([5, 5, 4])

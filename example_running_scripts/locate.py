@@ -29,7 +29,7 @@ data.path_structure(archive_format="YEAR/JD/STATION")
 # extract the amplitude information and magnitude
 amp_param = {'pre_filt' : None, # pre-filter used in the instrument correction
             'water_level' : 30, # water-level used in the instrument correction
-            'dataless_filt' : 'path_to_dataless_SEED', # path to dataless SEED volume
+            'dataless_file' : 'path_to_dataless_SEED', # path to dataless SEED volume, other options are: a concatenated series of RESP files
             'noise_win' : 10.} # length of the noise and S-wave window
 mag_param = {'station_corrections' : {}, # dictionary of trace_id - correction paire
             'amplitude_feature' : 'S_amp', # which amplitude feature to make the calculation from
@@ -91,7 +91,7 @@ scan.write_cut_waveforms = True
 
 # turn on magnitude and amplitude extraction
 scan.amplitudes = True
-scan.quicks_amps = False
+scan.quick_amps = False
 scan.amplitude_parameters = amp_param
 scan.mag_calc = True
 scan.magnitude_parameters = mag_param

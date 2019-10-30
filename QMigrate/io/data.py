@@ -249,7 +249,6 @@ class Archive(object):
             st.detrend("linear")
             st.detrend("demean")
             st = self._downsample(st, sampling_rate, self.upfactor)
-
             # Combining the data and determining station availability
             signal, availability = self._station_availability(st, samples)
 

@@ -8,7 +8,7 @@ import warnings
 
 import numpy as np
 from obspy import UTCDateTime, Stream, Trace, read_inventory
-from obspy.signal.invsim import paz_2_amplitude_value_of_freq_resp, paz_2_amplitude_value_of_freq_resp
+from obspy.signal.invsim import paz_2_amplitude_value_of_freq_resp, paz_2_amplitude_value_of_freq_resp, evalresp_for_frequencies
 from obspy.io.xseed import Parser
 from obspy.geodetics.base import gps2dist_azimuth
 import pandas as pd
@@ -492,7 +492,13 @@ class QuakeScan(DefaultQuakeScan):
 
         t_length = self.pre_pad + self.post_pad + self.time_step
         self.pre_pad += np.ceil(t_length * 0.06)
+        frac = (int(self.pre_pad * self.sampling_rate) - (self.pre_pad * self.sampling_rate))
+        if not frac == 0:
+            self.pre_pad -= frac * (1. / self.sampling_rate)
         self.post_pad += np.ceil(t_length * 0.06)
+        frac = (int(self.post_pad * self.sampling_rate) - (self.post_pad * self.sampling_rate))
+        if not frac == 0:
+            self.post_pad -= frac * (1. / self.sampling_rate)
 
         try:
             nsteps = int(np.ceil((end_time - start_time) / self.time_step))
@@ -756,7 +762,13 @@ class QuakeScan(DefaultQuakeScan):
         if not self.amplitude_parameters:
             raise AttributeError('Need to define a set of amplitude parameters.\nSee documentation')
 
-        dataless = Parser(self.amplitude_parameters['dataless_file'])
+        if self.amplitude_parameters['response_format'] == 'dataless':
+            dataless = Parser(self.amplitude_parameters['response_fname'])
+            resp = False
+        else:
+            resp_file = self.amplitude_parameters['response_fname']
+            resp = True
+        
         if not self.quick_amps:
             try:
                 water_level = self.amplitude_parameters['water_level']
@@ -845,9 +857,18 @@ class QuakeScan(DefaultQuakeScan):
                 print(st)
             
             if not self.quick_amps:
-                st.simulate(seedresp={'filename': dataless, 'units': "DIS"}, 
-                            paz_simulate=self.WOODANDERSON, 
-                            pre_filt=pre_filt, taper=False, water_level=water_level)
+                if not resp:
+                    st.simulate(seedresp={'filename': dataless, 'units': "DIS"}, 
+                                paz_simulate=self.WOODANDERSON, 
+                                pre_filt=pre_filt, taper=False, water_level=water_level)
+                else:
+                    newst = Stream()
+                    for tr in st:
+                        tr.simulate(seedresp={'filename': resp_file, 'units': "DIS"}, 
+                                paz_simulate=self.WOODANDERSON, 
+                                pre_filt=pre_filt, taper=False, water_level=water_level)
+                        newst += tr
+                    st = newst
 
             for j, tr in enumerate(st):
 
@@ -879,14 +900,26 @@ class QuakeScan(DefaultQuakeScan):
                     famp, aprx_f = self._peak_to_trough_amplitude(data)
 
                     if self.quick_amps:
-                        # get the response from the dataless SEED volume
-                        blockettes = dataless._select(tr.id, datetime=tr.stats.starttime)
-                        resp = dataless.get_response_for_channel(blockettes[1:], '')
                         gain = paz_2_amplitude_value_of_freq_resp(self.WOODANDERSON, aprx_f) * self.WOODANDERSON['sensitivity']
-                        gain /= np.abs(resp.get_evalresp_response_for_frequencies([aprx_f], output='DISP'))
+                        if not resp:
+                            # get the response from the dataless SEED volume
+                            blockettes = dataless._select(tr.id, datetime=tr.stats.starttime)
+                            response = dataless.get_response_for_channel(blockettes[1:], '')
+                            gain /= np.abs(response.get_evalresp_response_for_frequencies([aprx_f], output='DISP'))
+                        else:
+                            try:
+                                gain /= np.abs(evalresp_for_frequencies(tr.stats.delta, [aprx_f], resp_file,
+                                                                    tr.stats.starttime, units='DISP',
+                                                                    station=tr.stats.station,
+                                                                    channel=tr.stats.channel))
+                            except ValueError:
+                                amplitudes[row + j, k] = np.nan
+                                amplitudes[row + j, k + 1] = np.nan
+                                k += 2
+                                continue
                         famp = gain * famp
                     
-                    amplitudes[row + j, k] = famp
+                    amplitudes[row + j, k] = famp * 1000.
                     amplitudes[row + j, k + 1] = aprx_f
                     k += 2
                 

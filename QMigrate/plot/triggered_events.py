@@ -17,8 +17,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 from obspy import UTCDateTime
 import pandas as pd
+from pandas.plotting import register_matplotlib_converters
 
 import QMigrate.util as util
+
+register_matplotlib_converters()
 
 
 def triggered_events(events, start_time, end_time, output, marginal_window,

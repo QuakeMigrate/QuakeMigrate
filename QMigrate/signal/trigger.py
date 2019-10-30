@@ -258,7 +258,7 @@ class Trigger:
                 pass
             min_idx = c
             max_idx = d
-            val_idx = np.argmax(coa_data["COA"].iloc[np.arange(min_idx, max_idx+1)])
+            val_idx = coa_data["COA"].iloc[np.arange(min_idx, max_idx+1)].idxmax()
 
             # Determining the times for min, max and max coalescence value
             t_min = coa_data["DT"].iloc[min_idx]
@@ -322,7 +322,7 @@ class Trigger:
                             self.log)
             tmp = init_events[init_events["EventNum"] == i]
             tmp = tmp.reset_index(drop=True)
-            j = np.argmax(tmp["COA_V"])
+            j = np.argmax(tmp["COA_V"].values)
             min_mt = np.min(tmp["MinTime"])
             max_mt = np.max(tmp["MaxTime"])
             event = pd.DataFrame([[i, tmp["CoaTime"].iloc[j],

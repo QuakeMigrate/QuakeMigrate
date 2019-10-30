@@ -14,7 +14,7 @@ import pyproj
 from scipy.interpolate import interp1d
 import skfmm
 
-import QMigrate.core.lut as qlut
+import QMigrate.lut.lut as qlut
 
 
 def read_nlloc(path, stations):
@@ -100,7 +100,6 @@ def compute(lut, stations, method, **kwargs):
 
     """
 
-    stations["Elevation"] = stations["Elevation"].apply(lambda x: -1*x)
     lut.station_data = stations
 
     if method == "homogeneous":

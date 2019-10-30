@@ -357,14 +357,16 @@ class Archive(object):
             now = start_time + (dy * 86400)
             if self.read_all_stations is True:
                 file_format = self.format.format(year=now.year,
-                                                 month=now.month,
+                                                 month=str(now.month).zfill(2),
+                                                 day=str(now.day).zfill(2),
                                                  jday=str(now.julday).zfill(3),
                                                  station="*")
                 files = chain(files, self.archive_path.glob(file_format))
             else:
                 for stat in self.stations.tolist():
                     file_format = self.format.format(year=now.year,
-                                                     month=now.month,
+                                                     month=str(now.month).zfill(2),
+                                                     day=str(now.day).zfill(2),
                                                      jday=str(now.julday).zfill(3),
                                                      station=stat)
                     files = chain(files, self.archive_path.glob(file_format))

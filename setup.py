@@ -41,7 +41,7 @@ CLASSIFIERS = [
 
 INSTALL_REQUIRES = [
     'numpy',
-    'pandas==0.19.*',
+    'pandas',
     'scipy',
     'scikit-fmm==2019.1.30',
     'pyproj',

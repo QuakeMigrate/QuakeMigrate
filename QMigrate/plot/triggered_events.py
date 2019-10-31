@@ -74,7 +74,7 @@ def triggered_events(events, start_time, end_time, output, marginal_window,
     if data is None:
         data, _ = output.read_coastream(start_time, end_time)
 
-    output.log("\n\tPlotting triggered events on decimated grid...", log)
+    output.log("\n    Plotting triggered events on decimated grid...", log)
     data["DT"] = pd.to_datetime(data["DT"].astype(str))
 
     fig = plt.figure(figsize=(30, 15))

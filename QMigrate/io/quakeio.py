@@ -202,7 +202,6 @@ class QuakeIO:
         start_day = UTCDateTime(start_time.date)
 
         dy = 0
-        files = []
         coa = Stream()
         # Loop through days trying to read coastream files
         while start_day + (dy * 86400) <= end_time:
@@ -226,7 +225,7 @@ class QuakeIO:
         coa.merge(method=-1)
         coa_stats = coa.select(station="COA")[0].stats
 
-        msg = "\t\tSuccessfully read .scanmseed data from {} - {}\n"
+        msg = "    ...scanmseed data read from {} - {}.\n"
         msg = msg.format(str(coa_stats.starttime), str(coa_stats.endtime))
         self.log(msg, self.log_)
 
@@ -564,7 +563,7 @@ class QuakeIO:
         if stn_ava_data is None:
             raise util.NoStationAvailabilityDataException
 
-        msg = "\t\tSuccessfully read .StationAvailability data from {} - {}\n"
+        msg = "    Successfully read .StationAvailability data from {} - {}\n"
         msg = msg.format(stn_ava_data.index[0], stn_ava_data.index[-1])
         self.log(msg, self.log_)
 

@@ -72,7 +72,7 @@ class DefaultQuakeScan(object):
             Plot event summary figure - see QMigrate.plot.quakeplot for more
             details.
 
-        plot_coal_video : bool, optional
+        plot_event_video : bool, optional
             Plot coalescence video for each earthquake located in locate()
 
         write_4d_coal_grid : bool, optional
@@ -123,8 +123,7 @@ class DefaultQuakeScan(object):
 
         # Plotting toggles
         self.plot_event_summary = True
-        self.plot_station_traces = False
-        self.plot_coal_video = False
+        self.plot_event_video = False
 
         # Saving toggles
         self.write_4d_coal_grid = False
@@ -234,9 +233,9 @@ class QuakeScan(DefaultQuakeScan):
         self.onset.post_pad = lut.max_ttime
         self.post_pad = self.onset.post_pad
 
-        msg = ("=" * 120 + "\n") * 2
+        msg = ("=" * 110 + "\n") * 2
         msg += "\tQuakeMigrate - Coalescence Scanning - Path: {} - Name: {}\n"
-        msg += ("=" * 120 + "\n") * 2
+        msg += ("=" * 110 + "\n") * 2
         msg = msg.format(self.output.path, self.output.name)
         self.output.log(msg, self.log)
 
@@ -279,17 +278,16 @@ class QuakeScan(DefaultQuakeScan):
         start_time = UTCDateTime(start_time)
         end_time = UTCDateTime(end_time)
 
-        msg = "=" * 120 + "\n"
+        msg = "=" * 110 + "\n"
         msg += "\tDETECT - Continuous Seismic Processing\n"
-        msg += "=" * 120 + "\n\n"
+        msg += "=" * 110 + "\n\n"
         msg += "\tParameters:\n"
         msg += "\t\tStart time                = {}\n"
         msg += "\t\tEnd   time                = {}\n"
         msg += "\t\tTime step (s)             = {}\n"
         msg += "\t\tNumber of CPUs            = {}\n\n"
-        msg += "\t\tSampling rate             = {}\n\n"
         msg += str(self.onset)
-        msg += "=" * 120
+        msg += "=" * 110
         msg = msg.format(str(start_time), str(end_time), self.time_step,
                          self.n_cores, self.sampling_rate)
         self.output.log(msg, self.log)
@@ -329,16 +327,16 @@ class QuakeScan(DefaultQuakeScan):
             start_time = UTCDateTime(start_time)
             end_time = UTCDateTime(end_time)
 
-        msg = "=" * 120 + "\n"
+        msg = "=" * 110 + "\n"
         msg += "\tLOCATE - Determining earthquake location and uncertainty\n"
-        msg += "=" * 120 + "\n\n"
+        msg += "=" * 110 + "\n\n"
         msg += "\tParameters:\n"
         msg += "\t\tStart time     = {}\n"
         msg += "\t\tEnd   time     = {}\n"
         msg += "\t\tNumber of CPUs = {}\n\n"
         msg += str(self.onset)
         msg += str(self.picker)
-        msg += "=" * 120 + "\n"
+        msg += "=" * 110 + "\n"
         msg = msg.format(str(start_time), str(end_time), self.n_cores)
         self.output.log(msg, self.log)
 
@@ -468,7 +466,7 @@ class QuakeScan(DefaultQuakeScan):
             w_beg = start_time + self.time_step * i - self.pre_pad
             w_end = start_time + self.time_step * (i + 1) + self.post_pad
 
-            msg = ("~" * 24) + " Processing : {} - {} " + ("~" * 24)
+            msg = ("~" * 19) + " Processing : {} - {} " + ("~" * 19)
             msg = msg.format(str(w_beg), str(w_end))
             self.output.log(msg, self.log)
 
@@ -522,7 +520,7 @@ class QuakeScan(DefaultQuakeScan):
         del coastream
 
         self.output.write_stn_availability(stn_ava_data)
-        self.output.log("=" * 120, self.log)
+        self.output.log("=" * 110, self.log)
 
     def _locate_events(self, *args):
         """
@@ -574,9 +572,9 @@ class QuakeScan(DefaultQuakeScan):
 
         for i, trig_event in trig_events.iterrows():
             event_uid = trig_event["EventID"]
-            msg = "=" * 120 + "\n"
+            msg = "=" * 110 + "\n"
             msg += "\tEVENT - {} of {} - {}\n"
-            msg += "=" * 120 + "\n\n"
+            msg += "=" * 110 + "\n\n"
             msg += "\tDetermining event location...\n"
             msg = msg.format(i + 1, n_evts, event_uid)
             self.output.log(msg, self.log)
@@ -629,7 +627,7 @@ class QuakeScan(DefaultQuakeScan):
                 msg += " should be an estimate of the origin time uncertainty,"
                 msg += "\n\tdetermined by the expected spatial uncertainty and"
                 msg += "the seismic velocity in the region of the earthquake\n"
-                msg += "\n" + "=" * 120 + "\n"
+                msg += "\n" + "=" * 110 + "\n"
                 msg = msg.format(event_uid)
                 self.output.log(msg, self.log)
                 continue
@@ -681,7 +679,7 @@ class QuakeScan(DefaultQuakeScan):
             self._optional_locate_outputs(event_mw_data, event, out_str,
                                           event_uid, map_4d)
 
-            self.output.log("=" * 120 + "\n", self.log)
+            self.output.log("=" * 110 + "\n", self.log)
 
             del map_4d, event_coa_data, event_mw_data, event_max_coa
             self.coa_map = None
@@ -1267,7 +1265,7 @@ class QuakeScan(DefaultQuakeScan):
         """
         Deal with optional outputs in locate():
             plot_event_summary()
-            plot_coal_video()
+            plot_event_video()
             write_cut_waveforms()
             write_4d_coal_grid()
 
@@ -1299,8 +1297,7 @@ class QuakeScan(DefaultQuakeScan):
 
         """
 
-        if self.plot_event_summary or self.plot_station_traces or \
-           self.plot_coal_video:
+        if self.plot_event_summary or self.plot_event_video:
             quake_plot = qplot.QuakePlot(self.lut, self.data, event_mw_data,
                                          self.marginal_window, self.output.run,
                                          event, map_4d, self.coa_map)
@@ -1315,7 +1312,7 @@ class QuakeScan(DefaultQuakeScan):
             self.picker.plot(file_str=out_str, event_uid=event_uid,
                              run_path=self.output.run)
 
-        if self.plot_coal_video:
+        if self.plot_event_video:
             timer = util.Stopwatch()
             self.output.log("\tPlotting coalescence video...", self.log)
             quake_plot.coalescence_video(file_str=out_str)

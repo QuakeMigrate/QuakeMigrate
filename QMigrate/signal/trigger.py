@@ -137,10 +137,10 @@ class Trigger:
             msg = "\tMinimum repeat must be >= 2 * marginal window."
             raise Exception(msg)
 
-        msg = "=" * 120 + "\n"
+        msg = "=" * 110 + "\n"
         msg += "   TRIGGER - Triggering events from coalescence\n"
-        msg += "=" * 120 + "\n\n"
-        msg += "   Parameters specified:\n"
+        msg += "=" * 110 + "\n\n"
+        msg += "   Parameters:\n"
         msg += "         Start time                = {}\n"
         msg += "         End   time                = {}\n"
         msg += "         Pre/post pad              = {} s\n\n"
@@ -148,14 +148,14 @@ class Trigger:
         msg += "         Marginal window           = {} s\n"
         msg += "         Minimum repeat            = {} s\n\n"
         msg += "         Trigger from normalised coalescence - {}\n\n"
-        msg += "=" * 120
+        msg += "=" * 110
         msg = msg.format(str(self.start_time), str(self.end_time),
                          str(self.pad), self.detection_threshold,
                          self.marginal_window, self.minimum_repeat,
                          self.normalise_coalescence)
         self.output.log(msg, self.log)
 
-        self.output.log("    Reading in scanmseed...\n", self.log)
+        self.output.log("    Reading in scanmseed...", self.log)
         read_start = self.start_time - self.pad
         read_end = self.end_time + self.pad
         self.coa_data, coa_stats = self.output.read_coastream(read_start,
@@ -194,7 +194,7 @@ class Trigger:
                                log=self.log, data=self.coa_data,
                                region=self.region, stations=self.stations, savefig=savefig)
 
-        self.output.log("=" * 120, self.log)
+        self.output.log("=" * 110, self.log)
 
     def _trigger_scn(self):
         """
@@ -318,7 +318,7 @@ class Trigger:
         events = pd.DataFrame(columns=event_cols)
         self.output.log("\n    Triggering...", self.log)
         for i in range(1, count + 1):
-            self.output.log("\tTriggered event {} of {}".format(i, count),
+            self.output.log("    Triggered event {} of {}".format(i, count),
                             self.log)
             tmp = init_events[init_events["EventNum"] == i]
             tmp = tmp.reset_index(drop=True)

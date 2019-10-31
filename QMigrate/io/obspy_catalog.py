@@ -34,7 +34,6 @@ def read_quakemigrate(run_dir):
     """
 
     run_dir = pathlib.Path(run_dir)
-    print(run_dir)
 
     if run_dir.is_dir():
         try:
@@ -48,7 +47,6 @@ def read_quakemigrate(run_dir):
 
     for event in events:
         event = _read_single_event(event)
-        print(event)
         if event is None:
             continue
         else:
@@ -94,7 +92,6 @@ def _read_single_event(event_file):
 
     # --- Handle pick files ---
     pick_file = event_file.parents[1] / "picks" / "{}".format(event_file.stem)
-    print(pick_file)
     if pick_file.with_suffix(".picks").is_file():
         picks = pd.read_csv(pick_file.with_suffix(".picks"))
     else:

@@ -128,10 +128,10 @@ class GaussianPicker(qpick.PhasePicker):
 
         p_gauss = np.array([])
         s_gauss = np.array([])
-        idx = 0
         for i, station in self.lut.station_data.iterrows():
             p_arrival = event["DT"] + self.p_ttime[i]
             s_arrival = event["DT"] + self.s_ttime[i]
+            idx = 2*i
 
             for phase in ["P", "S"]:
                 if phase == "P":
@@ -140,6 +140,7 @@ class GaussianPicker(qpick.PhasePicker):
                 else:
                     onset = self.data.s_onset[i]
                     arrival = s_arrival
+                    idx += 1
 
                 gau, max_onset, err, mn = self._gaussian_picker(
                     onset, phase, self.data.start_time, p_arrival,
@@ -152,7 +153,6 @@ class GaussianPicker(qpick.PhasePicker):
 
                 picks.iloc[idx] = [station["Name"], phase, arrival, mn, err,
                                    max_onset]
-                idx += 1
 
         phase_picks = {}
         phase_picks["Pick"] = picks
@@ -418,10 +418,9 @@ class GaussianPicker(qpick.PhasePicker):
 
         # Make output dir for this event outside of loop
         if file_str:
-            subdir = "traces"
+            subdir = "locate/traces/{}".format(event_uid)
             util.make_directories(run_path, subdir=subdir)
-            out_dir = run_path / subdir / event_uid
-            util.make_directories(out_dir)
+            out_dir = run_path / subdir
 
         # Looping through all stations
         for i in range(self.data.signal.shape[1]):

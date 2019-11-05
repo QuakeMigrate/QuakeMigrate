@@ -143,7 +143,7 @@ class Grid3D(object):
             self.cell_count = np.ceil(grid_dims / self.cell_size) + 1
 
             self.maps = {}
-            self.velocity_model = None
+            self.velocity_model = ""
 
     def decimate(self, df, inplace=False):
         """
@@ -179,9 +179,9 @@ class Grid3D(object):
 
         for station, map_ in grid.maps.items():
             for phase, ttimes in map_.items():
-                grid.maps[station][phase] = ttimes[c1[0]::df[0],
-                                                   c1[1]::df[1],
-                                                   c1[2]::df[2]]
+                grid[station][phase] = ttimes[c1[0]::df[0],
+                                              c1[1]::df[1],
+                                              c1[2]::df[2]]
 
         if not inplace:
             return grid
@@ -459,23 +459,26 @@ class LUT(Grid3D):
     def __str__(self):
         """Return short summary string of the lookup table object."""
 
-        corners = self.coord2grid(self.grid_corners, inverse=True)
-        ll, ur = corners[0], corners[-1]
+        ll, *_, ur = self.coord2grid(self.grid_corners, inverse=True)
         cc = self.cell_count
         cs = self.cell_size
 
-        out = "QuakeMigrate travel-time lookup table"
-        out += "\n\tLower-left corner: {lat1:10.5f}\u00b0N "
-        out += "{lon1:10.5f}\u00b0E {dep1:6.3f} km"
-        out += "\n\tUpper-right corner: {lat2:10.5f}\u00b0N "
-        out += "{lon2:10.5f}\u00b0E {dep2:6.3f} km"
-        out += "\n\tNumber of cells: [{nx}, {ny}, {nz}]"
-        out += "\n\tCell dimensions: [{dx}, {dy}, {dz}] m"
+        out = ("QuakeMigrate travel-time lookup table"
+               "\nGrid parameters"
+               "\n\tLower-left corner  : {lat1:10.5f}\u00b0N "
+               "{lon1:10.5f}\u00b0E {dep1:10.3f} m"
+               "\n\tUpper-right corner : {lat2:10.5f}\u00b0N "
+               "{lon2:10.5f}\u00b0E {dep2:10.3f} m"
+               "\n\tNumber of cells    : [{nx}, {ny}, {nz}]"
+               "\n\tCell dimensions    : [{dx}, {dy}, {dz}] m\n\n")
 
         out = out.format(lat1=ll[0], lon1=ll[1], dep1=ll[2],
                          lat2=ur[0], lon2=ur[1], dep2=ur[2],
                          nx=cc[0], ny=cc[1], nz=cc[2],
                          dx=cs[0], dy=cs[1], dz=cs[2])
+
+        out += ("\tVelocity model:\n"
+                "\t{}".format(str(self.velocity_model).replace("\n", "\n\t")))
 
         return out
 
@@ -503,8 +506,8 @@ class LUT(Grid3D):
         sttimes = np.zeros(tuple(self.cell_count) + (len(self.station_data),))
 
         for i, station in self.station_data.iterrows():
-            pttimes[..., i] = self.maps[station["Name"]]["TIME_P"]
-            sttimes[..., i] = self.maps[station["Name"]]["TIME_S"]
+            pttimes[..., i] = self[station["Name"]]["TIME_P"]
+            sttimes[..., i] = self[station["Name"]]["TIME_S"]
 
         pttimes = np.rint(pttimes * sampling_rate).astype(np.int32)
         sttimes = np.rint(sttimes * sampling_rate).astype(np.int32)
@@ -534,7 +537,7 @@ class LUT(Grid3D):
 
         maps = np.zeros(tuple(self.cell_count) + (len(self.station_data),))
         for i, station in self.station_data.iterrows():
-            maps[..., i] = self.maps[station["Name"]]["TIME_{}".format(phase)]
+            maps[..., i] = self[station["Name"]]["TIME_{}".format(phase)]
 
         interpolator = RegularGridInterpolator(grid, maps, bounds_error=False)
         return interpolator(ijk)[0]
@@ -546,7 +549,7 @@ class LUT(Grid3D):
         # Get all S maps
         ttimes = np.zeros(tuple(self.cell_count) + (len(self.station_data),))
         for i, station in self.station_data.iterrows():
-            ttimes[..., i] = self.maps[station["Name"]]["TIME_S"]
+            ttimes[..., i] = self[station["Name"]]["TIME_S"]
 
         return np.max(ttimes)
 
@@ -585,3 +588,84 @@ class LUT(Grid3D):
         """Plot the lookup table for a particular station."""
 
         raise NotImplementedError
+
+    def __add__(self, other):
+        """
+        Define behaviour for the rich addition operator, "+".
+
+        Two lookup tables which have identical grid definitions (as per "==")
+        can be combined by adding the travel-time lookup tables from other.maps
+        for which the station key is not already in self.maps.
+
+        Parameters
+        ----------
+        other : QuakeMigrate LUT object
+            LUT with travel-time lookup tables to add to self.
+
+        """
+
+        if not isinstance(other, LUT):
+            print("Addition not defined for non-LUT object.")
+            return self
+        else:
+            if self == other:
+                for key, ttime in other.maps.items():
+                    if key not in self.maps.keys():
+                        self.maps[key] = ttime
+                return self
+            else:
+                print("Grid definitions do not match - cannot combine.")
+
+    def __eq__(self, other):
+        """
+        Define behaviour for the rich equality operator, "==".
+
+        Two lookup tables are defined to be equal if their grid definitions are
+        identical - corners, cell size, projections.
+
+        Parameters
+        ----------
+        other : QuakeMigrate LUT object
+            LUT with which to test equality with self.
+
+        """
+
+        # Test if other isinstance of LUT
+        if not isinstance(other, LUT):
+            print("Equality of LUT with non-LUT object is undefined.")
+            return False
+        else:
+            # Test equality of grid corners
+            eq_corners = (self.grid_corners == other.grid_corners).all()
+
+            # Test equality of cell sizes
+            eq_sizes = (self.cell_size == other.cell_size).all()
+
+            # Test equality of projections
+            eq_projections = (self.grid_proj == other.grid_proj
+                              and self.coord_proj == other.coord_proj)
+
+            return (eq_corners and eq_sizes and eq_projections)
+
+    def __getitem__(self, key):
+        """
+        Provide a method to directly access travel-time maps by station key
+        without having to go through the maps dictionary.
+
+        Parameters
+        ----------
+        key : str
+            Station ID for which to search.
+
+        Returns
+        -------
+        ttimes : array-like
+            Travel-time lookup table for key, if key exists.
+
+        """
+
+        try:
+            return self.maps[key]
+        except KeyError:
+            msg = "No travel-time lookup table available for '{}'."
+            print(msg.format(key))

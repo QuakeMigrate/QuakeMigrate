@@ -21,17 +21,22 @@ def stations(station_file, delimiter=","):
     Parameters
     ----------
     station_file : str
-        Path to station file. File format:
-        Header line is REQUIRED: Latitude,Longitude,Elevation,Name (any order).
-        Elevation in METRES.
+        Path to station file.
+        File format (header line is REQUIRED, case sensitive, any order):
+            Latitude, Longitude, Elevation (units of metres), Name
 
     delimiter : char, optional
-        Station file delimiter, defaults to ","
+        Station file delimiter (default ",").
 
     Returns
     -------
-    stn_data : Pandas DataFrame object
+    stn_data : pandas DataFrame object
         Columns: "Latitude", "Longitude", "Elevation", "Name"
+
+    Raises
+    ------
+    StationFileHeaderException
+        Raised if the input file is missing required entries in the header.
 
     """
 
@@ -44,6 +49,40 @@ def stations(station_file, delimiter=","):
     stn_data["Elevation"] = stn_data["Elevation"].apply(lambda x: -1*x)
 
     return stn_data
+
+
+def read_vmodel(vmodel_file, delimiter=","):
+    """
+    Reads velocity model information from file.
+
+    Parameters
+    ----------
+    vmodel_file : str
+        Path to velocity model file.
+        File format: (header line is REQUIRED, case sensitive, any order):
+            Depth (units of metres), Vp, Vs (units of metres per second)
+
+    delimiter : char, optional
+        Velocity model file delimiter (default ",").
+
+    Returns
+    -------
+    vmodel_data : pandas DataFrame object
+        Columns: "Depth", "Vp", "Vs"
+
+    Raises
+    ------
+    VelocityModelFileHeaderException
+        Raised if the input file is missing required entries in the header.
+
+    """
+
+    vmodel_data = pd.read_csv(vmodel_file, delimiter=delimiter)
+
+    if ("Depth" or "Vp" or "Vs") not in vmodel_data.columns:
+        raise util.VelocityModelFileHeaderException
+
+    return vmodel_data
 
 
 class QuakeIO:
@@ -164,10 +203,9 @@ class QuakeIO:
         start_time = UTCDateTime(start_time)
         end_time = UTCDateTime(end_time)
 
-        subdir = "4d_coal_grids"
+        subdir = "locate/4D_coalescence"
         util.make_directories(self.run, subdir=subdir)
-        filestr = "{}_{}_{}_{}".format(self.name, event_name, start_time,
-                                       end_time)
+        filestr = "{}_{}_{}".format(event_name, start_time, end_time)
         fname = self.run / subdir / filestr
         fname = fname.with_suffix(".coal4D")
 
@@ -201,14 +239,15 @@ class QuakeIO:
 
         start_day = UTCDateTime(start_time.date)
 
+        subdir = "detect/scanmseed"
+
         dy = 0
         coa = Stream()
         # Loop through days trying to read coastream files
         while start_day + (dy * 86400) <= end_time:
             now = start_time + (dy * 86400)
-            filestr = "{}_{}_{}".format(self.name, str(now.year),
-                                        str(now.julday).zfill(3))
-            fname = (self.run / filestr).with_suffix(".scanmseed")
+            filestr = "{}_{}".format(str(now.year), str(now.julday).zfill(3))
+            fname = (self.run / subdir / filestr).with_suffix(".scanmseed")
             try:
                 coa += read(str(fname), starttime=start_time,
                             endtime=end_time, format="MSEED")
@@ -274,10 +313,13 @@ class QuakeIO:
         if write_start or write_end:
             st = st.slice(starttime=write_start, endtime=write_end)
 
-        file_str = "{}_{}_{}".format(self.name,
-                                     str(st[0].stats.starttime.year),
-                                     str(st[0].stats.starttime.julday).zfill(3))
-        fname = (self.run / file_str).with_suffix(".scanmseed")
+        subdir = "detect/scanmseed"
+        util.make_directories(self.run, subdir=subdir)
+
+        sttime = st[0].stats.starttime
+        file_str = "{}_{}".format(str(sttime.year),
+                                  str(sttime.julday).zfill(3))
+        fname = (self.run / subdir / file_str).with_suffix(".scanmseed")
 
         st.write(str(fname), format="MSEED", encoding="STEIM2")
 
@@ -351,7 +393,7 @@ class QuakeIO:
             for tr in st.traces:
                 tr.trim(endtime=otime + post_cut)
 
-        subdir = "cut_waveforms"
+        subdir = "locate/cut_waveforms"
         util.make_directories(self.run, subdir=subdir)
         fname = self.run / subdir / "{}".format(event_name)
 
@@ -371,22 +413,41 @@ class QuakeIO:
 
     def write_picks(self, phase_picks, event_name):
         """
-        Write phase picks to a new .picks file
+        Write phase picks to a new .picks file.
 
         Parameters
         ----------
         phase_picks : pandas DataFrame object
 
         event_name : str
-            event ID for file naming
+            Event ID for file naming.
 
         """
 
-        subdir = "picks"
+        subdir = "locate/picks"
         util.make_directories(self.run, subdir=subdir)
         fname = self.run / subdir / "{}".format(event_name)
         fname = str(fname.with_suffix(".picks"))
         phase_picks.to_csv(fname, index=False)
+
+    def write_amplitudes(self, amplitudes, event_name):
+        """
+        Write amplitude values to a new .amps file.
+
+        Parameters
+        ----------
+        amplitudes :
+
+        event_name : str
+            Event ID for file naming.
+
+        """
+
+        subdir = "locate/amplitudes"
+        util.make_directories(self.run, subdir=subdir)
+        fname = self.run / subdir / "{}".format(event_name)
+        fname = str(fname.with_suffix(".amps"))
+        amplitudes.to_csv(fname, index=True)
 
     def write_event(self, event, event_name):
         """
@@ -410,7 +471,7 @@ class QuakeIO:
 
         """
 
-        subdir = "events"
+        subdir = "locate/events"
         util.make_directories(self.run, subdir=subdir)
         fname = self.run / subdir / "{}".format(event_name)
         fname = str(fname.with_suffix(".event"))
@@ -434,7 +495,9 @@ class QuakeIO:
                       "COA_Z", "MinTime", "MaxTime"]
 
         """
-        fname = self.run / "{}_TriggeredEvents".format(self.name)
+
+        subdir = "trigger/events"
+        fname = self.run / subdir / "{}_TriggeredEvents".format(self.name)
         fname = str(fname.with_suffix(".csv"))
         events = pd.read_csv(fname)
 
@@ -485,9 +548,10 @@ class QuakeIO:
 
         """
 
-        fname = self.run / "{}_{}-{}_TriggeredEvents".format(self.name,
-                                                             start_time.julday,
-                                                             end_time.julday)
+        subdir = "trigger/events"
+        util.make_directories(self.run, subdir=subdir)
+
+        fname = self.run / subdir / "{}_TriggeredEvents".format(self.name)
         fname = str(fname.with_suffix(".csv"))
         events.to_csv(fname, index=False)
 
@@ -506,15 +570,19 @@ class QuakeIO:
         stn_ava_data.index = times = pd.to_datetime(stn_ava_data.index)
         datelist = [time.date() for time in times]
 
+        subdir = "detect/availability"
+        util.make_directories(self.run, subdir=subdir)
+
         for date in datelist:
             to_write = stn_ava_data[stn_ava_data.index.date == date]
             to_write.index = [UTCDateTime(idx) for idx in to_write.index]
             date = UTCDateTime(date)
-            fname = self.run / "{}_{}_{}_StationAvailability".format(self.name,
-                                                                     date.year,
-                                                                     str(date.julday).zfill(3))
-            fname = str(fname.with_suffix(".csv"))
-            to_write.to_csv(fname)
+
+            file_str = "{}_{}_StationAvailability".format(str(date.year),
+                                                          str(date.julday).zfill(3))
+            fname = (self.run / subdir / file_str).with_suffix(".csv")
+
+            to_write.to_csv(str(fname))
 
     def read_stn_availability(self, start_time, end_time):
         """
@@ -536,6 +604,8 @@ class QuakeIO:
 
         """
 
+        subdir = "detect/availability"
+
         start_day = UTCDateTime(start_time.date)
 
         dy = 0
@@ -543,10 +613,9 @@ class QuakeIO:
         # Loop through days trying to read .StationAvailability files
         while start_day + (dy * 86400) <= end_time:
             now = start_time + (dy * 86400)
-            filestr = "{}_{}_{}_StationAvailability".format(self.name,
-                                                            str(now.year),
-                                                            str(now.julday).zfill(3))
-            fname = (self.run / filestr).with_suffix(".csv")
+            filestr = "{}_{}_StationAvailability".format(str(now.year),
+                                                         str(now.julday).zfill(3))
+            fname = (self.run / subdir / filestr).with_suffix(".csv")
             try:
                 if stn_ava_data is None:
                     stn_ava_data = pd.read_csv(fname, index_col=0)

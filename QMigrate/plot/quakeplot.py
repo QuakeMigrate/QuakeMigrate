@@ -202,7 +202,7 @@ class QuakePlot:
 
         plt.show()
 
-        util.make_directories(self.run_path, subdir="videos")
+        util.make_directories(self.run_path, subdir="locate/videos")
         out_str = self.run_path / "videos" / file_str
         print(out_str, str(out_str))
         ani.save("{}_CoalescenceVideo.mp4".format(str(out_str)), writer=writer)
@@ -335,7 +335,7 @@ class QuakePlot:
             plt.show()
         else:
             fig.suptitle("Event Origin Time = {}".format(dt_max.datetime))
-            subdir = "summaries"
+            subdir = "locate/summaries"
             util.make_directories(self.run_path, subdir=subdir)
             out_str = self.run_path / subdir / file_str
             plt.savefig("{}_EventSummary.pdf".format(out_str), dpi=400)

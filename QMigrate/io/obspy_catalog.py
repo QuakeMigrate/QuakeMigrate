@@ -37,7 +37,7 @@ def read_quakemigrate(run_dir):
 
     if run_dir.is_dir():
         try:
-            events = run_dir.glob("events/*.event")
+            events = run_dir.glob("locate/events/*.event")
             first = next(events)
             events = chain([first], events)
         except StopIteration:

@@ -137,7 +137,7 @@ class Archive(object):
         """
 
         if archive_format == "SeisComp3":
-            self.format = "{year}/*/{station}/*/*.{station}..*.D.{year}.{jday}"
+            self.format = "{year}/*/{station}/BH*/*.{station}.*.*.D.{year}.{jday}"
         elif archive_format == "YEAR/JD/*_STATION_*":
             self.format = "{year}/{jday}/*_{station}_*"
         elif archive_format == "YEAR/JD/STATION":
@@ -416,9 +416,9 @@ class Archive(object):
                                    no_filter=True)
                     stream += trace
                 else:
-                    msg = "Mismatched sampling rates - cannot decimate data - "
-                    msg += "to resample data, set .resample = True and choose"
-                    msg += " a suitable upfactor"
+                    msg = ("Mismatched sampling rates - cannot decimate data -"
+                           " to resample data, set .resample = True and choose"
+                           " a suitable upfactor")
                     print(msg)
 
         return stream

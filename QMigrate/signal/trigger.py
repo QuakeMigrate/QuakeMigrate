@@ -350,10 +350,11 @@ class Trigger:
         # Reset EventNum column
         events.loc[:, "EventNum"] = np.arange(1, len(events) + 1)
 
-        evt_id = events["CoaTime"].astype(str)
+        event_uid = events["CoaTime"].astype(str)
         for char_ in ["-", ":", ".", " ", "Z", "T"]:
-            evt_id = evt_id.str.replace(char_, "")
-        events["EventID"] = evt_id
+            event_uid = event_uid.str.replace(char_, "")
+        event_uid = event_uid.apply(lambda x: x[:17].ljust(17, "0"))
+        events["EventID"] = event_uid
 
         if len(events) == 0:
             events = None

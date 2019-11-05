@@ -8,25 +8,29 @@ import warnings
 
 import numpy as np
 from obspy import UTCDateTime, Stream, Trace
+from obspy.geodetics.base import gps2dist_azimuth
+from obspy.io.xseed import Parser
+from obspy.signal.invsim import paz_2_amplitude_value_of_freq_resp, evalresp_for_frequencies
 import pandas as pd
 from scipy.interpolate import Rbf
-from scipy.signal import fftconvolve
+from scipy.signal import fftconvolve, find_peaks
 
 import QMigrate.core.QMigratelib as ilib
 import QMigrate.io.quakeio as qio
 import QMigrate.plot.quakeplot as qplot
+import QMigrate.signal.magnitudes as qmag
 import QMigrate.signal.onset.onset as qonset
 import QMigrate.signal.pick.pick as qpick
 import QMigrate.util as util
 
 # Filter warnings
-warnings.filterwarnings("ignore", message=("Covariance of the parameters" +
+warnings.filterwarnings("ignore", message=("Covariance of the parameters"
                                            " could not be estimated"))
-warnings.filterwarnings("ignore", message=("File will be written with more" +
-                                           " than one different record" +
-                                           " lengths. This might have a" +
-                                           " negative influence on the" +
-                                           " compatibility with other" +
+warnings.filterwarnings("ignore", message=("File will be written with more"
+                                           " than one different record"
+                                           " lengths. This might have a"
+                                           " negative influence on the"
+                                           " compatibility with other"
                                            " programs."))
 
 
@@ -166,10 +170,11 @@ class QuakeScan(DefaultQuakeScan):
                        "LocalGaussian_ErrZ", "GlobalCovariance_X",
                        "GlobalCovariance_Y", "GlobalCovariance_Z",
                        "GlobalCovariance_ErrX", "GlobalCovariance_ErrY",
-                       "GlobalCovariance_ErrZ"]
+                       "GlobalCovariance_ErrZ", "ML", "ML_Err"]
 
-    def __init__(self, data, lut, onset, picker=None, output_path=None,
-                 run_name=None, log=False):
+    def __init__(self, data, lut, onset, picker=None, get_amplitudes=False,
+                 calc_mag=False, quick_amplitudes=False, get_polarities=False,
+                 output_path=None, run_name=None, log=False):
         """
         Class initialisation method.
 
@@ -225,6 +230,32 @@ class QuakeScan(DefaultQuakeScan):
             self.picker.output = self.output
         else:
             raise util.PickerTypeError
+
+        self.polarity = get_polarities
+        self.quick_amps = quick_amplitudes
+        if calc_mag:
+            self.amplitudes = True
+            self.amplitude_params = {}
+            self.calc_mag = True
+            self.magnitude_params = {}
+        elif get_amplitudes:
+            self.amplitudes = True
+            self.amplitude_params = {}
+            self.calc_mag = False
+            self.magnitude_params = None
+        else:
+            self.amplitudes = False
+            self.amplitude_params = None
+            self.calc_mag = False
+            self.magnitude_params = None
+
+        # Create Wood Anderson response - different to the ObsPy values
+        # http://www.iris.washington.edu/pipermail/sac-help/2013-March/001430.html
+        self.WOODANDERSON = {"poles": [-5.49779 + 5.60886j,
+                                       -5.49779 - 5.60886j],
+                             "zeros": [0j, 0j],
+                             "sensitivity": 2080,
+                             "gain": 1.}
 
         self.log = log
 
@@ -282,10 +313,10 @@ class QuakeScan(DefaultQuakeScan):
         msg += "\tDETECT - Continuous Seismic Processing\n"
         msg += "=" * 110 + "\n\n"
         msg += "\tParameters:\n"
-        msg += "\t\tStart time                = {}\n"
-        msg += "\t\tEnd   time                = {}\n"
-        msg += "\t\tTime step (s)             = {}\n"
-        msg += "\t\tNumber of CPUs            = {}\n\n"
+        msg += "\t\tStart time     = {}\n"
+        msg += "\t\tEnd   time     = {}\n"
+        msg += "\t\tTime step (s)  = {}\n"
+        msg += "\t\tNumber of CPUs = {}\n\n"
         msg += str(self.onset)
         msg += "=" * 110
         msg = msg.format(str(start_time), str(end_time), self.time_step,
@@ -448,7 +479,11 @@ class QuakeScan(DefaultQuakeScan):
 
         t_length = self.pre_pad + self.post_pad + self.time_step
         self.pre_pad += np.ceil(t_length * 0.06)
+        self.pre_pad = int(np.ceil(self.pre_pad * self.sampling_rate)
+                           / self.sampling_rate * 1000) / 1000
         self.post_pad += np.ceil(t_length * 0.06)
+        self.post_pad = int(np.ceil(self.post_pad * self.sampling_rate)
+                            / self.sampling_rate * 1000) / 1000
 
         try:
             nsteps = int(np.ceil((end_time - start_time) / self.time_step))
@@ -568,7 +603,11 @@ class QuakeScan(DefaultQuakeScan):
         # Adjust pre- and post-pad to take into account cosine taper
         t_length = self.pre_pad + 4*self.marginal_window + self.post_pad
         self.pre_pad += np.ceil(t_length * 0.06)
+        self.pre_pad = int(np.ceil(self.pre_pad * self.sampling_rate)
+                           / self.sampling_rate * 1000) / 1000
         self.post_pad += np.ceil(t_length * 0.06)
+        self.post_pad = int(np.ceil(self.post_pad * self.sampling_rate)
+                            / self.sampling_rate * 1000) / 1000
 
         for i, trig_event in trig_events.iterrows():
             event_uid = trig_event["EventID"]
@@ -641,10 +680,6 @@ class QuakeScan(DefaultQuakeScan):
             idxmax = event_mw_data["COA"].astype("float").idxmax()
             event_max_coa = event_mw_data.iloc[idxmax]
 
-            # Update event UID; make out_str
-            event_uid = str(event_max_coa.values[0])
-            for char_ in ["-", ":", ".", " ", "Z", "T"]:
-                event_uid = event_uid.replace(char_, "")
             out_str = "{}_{}".format(self.output.name, event_uid)
             self.output.log(timer(), self.log)
 
@@ -662,6 +697,23 @@ class QuakeScan(DefaultQuakeScan):
                 loc_cov_err = self._calculate_location(map_4d)
             self.output.log(timer(), self.log)
 
+            # Determine amplitudes
+            if self.amplitudes:
+                self.output.log("\tGetting amplitudes...", self.log)
+                amps = self._get_amplitudes(event_max_coa.values[0],
+                                            loc_gau)
+                self.output.write_amplitudes(amps, event_uid)
+
+            if self.amplitudes and self.calc_mag:
+                self.output.log("\tCalculating magnitude...", self.log)
+                mags = qmag.calc_magnitude(amps, self.magnitude_params)
+                self.output.write_amplitudes(mags, event_uid)
+                ML, ML_error = qmag.mean_magnitude(mags, self.magnitude_params)
+                self.output.log(timer(), self.log)
+            else:
+                ML = np.nan
+                ML_error = np.nan
+
             # Make event dictionary with all final event location data
             event = pd.DataFrame([[event_max_coa.values[0],
                                    event_max_coa.values[1],
@@ -671,7 +723,7 @@ class QuakeScan(DefaultQuakeScan):
                                    loc_gau_err[2],
                                    loc_cov[0], loc_cov[1], loc_cov[2],
                                    loc_cov_err[0], loc_cov_err[1],
-                                   loc_cov_err[2]]],
+                                   loc_cov_err[2], ML, ML_error]],
                                  columns=self.EVENT_FILE_COLS)
 
             self.output.write_event(event, event_uid)
@@ -683,6 +735,252 @@ class QuakeScan(DefaultQuakeScan):
 
             del map_4d, event_coa_data, event_mw_data, event_max_coa
             self.coa_map = None
+
+    def _get_amplitudes(self, otime, coord):
+        """
+        Measure the amplitudes for the purpose of magnitude calculation.
+
+        Parameters
+        ----------
+        otime : obspy UTCDateTime object
+            Origin time of earthquake.
+
+        coord : array-like
+            Coordinate of earthquake in the input projection space.
+
+        Returns
+        -------
+        amps : pandas DataFrame object
+
+
+        """
+
+        if not self.amplitude_params:
+            msg = ("Must define a set of amplitude parameters.\n"
+                   "For more information, please consult the documenation.")
+            raise AttributeError(msg)
+
+        if self.amplitude_params["response_format"] == "dataless":
+            dataless = Parser(self.amplitude_params["response_fname"])
+            resp = False
+        else:
+            resp_file = self.amplitude_params["response_fname"]
+            resp = True
+
+        if not self.quick_amps:
+            water_level = self.amplitude_params.get("water_level")
+            pre_filt = self.amplitude_params.get("pre_filt")
+        # else:
+        #     inv = read_inventory(self.amplitude_params["dataless_xml"])
+
+        noise_window = self.amplitude_params.get("noise_win")
+
+        evlo, evla, evdp = coord
+        picks = self.picker.phase_picks["Pick"]
+        stations = self.lut.station_data
+
+        raw_waveforms = self.data.raw_waveforms.copy()
+
+        amplitudes = pd.DataFrame(columns=["id", "epi_distance", "depth",
+                                           "P_amp", "P_freq", "S_amp",
+                                           "S_freq", "Error", "is_picked"])
+
+        for i, pick in picks.iterrows():
+            p = pick["PickTime"]
+            picked = True
+            if p == -1:
+                p = pick["ModelledTime"]
+                picked = not picked
+
+            # Take advantage of Python's function scope - state of variables pp
+            # and ppicked are retained when going to next loop
+            if pick["Phase"] == "P":
+                pp = UTCDateTime(p)
+                ppicked = picked
+                continue
+            elif pick["Phase"] == "S":
+                sp = UTCDateTime(p)
+                spicked = picked
+            picked = (ppicked or spicked)
+
+            station = pick["Name"]
+            station_info = stations[stations["Name"] == station]
+            stla = station_info["Latitude"].iloc[0]
+            stlo = station_info["Longitude"].iloc[0]
+            stel = station_info["Elevation"].iloc[0]
+
+            # Evaluate epicentral/vertical distances between station/event
+            edist, *_ = gps2dist_azimuth(evla, evlo, stla, stlo) / 1000.
+            zdist = (evdp - stel) / 1000.
+
+            amps_template = ["", edist, zdist, np.nan, np.nan, np.nan, np.nan,
+                             np.nan, False]
+
+            st = raw_waveforms.select(station=station)
+            st.merge(method=1, fill_value="interpolate")
+            if not bool(st) or len(st) > 3:
+                print("No data available for {}.".format(station))
+                amps = amps_template.copy()
+                for j, channel in enumerate(["N", "E", "Z"]):
+                    amps[0] = ".{}..{}".format(station, channel)
+                    amplitudes.loc[i//2+j] = amps
+                    continue
+
+            if not self.quick_amps:
+                if not resp:
+                    st.simulate(seedresp={"filename": dataless,
+                                          "units": "DIS"},
+                                paz_simulate=self.WOODANDERSON,
+                                pre_filt=pre_filt, taper=False,
+                                water_level=water_level)
+                else:
+                    tmp = Stream()
+                    for tr in st:
+                        tr.simulate(seedresp={"filename": resp_file,
+                                              "units": "DIS"},
+                                    paz_simulate=self.WOODANDERSON,
+                                    pre_filt=pre_filt, taper=False,
+                                    water_level=water_level)
+                        tmp += tr
+                    st = tmp
+
+            for j, channel in enumerate(["N", "E", "Z"]):
+                amps = amps_template.copy()
+                tr = st.select(channel="*{}".format(channel))[0]
+                stats = tr.stats
+                if bool(tr):
+                    print("No data for {} component.".format(channel))
+                    amps[0] = ".{}..{}".format(station, channel)
+                    amplitudes.loc[i//2+j] = amps
+                    continue
+
+                amps[0] = tr.id
+
+                assert pp < sp
+                if np.abs(pp - sp) < 1.:
+                    windows = [[pp, sp], [sp, sp + noise_window]]
+                else:
+                    windows = [[pp, sp - 1.], [sp - 1., sp + noise_window]]
+
+                for k, (stime, etime) in enumerate(windows):
+                    # Add 5% for tapering
+                    taper = (etime - stime) * 0.05
+                    window = tr.slice(stime - taper, etime + taper)
+                    data = window.data
+
+                    if bool(window) or np.all(data == 0.0) or np.all(data == data.mean()):
+                        continue
+
+                    half_amp, approx_freq = self._peak_to_trough_amplitude(window)
+
+                    if self.quick_amps:
+                        gain = paz_2_amplitude_value_of_freq_resp(self.WOODANDERSON,
+                                                                  approx_freq) * self.WOODANDERSON["sensitivity"]
+
+                        if not resp:
+                            # Get the response from the dataless SEED volume
+                            blockettes = dataless._select(tr.id,
+                                                          datetime=stats.starttime)
+                            response = dataless.get_response_for_channel(blockettes[1:], "")
+                            gain /= np.abs(response.get_evalresp_response_for_frequencies([approx_freq],
+                                                                                          output="DISP"))
+                        else:
+                            try:
+                                gain /= np.abs(evalresp_for_frequencies(stats.delta,
+                                                                        [approx_freq],
+                                                                        resp_file,
+                                                                        stats.starttime,
+                                                                        units="DISP",
+                                                                        station=stats.station,
+                                                                        channel=stats.channel))
+                            except ValueError:
+                                continue
+                        half_amp *= gain
+
+                    amps[3+k*2:5+k*2] = half_amp * 1000., approx_freq
+
+                # Grab a noise window
+                data = tr.slice(pp - 3. - noise_window, pp - 3.)
+                noise = np.std(data.data)
+                if self.quick_amps:
+                    noise *= gain
+                amps[7:9] = noise * 2., picked
+
+                amplitudes[i//2+j] = amps
+
+        return amplitudes.set_index("id")
+
+    def _peak_to_trough_amplitude(self, trace):
+        """
+        Calculate the peak-to-trough amplitude for a given trace.
+
+        Parameters
+        ----------
+        trace : ObsPy Trace object
+            Waveform for which to calculate peak-to-trough amplitude.
+
+        Returns
+        -------
+        half_amp : float
+            Half the value of maximum peak-to-trough amplitude.
+            Returns -1 if no measurement could be made.
+
+        approx_freq : float
+            Approximate frequency of the arrival, based on the half-period
+            between the maximum peak/trough.
+            Returns -1 if no measurement could be made.
+
+        """
+
+        try:
+            prom_mult = self.amplitude_params["prominence_multiplier"]
+        except KeyError:
+            prom_mult = 0.
+
+        trace.detrend("linear")
+        trace.taper(0.05)
+
+        prominence = prom_mult * np.max(np.abs(trace.data))
+        peaks, _ = find_peaks(trace.data, prominence=prominence)
+        troughs, _ = find_peaks(-trace.data, prominence=prominence)
+
+        if len(peaks) == 0 or len(troughs) == 0:
+            return -1, -1
+        elif len(peaks) == 1 and len(troughs) == 1:
+            full_amp = np.abs(trace.data[peaks] - trace.data[troughs])
+            pos = 0
+        elif len(peaks) == len(troughs):
+            if peaks[0] < troughs[0]:
+                a, b, c, d = peaks, troughs, peaks[1:], troughs[:-1]
+            else:
+                a, b, c, d = peaks, troughs, peaks[:-1], troughs[1:]
+        elif not np.abs(len(peaks) - len(troughs)) == 1:
+            # More than two peaks/troughs next to one another
+            return -1, -1
+        elif len(peaks) > len(troughs):
+            assert peaks[0] < troughs[0]
+            a, b, c, d = peaks[:-1], troughs, peaks[1:], troughs
+        elif len(peaks) < len(troughs):
+            assert peaks[0] > troughs[0]
+            a, b, c, d = peaks, troughs[1:], peaks, troughs[:-1]
+
+        fp1 = np.abs(trace.data[a] - trace.data[b])
+        fp2 = np.abs(trace.data[c] - trace.data[d])
+
+        if np.max(fp1) >= np.max(fp2):
+            pos = np.argmax(fp1)
+            full_amp = np.max(fp1)
+            peaks, troughs = a, b
+        else:
+            pos = np.argmax(fp2)
+            full_amp = np.max(fp2)
+            peaks, troughs = c, d
+
+        peak_t = trace.times()[peaks[pos]]
+        trough_t = trace.times()[troughs[pos]]
+        approx_freq = 1. / (np.abs(peak_t - trough_t) * 2.)
+
+        return full_amp / 2, approx_freq
 
     def _read_event_waveform_data(self, event, w_beg, w_end):
         """

@@ -154,11 +154,15 @@ def triggered_events(events, start_time, end_time, output, marginal_window,
 
     if events is not None:
         if normalise_coalescence:
-            coa_norm.axhline(detection_threshold, c="g",
-                             label="Detection threshold")
+            if type(detection_threshold) == float:
+                coa_norm.axhline(detection_threshold, c="g")
+            else:
+                coa_norm.plot(data["DT"], detection_threshold, "g-")
         else:
-            coa_norm.axhline(detection_threshold, c="g",
-                             label="Detection threshold")
+            if type(detection_threshold) == float:
+                coa.axhline(detection_threshold, c="g")
+            else:
+                coa.plot(data["DT"], detection_threshold, "g-")
 
         # Plotting the scatter of the earthquake locations
         xy.scatter(events["COA_X"], events["COA_Y"], 50, events["COA_V"])
@@ -190,9 +194,9 @@ def triggered_events(events, start_time, end_time, output, marginal_window,
 
     # Save figure or open interactive matplotlib window
     if savefig:
-        out = output.run / "{}_{}-{}_Trigger".format(output.name,
-                                                     start_time.julday,
-                                                     end_time.julday)
+        subdir = "trigger/summaries"
+        util.make_directories(output.run, subdir=subdir)
+        out = output.run / subdir / "{}_Trigger".format(output.name)
         out = str(out.with_suffix(".pdf"))
         plt.savefig(out)
     else:

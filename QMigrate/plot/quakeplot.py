@@ -74,13 +74,14 @@ class QuakePlot:
 
         event : pandas DataFrame
             Final location information for the event to be plotted
-            Columns = ["DT", "COA", "X", "Y", "Z",
+            Columns = ["DT", "COA", "COA_NORM", "X", "Y", "Z",
                        "LocalGaussian_X", "LocalGaussian_Y", "LocalGaussian_Z",
                        "LocalGaussian_ErrX", "LocalGaussian_ErrY",
                        "LocalGaussian_ErrZ", "GlobalCovariance_X",
                        "GlobalCovariance_Y", "GlobalCovariance_Z",
                        "GlobalCovariance_ErrX", "GlobalCovariance_ErrY",
-                       "GlobalCovariance_ErrZ"]
+                       "GlobalCovariance_ErrZ", "TRIG_COA", "DEC_COA",
+                       "DEC_COA_NORM"]
             All X / Y as lon / lat; Z and X / Y / Z uncertainties in metres
 
         phase_picks : dict, optional

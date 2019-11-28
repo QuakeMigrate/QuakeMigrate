@@ -129,7 +129,7 @@ def onset(sig, stw, ltw, centred=False):
     stw = int(round(stw))
     ltw = int(round(ltw))
 
-    n_channels, n_samples = sig.shape
+    n_channels, _ = sig.shape
     onset = np.copy(sig)
     onset_raw = np.copy(sig)
     for i in range(n_channels):
@@ -180,7 +180,7 @@ def filter(sig, sampling_rate, lc, hc, order=2):
     # Construct butterworth band-pass filter
     b1, a1 = butter(order, [2.0 * lc / sampling_rate,
                             2.0 * hc / sampling_rate], btype="band")
-    nchan, nsamp = sig.shape
+    nchan, _ = sig.shape
     fsig = np.copy(sig)
 
     # Apply cosine taper then apply band-pass filter in both directions
@@ -416,13 +416,13 @@ class QuakeScan(DefaultQuakeScan):
                             "xdata_dt": 0,
                             "PickValue": -1}
 
-    EVENT_FILE_COLS = ["DT", "COA", "X", "Y", "Z",
+    EVENT_FILE_COLS = ["DT", "COA", "COA_NORM", "X", "Y", "Z",
                        "LocalGaussian_X", "LocalGaussian_Y", "LocalGaussian_Z",
                        "LocalGaussian_ErrX", "LocalGaussian_ErrY",
                        "LocalGaussian_ErrZ", "GlobalCovariance_X",
                        "GlobalCovariance_Y", "GlobalCovariance_Z",
                        "GlobalCovariance_ErrX", "GlobalCovariance_ErrY",
-                       "GlobalCovariance_ErrZ"]
+                       "GlobalCovariance_ErrZ", "TRIG_COA", "DEC_COA", "DEC_COA_NORM"]
 
     def __init__(self, data, lookup_table, output_path=None, run_name=None, log=False):
         """
@@ -853,6 +853,14 @@ class QuakeScan(DefaultQuakeScan):
             msg = msg.format(i + 1, n_evts, event_uid)
             self.output.log(msg, self.log)
 
+            trig_coa = trig_event["COA_V"]
+            try:
+                detect_coa = trig_event["COA"]
+                detect_coa_norm = trig_event["COA_NORM"]
+            except KeyError:
+                detect_coa = np.nan
+                detect_coa_norm = np.nan
+
             w_beg = trig_event["CoaTime"] - 2*self.marginal_window \
                 - self.pre_pad
             w_end = trig_event["CoaTime"] + 2*self.marginal_window \
@@ -882,10 +890,12 @@ class QuakeScan(DefaultQuakeScan):
                                                       self.data.availability)
             coord = self.lut.xyz2coord(np.array(loc).astype(int))
             event_coa_data = pd.DataFrame(np.array((daten, max_coa,
+                                                    max_coa_norm,
                                                     coord[:, 0],
                                                     coord[:, 1],
                                                     coord[:, 2])).transpose(),
-                                          columns=["DT", "COA", "X", "Y", "Z"])
+                                          columns=["DT", "COA", "COA_NORM",
+                                                   "X", "Y", "Z"])
             event_coa_data["DT"] = event_coa_data["DT"].apply(UTCDateTime)
             event_coa_data_dtmax = \
                 event_coa_data["DT"].iloc[event_coa_data["COA"].astype("float").idxmax()]
@@ -933,7 +943,8 @@ class QuakeScan(DefaultQuakeScan):
 
             # Determining earthquake location error
             timer = util.Stopwatch()
-            self.output.log("\tDetermining earthquake location and uncertainty...", self.log)
+            self.output.log("\tDetermining earthquake location and uncertainty...",
+                            self.log)
             loc_spline, loc_gau, loc_gau_err, loc_cov, \
                 loc_cov_err = self._calculate_location(map_4d)
             self.output.log(timer(), self.log)
@@ -941,13 +952,15 @@ class QuakeScan(DefaultQuakeScan):
             # Make event dictionary with all final event location data
             event = pd.DataFrame([[event_max_coa.values[0],
                                    event_max_coa.values[1],
+                                   event_max_coa.values[2],
                                    loc_spline[0], loc_spline[1], loc_spline[2],
                                    loc_gau[0], loc_gau[1], loc_gau[2],
                                    loc_gau_err[0], loc_gau_err[1],
                                    loc_gau_err[2],
                                    loc_cov[0], loc_cov[1], loc_cov[2],
                                    loc_cov_err[0], loc_cov_err[1],
-                                   loc_cov_err[2]]],
+                                   loc_cov_err[2], trig_coa, detect_coa,
+                                   detect_coa_norm]],
                                  columns=self.EVENT_FILE_COLS)
 
             self.output.write_event(event, event_uid)
@@ -1077,7 +1090,7 @@ class QuakeScan(DefaultQuakeScan):
         ttime = np.c_[p_ttime, s_ttime]
         del p_ttime, s_ttime
 
-        nchan, tsamp = ps_onset.shape
+        _, tsamp = ps_onset.shape
 
         pre_smp = int(round(self.pre_pad * int(self.sampling_rate)))
         pos_smp = int(round(self.post_pad * int(self.sampling_rate)))
@@ -1436,7 +1449,8 @@ class QuakeScan(DefaultQuakeScan):
         ----------
         event : pandas DataFrame
             Contains data about located event.
-            Columns: ["DT", "COA", "X", "Y", "Z"] - X and Y as lon/lat; Z in m
+            Columns: ["DT", "COA", "COA_NORM", "X", "Y", "Z"] - X and Y as
+                     lon/lat; Z in m
 
         Returns
         -------
@@ -2037,13 +2051,14 @@ class QuakeScan(DefaultQuakeScan):
 
         event : pandas DataFrame
             Final event location information.
-            Columns = ["DT", "COA", "X", "Y", "Z",
+            Columns = ["DT", "COA", "COA_NORM", "X", "Y", "Z",
                        "LocalGaussian_X", "LocalGaussian_Y", "LocalGaussian_Z",
                        "LocalGaussian_ErrX", "LocalGaussian_ErrY",
                        "LocalGaussian_ErrZ", "GlobalCovariance_X",
                        "GlobalCovariance_Y", "GlobalCovariance_Z",
                        "GlobalCovariance_ErrX", "GlobalCovariance_ErrY",
-                       "GlobalCovariance_ErrZ"]
+                       "GlobalCovariance_ErrZ", "TRIG_COA", "DEC_COA",
+                       "DEC_COA_NORM"]
             All X / Y as lon / lat; Z and X / Y / Z uncertainties in metres
 
         out_str : str

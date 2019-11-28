@@ -230,8 +230,10 @@ class Archive(object):
             for stn in self.stations.tolist():
                 st_selected += st.select(station=stn)
             st = st_selected.copy()
-            for tr in st.traces:
+            for tr in st:
                 tr.trim(starttime=start_time, endtime=end_time)
+                if not bool(tr):
+                    st.remove(tr)
 
             # Remove stations which have gaps in at least one trace
             gaps = st.get_gaps()

@@ -17,8 +17,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 from obspy import UTCDateTime
 import pandas as pd
+from pandas.plotting import register_matplotlib_converters
 
 import QMigrate.util as util
+
+register_matplotlib_converters()
 
 
 def triggered_events(events, start_time, end_time, output, marginal_window,
@@ -69,10 +72,9 @@ def triggered_events(events, start_time, end_time, output, marginal_window,
     """
 
     if data is None:
-        data, coa_stats = output.read_coastream(start_time, end_time)
-        del coa_stats
+        data, _ = output.read_coastream(start_time, end_time)
 
-    output.log("\n\tPlotting triggered events on decimated grid...", log)
+    output.log("\n    Plotting triggered events on decimated grid...", log)
     data["DT"] = pd.to_datetime(data["DT"].astype(str))
 
     fig = plt.figure(figsize=(30, 15))
@@ -152,11 +154,15 @@ def triggered_events(events, start_time, end_time, output, marginal_window,
 
     if events is not None:
         if normalise_coalescence:
-            coa_norm.axhline(detection_threshold, c="g",
-                             label="Detection threshold")
+            if type(detection_threshold) == float:
+                coa_norm.axhline(detection_threshold, c="g")
+            else:
+                coa_norm.plot(data["DT"], detection_threshold, "g-")
         else:
-            coa_norm.axhline(detection_threshold, c="g",
-                             label="Detection threshold")
+            if type(detection_threshold) == float:
+                coa.axhline(detection_threshold, c="g")
+            else:
+                coa.plot(data["DT"], detection_threshold, "g-")
 
         # Plotting the scatter of the earthquake locations
         xy.scatter(events["COA_X"], events["COA_Y"], 50, events["COA_V"])
@@ -166,12 +172,12 @@ def triggered_events(events, start_time, end_time, output, marginal_window,
     xy.set_title("Decimated coalescence earthquake locations")
 
     yz.yaxis.tick_right()
-    yz.invert_xaxis()
     yz.yaxis.set_label_position("right")
     yz.set_ylabel("Latitude (deg)")
     yz.set_xlabel("Depth (m)")
 
     xz.yaxis.set_label_position("right")
+    xz.invert_yaxis()
     xz.set_xlabel("Longitude (deg)")
     xz.set_ylabel("Depth (m)")
 
@@ -188,9 +194,9 @@ def triggered_events(events, start_time, end_time, output, marginal_window,
 
     # Save figure or open interactive matplotlib window
     if savefig:
-        out = output.run / "{}_{}-{}_Trigger".format(output.name,
-                                                     start_time.julday,
-                                                     end_time.julday)
+        subdir = "trigger/summaries"
+        util.make_directories(output.run, subdir=subdir)
+        out = output.run / subdir / "{}_Trigger".format(output.name)
         out = str(out.with_suffix(".pdf"))
         plt.savefig(out)
     else:

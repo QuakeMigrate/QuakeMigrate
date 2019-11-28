@@ -115,12 +115,11 @@ class GaussianPicker(qpick.PhasePicker):
                         self.data.sample_size)
         self.times = pd.to_datetime([x.datetime for x in tmp])
 
-        event_crd = np.array([event[["X", "Y", "Z"]].values])
-        event_xyz = np.array(self.lut.xyz2coord(event_crd,
-                                                inverse=True)).astype(int)[0]
+        event_ijk = self.lut.index2coord(event[["X", "Y", "Z"]].values,
+                                         inverse=True)[0]
 
-        self.p_ttime = self.lut.value_at("TIME_P", event_xyz)[0]
-        self.s_ttime = self.lut.value_at("TIME_S", event_xyz)[0]
+        self.p_ttime = self.lut.traveltime_to("P", event_ijk)
+        self.s_ttime = self.lut.traveltime_to("S", event_ijk)
 
         # Determining the stations that can be picked on and the phases
         picks = pd.DataFrame(index=np.arange(0, 2 * len(self.data.p_onset)),
@@ -129,10 +128,10 @@ class GaussianPicker(qpick.PhasePicker):
 
         p_gauss = np.array([])
         s_gauss = np.array([])
-        idx = 0
-        for i in range(len(self.data.p_onset)):
+        for i, station in self.lut.station_data.iterrows():
             p_arrival = event["DT"] + self.p_ttime[i]
             s_arrival = event["DT"] + self.s_ttime[i]
+            idx = 2*i
 
             for phase in ["P", "S"]:
                 if phase == "P":
@@ -141,6 +140,7 @@ class GaussianPicker(qpick.PhasePicker):
                 else:
                     onset = self.data.s_onset[i]
                     arrival = s_arrival
+                    idx += 1
 
                 gau, max_onset, err, mn = self._gaussian_picker(
                     onset, phase, self.data.start_time, p_arrival,
@@ -151,9 +151,8 @@ class GaussianPicker(qpick.PhasePicker):
                 else:
                     s_gauss = np.hstack([s_gauss, gau])
 
-                picks.iloc[idx] = [self.lut.station_data["Name"][i],
-                                   phase, arrival, mn, err, max_onset]
-                idx += 1
+                picks.iloc[idx] = [station["Name"], phase, arrival, mn, err,
+                                   max_onset]
 
         phase_picks = {}
         phase_picks["Pick"] = picks
@@ -419,16 +418,16 @@ class GaussianPicker(qpick.PhasePicker):
 
         # Make output dir for this event outside of loop
         if file_str:
-            subdir = "traces"
+            subdir = "locate/traces/{}".format(event_uid)
             util.make_directories(run_path, subdir=subdir)
-            out_dir = run_path / subdir / event_uid
-            util.make_directories(out_dir)
+            out_dir = run_path / subdir
 
         # Looping through all stations
         for i in range(self.data.signal.shape[1]):
             station = self.lut.station_data["Name"][i]
             gau_p = self.phase_picks["GAU_P"][i]
             gau_s = self.phase_picks["GAU_S"][i]
+            signal = self.data.filtered_signal
             fig = plt.figure(figsize=(30, 15))
 
             # Defining the plot
@@ -440,12 +439,12 @@ class GaussianPicker(qpick.PhasePicker):
             s_onset = plt.subplot(326)
 
             # Plotting the traces
-            self._plot_signal(x_trace, self.times,
-                              self.data.filtered_signal[0, i, :], -1, "r")
-            self._plot_signal(y_trace, self.times,
-                              self.data.filtered_signal[1, i, :], -1, "b")
-            self._plot_signal(z_trace, self.times,
-                              self.data.filtered_signal[2, i, :], -1, "g")
+            self._plot_signal_trace(x_trace, self.times, signal[0, i, :], -1,
+                                    "r")
+            self._plot_signal_trace(y_trace, self.times, signal[1, i, :], -1,
+                                    "b")
+            self._plot_signal_trace(z_trace, self.times, signal[2, i, :], -1,
+                                    "g")
             p_onset.plot(self.times, self.data.p_onset[i, :], "r",
                          linewidth=0.5)
             s_onset.plot(self.times, self.data.s_onset[i, :], "b",
@@ -521,15 +520,37 @@ class GaussianPicker(qpick.PhasePicker):
                 plt.savefig(fname)
                 plt.close("all")
 
-    def _plot_signal(self, trace, x, y, st_idx, color):
+    def _plot_signal_trace(self, ax, x, y, st_idx, color):
         """
         Plot signal trace.
+
+        Performs a simple check to see if there is any signal data available to
+        plot.
+
+        Parameters
+        ----------
+        ax : matplotlib Axes object
+            Axes on which to plot the signal trace.
+
+        x : array-like
+            Timestamps for the signal trace.
+
+        y : array-like
+            The amplitudes of the signal trace.
+
+        st_idx : int
+            Amount to vertically shift the signal trace. Either range ordered
+            or ordered alphabetically by station name.
+
+        color : str
+            Line colour for the trace - see matplotlib documentation for more
+            details.
 
         """
 
         if y.any():
-            trace.plot(x, y / np.max(abs(y)) + (st_idx + 1), color=color,
-                       linewidth=0.5, zorder=1)
+            ax.plot(x, y / np.max(abs(y)) + (st_idx + 1), color=color,
+                    linewidth=0.5, zorder=1)
 
     def _pick_vlines(self, trace, pick_time, pick_err):
         """

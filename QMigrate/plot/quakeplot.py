@@ -6,7 +6,7 @@ Module to produce plots for QuakeMigrate.
 
 import os
 import pathlib
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from obspy import UTCDateTime
 import pandas as pd
@@ -21,8 +21,11 @@ import matplotlib.pylab as plt
 from matplotlib.patches import Ellipse
 import matplotlib.image as mpimg
 import matplotlib.animation as animation
+from pandas.plotting import register_matplotlib_converters
 
 import QMigrate.util as util
+
+register_matplotlib_converters()
 
 
 class QuakePlot:
@@ -47,8 +50,8 @@ class QuakePlot:
 
     logo = (pathlib.Path(__file__) / "QuakeMigrate").with_suffix(".png")
 
-    def __init__(self, lut, data, event_mw_data, marginal_window, run_path,
-                 event, map_4d=None, coa_map=None, options=None):
+    def __init__(self, lut, data, mw_coa, marginal_window, run_path, event,
+                 map_4d=None, coa_map=None, options=None):
         """
         Initialisation of QuakePlot object.
 
@@ -67,7 +70,7 @@ class QuakePlot:
             Contains read_waveforms() method and stores read data in raw and
             processed state
 
-        event_mw_data : pandas DataFrame
+        mw_coa : pandas DataFrame
             Gridded maximum coa location through time across the marginal
             window. Columns = ["DT", "COA", "X", "Y", "Z"]
 
@@ -124,7 +127,7 @@ class QuakePlot:
 
         self.data = data
 
-        self.event_mw_data = event_mw_data
+        self.mw_coa = mw_coa
         self.event = event
 
         self.marginal_window = marginal_window
@@ -137,8 +140,8 @@ class QuakePlot:
 
         if options is None:
             self.trace_scale = 1
-            self.cmap = "hot_r"
-            self.line_station_color = "black"
+            self.cmap = "viridis"
+            self.line_station_color = "white"
             self.plot_stats = True
             self.filtered_signal = True
             self.xy_files = None
@@ -163,29 +166,15 @@ class QuakePlot:
         self.times = pd.to_datetime([x.datetime for x in tmp])
 
         # Convert event["DT"] to python datetime object
-        if not isinstance(self.event_mw_data["DT"].iloc[0], datetime):
-            self.event_mw_data["DT"] = [x.datetime for x in
-                                        self.event_mw_data["DT"]]
+        if not isinstance(self.mw_coa["DT"].iloc[0], datetime):
+            self.mw_coa["DT"] = [x.datetime for x in self.mw_coa["DT"]]
 
         # I think this should do nothing....
-        self.event_mw_data = self.event_mw_data[(self.event_mw_data["DT"] >
-                                                 self.times[0])
-                                                & (self.event_mw_data["DT"] <
-                                                   self.times[-1])]
+        self.mw_coa = self.mw_coa[(self.mw_coa["DT"] > self.times[0]) &
+                                  (self.mw_coa["DT"] < self.times[-1])]
 
-        self.station_trace_vline = None
-        self.coal_val_vline = None
-        self.xy_plot = None
-        self.yz_plot = None
-        self.xz_plot = None
-        self.xy_vline = None
-        self.xy_hline = None
-        self.yz_vline = None
-        self.yz_hline = None
-        self.xz_vline = None
-        self.xz_hline = None
-        self.tp_arrival = None
-        self.ts_arrival = None
+        self.slices = {}
+        self.crosshairs = {}
 
     def coalescence_video(self, file_str):
         """
@@ -200,22 +189,23 @@ class QuakePlot:
         """
 
         # Find index of start and end of marginal window
-        idx0 = np.where(self.times == self.event_mw_data["DT"].iloc[0])[0][0]
-        idx1 = np.where(self.times == self.event_mw_data["DT"].iloc[-1])[0][0]
+        i0 = np.where(self.times == self.mw_coa["DT"].iloc[0])[0][0]
+        i1 = np.where(self.times == self.mw_coa["DT"].iloc[-1])[0][0]
 
         Writer = animation.writers["ffmpeg"]
-        writer = Writer(fps=4, metadata=dict(artist="Ulvetanna"), bitrate=1800)
+        writer = Writer(fps=4, metadata=dict(artist="QM"), bitrate=1800)
 
-        fig = self._coalescence_frame(idx0)
+        fig = self._coalescence_frame(i0)
         ani = animation.FuncAnimation(fig, self._video_update,
-                                      frames=np.linspace(idx0+1, idx1, 200),
+                                      frames=np.linspace(i0+1, i1, i1-i0),
                                       blit=False, repeat=False)
 
-        subdir = "videos"
-        util.make_directories(self.run_path, subdir=subdir)
-        out_str = self.run_path / subdir / file_str
-        ani.save("{}_CoalescenceVideo.mp4".format(out_str),
-                 writer=writer)
+        plt.show()
+
+        util.make_directories(self.run_path, subdir="locate/videos")
+        out_str = self.run_path / "videos" / file_str
+        print(out_str, str(out_str))
+        ani.save("{}_CoalescenceVideo.mp4".format(str(out_str)), writer=writer)
 
     def event_summary(self, file_str=None):
         """
@@ -235,227 +225,227 @@ class QuakePlot:
 
         # Event is only in first line of earthquake, reduces chars later on
         if self.event is not None:
-            eq = self.event.iloc[0]
+            eq = self.event
         else:
             msg = "\t\tError: no event specified!"
             print(msg)
             return
 
-        dt_max = (self.event_mw_data["DT"].iloc[np.argmax(self.event_mw_data["COA"])]).to_pydatetime()
+        dt_max = self.mw_coa["DT"].iloc[np.argmax(self.mw_coa["COA"].values)]
 
-        # Determining the marginal window value from the coalescence function
+        # Extract indices and grid coordinates of maximum coalescence
         coa_map = np.ma.masked_invalid(self.coa_map)
-        loc = np.where(coa_map == np.nanmax(coa_map))
-        point = np.array([[loc[0][0],
-                           loc[1][0],
-                           loc[2][0]]])
-        crd = self.lut.coord2loc(point, inverse=True)
+        idx_max = np.r_[np.where(coa_map == np.nanmax(coa_map))]
+        coord_max = self.lut.index2coord(idx_max)[0]
 
         # Defining the plots to be represented
         fig = plt.figure(figsize=(25, 15))
         fig.patch.set_facecolor("white")
-        xy_slice = plt.subplot2grid((3, 5), (0, 0), colspan=2, rowspan=2)
-        xz_slice = plt.subplot2grid((3, 5), (2, 0), colspan=2)
-        yz_slice = plt.subplot2grid((3, 5), (0, 2), rowspan=2)
-        trace = plt.subplot2grid((3, 5), (0, 3), colspan=2, rowspan=2)
-        logo = plt.subplot2grid((3, 5), (2, 2))
-        coal_val = plt.subplot2grid((3, 5), (2, 3), colspan=2)
+        xy_ax = plt.subplot2grid((3, 5), (0, 0), colspan=2, rowspan=2)
+        xz_ax = plt.subplot2grid((3, 5), (2, 0), colspan=2)
+        yz_ax = plt.subplot2grid((3, 5), (0, 2), rowspan=2)
+        sig_ax = plt.subplot2grid((3, 5), (0, 3), colspan=2, rowspan=2)
+        logo_ax = plt.subplot2grid((3, 5), (2, 2))
+        coa_ax = plt.subplot2grid((3, 5), (2, 3), colspan=2)
 
-        # --- Ordering by distance to event ---
+        # Station trace ordering
         if self.range_order:
-            ttp = self.lut.get_value_at("TIME_P", point[0])[0]
+            ttp = self.lut.traveltime_to("P", idx_max)
             sidx = abs(np.argsort(np.argsort(ttp))
                        - np.max(np.argsort(np.argsort(ttp))))
         else:
-            sidx = np.argsort(self.data.stations)[::-1]
+            # Order alphabetically by name
+            sidx = np.argsort(self.lut.station_data["Name"])[::-1]
 
         for i in range(self.data.signal.shape[1]):
             if not self.filtered_signal:
-                self._plot_signal_trace(trace, self.times,
-                                        self.data.signal[0, i, :],
-                                        sidx[i], color="r")
-                self._plot_signal_trace(trace, self.times,
-                                        self.data.signal[1, i, :],
-                                        sidx[i], color="b")
-                self._plot_signal_trace(trace, self.times,
-                                        self.data.signal[2, i, :],
-                                        sidx[i], color="g")
+                signal = self.data.signal
             else:
-                self._plot_signal_trace(trace, self.times,
-                                        self.data.filtered_signal[0, i, :],
-                                        sidx[i], color="r")
-                self._plot_signal_trace(trace, self.times,
-                                        self.data.filtered_signal[1, i, :],
-                                        sidx[i], color="b")
-                self._plot_signal_trace(trace, self.times,
-                                        self.data.filtered_signal[2, i, :],
-                                        sidx[i], color="g")
+                signal = self.data.filtered_signal
 
-        # --- Plotting the Station Travel Times ---
-        ttime_range = self.lut.get_value_at("TIME_P", point[0])[0].shape[0]
-        tps = []
-        tss = []
+            self._plot_signal_trace(sig_ax, self.times, signal[0, i, :],
+                                    sidx[i], color="r")
+            self._plot_signal_trace(sig_ax, self.times, signal[1, i, :],
+                                    sidx[i], color="b")
+            self._plot_signal_trace(sig_ax, self.times, signal[2, i, :],
+                                    sidx[i], color="g")
+
+        # --- Plot predicted travel times on station traces ---
         dt_max = UTCDateTime(dt_max)
-        tmp_p = self.lut.get_value_at("TIME_P", point[0])
-        tmp_s = self.lut.get_value_at("TIME_S", point[0])
-        for i in range(ttime_range):
-            tps.append((dt_max + tmp_p[0][i]).datetime)
-            tss.append((dt_max + tmp_s[0][i]).datetime)
+        ttp = self.lut.traveltime_to("P", idx_max)
+        ttp = [(dt_max + tt).datetime for tt in ttp]
+        tts = self.lut.traveltime_to("S", idx_max)
+        tts = [(dt_max + tt).datetime for tt in tts]
 
-        del tmp_p, tmp_s
+        self.ptt = sig_ax.scatter(ttp, (sidx + 1), 50, "pink", marker="v",
+                                  zorder=4, linewidth=0.1, edgecolors="black")
+        self.stt = sig_ax.scatter(tts, (sidx + 1), 50, "purple", marker="v",
+                                  zorder=5, linewidth=0.1, edgecolors="black")
 
-        self.tp_arrival = trace.scatter(tps, (sidx + 1), 50, "pink",
-                                        marker="v", zorder=4, linewidth=0.1,
-                                        edgecolors="black")
-        self.ts_arrival = trace.scatter(tss, (sidx + 1), 50, "purple",
-                                        marker="v", zorder=5, linewidth=0.1,
-                                        edgecolors="black")
-
-        # Set signal trace limits
-        trace.set_xlim([(dt_max-0.1).datetime,
+        # --- Set signal trace limits ---
+        sig_ax.set_xlim([(dt_max-0.1).datetime,
                         (self.data.end_time-0.8).datetime])
-        trace.yaxis.tick_right()
-        trace.yaxis.set_ticks(sidx + 1)
-        trace.yaxis.set_ticklabels(self.data.stations)
-        self.station_trace_vline = trace.axvline(dt_max.datetime, 0, 1000,
-                                                 linestyle="--", linewidth=2,
-                                                 color="r")
+        sig_ax.yaxis.tick_right()
+        sig_ax.yaxis.set_ticks(sidx + 1)
+        sig_ax.yaxis.set_ticklabels(self.data.stations)
+        sig_ax.axvline(dt_max.datetime, 0, 1000, linestyle="--", linewidth=2,
+                       color="r")
 
-        # --- Plotting the Coalescence Function ---
-        self._plot_coalescence_value(coal_val, dt_max.datetime)
+        # --- Plot the slices through the 3-D coalescence volume ---
+        self._plot_coalescence_value(coa_ax, dt_max.datetime)
 
-        # --- Determining Error ellipse for Covariance ---
-        cov_x = eq["GlobalCovariance_ErrX"] / self.lut.cell_size[0]
-        cov_y = eq["GlobalCovariance_ErrY"] / self.lut.cell_size[1]
-        cov_z = eq["GlobalCovariance_ErrZ"] / self.lut.cell_size[2]
-
-        cov_crd = np.array([[eq["GlobalCovariance_X"],
-                             eq["GlobalCovariance_Y"],
-                             eq["GlobalCovariance_Z"]]])
-        cov_loc = self.lut.coord2loc(cov_crd)
-        dCo = abs(cov_crd - self.lut.coord2loc(np.array([[cov_loc[0][0] + cov_x,
-                                                          cov_loc[0][1] + cov_y,
-                                                          cov_loc[0][2] + cov_z]]),
-                                               inverse=True))
-
-        ellipse_XY = Ellipse((eq["GlobalCovariance_X"],
-                              eq["GlobalCovariance_Y"]),
-                             2 * dCo[0][0], 2 * dCo[0][1], angle=0,
-                             linewidth=2, edgecolor="k", fill=False,
-                             label="Global Covariance Error Ellipse")
-        ellipse_YZ = Ellipse((eq["GlobalCovariance_Z"],
-                              eq["GlobalCovariance_Y"]),
-                             2 * dCo[0][2], 2 * dCo[0][1], angle=0,
-                             linewidth=2, edgecolor="k", fill=False)
-        ellipse_XZ = Ellipse((eq["GlobalCovariance_X"],
-                              eq["GlobalCovariance_Z"]),
-                             2 * dCo[0][0], 2 * dCo[0][2], angle=0,
-                             linewidth=2, edgecolor="k", fill=False)
-
-        # --- Determining Error ellipse for Gaussian ---
-        gau_x = eq["LocalGaussian_ErrX"] / self.lut.cell_size[0]
-        gau_y = eq["LocalGaussian_ErrY"] / self.lut.cell_size[1]
-        gau_z = eq["LocalGaussian_ErrZ"] / self.lut.cell_size[2]
-
-        gau_crd = np.array([[eq["LocalGaussian_X"],
-                             eq["LocalGaussian_Y"],
-                             eq["LocalGaussian_Z"]]])
-        gau_loc = self.lut.coord2loc(gau_crd)
-        dGa = abs(gau_crd - self.lut.coord2loc(np.array([[gau_loc[0][0] + gau_x,
-                                                          gau_loc[0][1] + gau_y,
-                                                          gau_loc[0][2] + gau_z]]),
-                                               inverse=True))
-
-        gellipse_XY = Ellipse((eq["LocalGaussian_X"],
-                               eq["LocalGaussian_Y"]),
-                              2 * dGa[0][0], 2 * dGa[0][1], angle=0,
-                              linewidth=2, edgecolor="b", fill=False,
-                              label="Local Gaussian Error Ellipse")
-        gellipse_YZ = Ellipse((eq["LocalGaussian_Z"],
-                               eq["LocalGaussian_Y"]),
-                              2 * dGa[0][2], 2 * dGa[0][1], angle=0,
-                              linewidth=2, edgecolor="b", fill=False)
-        gellipse_XZ = Ellipse((eq["LocalGaussian_X"],
-                               eq["LocalGaussian_Z"]),
-                              2 * dGa[0][0], 2 * dGa[0][2], angle=0,
-                              linewidth=2, edgecolor="b", fill=False)
+        # --- Create covariance and Gaussian uncertainty ellipses ---
+        cov_exy, cov_eyz, cov_exz = self._make_ellipses(eq, "Covariance", "k")
+        gau_exy, gau_eyz, gau_exz = self._make_ellipses(eq, "Gaussian", "b")
 
         # --- Plot slices through coalescence map ---
-        self._plot_map_slice(xy_slice, eq, coa_map[:, :, int(loc[2][0])], crd,
-                             "X", "Y", ellipse_XY, gellipse_XY)
-        xy_slice.legend()
+        self._plot_map_slice(xy_ax, coa_map[:, :, idx_max[2]], coord_max, "XY",
+                             eq, cov_exy, gau_exy)
+        xy_ax.legend()
 
-        self._plot_map_slice(xz_slice, eq, coa_map[:, int(loc[1][0]), :], crd,
-                             "X", "Z", ellipse_XZ, gellipse_XZ)
-        xz_slice.invert_yaxis()
+        self._plot_map_slice(xz_ax, coa_map[:, idx_max[1], :], coord_max, "XZ",
+                             eq, cov_exz, gau_exz)
+        xz_ax.invert_yaxis()
 
-        self._plot_map_slice(yz_slice, eq,
-                             np.transpose(coa_map[int(loc[0][0]), :, :]),
-                             crd, "Y", "Z", ellipse_YZ, gellipse_YZ)
+        self._plot_map_slice(yz_ax, coa_map[idx_max[0], :, :].T, coord_max, "YZ",
+                             eq, cov_eyz, gau_eyz)
 
         # --- Plotting the station locations ---
-        xy_slice.scatter(self.lut.station_data["Longitude"],
-                         self.lut.station_data["Latitude"],
-                         15, marker="^", color=self.line_station_color)
-        xz_slice.scatter(self.lut.station_data["Longitude"],
-                         self.lut.station_data["Elevation"],
-                         15, marker="^", color=self.line_station_color)
-        yz_slice.scatter(self.lut.station_data["Elevation"],
-                         self.lut.station_data["Latitude"],
-                         15, marker="<", color=self.line_station_color)
+        xy_ax.scatter(self.lut.station_data["Longitude"],
+                      self.lut.station_data["Latitude"],
+                      15, marker="^", color=self.line_station_color)
+        xz_ax.scatter(self.lut.station_data["Longitude"],
+                      self.lut.station_data["Elevation"],
+                      15, marker="^", color=self.line_station_color)
+        yz_ax.scatter(self.lut.station_data["Elevation"],
+                      self.lut.station_data["Latitude"],
+                      15, marker="<", color=self.line_station_color)
         for i, txt in enumerate(self.lut.station_data["Name"]):
-            xy_slice.annotate(txt, [self.lut.station_data["Longitude"][i],
-                                    self.lut.station_data["Latitude"][i]],
-                              color=self.line_station_color)
+            xy_ax.annotate(txt, [self.lut.station_data["Longitude"][i],
+                                 self.lut.station_data["Latitude"][i]],
+                           color=self.line_station_color)
 
         # --- Plotting the xy_files ---
-        self._plot_xy_files(xy_slice)
+        self._plot_xy_files(xy_ax)
 
         # --- Plotting the logo ---
-        self._plot_logo(logo, r"Earthquake Location Error", 10)
+        self._plot_logo(logo_ax, r"Earthquake Location Error")
 
         if file_str is None:
             plt.show()
         else:
             fig.suptitle("Event Origin Time = {}".format(dt_max.datetime))
-            subdir = "summaries"
+            subdir = "locate/summaries"
             util.make_directories(self.run_path, subdir=subdir)
             out_str = self.run_path / subdir / file_str
             plt.savefig("{}_EventSummary.pdf".format(out_str), dpi=400)
             plt.close("all")
 
-    def _plot_map_slice(self, ax, eq, slice_, crd, c1, c2, ee, gee):
+    def _make_ellipses(self, eq, uncertainty, color):
+        """
+        Utility function to create uncertainty ellipses for plotting.
+
+        Parameters
+        ----------
+        eq : pandas DataFrame object
+            Final location information for the event to be plotted.
+            Columns = ["DT", "COA", "X", "Y", "Z",
+                       "LocalGaussian_X", "LocalGaussian_Y", "LocalGaussian_Z",
+                       "LocalGaussian_ErrX", "LocalGaussian_ErrY",
+                       "LocalGaussian_ErrZ", "GlobalCovariance_X",
+                       "GlobalCovariance_Y", "GlobalCovariance_Z",
+                       "GlobalCovariance_ErrX", "GlobalCovariance_ErrY",
+                       "GlobalCovariance_ErrZ"]
+            All X / Y as lon / lat; Z and X / Y / Z uncertainties in metres.
+
+        uncertainty : str
+            Choice of uncertainty for which to generate ellipses.
+            Options are: "Covariance" or "Gaussian".
+
+        color : str
+            Colour for the ellipses - see matplotlib documentation for more
+            details.
+
+        Returns
+        -------
+        xy, yz, xz : matplotlib Ellipse (Patch) objects
+            Ellipses for the requested uncertainty measure.
+
+        """
+
+        coord = eq.filter(regex="{}_[XYZ]".format(uncertainty)).values[0]
+        error = eq.filter(regex="{}_Err[XYZ]".format(uncertainty)).values[0]
+        xyz = self.lut.coord2grid(coord)[0]
+        d = abs(coord - self.lut.coord2grid(xyz + error, inverse=True))[0]
+
+        if uncertainty == "Covariance":
+            label = "Global covariance uncertainty ellipse"
+        elif uncertainty == "Gaussian":
+            label = "Local Gaussian uncertainty ellipse"
+
+        xy = Ellipse((coord[0], coord[1]), 2*d[0], 2*d[1], linewidth=2,
+                     edgecolor=color, fill=False, label=label)
+        yz = Ellipse((coord[2], coord[1]), 2*d[2], 2*d[1], linewidth=2,
+                     edgecolor=color, fill=False)
+        xz = Ellipse((coord[0], coord[2]), 2*d[0], 2*d[2], linewidth=2,
+                     edgecolor=color, fill=False)
+
+        return xy, yz, xz
+
+    def _plot_map_slice(self, ax, slice_, coord, dim, eq=None, ee=None, gee=None):
         """
         Plot slice through map in a given plane.
 
+        Parameters
+        ----------
+        ax : matplotlib Axes object
+            Axes on which to plot the grid slice.
+
+        slice_ : array-like
+            2-D array of coalescence values for the slice through the 3-D grid.
+
+        coord : array-like
+            Earthquake location in the input projection coordinate space.
+
+        dim : str
+            Denotes which 2-D slice is to be plotted ("XY", "XZ", "YZ").
+
+        eq : pandas DataFrame object.
+            Final location information for the event to be plotted.
+            Columns = ["DT", "COA", "X", "Y", "Z",
+                       "LocalGaussian_X", "LocalGaussian_Y", "LocalGaussian_Z",
+                       "LocalGaussian_ErrX", "LocalGaussian_ErrY",
+                       "LocalGaussian_ErrZ", "GlobalCovariance_X",
+                       "GlobalCovariance_Y", "GlobalCovariance_Z",
+                       "GlobalCovariance_ErrX", "GlobalCovariance_ErrY",
+                       "GlobalCovariance_ErrZ"]
+            All X / Y as lon / lat; Z and X / Y / Z uncertainties in metres.
+
+        ee : matplotlib Ellipse (Patch) object.
+            Uncertainty ellipse for the global covariance.
+
+        gee : matplotlib Ellipse (Patch) object.
+            Uncertainty ellipse for the local Gaussian.
+
         """
 
-        crd_crnrs = self.lut.xyz2coord(self.lut.grid_corners)
-        cells = self.lut.cell_count
+        corners = self.lut.coord2grid(self.lut.grid_corners, inverse=True)
 
         # Series of tests to select the correct components for the given slice
-        if c1 == "X":
-            min1, max1 = min(crd_crnrs[:, 0]), max(crd_crnrs[:, 0])
-            size1 = (max1 - min1) / cells[0]
-            idx1 = 0
-        elif c1 == "Y":
-            min2, max2 = min(crd_crnrs[:, 1]), max(crd_crnrs[:, 1])
-            size2 = (max2 - min2) / cells[1]
-            idx2 = 1
-            min1, max1 = min(crd_crnrs[:, 2]), max(crd_crnrs[:, 2])
-            size1 = (max1 - min1) / cells[2]
-            idx1 = 2
+        mins = [np.min(dim) for dim in corners.T]
+        maxs = [np.max(dim) for dim in corners.T]
+        sizes = (np.array(maxs) - np.array(mins)) / self.lut.cell_count
+        stack = np.c_[mins, maxs, sizes]
 
-        if c2 == "Y":
-            min2, max2 = min(crd_crnrs[:, 1]), max(crd_crnrs[:, 1])
-            size2 = (max2 - min2) / cells[1]
-            idx2 = 1
-        elif c2 == "Z" and c1 == "Y":
-            pass
-        elif c2 == "Z" and c1 == "X":
-            min2, max2 = min(crd_crnrs[:, 2]), max(crd_crnrs[:, 2])
-            size2 = (max2 - min2) / cells[2]
-            idx2 = 2
+        if dim == "XY":
+            idx1, idx2 = 0, 1
+        elif dim == "XZ":
+            idx1, idx2 = 0, 2
+        elif dim == "YZ":
+            idx1, idx2 = 2, 1
+
+        min1, max1, size1 = stack[idx1]
+        min2, max2, size2 = stack[idx2]
 
         # Create meshgrid with shape (X + 1, Y + 1) - pcolormesh uses the grid
         # values as fenceposts
@@ -465,45 +455,70 @@ class QuakePlot:
         # Ensure that the shape of grid1 and grid2 comply with the shape of the
         # slice (sometimes floating point errors can carry over and return a
         # grid with incorrect shape)
-        grid1 = grid1[:slice_.shape[0] + 1, :slice_.shape[1] + 1]
-        grid2 = grid2[:slice_.shape[0] + 1, :slice_.shape[1] + 1]
-        ax.pcolormesh(grid1, grid2, slice_, cmap=self.cmap, edgecolors="face")
+        grid1 = grid1[:slice_.shape[0]+1, :slice_.shape[1]+1]
+        grid2 = grid2[:slice_.shape[0]+1, :slice_.shape[1]+1]
+        self.slices[dim] = ax.pcolormesh(grid1, grid2, slice_, cmap=self.cmap,
+                                         edgecolors="face")
+
         ax.set_xlim([min1, max1])
         ax.set_ylim([min2, max2])
-        if c1 == "Y" and c2 == "Z":
-            ax.set_xlim([max1, min1])
-        elif c1 == "X" and c2 == "Z":
-            ax.set_ylim([max2, min2])
 
-        if c1 == "Y":
-            c1, c2 = c2, c1
-
-        ax.axvline(x=crd[0][idx1], linestyle="--", linewidth=2,
-                   color=self.line_station_color)
-        ax.axhline(y=crd[0][idx2], linestyle="--", linewidth=2,
-                   color=self.line_station_color)
-        ax.scatter(eq[c1], eq[c2], 150, c="green", marker="*",
+        vstring = "{}_v".format(dim)
+        hstring = "{}_h".format(dim)
+        self.crosshairs[vstring] = ax.axvline(x=coord[idx1], linestyle="--",
+                                              linewidth=2,
+                                              color=self.line_station_color)
+        self.crosshairs[hstring] = ax.axhline(y=coord[idx2], linestyle="--",
+                                              linewidth=2,
+                                              color=self.line_station_color)
+        ax.scatter(coord[idx1], coord[idx2], 150, c="green", marker="*",
                    label="Maximum Coalescence Location")
-        ax.scatter(eq["LocalGaussian_{}".format(c1)],
-                   eq["LocalGaussian_{}".format(c2)],
-                   150, c="pink", marker="*",
-                   label="Local Gaussian Location")
-        ax.scatter(eq["GlobalCovariance_{}".format(c1)],
-                   eq["GlobalCovariance_{}".format(c2)],
-                   150, c="blue", marker="*",
-                   label="Global Covariance Location")
-        ax.add_patch(ee)
-        ax.add_patch(gee)
 
-    def _plot_signal_trace(self, trace, x, y, st_idx, color):
+        if eq is not None and ee is not None and gee is not None:
+            if dim == "YZ":
+                dim = dim[::-1]
+            ax.scatter(eq["LocalGaussian_{}".format(dim[0])],
+                       eq["LocalGaussian_{}".format(dim[1])],
+                       150, c="pink", marker="*",
+                       label="Local Gaussian Location")
+            ax.scatter(eq["GlobalCovariance_{}".format(dim[0])],
+                       eq["GlobalCovariance_{}".format(dim[1])],
+                       150, c="blue", marker="*",
+                       label="Global Covariance Location")
+            ax.add_patch(ee)
+            ax.add_patch(gee)
+
+    def _plot_signal_trace(self, ax, x, y, st_idx, color):
         """
         Plot signal trace.
+
+        Performs a simple check to see if there is any signal data available to
+        plot.
+
+        Parameters
+        ----------
+        ax : matplotlib Axes object
+            Axes on which to plot the signal trace.
+
+        x : array-like
+            Timestamps for the signal trace.
+
+        y : array-like
+            The amplitudes of the signal trace.
+
+        st_idx : int
+            Amount to vertically shift the signal trace. Either range ordered
+            or ordered alphabetically by station name.
+
+        color : str
+            Line colour for the trace - see matplotlib documentation for more
+            details.
 
         """
 
         if y.any():
-            trace.plot(x, y / np.max(abs(y)) * self.trace_scale + (st_idx + 1),
-                       color=color, linewidth=0.5, zorder=1)
+            ax.plot(x, y / np.max(abs(y)) * self.trace_scale + (st_idx + 1),
+                    color=color, linewidth=0.5, zorder=1)
 
     def _coalescence_frame(self, tslice_idx):
         """
@@ -512,179 +527,104 @@ class QuakePlot:
         Parameters
         ----------
         tslice_idx : int
-            Index for the current time slice
+            Index for the current time slice.
 
         """
 
-        tslice = self.times[tslice_idx]
-        idx = np.where(self.event_mw_data["DT"] == tslice)[0][0]
-        loc = self.lut.coord2loc(np.array([[self.event_mw_data["X"].iloc[idx],
-                                            self.event_mw_data["Y"].iloc[idx],
-                                            self.event_mw_data["Z"].iloc[idx]]])
-                                 ).astype(int)[0]
-        point = np.array([loc[0],
-                          loc[1],
-                          loc[2]])
-        crd = np.array([[self.event_mw_data["X"].iloc[idx],
-                         self.event_mw_data["Y"].iloc[idx],
-                         self.event_mw_data["Z"].iloc[idx]]])[0, :]
+        coord = self.mw_coa.iloc[0]
+        coord = [coord["X"], coord["Y"], coord["Z"]]
+        idx_frame = self.lut.index2coord(coord, inverse=True)
 
-        # --- Defining the plot area ---
+        # Define the axes on which to plot data
         fig = plt.figure(figsize=(25, 15))
         fig.patch.set_facecolor("white")
-        xy_slice = plt.subplot2grid((3, 5), (0, 0), colspan=2, rowspan=2)
-        xz_slice = plt.subplot2grid((3, 5), (2, 0), colspan=2)
-        yz_slice = plt.subplot2grid((3, 5), (0, 2), rowspan=2)
-        trace = plt.subplot2grid((3, 5), (0, 3), colspan=2, rowspan=2)
-        logo = plt.subplot2grid((3, 5), (2, 2))
-        coal_val = plt.subplot2grid((3, 5), (2, 3), colspan=2)
+        xy_ax = plt.subplot2grid((3, 5), (0, 0), colspan=2, rowspan=2)
+        xz_ax = plt.subplot2grid((3, 5), (2, 0), colspan=2)
+        yz_ax = plt.subplot2grid((3, 5), (0, 2), rowspan=2)
+        sig_ax = plt.subplot2grid((3, 5), (0, 3), colspan=2, rowspan=2)
+        logo_ax = plt.subplot2grid((3, 5), (2, 2))
+        coa_ax = plt.subplot2grid((3, 5), (2, 3), colspan=2)
 
-        # --- Plotting the Traces ---
-        idx0 = np.where(self.times == self.event_mw_data["DT"].iloc[0])[0][0]
-
-        # --- Defining the stations in alphabetical order ---
+        # Station trace ordering
         if self.range_order:
-            ttp = self.lut.get_value_at("TIME_P", point)[0]
-            sidx = np.argsort(ttp)[::-1]
+            ttp = self.lut.traveltime_to("P", idx_frame)
+            sidx = abs(np.argsort(np.argsort(ttp))
+                       - np.max(np.argsort(np.argsort(ttp))))
         else:
-            sidx = np.argsort(self.data.stations)[::-1]
+            # Order alphabetically by name
+            sidx = np.argsort(self.lut.station_data["Name"])[::-1]
 
         for i in range(self.data.signal.shape[1]):
             if not self.filtered_signal:
-                self._plot_signal_trace(trace, self.times,
-                                        self.data.signal[0, i, :],
-                                        sidx[i], color="r")
-                self._plot_signal_trace(trace, self.times,
-                                        self.data.signal[1, i, :],
-                                        sidx[i], color="b")
-                self._plot_signal_trace(trace, self.times,
-                                        self.data.signal[2, i, :],
-                                        sidx[i], color="g")
+                signal = self.data.signal
             else:
-                self._plot_signal_trace(trace, self.times,
-                                        self.data.filtered_signal[0, i, :],
-                                        sidx[i], color="r")
-                self._plot_signal_trace(trace, self.times,
-                                        self.data.filtered_signal[1, i, :],
-                                        sidx[i], color="b")
-                self._plot_signal_trace(trace, self.times,
-                                        self.data.filtered_signal[2, i, :],
-                                        sidx[i], color="g")
+                signal = self.data.filtered_signal
 
-        # --- Plotting the Station Travel Times ---
-        ttime_range = self.lut.get_value_at("TIME_P", point)[0].shape[0]
-        dt_max = self.event_mw_data["DT"].iloc[np.argmax(self.event_mw_data["COA"])]
-        tps = []
-        tss = []
+            self._plot_signal_trace(sig_ax, self.times, signal[0, i, :],
+                                    sidx[i], color="r")
+            self._plot_signal_trace(sig_ax, self.times, signal[1, i, :],
+                                    sidx[i], color="b")
+            self._plot_signal_trace(sig_ax, self.times, signal[2, i, :],
+                                    sidx[i], color="g")
+
+        # --- Plot predicted travel times on station traces ---
+        dt_max = self.mw_coa["DT"].iloc[np.argmax(self.mw_coa["COA"])]
         dt_max = UTCDateTime(dt_max)
+        ttp = self.lut.traveltime_to("P", idx_frame)
+        ttp = [(dt_max + tt).datetime for tt in ttp]
+        tts = self.lut.traveltime_to("S", idx_frame)
+        tts = [(dt_max + tt).datetime for tt in tts]
 
-        tmp_p = self.lut.get_value_at("TIME_P", point)
-        tmp_s = self.lut.get_value_at("TIME_S", point)
-        for i in range(ttime_range):
-
-            tps.append((dt_max + tmp_p[0][i]).datetime)
-            tss.append((dt_max + tmp_s[0][i]).datetime)
-
-        del tmp_p, tmp_s
-
-        self.tp_arrival = trace.scatter(tps, (sidx + 1), 50, "pink",
-                                        marker="v", zorder=4, linewidth=0.1,
-                                        edgecolors="black")
-        self.ts_arrival = trace.scatter(tss, (sidx + 1), 50, "purple",
-                                        marker="v", zorder=5, linewidth=0.1,
-                                        edgecolors="black")
+        self.ptt = sig_ax.scatter(ttp, (sidx + 1), 50, "pink", marker="v",
+                                  zorder=4, linewidth=0.1, edgecolors="black")
+        self.stt = sig_ax.scatter(tts, (sidx + 1), 50, "purple", marker="v",
+                                  zorder=5, linewidth=0.1, edgecolors="black")
 
         # Set coalescence trace limits
-        # trace.set_ylim([0, i + 2])
-        trace.set_xlim([(self.data.start_time).datetime, np.max(tss)])
-        # trace.get_xaxis().set_ticks([])
-        trace.yaxis.tick_right()
-        trace.yaxis.set_ticks(sidx + 1)
-        trace.yaxis.set_ticklabels(self.data.stations)
-        self.station_trace_vline = trace.axvline(dt_max.datetime, 0, 1000,
-                                                 linestyle="--", linewidth=2,
-                                                 color="r")
+        sig_ax.set_xlim([(dt_max-0.1).datetime,
+                        (self.data.end_time-0.8).datetime])
+        sig_ax.yaxis.tick_right()
+        sig_ax.yaxis.set_ticks(sidx + 1)
+        sig_ax.yaxis.set_ticklabels(self.data.stations)
+        self.station_trace_vline = sig_ax.axvline(dt_max.datetime, 0, 1000,
+                                                  linestyle="--", linewidth=2,
+                                                  color="r")
 
-        # --- Plotting the Coalescence Function ---
-        self._plot_coalescence_value(coal_val, tslice)
+        # --- Plot the slices through the 3-D coalescence volume ---
+        self._plot_coalescence_value(coa_ax, dt_max.datetime)
 
-        # --- Plotting the Coalescence Value Slices ---
-        crd_crnrs = self.lut.xyz2coord(self.lut.grid_corners)
-        cells = self.lut.cell_count
-        xmin = min(crd_crnrs[:, 0])
-        xmax = max(crd_crnrs[:, 0])
-        xcells = cells[0]
-        xsize = (xmax - xmin) / xcells
-        ymin = min(crd_crnrs[:, 1])
-        ymax = max(crd_crnrs[:, 1])
-        ycells = cells[1]
-        ysize = (ymax - ymin) / ycells
-        zmin = min(crd_crnrs[:, 2])
-        zmax = max(crd_crnrs[:, 2])
-        zcells = cells[2]
-        zsize = (zmax - zmin) / zcells
+        # --- Plot slices through coalescence map ---
+        self._plot_map_slice(xy_ax, self.map_4d[:, :, idx_frame[0][2], 0],
+                             coord, "XY")
+        xy_ax.legend()
 
-        # xy_slice
-        grid1, grid2 = np.mgrid[xmin:xmax + xsize:xsize,
-                                ymin:ymax + ysize:ysize]
-        self.xy_plot = xy_slice.pcolormesh(grid1, grid2,
-                                           (self.map_4d[:, :, int(loc[2]),
-                                            int(tslice_idx - idx0)]
-                                            / self.map_max), cmap=self.cmap)
-        xy_slice.set_xlim([xmin, xmax])
-        xy_slice.set_ylim([ymin, ymax])
-        self.xy_vline = xy_slice.axvline(x=crd[0], linestyle="--", linewidth=2,
-                                         color="k")
-        self.xy_hline = xy_slice.axhline(y=crd[1], linestyle="--", linewidth=2,
-                                         color="k")
+        self._plot_map_slice(xz_ax, self.map_4d[:, idx_frame[0][1], :, 0],
+                             coord, "XZ")
+        xz_ax.invert_yaxis()
 
-        # xz_slice
-        grid1, grid2 = np.mgrid[xmin:xmax + xsize:xsize,
-                                zmin:zmax + zsize:zsize]
-        self.xz_plot = xz_slice.pcolormesh(grid1, grid2,
-                                           (self.map_4d[:, int(loc[1]), :,
-                                            int(tslice_idx - idx0)]
-                                            / self.map_max), cmap=self.cmap)
-        xz_slice.set_xlim([xmin, xmax])
-        xz_slice.set_ylim([zmax, zmin])
-        self.xz_vline = xz_slice.axvline(x=crd[0], linestyle="--", linewidth=2,
-                                         color="k")
-        self.xz_hline = xz_slice.axhline(y=crd[2], linestyle="--", linewidth=2,
-                                         color="k")
-        xz_slice.invert_yaxis()
-
-        # yz_slice
-        grid1, grid2 = np.mgrid[zmin:zmax + zsize:zsize,
-                                ymin:ymax + ysize:ysize]
-
-        self.yz_plot = yz_slice.pcolormesh(grid1, grid2,
-                                           (np.transpose(
-                                            self.map_4d[int(loc[0]), :, :,
-                                                        int(tslice_idx - idx0)])
-                                            / self.map_max), cmap=self.cmap)
-        yz_slice.set_xlim([zmax, zmin])
-        yz_slice.set_ylim([ymin, ymax])
-        self.yz_vline = yz_slice.axvline(x=crd[2], linestyle="--", linewidth=2,
-                                         color="k")
-        self.yz_hline = yz_slice.axhline(y=crd[1], linestyle="--", linewidth=2,
-                                         color="k")
+        self._plot_map_slice(yz_ax, self.map_4d[idx_frame[0][0], :, :, 0].T,
+                             coord, "YZ")
 
         # --- Plotting the station locations ---
-        xy_slice.scatter(self.lut.station_data["Longitude"],
-                         self.lut.station_data["Latitude"], 15, "k", marker="^")
-        xz_slice.scatter(self.lut.station_data["Longitude"],
-                         self.lut.station_data["Elevation"], 15, "k", marker="^")
-        yz_slice.scatter(self.lut.station_data["Elevation"],
-                         self.lut.station_data["Latitude"], 15, "k", marker="<")
+        xy_ax.scatter(self.lut.station_data["Longitude"],
+                      self.lut.station_data["Latitude"],
+                      15, marker="^", color=self.line_station_color)
+        xz_ax.scatter(self.lut.station_data["Longitude"],
+                      self.lut.station_data["Elevation"],
+                      15, marker="^", color=self.line_station_color)
+        yz_ax.scatter(self.lut.station_data["Elevation"],
+                      self.lut.station_data["Latitude"],
+                      15, marker="<", color=self.line_station_color)
         for i, txt in enumerate(self.lut.station_data["Name"]):
-            xy_slice.annotate(txt, [self.lut.station_data["Longitude"][i],
-                                    self.lut.station_data["Latitude"][i]])
+            xy_ax.annotate(txt, [self.lut.station_data["Longitude"][i],
+                                 self.lut.station_data["Latitude"][i]],
+                           color=self.line_station_color)
 
         # --- Plotting the xy_files ---
-        self._plot_xy_files(xy_slice)
+        self._plot_xy_files(xy_ax)
 
         # --- Plotting the logo ---
-        self._plot_logo(logo, r"Coalescence Video", 14)
+        self._plot_logo(logo_ax, r"Coalescence Video")
 
         return fig
 
@@ -695,66 +635,63 @@ class QuakePlot:
         Parameters
         ----------
         frame : int
-            Current frame number
+            Current frame number.
 
         """
 
         frame = int(frame)
-        idx0 = np.where(self.times == self.event_mw_data["DT"].iloc[0])[0][0]
-        tslice = self.times[int(frame)]
-        idx = np.where(self.event_mw_data["DT"] == tslice)[0][0]
-        crd = np.array([[self.event_mw_data["X"].iloc[idx],
-                         self.event_mw_data["Y"].iloc[idx],
-                         self.event_mw_data["Z"].iloc[idx]]])
-        loc = self.lut.coord2loc(crd).astype(int)[0]
-        crd = crd[0, :]
+        idx0 = np.where(self.times == self.mw_coa["DT"].iloc[0])[0][0]
+        tslice = self.times[frame]
 
-        # Updating the Coalescence Value and Trace Lines
+        idx = np.where(self.mw_coa["DT"] == tslice)[0][0]
+        coord = self.mw_coa[["X", "Y", "Z"]].values[idx]
+        idx_frame = self.lut.index2coord(coord, inverse=True)[0]
+
+        # Updating the coalescence value and trace lines
         self.station_trace_vline.set_xdata(tslice)
         self.coal_val_vline.set_xdata(tslice)
 
         # Updating the Coalescence Maps
-        self.xy_plot.set_array((self.map_4d[:, :, loc[2], int(idx0 - frame)]
-                                / self.map_max)[:-1, :-1].ravel())
-        self.xz_plot.set_array((self.map_4d[:, loc[1], :, int(idx0 - frame)]
-                                / self.map_max)[:-1, :-1].ravel())
-        self.yz_plot.set_array((np.transpose(self.map_4d[loc[0], :, :,
-                                                         int(idx0 - frame)])
-                                / self.map_max)[:-1, :-1].ravel())
+        self.slices["XY"].set_array(self.map_4d[:, :, idx_frame[2],
+                                                int(idx0-frame)].ravel())
+        self.slices["XZ"].set_array(self.map_4d[:, idx_frame[1], :,
+                                                int(idx0-frame)].ravel())
+        self.slices["YZ"].set_array(self.map_4d[idx_frame[0], :, :,
+                                                int(idx0 - frame)].T.ravel())
 
         # Updating the coalescence lines
-        self.xy_vline.set_xdata(crd[0])
-        self.xy_hline.set_ydata(crd[1])
-        self.yz_vline.set_xdata(crd[2])
-        self.yz_hline.set_ydata(crd[1])
-        self.xz_vline.set_xdata(crd[0])
-        self.xz_hline.set_ydata(crd[2])
+        self.crosshairs["XY_v"].set_xdata(coord[0])
+        self.crosshairs["XY_h"].set_ydata(coord[1])
+        self.crosshairs["YZ_v"].set_xdata(coord[2])
+        self.crosshairs["YZ_h"].set_ydata(coord[1])
+        self.crosshairs["XZ_v"].set_xdata(coord[0])
+        self.crosshairs["XZ_h"].set_ydata(coord[2])
 
-        # Get P- and S-traveltimes at this location
-        ptt = self.lut.get_value_at("TIME_P", np.array([loc]))[0]
-        stt = self.lut.get_value_at("TIME_S", np.array([loc]))[0]
-        tps = []
-        tss = []
-        for i in range(ptt.shape[0]):
-            tps.append(np.argmin(abs((self.times -
-                                      (tslice + timedelta(seconds=ptt[i]))))))
-            tss.append(np.argmin(abs((self.times -
-                                      (tslice + timedelta(seconds=stt[i]))))))
+        # --- Update predicted travel times on station traces ---
+        tslice = UTCDateTime(tslice)
+        ttp = self.lut.traveltime_to("P", idx_frame)
+        ttp = [np.argmin(abs(self.times - (tslice + tt).datetime)) for tt in ttp]
+        tts = self.lut.traveltime_to("S", idx_frame)
+        tts = [np.argmin(abs(self.times - (tslice + tt).datetime)) for tt in tts]
 
-        self.tp_arrival.set_offsets(np.c_[tps,
-                                    (np.arange(len(tps)) + 1)])
-        self.ts_arrival.set_offsets(np.c_[tss,
-                                    (np.arange(len(tss)) + 1)])
+        self.ptt.set_offsets(np.c_[ttp, (np.arange(len(ttp)) + 1)])
+        self.stt.set_offsets(np.c_[tts, (np.arange(len(tts)) + 1)])
 
-    def _plot_xy_files(self, slice_):
+    def _plot_xy_files(self, ax):
         """
         Plot xy files supplied by user.
 
-        Reads file list from self.xy_files (with columns ["File", "Color",
-                                                          "Linewidth",
-                                                          "Linestyle"] )
-        where File is the file path to the xy file to be plotted on the
-        map. File should contain two columns ["Longitude", "Latitude"].
+        The user can specify a list of xy files which are assigned to the
+        self.xy_files variable. They are stored in a pandas DataFrame with
+        columns:
+            ["File", "Color", "Linewidth", "Linestyle"]
+        File is the path to the xy file. Each file should have the format:
+            ["Longitude", "Latitude"]
+
+        Parameters
+        ----------
+        ax : matplotlib Axes object
+            Axes on which to plot the xy files.
 
         """
 
@@ -767,42 +704,57 @@ class QuakePlot:
                 xy_file = pd.read_csv(f["File"], names=["Longitude",
                                                         "Latitude"],
                                       header=None)
-                slice_.plot(xy_file["Longitude"], xy_file["Latitude"],
-                            linestyle=xy_file["Linestyle"],
-                            linewidth=xy_file["Linewidth"],
-                            color=xy_file["Color"])
+                ax.plot(xy_file["Longitude"], xy_file["Latitude"],
+                        linestyle=xy_file["Linestyle"],
+                        linewidth=xy_file["Linewidth"],
+                        color=xy_file["Color"])
 
-    def _plot_logo(self, plot, txt, fontsize):
+    def _plot_logo(self, ax, txt):
         """
         Plot QuakeMigrate logo.
+
+        Parameters
+        ----------
+        ax : matplotlib Axes object
+            Axes on which to plot the QuakeMigrate logo.
+
+        txt : str
+            Text specifying the type of plot.
 
         """
 
         try:
-            plot.axis("off")
+            ax.axis("off")
             im = mpimg.imread(str(self.logo))
-            plot.imshow(im)
-            plot.text(150, 200, txt,
-                      fontsize=fontsize, style="italic")
+            ax.imshow(im)
+            ax.text(150, 200, txt, fontsize=14, style="italic")
         except:
             print("\t\tLogo not plotting")
 
-    def _plot_coalescence_value(self, plot, tslice):
+    def _plot_coalescence_value(self, ax, tslice):
         """
         Plot max coalescence value in the grid through time.
 
+        Parameters
+        ----------
+        ax : matplotlib Axes object
+            Axes on which to plot the trace of the maximum amplitude of
+            coalescence in the 3-D volume through time.
+
+        tslice : Python Datetime object
+            Timestamp at which to plot a vertical line. For the event summary,
+            this corresponds to the maximum coalescence peak.
+
         """
 
-        plot.plot(self.event_mw_data["DT"], self.event_mw_data["COA"],
-                  zorder=10)
-        plot.set_ylabel("Coalescence value")
-        plot.set_xlabel("Date-Time")
-        plot.yaxis.tick_right()
-        plot.yaxis.set_label_position("right")
-        plot.set_xlim([self.event_mw_data["DT"].iloc[0],
-                       self.event_mw_data["DT"].iloc[-1]])
-        for tick in plot.get_xticklabels():
+        ax.plot(self.mw_coa["DT"], self.mw_coa["COA"], zorder=10)
+        ax.set_ylabel("Coalescence value")
+        ax.set_xlabel("Date-Time")
+        ax.yaxis.tick_right()
+        ax.yaxis.set_label_position("right")
+        ax.set_xlim([self.mw_coa["DT"].iloc[0], self.mw_coa["DT"].iloc[-1]])
+        for tick in ax.get_xticklabels():
             tick.set_rotation(45)
 
-        self.coal_val_vline = plot.axvline(tslice, 0, 1000, linestyle="--",
-                                           linewidth=2, color="r")
+        self.coal_val_vline = ax.axvline(tslice, 0, 1000, linestyle="--",
+                                         linewidth=2, color="r")

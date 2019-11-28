@@ -27,7 +27,7 @@ def make_directories(run, subdir=None):
 
     if subdir:
         new_dir = run / subdir
-        new_dir.mkdir(exist_ok=True)
+        new_dir.mkdir(exist_ok=True, parents=True)
 
 
 def gaussian_1d(x, a, b, c):
@@ -125,9 +125,17 @@ class StationFileHeaderException(Exception):
     """Custom exception to handle incorrect header columns in station file"""
 
     def __init__(self):
-        msg = "StationFileHeaderException: Station file header does not include"
-        msg += "the required columns\n"
-        msg += "\tRequired columns in header: Latitude, Longitude, Elevation, Name"
+        msg = ("StationFileHeaderException: incorrect station file header - "
+               "use:\nLatitude, Longitude, Elevation, Name")
+        super().__init__(msg)
+
+
+class VelocityModelFileHeaderException(Exception):
+    """Custom exception to handle incorrect header columns in station file"""
+
+    def __init__(self):
+        msg = ("VelocityModelFileHeaderException: incorrect velocity model "
+               "file header - use:\nDepth, Vp, Vs")
         super().__init__(msg)
 
 
@@ -159,8 +167,8 @@ class NoStationAvailabilityDataException(Exception):
     """
 
     def __init__(self):
-        msg = "NoStationAvailabilityDataException: No .StationAvailability"
-        msg += "data found."
+        msg = ("NoStationAvailabilityDataException: No .StationAvailability "
+               "files found.")
         super().__init__(msg)
 
 
@@ -171,8 +179,9 @@ class DataGapException(Exception):
     """
 
     def __init__(self):
-        msg = "DataGapException: All available data had gaps for this timestep."
-        msg += "\n    OR: no data present in the archive for the selected stations"
+        msg = ("DataGapException: All available data had gaps for this "
+               "timestep.\n    OR: no data present in the archive for the"
+               "selected stations.")
         super().__init__(msg)
 
 
@@ -184,11 +193,10 @@ class ChannelNameException(Exception):
     """
 
     def __init__(self, trace):
-        msg = "ChannelNameException: Channel name header does not conform to\n"
-        msg += "the IRIS SEED standard - 3 characters; ending in 'Z' for\n"
-        msg += "vertical and ending either 'E' & 'N' or '1' & '2' for\n"
-        msg += "horizontal components."
-        msg += "\n    Working on trace: {}".format(trace)
+        msg = ("ChannelNameException: Channel name header does not conform "
+               "to\nthe IRIS SEED standard - 3 characters; ending in 'Z' for\n"
+               "vertical and ending either 'E' & 'N' or '1' & '2' for\n"
+               "horizontal components.\n    Working on trace: {}".format(trace))
         super().__init__(msg)
 
 
@@ -201,9 +209,8 @@ class BadUpfactorException(Exception):
     """
 
     def __init__(self, trace):
-        msg = "BadUpfactorException: chosen upfactor cannot be decimated to\n"
-        msg += "target sampling rate."
-        msg += "\n    Working on trace: {}".format(trace)
+        msg = ("BadUpfactorException: chosen upfactor cannot be decimated to\n"
+               "target sampling rate.\n    Working on trace: {}".format(trace))
         super().__init__(msg)
 
 
@@ -215,6 +222,6 @@ class OnsetTypeError(Exception):
     """
 
     def __init__(self):
-        msg = "OnsetTypeError: The Onset object you have created does not "
-        msg += "inherit from the default class."
+        msg = ("OnsetTypeError: The Onset object you have created does not "
+               "inherit from the required base class - see manual.")
         super().__init__(msg)

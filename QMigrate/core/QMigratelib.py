@@ -46,37 +46,36 @@ def migrate(sig, tt, fsmp, lsmp, nsamp, map4d, threads):
     Parameters
     ----------
     sig : array-like
-        P and S onset functions
+        P and S onset functions.
 
     tt : array-like
-        P and S travel-time lookup-tables
+        P and S travel-time lookup tables.
 
     fsmp : int
-        First sample in array to scan from
+        Sample in array from which to scan.
 
     lsmp : int
-        Last sample in array to scan upto
+        Sample in array up to which to scan.
 
     nsamp : int
-        Number of samples in array to scan over
+        Number of samples in array to scan over.
 
     map4d : array-like
-        Empty array with shape of 4-D coalescence map that will be output
+        Empty array with shape of 4-D coalescence map that will be output.
 
     threads : int
-        Number of threads to perform the scan on
+        Number of threads with which to perform the scan.
 
     Raises
     ------
     ValueError
-        If there is a mismatch between number of stations in sig and look-up
-        table
+        If mismatch between number of stations in sig and lookup table.
 
     ValueError
-        If the 4-D array is too small
+        If the 4-D array is too small.
 
     ValueError
-        If the sig array is smaller than map4d[0, 0, 0, :]
+        If the sig array is smaller than map4d[0, 0, 0, :].
 
     """
 
@@ -117,26 +116,28 @@ def find_max_coa(map4d, max_coa, grid_index, fsmp, lsmp, threads):
     Parameters
     ----------
     map4d : array-like
-        4-D coalescence map
+        4-D coalescence map.
 
     max_coa : array-like, double
-        empty array with shape of max coa values that will be output
+        empty array with shape of max coa values that will be output.
 
-    grid_index : 
+    grid_index : array-like, int
+        Empty array with shape (nsamp,) that will record the flattened index of
+        the maximum coalescence value.
 
     fsmp : int
-        First sample in array to scan from
+        Sample in array from which to scan.
 
     lsmp : int
-        Last sample in array to scan upto
+        Sample in array up to which to scan.
 
     threads : int
-        Number of threads to perform the scan on
+        Number of threads with which to perform the scan.
 
     Raises
     ------
     ValueError
-        If the output array size is too small
+        If the output array size is too small.
 
     """
 

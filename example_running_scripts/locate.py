@@ -2,51 +2,53 @@
 """
 This script will run the locate stage of QuakeMigrate.
 
+For more details, please see the manual and read the docs.
+
 """
 
-# Import required modules
-import QMigrate.core.model as qmod
 import QMigrate.io.data as qdata
+import QMigrate.lut.lut as qlut
 import QMigrate.signal.onset.staltaonset as qonset
 import QMigrate.signal.pick.gaussianpicker as qpick
 import QMigrate.signal.scan as qscan
 
-# Set i/o paths
+# --- i/o paths ---
 lut_path = "/path/to/lut"
 data_path = "/path/to/data"
 station_file = "/path/to/station_file"
 out_path = "/path/to/output"
 run_name = "name_of_run"
 
-# Time period over which to run locate
+# --- Set time period over which to run locate ---
 start_time = "2018-001T00:00:00.0"
 end_time = "2018-002T00:00:00.0"
 
-# Create a new instance of Archive and set path structure
+# --- Create new Archive and set path structure ---
 data = qdata.Archive(station_file=station_file, archive_path=data_path)
 data.path_structure(archive_format="YEAR/JD/STATION")
+# For custom structures...
+# data.format = "custom/archive_{year}_{month}_structure"
 
-# Resample data with mismatched sampling rates
+# --- Resample data with mismatched sampling rates ---
 # data.resample = True
 # data.upfactor = 2
 
-# Load the LUT
-lut = qmod.LUT()
-lut.load(lut_path)
+# --- Load the LUT ---
+lut = qlut.LUT(lut_file=lut_path)
 
-# Decimate the lookup table in each dimension
-lut = lut.decimate([1, 1, 1])
+# --- Decimate the lookup table ---
+# lut = lut.decimate([1, 1, 1])
 
-# Create a new instance of Onset object
+# --- Create new Onset ---
 onset = qonset.CentredSTALTAOnset()
 onset.p_bp_filter = [2, 9.9, 2]
 onset.s_bp_filter = [2, 9.9, 2]
 onset.p_onset_win = [0.2, 1.5]
 onset.s_onset_win = [0.2, 1.5]
 
-# Create a new instance of PhasePicker object
-# The Gaussian picker uses the STA/LTA function, but different parameters may
-# be used.
+# --- Create new PhasePicker ---
+# For a complete list of parameters and guidance on how to choose them, please
+# see the manual and read the docs.
 gausspicker_onset = qonset.CentredSTALTAOnset()
 gausspicker_onset.p_bp_filter = [2, 9.9, 2]
 gausspicker_onset.s_bp_filter = [2, 9.9, 2]
@@ -57,23 +59,25 @@ picker = qpick.GaussianPicker(onset=gausspicker_onset)
 picker.marginal_window = 1
 picker.plot_phase_picks = True
 
-# Create a new instance of QuakeScan object
+# --- Create new QuakeScan ---
 scan = qscan.QuakeScan(data, lut, onset=onset, picker=picker,
                        output_path=out_path, run_name=run_name, log=True)
 
-# Set locate parameters - for a complete list and guidance on how to choose
-# a suitable set of parameters, please consult the documentation
+
+# --- Set locate parameters ---
+# For a complete list of parameters and guidance on how to choose them, please
+# see the manual and read the docs.
 scan.sampling_rate = 20
 scan.n_cores = 12
 scan.marginal_window = 1
 
-# Turn on plotting features
+# --- Toggle plotting options ---
 scan.plot_event_summary = True
 scan.plot_coal_video = False
 
-# Output cut data
+# --- Toggle writing of waveforms ---
 scan.write_cut_waveforms = True
 
-# Run locate
+# --- Run locate ---
 scan.locate(start_time=start_time, end_time=end_time)
 # scan.locate(fname="filename_of_triggered_events")

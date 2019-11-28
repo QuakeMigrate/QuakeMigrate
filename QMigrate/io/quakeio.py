@@ -200,7 +200,6 @@ class QuakeIO:
         start_day = UTCDateTime(start_time.date)
 
         dy = 0
-        files = []
         coa = Stream()
         # Loop through days trying to read coastream files
         while start_day + (dy * 86400) <= end_time:
@@ -313,13 +312,14 @@ class QuakeIO:
 
         event : pandas DataFrame
             Final event location information.
-            Columns = ["DT", "COA", "X", "Y", "Z",
+            Columns = ["DT", "COA", "COA_NORM", "X", "Y", "Z",
                        "LocalGaussian_X", "LocalGaussian_Y", "LocalGaussian_Z",
                        "LocalGaussian_ErrX", "LocalGaussian_ErrY",
                        "LocalGaussian_ErrZ", "GlobalCovariance_X",
                        "GlobalCovariance_Y", "GlobalCovariance_Z",
                        "GlobalCovariance_ErrX", "GlobalCovariance_ErrY",
-                       "GlobalCovariance_ErrZ"]
+                       "GlobalCovariance_ErrZ", "TRIG_COA", "DEC_COA",
+                       "DEC_COA_NORM"]
             All X / Y as lon / lat; Z and X / Y / Z uncertainties in metres
 
         event_name : str
@@ -366,15 +366,20 @@ class QuakeIO:
             suffix = ".waveforms"
 
         fname = str(fname.with_suffix(suffix))
-        st.write(str(fname), format=data_format)  # , encoding="STEIM1")
+        st.write(str(fname), format=data_format)
 
-    def write_picks(self, stations, event_name):
+    def write_picks(self, picks, event_name):
         """
         Write phase picks to a new .picks file
 
         Parameters
         ----------
-        stations : pandas DataFrame object
+        picks : pandas DataFrame object
+            Phase pick times with columns: ["Name", "Phase",
+                                            "ModelledTime",
+                                            "PickTime", "PickError",
+                                            "SNR"]
+            Each row contains the phase pick from one station/phase.
 
         event_name : str
             event_id for file naming
@@ -385,7 +390,7 @@ class QuakeIO:
         util.make_directories(self.run, subdir=subdir)
         fname = self.run / subdir / "{}".format(event_name)
         fname = str(fname.with_suffix(".picks"))
-        stations.to_csv(fname, index=False)
+        picks.to_csv(fname, index=False)
 
     def write_event(self, event, event_name):
         """
@@ -395,13 +400,14 @@ class QuakeIO:
         ----------
         event : pandas DataFrame
             Final event location information.
-            Columns = ["DT", "COA", "X", "Y", "Z",
+            Columns = ["DT", "COA", "COA_NORM", "X", "Y", "Z",
                        "LocalGaussian_X", "LocalGaussian_Y", "LocalGaussian_Z",
                        "LocalGaussian_ErrX", "LocalGaussian_ErrY",
                        "LocalGaussian_ErrZ", "GlobalCovariance_X",
                        "GlobalCovariance_Y", "GlobalCovariance_Z",
                        "GlobalCovariance_ErrX", "GlobalCovariance_ErrY",
-                       "GlobalCovariance_ErrZ"]
+                       "GlobalCovariance_ErrZ", "TRIG_COA", "DEC_COA",
+                       "DEC_COA_NORM"]
             All X / Y as lon / lat; Z and X / Y / Z uncertainties in metres
 
         event_name : str
@@ -430,7 +436,8 @@ class QuakeIO:
         events : pandas DataFrame
             Triggered events output from _trigger_scn().
             Columns: ["EventNum", "CoaTime", "COA_V", "COA_X", "COA_Y",
-                      "COA_Z", "MinTime", "MaxTime"]
+                      "COA_Z", "MinTime", "MaxTime", "COA", "COA_NORM",
+                      "evt_id"]
 
         """
         fname = self.run / "{}_TriggeredEvents".format(self.name)
@@ -456,7 +463,8 @@ class QuakeIO:
         events : pandas DataFrame
             Triggered events output from _trigger_scn().
             Columns: ["EventNum", "CoaTime", "COA_V", "COA_X", "COA_Y",
-                      "COA_Z", "MinTime", "MaxTime"]
+                      "COA_Z", "MinTime", "MaxTime", "COA", "COA_NORM",
+                      "evt_id"]
 
         """
 

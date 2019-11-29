@@ -51,7 +51,7 @@ INSTALL_REQUIRES = [
     'msgpack-python']
 
 # Compile stage for C-library
-os.system('gcc -shared -fPIC -std=gnu99 ./QMigrate/lib/src/QMigrate.c -fopenmp -O0 -o ./QMigrate/lib/QMigrate.so')
+os.system('gcc -shared -fPIC -std=gnu99 ./QMigrate/core/src/QMigrate.c -fopenmp -O0 -o ./QMigrate/core/src/QMigrate.so')
 
 
 def read(*parts):
@@ -110,7 +110,7 @@ def setup_package():
         install_requires=INSTALL_REQUIRES,
         include_package_data=True,
         include_dirs=INCLUDE_DIRS,
-        package_data={"QMigrate": ["lib/*.so"]})
+        package_data={"QMigrate": ["core/src/*.so"]})
 
 
 if __name__ == "__main__":
@@ -123,8 +123,8 @@ if __name__ == "__main__":
             shutil.rmtree(path)
         except Exception:
             pass
-        # delete all shared libs from lib directory
-        path = os.path.join(SETUP_DIRECTORY, 'QMigrate', 'lib')
+        # delete all shared libs from clib directory
+        path = os.path.join(SETUP_DIRECTORY, 'QMigrate', 'core', 'src')
         for filename in glob.glob(path + os.sep + '*.pyd'):
             try:
                 os.remove(filename)

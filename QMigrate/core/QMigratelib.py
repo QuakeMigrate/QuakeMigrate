@@ -25,7 +25,7 @@ c_i32Pt = clib.ndpointer(dtype=np.int32, flags="C_CONTIGUOUS")
 c_i64Pt = clib.ndpointer(dtype=np.int64, flags="C_CONTIGUOUS")
 c_iPt = clib.ndpointer(dtype=np.int32, flags="C_CONTIGUOUS")
 
-p = pathlib.Path(__file__).parents[1] / "lib/QMigrate"
+p = pathlib.Path(__file__).parent / "src" / "QMigrate"
 if os.name == 'nt':
     _qmigratelib = clib.load_library(str(p.with_suffix(".dll")), ".")
 else:  # posix

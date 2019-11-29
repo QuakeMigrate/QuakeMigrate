@@ -123,6 +123,12 @@ class Trigger:
         end_time : str
             Time stamp of final sample
 
+        region : list of floats, optional
+            Only write triggered events within this region to the triggered
+            events csv file (for use in locate.) Format is:
+                [Xmin, Ymin, Zmin, Xmax, Ymax, Zmax]
+            Units are longitude / latitude / metres (elevation; up is positive)
+
         save_fig : bool, optional
             Save triggered events figure (default) or open for interactive view
 
@@ -207,7 +213,8 @@ class Trigger:
             Triggered events information. Columns: ["EventNum", "CoaTime",
                                                     "COA_V", "COA_X", "COA_Y",
                                                     "COA_Z", "MinTime",
-                                                    "MaxTime"]
+                                                    "MaxTime", "COA",
+                                                    "COA_NORM", "evt_id"]
 
         """
 
@@ -237,7 +244,7 @@ class Trigger:
             return None
 
         event_cols = ["EventNum", "CoaTime", "COA_V", "COA_X", "COA_Y",
-                      "COA_Z", "MinTime", "MaxTime"]
+                      "COA_Z", "MinTime", "MaxTime", "COA", "COA_NORM"]
 
         ss = 1. / self.sampling_rate
 
@@ -272,6 +279,8 @@ class Trigger:
             COA_X = coa_data["X"].iloc[val_idx]
             COA_Y = coa_data["Y"].iloc[val_idx]
             COA_Z = coa_data["Z"].iloc[val_idx]
+            COA = coa_data["COA"].iloc[val_idx]
+            COA_NORM = coa_data["COA_N"].iloc[val_idx]
 
             # If the first sample above the threshold is within the marginal
             # window, set min time stamp to:
@@ -292,7 +301,7 @@ class Trigger:
                 t_max = t_max + minimum_repeat
 
             tmp = pd.DataFrame([[e, t_val, COA_V, COA_X, COA_Y, COA_Z,
-                                t_min, t_max]],
+                                t_min, t_max, COA, COA_NORM]],
                                columns=event_cols)
 
             init_events = init_events.append(tmp, ignore_index=True)
@@ -331,7 +340,9 @@ class Trigger:
                                    tmp["COA_Y"].iloc[j],
                                    tmp["COA_Z"].iloc[j],
                                    min_mt,
-                                   max_mt]],
+                                   max_mt,
+                                   tmp["COA"].iloc[j],
+                                   tmp["COA_NORM"].iloc[j]]],
                                  columns=event_cols)
             events = events.append(event, ignore_index=True)
 

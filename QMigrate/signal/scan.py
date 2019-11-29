@@ -164,13 +164,14 @@ class QuakeScan(DefaultQuakeScan):
 
     """
 
-    EVENT_FILE_COLS = ["DT", "COA", "X", "Y", "Z",
+    EVENT_FILE_COLS = ["DT", "COA", "COA_NORM", "X", "Y", "Z",
                        "LocalGaussian_X", "LocalGaussian_Y", "LocalGaussian_Z",
                        "LocalGaussian_ErrX", "LocalGaussian_ErrY",
                        "LocalGaussian_ErrZ", "GlobalCovariance_X",
                        "GlobalCovariance_Y", "GlobalCovariance_Z",
                        "GlobalCovariance_ErrX", "GlobalCovariance_ErrY",
-                       "GlobalCovariance_ErrZ", "ML", "ML_Err"]
+                       "GlobalCovariance_ErrZ", "TRIG_COA", "DEC_COA",
+                       "DEC_COA_NORM", "ML", "ML_Err"]
 
     def __init__(self, data, lut, onset, picker=None, get_amplitudes=False,
                  calc_mag=False, quick_amplitudes=False, get_polarities=False,
@@ -618,6 +619,14 @@ class QuakeScan(DefaultQuakeScan):
             msg = msg.format(i + 1, n_evts, event_uid)
             self.output.log(msg, self.log)
 
+            trig_coa = trig_event["COA_V"]
+            try:
+                detect_coa = trig_event["COA"]
+                detect_coa_norm = trig_event["COA_NORM"]
+            except KeyError:
+                detect_coa = np.nan
+                detect_coa_norm = np.nan
+
             w_beg = trig_event["CoaTime"] - 2*self.marginal_window \
                 - self.pre_pad
             w_end = trig_event["CoaTime"] + 2*self.marginal_window \
@@ -644,10 +653,12 @@ class QuakeScan(DefaultQuakeScan):
             daten, max_coa, max_coa_norm, coord, map_4d = self._compute(
                                                                w_beg, w_end)
             event_coa_data = pd.DataFrame(np.array((daten, max_coa,
+                                                    max_coa_norm,
                                                     coord[:, 0],
                                                     coord[:, 1],
                                                     coord[:, 2])).transpose(),
-                                          columns=["DT", "COA", "X", "Y", "Z"])
+                                          columns=["DT", "COA", "COA_NORM",
+                                                   "X", "Y", "Z"])
             event_coa_data["DT"] = event_coa_data["DT"].apply(UTCDateTime)
             idxmax = event_coa_data["COA"].astype("float").idxmax()
             event_coa_data_dtmax = event_coa_data["DT"].iloc[idxmax]
@@ -692,7 +703,8 @@ class QuakeScan(DefaultQuakeScan):
 
             # Determining earthquake location error
             timer = util.Stopwatch()
-            self.output.log("\tDetermining earthquake location and uncertainty...", self.log)
+            self.output.log("\tDetermining earthquake location and uncertainty...",
+                            self.log)
             loc_spline, loc_gau, loc_gau_err, loc_cov, \
                 loc_cov_err = self._calculate_location(map_4d)
             self.output.log(timer(), self.log)
@@ -717,13 +729,15 @@ class QuakeScan(DefaultQuakeScan):
             # Make event dictionary with all final event location data
             event = pd.DataFrame([[event_max_coa.values[0],
                                    event_max_coa.values[1],
+                                   event_max_coa.values[2],
                                    loc_spline[0], loc_spline[1], loc_spline[2],
                                    loc_gau[0], loc_gau[1], loc_gau[2],
                                    loc_gau_err[0], loc_gau_err[1],
                                    loc_gau_err[2],
                                    loc_cov[0], loc_cov[1], loc_cov[2],
                                    loc_cov_err[0], loc_cov_err[1],
-                                   loc_cov_err[2], ML, ML_error]],
+                                   loc_cov_err[2], trig_coa, detect_coa,
+                                   detect_coa_norm, ML, ML_error]],
                                  columns=self.EVENT_FILE_COLS)
 
             self.output.write_event(event, event_uid)
@@ -757,7 +771,7 @@ class QuakeScan(DefaultQuakeScan):
 
         if not self.amplitude_params:
             msg = ("Must define a set of amplitude parameters.\n"
-                   "For more information, please consult the documenation.")
+                   "For more information, please consult the documentation.")
             raise AttributeError(msg)
 
         if self.amplitude_params["response_format"] == "dataless":
@@ -1575,13 +1589,14 @@ class QuakeScan(DefaultQuakeScan):
 
         event : pandas DataFrame
             Final event location information.
-            Columns = ["DT", "COA", "X", "Y", "Z",
+            Columns = ["DT", "COA", "COA_NORM", "X", "Y", "Z",
                        "LocalGaussian_X", "LocalGaussian_Y", "LocalGaussian_Z",
                        "LocalGaussian_ErrX", "LocalGaussian_ErrY",
                        "LocalGaussian_ErrZ", "GlobalCovariance_X",
                        "GlobalCovariance_Y", "GlobalCovariance_Z",
                        "GlobalCovariance_ErrX", "GlobalCovariance_ErrY",
-                       "GlobalCovariance_ErrZ"]
+                       "GlobalCovariance_ErrZ", "TRIG_COA", "DEC_COA",
+                       "DEC_COA_NORM"]
             All X / Y as lon / lat; Z and X / Y / Z uncertainties in metres
 
         out_str : str

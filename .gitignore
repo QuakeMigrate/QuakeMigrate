@@ -8,3 +8,4 @@ build/
 dist/
 *.ipynb_checkpoints
 *.so
+.vscode/

@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-Core
-****
+This wrapper module provides Python bindings for the library of compiled C
+routines that form the core of QuakeMigrate:
 
-Wrapper module for the library of compiled C functions that perform the core
-QuakeMigrate routines:
-
-    * Migrate
-    * Find maximum coalescence
+    * Migrate onsets - This routine performs the continuous migration through \
+    time and space of the onset functions. It has been parallelised with \
+    openMP.
+    * Find maximum coalescence - This routine finds the continuous maximum \
+    coalescence amplitude in the 4-D coalesence volume.
 
 """
 

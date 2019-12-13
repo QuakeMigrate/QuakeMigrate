@@ -50,8 +50,11 @@ INSTALL_REQUIRES = [
     'pyzmq',
     'msgpack-python']
 
-# Compile stage for C-library
-os.system('gcc -shared -fPIC -std=gnu99 ./QMigrate/lib/src/QMigrate.c -fopenmp -O0 -o ./QMigrate/lib/QMigrate.so')
+# Check if we are on RTD and don't build extensions if we are.
+READ_THE_DOCS = os.environ.get('READTHEDOCS', None) == 'True'
+if not READ_THE_DOCS:
+    # Compile stage for C-library
+    os.system('gcc -shared -fPIC -std=gnu99 ./QMigrate/lib/src/QMigrate.c -fopenmp -O0 -o ./QMigrate/lib/QMigrate.so')
 
 
 def read(*parts):

@@ -60,7 +60,7 @@ def read_vmodel(vmodel_file, delimiter=","):
     vmodel_file : str
         Path to velocity model file.
         File format: (header line is REQUIRED, case sensitive, any order):
-            Depth (units of metres), Vp, Vs (units of metres per second)
+        Depth (units of metres), Vp, Vs (units of metres per second)
 
     delimiter : char, optional
         Velocity model file delimiter (default ",").

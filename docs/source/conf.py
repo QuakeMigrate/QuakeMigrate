@@ -33,7 +33,6 @@ nbsphinx_allow_errors = True
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    "sphinxcontrib.napoleon",
     "sphinx_rtd_theme",
     "nbsphinx",
     "sphinx.ext.viewcode",

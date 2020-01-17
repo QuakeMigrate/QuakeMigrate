@@ -19,7 +19,7 @@ import QMigrate.core as ilib
 import QMigrate.io.quakeio as qio
 import QMigrate.plot.quakeplot as qplot
 import QMigrate.signal.magnitudes as qmag
-import QMigrate.signal.onset.onset as qonset
+import QMigrate.signal.onset as qonset
 import QMigrate.signal.pick.pick as qpick
 import QMigrate.util as util
 
@@ -565,7 +565,6 @@ class QuakeScan(DefaultQuakeScan):
 
         Parameters
         ----------
-
         args :
             A variable length tuple holding either a start_time - end_time pair
             or a filename a triggered events to read
@@ -592,13 +591,6 @@ class QuakeScan(DefaultQuakeScan):
             fname = args[0]
             trig_events = self.output.read_triggered_events(fname).reset_index()
         n_evts = len(trig_events)
-
-        # Define pre-pad as a function of the onset windows
-        if self.pre_pad is None:
-            self.pre_pad = max(self.p_onset_win[1],
-                               self.s_onset_win[1]) \
-                           + 3 * max(self.p_onset_win[0],
-                                     self.s_onset_win[0])
 
         # Adjust pre- and post-pad to take into account cosine taper
         t_length = self.pre_pad + 4*self.marginal_window + self.post_pad
@@ -1094,8 +1086,12 @@ class QuakeScan(DefaultQuakeScan):
         max_coa_idx = np.zeros(nsamp, np.int64)
         ilib.find_max_coa(map_4d, max_coa, max_coa_idx, 0, nsamp, self.n_cores)
 
+        # Correct map_4d for number of contributing traces
+        map_4d = np.exp(map_4d / (len(avail_idx)*2))
+
         # Get max_coa_norm
-        max_coa_norm = max_coa / np.sum(map_4d, axis=(0, 1, 2))
+        max_coa_norm = (np.exp(max_coa / (len(avail_idx)*2))
+                        / np.sum(map_4d, axis=(0, 1, 2)))
         max_coa_norm = max_coa_norm * map_4d.shape[0] * map_4d.shape[1] * \
             map_4d.shape[2]
 
@@ -1105,7 +1101,7 @@ class QuakeScan(DefaultQuakeScan):
         daten = [x.datetime for x in tmp]
 
         # Calculate max_coa (with correction for number of stations)
-        max_coa = np.exp((max_coa / (len(avail_idx) * 2)) - 1.0)
+        max_coa = np.exp(max_coa / (len(avail_idx) * 2)) - 1.0
 
         # Convert the flat grid indices (of maximum coalescence) to coordinates
         # in the input projection space.
@@ -1505,7 +1501,7 @@ class QuakeScan(DefaultQuakeScan):
         """
 
         # MARGINALISE: Determining the 3-D coalescence map
-        self.coa_map = np.log(np.sum(np.exp(map_4d), axis=-1))
+        self.coa_map = np.sum(map_4d, axis=-1)
 
         # Normalise
         self.coa_map = self.coa_map / np.nanmax(self.coa_map)

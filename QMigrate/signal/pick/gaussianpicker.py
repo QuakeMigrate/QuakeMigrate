@@ -103,7 +103,7 @@ class GaussianPicker(qpick.PhasePicker):
         # If an Onset object has been provided to the picker, recalculate the
         # onset functions for the data
         if self.onset is not None:
-            _ = self.onset.calculate_onsets(waveform_data)
+            _ = self.onset.calculate_onsets(waveform_data, log=False)
 
         self.data = waveform_data
         self.event = event

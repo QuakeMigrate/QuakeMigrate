@@ -48,6 +48,9 @@ def stations(station_file, delimiter=","):
 
     stn_data["Elevation"] = stn_data["Elevation"].apply(lambda x: -1*x)
 
+    # Ensure station names are strings
+    stn_data = stn_data.astype({"Name": "str"})
+
     return stn_data
 
 

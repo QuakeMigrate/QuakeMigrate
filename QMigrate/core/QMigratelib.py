@@ -97,7 +97,7 @@ def migrate(sig, tt, fsmp, lsmp, nsamp, map4d, threads):
         raise ValueError(msg)
 
     _qmigratelib.migrate(sig, tt, map4d, c_int32(fsmp), c_int32(lsmp),
-                         c_int32(nsamp), c_int32(nstn),  c_int64(tcell),
+                         c_int32(nsamp), c_int32(nstn), c_int64(tcell),
                          c_int64(threads))
 
 

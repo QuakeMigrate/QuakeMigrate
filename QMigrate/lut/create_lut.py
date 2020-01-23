@@ -25,6 +25,9 @@ def read_nlloc(path, stations):
     path : str
         Path to directory containing .buf and .hdr files.
 
+    stations : pandas DataFrame
+        DataFrame containing station information (lat/lon/elev).
+
     Returns
     -------
     lut : QuakeMigrate lookup table object
@@ -323,7 +326,7 @@ def _compute_1d_sweep(lut, vmod, nlloc_dx, nlloc_path, blocks):
         name = station["Name"]
         lut.maps[name] = {}
 
-        dx, dy, dz = [grid_xyz[j] - stations_xyz[i, j] for j in range(3)]
+        dx, dy, _dz = [grid_xyz[j] - stations_xyz[i, j] for j in range(3)]
         distance_grid = np.sqrt(dx**2 + dy**2)
         max_dist = np.max(distance_grid)
 
@@ -348,7 +351,7 @@ def _compute_1d_sweep(lut, vmod, nlloc_dx, nlloc_path, blocks):
                     raise Exception("{} Error".format(mode), out)
 
             to_read = "./time/layer.{}.{}.time".format(phase, name)
-            gridspec, _, ttimes = _read_nlloc(to_read)
+            gridspec, _, ttimes = _read_nlloc(to_read, ignore_proj=True)
 
             distance = distance_grid.flatten()
             depth = grid_xyz[2].flatten()
@@ -415,7 +418,7 @@ def _write_control_file(station_xyz, name, max_dist, vmodel, depth_limits,
         f.write(out)
 
 
-def _read_nlloc(fname):
+def _read_nlloc(fname, ignore_proj=False):
     """
     Read the 2-D NonLinLoc travel-time grids
 
@@ -424,6 +427,9 @@ def _read_nlloc(fname):
     fname : str
         Path to file containing NonLinLoc travel-time lookup tables, without
         the extension.
+
+    ignore_proj : bool (optional)
+        Flag to suppress the 'No projection specified message'.
 
     Returns
     -------
@@ -450,7 +456,7 @@ def _read_nlloc(fname):
         line = f.readline().split()
         cproj = pyproj.Proj("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")
         gproj = None
-        if line[1] == "NONE":
+        if line[1] == "NONE" and ignore_proj == False:
             print("\tNo projection selected.")
         elif line[1] == "SIMPLE":
             orig_lat = float(line[3])
@@ -464,8 +470,41 @@ def _read_nlloc(fname):
             parallel_1 = float(line[9])
             parallel_2 = float(line[11])
 
+            if proj_ellipsoid == 'WGS-84':
+                proj_ellipsoid = 'WGS84'
+            elif proj_ellipsoid == 'GRS-80':
+                proj_ellipsoid = 'GRS80'
+            elif proj_ellipsoid == 'WGS-72':
+                proj_ellipsoid = 'WGS72'
+            elif proj_ellipsoid == 'Australian':
+                proj_ellipsoid = 'aust_SA'
+            elif proj_ellipsoid == 'Krasovsky':
+                proj_ellipsoid = 'krass'
+            elif proj_ellipsoid == 'International':
+                proj_ellipsoid = 'intl'
+            elif proj_ellipsoid == 'Hayford-1909':
+                proj_ellipsoid = 'intl'
+            elif proj_ellipsoid == 'Clarke-1880':
+                proj_ellipsoid = 'clrk80'
+            elif proj_ellipsoid == 'Clarke-1866':
+                proj_ellipsoid = 'clrk66'
+            elif proj_ellipsoid == 'Airy':
+                proj_ellipsoid = 'airy'
+            elif proj_ellipsoid == 'Bessel':
+                proj_ellipsoid = 'bessel'
+            elif proj_ellipsoid == 'Hayford-1830':
+                proj_ellipsoid = 'evrst30'
+            elif proj_ellipsoid == 'Sphere':
+                proj_ellipsoid = 'sphere'
+            else:
+                msg = 'Projection Ellipsoid {} not supported!\n \tPlease'
+                msg += 'notify the QuakeMigrate developers.\n\n \tWGS-84 used'
+                msg += 'instead...\n'
+                proj_ellipsoid = 'WGS-84'
+
             gproj = pyproj.Proj(proj="LCC", lon0=orig_lon, lat0=orig_lat,
-                                parallel_1=parallel_1, parallel_2=parallel_2)
+                                parallel_1=parallel_1, parallel_2=parallel_2,
+                                ellps=proj_ellipsoid, datum='WGS84')
         elif line[1] == "TRANS_MERC":
             orig_lat = float(line[5])
             orig_lon = float(line[7])

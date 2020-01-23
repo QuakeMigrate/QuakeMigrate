@@ -225,3 +225,16 @@ class OnsetTypeError(Exception):
         msg = ("OnsetTypeError: The Onset object you have created does not "
                "inherit from the required base class - see manual.")
         super().__init__(msg)
+
+
+class PickerTypeError(Exception):
+    """
+    Custom exception to handle case when the phase picker object passed to
+    QuakeScan is not of the default type defined in QuakeMigrate.
+
+    """
+
+    def __init__(self):
+        msg = ("PickerTypeError: The PhasePicker object you have created does"
+               "not inherit from the required base class - see manual.")
+        super().__init__(msg)

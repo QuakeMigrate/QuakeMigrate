@@ -196,7 +196,7 @@ class QuakePlot:
         Writer = animation.writers["ffmpeg"]
         writer = Writer(fps=4, metadata=dict(artist="QM"), bitrate=1800)
 
-        fig = self._coalescence_frame(i0)
+        fig = self._coalescence_frame()
         ani = animation.FuncAnimation(fig, self._video_update,
                                       frames=np.linspace(i0+1, i1, i1-i0),
                                       blit=False, repeat=False)
@@ -285,7 +285,7 @@ class QuakePlot:
 
         # --- Set signal trace limits ---
         sig_ax.set_xlim([(dt_max-0.1).datetime,
-                        (self.data.end_time-0.8).datetime])
+                         (self.data.end_time-0.8).datetime])
         sig_ax.yaxis.tick_right()
         sig_ax.yaxis.set_ticks(sidx + 1)
         sig_ax.yaxis.set_ticklabels(self.data.stations)
@@ -521,14 +521,9 @@ class QuakePlot:
             ax.plot(x, y / np.max(abs(y)) * self.trace_scale + (st_idx + 1),
                     color=color, linewidth=0.5, zorder=1)
 
-    def _coalescence_frame(self, tslice_idx):
+    def _coalescence_frame(self):
         """
-        Plots a frame of a coalescence video at a particular time.
-
-        Parameters
-        ----------
-        tslice_idx : int
-            Index for the current time slice.
+        Plots frame to be used in background of coalescence video.
 
         """
 
@@ -583,7 +578,7 @@ class QuakePlot:
 
         # Set coalescence trace limits
         sig_ax.set_xlim([(dt_max-0.1).datetime,
-                        (self.data.end_time-0.8).datetime])
+                         (self.data.end_time-0.8).datetime])
         sig_ax.yaxis.tick_right()
         sig_ax.yaxis.set_ticks(sidx + 1)
         sig_ax.yaxis.set_ticklabels(self.data.stations)
@@ -701,7 +696,7 @@ class QuakePlot:
                                    names=["File", "Color",
                                           "Linewidth", "Linestyle"],
                                    header=None)
-            for i, f in xy_files.iterrows():
+            for _, f in xy_files.iterrows():
                 xy_file = pd.read_csv(f["File"], names=["Longitude",
                                                         "Latitude"],
                                       header=None)

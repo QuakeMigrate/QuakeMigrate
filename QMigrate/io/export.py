@@ -59,7 +59,7 @@ def sac_mfast(event, stations, output_path, filename=None):
     output_path.mkdir(parents=True, exist_ok=True)
 
     # Loop over the available stations and get the pick information
-    for i, station in stations.iterrows():
+    for _, station in stations.iterrows():
         st = stream.select(station=station.Name)
 
         station_header = AttribDict()
@@ -68,7 +68,7 @@ def sac_mfast(event, stations, output_path, filename=None):
         station_header.stel = station.Elevation
 
         # Calculate the distance and azimuth between event and station
-        dist, az, baz = gps2dist_azimuth(event_header.evla,
+        dist, az, _ = gps2dist_azimuth(event_header.evla,
                                          event_header.evlo,
                                          station.Latitude,
                                          station.Longitude)
@@ -154,7 +154,7 @@ def snuffler_stations(stations, output_path, filename, network_code=None):
     line_template = "{nw}.{stat}. {lat} {lon} {elev} {dep}\n"
 
     with output.open(mode="w") as f:
-        for i, station in stations.iterrows():
+        for _, station in stations.iterrows():
             if network_code is None:
                 try:
                     network_code = station["Network"]
@@ -171,7 +171,7 @@ def snuffler_stations(stations, output_path, filename, network_code=None):
             f.write(line)
 
 
-def snuffler_markers(event, stations, output_path, filename=None):
+def snuffler_markers(event, output_path, filename=None):
     """
     Function to create marker files compatible with snuffler
 
@@ -180,9 +180,6 @@ def snuffler_markers(event, stations, output_path, filename=None):
     event : ObsPy Event object
         Contains information about the origin time and a list of associated
         picks
-
-    stations : pandas DataFrame
-        DataFrame containing station information
 
     output_path : str
         Location to save the marker file

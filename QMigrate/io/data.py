@@ -97,6 +97,12 @@ class Archive(object):
         self.signal = None
         self.filtered_signal = None
 
+        self.sampling_rate = None
+        self.start_time = None
+        self.end_time = None
+        self.availability = None
+        self.raw_waveforms = None
+
         self.resample = False
         self.upfactor = None
 

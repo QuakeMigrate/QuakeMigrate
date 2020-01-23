@@ -154,12 +154,12 @@ def triggered_events(events, start_time, end_time, output, marginal_window,
 
     if events is not None:
         if normalise_coalescence:
-            if type(detection_threshold) == float:
+            if isinstance(detection_threshold, float):
                 coa_norm.axhline(detection_threshold, c="g")
             else:
                 coa_norm.plot(data["DT"], detection_threshold, "g-")
         else:
-            if type(detection_threshold) == float:
+            if isinstance(detection_threshold, float):
                 coa.axhline(detection_threshold, c="g")
             else:
                 coa.plot(data["DT"], detection_threshold, "g-")
@@ -190,7 +190,7 @@ def triggered_events(events, start_time, end_time, output, marginal_window,
                    marker="<", color="black")
         for i, txt in enumerate(stations["Name"]):
             xy.annotate(txt, [stations["Longitude"][i],
-                        stations["Latitude"][i]], color="black")
+                              stations["Latitude"][i]], color="black")
 
     # Save figure or open interactive matplotlib window
     if savefig:

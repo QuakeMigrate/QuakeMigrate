@@ -172,7 +172,7 @@ class Grid3D(object):
         if inplace:
             grid = self
         else:
-            grid = copy.copy(self)
+            grid = copy.deepcopy(self)
 
         grid.cell_count = new_cell_count
         grid.cell_size = self.cell_size * df
@@ -645,7 +645,7 @@ class LUT(Grid3D):
             eq_projections = (self.grid_proj == other.grid_proj
                               and self.coord_proj == other.coord_proj)
 
-            return (eq_corners and eq_sizes and eq_projections)
+            return eq_corners and eq_sizes and eq_projections
 
     def __getitem__(self, key):
         """

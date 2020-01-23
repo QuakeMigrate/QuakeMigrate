@@ -23,8 +23,9 @@ vmod = qio.read_vmodel(vmodel_file)
 
 # --- Define projections ---
 # Values used are for the Borneo example available on GitHub.
-cproj = Proj("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")
-gproj = Proj("+proj=lcc +lon_0=116.75 +lat_0=6.25 +lat_1=4.0 +lat_2=7.5 +datum=WGS84 +units=m +no_defs") 
+cproj = Proj(proj="longlat", ellps="WGS84", datum="WGS84", no_defs=True)
+gproj = Proj(proj="lcc", lon_0=116.75, lat_0=6.25, lat_1=4.0, lat_2=7.5,
+             datum="WGS84", ellps="WGS84", units="m", no_defs=True)
 
 # --- Create new LUT ---
 # Values used are for the Borneo example available on GitHub.

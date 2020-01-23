@@ -11,7 +11,6 @@ import pathlib
 import pandas as pd
 
 from obspy import Catalog, UTCDateTime, __version__
-from obspy.core import AttribDict
 from obspy.core.event import (Arrival, Event, Origin, Pick, EventDescription,
                               WaveformStreamID)
 from obspy.geodetics import kilometer2degrees
@@ -97,7 +96,7 @@ def _read_single_event(event_file):
     else:
         return None
 
-    for i, p in picks.iterrows():
+    for _, p in picks.iterrows():
         arrival = Arrival()
         o.arrivals.append(arrival)
         station = str(p["Name"])

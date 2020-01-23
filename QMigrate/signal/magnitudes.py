@@ -1,3 +1,11 @@
+# -*- coding: utf-8 -*-
+"""
+Module that supplies functions to calculate magnitudes from observations of
+trace amplitudes, earthquake location, station locations, and an estimated
+attenuation curve for the region of interest.
+
+"""
+
 import numpy as np
 from scipy import sparse
 from matplotlib import pyplot as plt
@@ -272,8 +280,12 @@ def GR_mags(nevents, b_value, m_min):
     return m_min + rng.exponential(1. / (-b_value / np.log10(np.e)), nevents)
 
 
-def generate_synthetic_cat(nev, nsta, noise_level,  xlim, ylim, zlim,
+def generate_synthetic_cat(nev, nsta, noise_level, xlim, ylim, zlim,
                            magrange, stcorr_width, **kwargs):
+    """
+    Docstring here.
+
+    """
 
     xmin, xmax = xlim
     ymin, ymax = ylim
@@ -317,7 +329,7 @@ def generate_synthetic_cat(nev, nsta, noise_level,  xlim, ylim, zlim,
 
             noise = np.random.normal(scale=noise_level, size=2)
 
-            loga0 = logA0(dist, 'keir2006')
+            loga0 = _logA0(dist, 'keir2006')
             loga = mags[i] - loga0 - stcorr[j]
             a = np.power(10., loga)
 
@@ -330,15 +342,15 @@ def generate_synthetic_cat(nev, nsta, noise_level,  xlim, ylim, zlim,
                 amp[2*j + k, 6] = noise[k]
                 index.append('.{:04d}..BH{:1d}'.format(j, k+1))
             j += 1
-        amp = pds.DataFrame(amp, 
-                columns=['epi_dist', 'depth', 
-                        'P_amp', 'P_freq', 
-                        'S_amp', 'S_freq', 
-                        'Error'],
-                index=index)  
+        amp = pds.DataFrame(amp,
+                            columns=['epi_dist', 'depth',
+                                     'P_amp', 'P_freq',
+                                     'S_amp', 'S_freq',
+                                     'Error'],
+                            index=index)
         observations[uid] = amp
         i += 1
-    
+
     return observations, mags, stcorr, (eqloc, stloc)
 
 
@@ -351,6 +363,7 @@ def invert_mag_scale(data, stcorr_only=False, **kwargs):
     data : dict
         input data. Comprised of a dictionary of pandas DataFrame objects
         containing the amplitude data
+
     """
 
     nev = len(data.keys())
@@ -421,22 +434,26 @@ def invert_mag_scale(data, stcorr_only=False, **kwargs):
     # print(result.shape)
 
     if not stcorr_only:
-        return result[:nev], dict([(tr_id, result[int(compdic[tr_id])]) for tr_id in compdic.keys()]), result[nev+ncomps:]
+        return result[:nev], \
+               dict([(tr_id,
+                      result[int(compdic[tr_id])]) for tr_id in compdic.keys()]), \
+               result[nev+ncomps:]
     else:
         return result[:nev], result[nev:nev+ncomps]
 
 
 if __name__ == "__main__":
     plt.close('all')
-    obs, mags, stcorr, loc = generate_synthetic_cat(10000, 100, 1e-5, 
-                                (-50, 50), (-50, 50), (0, 40), 
-                                (1.3, np.nan), 0.3)
+    obs, mags, stcorr, loc = generate_synthetic_cat(10000, 100, 1e-5,
+                                                    (-50, 50), (-50, 50),
+                                                    (0, 40),
+                                                    (1.3, np.nan), 0.3)
 
     m, s, nk = invert_mag_scale(obs)
     k, n = nk
     print((mags - m).mean(), (mags - m).std())
     # print(1.196997, n, 0.001066, k)
-    # for key in sorted(s): 
+    # for key in sorted(s):
     #     print('{:s} {:6.4f} {:6.4f}'.format(key, s[key], stcorr[int(key.split('.')[1])]))
 
     plt.figure()
@@ -460,12 +477,9 @@ if __name__ == "__main__":
     plt.figure()
     plt.semilogy(obs[0]['epi_dist'], obs[0]['S_amp'], 'k+')
     x = np.linspace(0.1, 150, 1000)
-    plt.plot(x, np.power(10., mags[0] - logA0(x, 'keir2006')) / 1000., 'k-')
+    plt.plot(x, np.power(10., mags[0] - _logA0(x, 'keir2006')) / 1000., 'k-')
     # zz = loc[0][0, 2]
     # plt.plot(x, np.power(10., mags[0] - logA0((x, zz), 'parametric', X=X, Z=Z, A=A)) / 1000., 'r-', alpha=0.5)
     # plt.plot(x, np.power(10., mags[0] - logA0((x, zz), 'parametric', X=X_out, Z=Z_out, A=attenuation)) / 1000., 'b-')
     # plt.plot(x, np.power(10., m[0] - logA0((x, zz), 'parametric', X=X_out, Z=Z_out, A=attenuation)) / 1000., 'b--')
     plt.show()
-            
-
-

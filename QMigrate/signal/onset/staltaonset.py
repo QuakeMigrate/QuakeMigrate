@@ -357,10 +357,15 @@ class ClassicSTALTAOnset(qonset.Onset):
         filt_sige = pre_process(sige, self.sampling_rate, lc, hc, ord_)
         filt_sign = pre_process(sign, self.sampling_rate, lc, hc, ord_)
 
+<<<<<<< HEAD
         s_e_onset = onset(filt_sige, stw, ltw, centred=self.onset_centred,
                           log=log)
         s_n_onset = onset(filt_sign, stw, ltw, centred=self.onset_centred,
                           log=log)
+=======
+        s_e_onset = onset(filt_sige, stw, ltw, centred=self.onset_centred, log=log)
+        s_n_onset = onset(filt_sign, stw, ltw, centred=self.onset_centred, log=log)
+>>>>>>> exponential_woes
 
         s_onset = np.sqrt((s_e_onset ** 2 + s_n_onset ** 2) / 2.)
 

@@ -1,4 +1,3 @@
-
 #include <stdint.h>
 
 #ifndef _OPENMP
@@ -28,7 +27,7 @@
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
 
-EXPORT void scan4d(double *sigPt, int32_t *indPt, double *mapPt, int32_t fsmp, int32_t lsmp, int32_t nsamp, int32_t nstation, int64_t ncell, int64_t threads)
+EXPORT void migrate(double *sigPt, int32_t *indPt, double *mapPt, int32_t fsmp, int32_t lsmp, int32_t nsamp, int32_t nstation, int64_t ncell, int64_t threads)
 {
     double  *stnPt, *stkPt;
     int32_t *ttpPt;
@@ -55,7 +54,7 @@ EXPORT void scan4d(double *sigPt, int32_t *indPt, double *mapPt, int32_t fsmp, i
 }
 
 
-EXPORT void detect4d(double *mapPt, double *snrPt, int64_t *indPt, int32_t fsmp, int32_t lsmp, int32_t nsamp, int64_t ncell, int64_t threads)
+EXPORT void find_max_coa(double *mapPt, double *snrPt, int64_t *indPt, int32_t fsmp, int32_t lsmp, int32_t nsamp, int64_t ncell, int64_t threads)
 {
     double  mv, cv;
     int32_t tm;

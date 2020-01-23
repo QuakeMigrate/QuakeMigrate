@@ -13,7 +13,7 @@ import pyproj
 from scipy.interpolate import interp1d
 import skfmm
 
-import QMigrate.lut.lut as qlut
+import QMigrate.lut as qlut
 
 
 def read_nlloc(path, stations):

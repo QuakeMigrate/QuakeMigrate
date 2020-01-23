@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Module acting as a wrapper for the C-compiled functions that make up the core
-of the QuakeMigrate package.
+Bindings for the core compiled C routines, migrate and find_max_coa.
 
 """
 
@@ -25,20 +24,20 @@ c_i32Pt = clib.ndpointer(dtype=np.int32, flags="C_CONTIGUOUS")
 c_i64Pt = clib.ndpointer(dtype=np.int64, flags="C_CONTIGUOUS")
 c_iPt = clib.ndpointer(dtype=np.int32, flags="C_CONTIGUOUS")
 
-p = pathlib.Path(__file__).parents[1] / "lib/QMigrate"
+p = pathlib.Path(__file__).parent / "src" / "QMigrate"
 if os.name == 'nt':
     _qmigratelib = clib.load_library(str(p.with_suffix(".dll")), ".")
 else:  # posix
     _qmigratelib = clib.load_library(str(p.with_suffix(".so")), ".")
 
 
-_qmigratelib.scan4d.argtypes = [c_dPt, c_i32Pt, c_dPt, c_int32, c_int32,
-                                c_int32, c_int32, c_int64, c_int64]
+_qmigratelib.migrate.argtypes = [c_dPt, c_i32Pt, c_dPt, c_int32, c_int32,
+                                 c_int32, c_int32, c_int64, c_int64]
 
 
 def migrate(sig, tt, fsmp, lsmp, nsamp, map4d, threads):
     """
-    Wrapper for the C-compiled scan4d function: computes 4-D coalescence map
+    Wrapper for the C-compiled migrate function: computes 4-D coalescence map
     by back-migrating P and S onset functions.
 
     Returns output by populating map4d.
@@ -58,7 +57,7 @@ def migrate(sig, tt, fsmp, lsmp, nsamp, map4d, threads):
         Sample in array up to which to scan.
 
     nsamp : int
-        Number of samples in array to scan over.
+        Number of samples in array over which to scan.
 
     map4d : array-like
         Empty array with shape of 4-D coalescence map that will be output.
@@ -90,26 +89,26 @@ def migrate(sig, tt, fsmp, lsmp, nsamp, map4d, threads):
     tcell = np.prod(ncell)
 
     if map4d.size < nsamp*tcell:
-        msg = "4D-array is too small."
+        msg = "4-D array is too small."
         raise ValueError(msg)
 
     if sig.size < nsamp + fsmp:
         msg = "Data array smaller than coalescence array."
         raise ValueError(msg)
 
-    _qmigratelib.scan4d(sig, tt, map4d, c_int32(fsmp), c_int32(lsmp),
-                        c_int32(nsamp), c_int32(nstn), c_int64(tcell),
-                        c_int64(threads))
+    _qmigratelib.migrate(sig, tt, map4d, c_int32(fsmp), c_int32(lsmp),
+                         c_int32(nsamp), c_int32(nstn), c_int64(tcell),
+                         c_int64(threads))
 
 
-_qmigratelib.detect4d.argtypes = [c_dPt, c_dPt, c_i64Pt, c_int32,
-                                  c_int32, c_int32, c_int64, c_int64]
+_qmigratelib.find_max_coa.argtypes = [c_dPt, c_dPt, c_i64Pt, c_int32,
+                                      c_int32, c_int32, c_int64, c_int64]
 
 
 def find_max_coa(map4d, max_coa, grid_index, fsmp, lsmp, threads):
     """
-    Wrapper for the C-compiled detect4d function: finds the maximum
-    coalescence value in the 4-D coalesence grid at each time-step.
+    Wrapper for the C-compiled find_max_coa function: finds the continuous
+    maximum coalescence amplitude in the 4-D coalescence grid.
 
     Returns output by populating max_coa and grid_index.
 
@@ -149,6 +148,6 @@ def find_max_coa(map4d, max_coa, grid_index, fsmp, lsmp, threads):
         msg = msg.format(nsamp)
         raise ValueError(msg)
 
-    _qmigratelib.detect4d(map4d, max_coa, grid_index, c_int32(fsmp),
-                          c_int32(lsmp), c_int32(nsamp), c_int64(ncell),
-                          c_int64(threads))
+    _qmigratelib.find_max_coa(map4d, max_coa, grid_index, c_int32(fsmp),
+                              c_int32(lsmp), c_int32(nsamp), c_int64(ncell),
+                              c_int64(threads))

@@ -15,11 +15,11 @@ import pandas as pd
 from scipy.interpolate import Rbf
 from scipy.signal import fftconvolve, find_peaks
 
-import QMigrate.core.QMigratelib as ilib
+import QMigrate.core as ilib
 import QMigrate.io.quakeio as qio
 import QMigrate.plot.quakeplot as qplot
 import QMigrate.signal.magnitudes as qmag
-import QMigrate.signal.onset.onset as qonset
+import QMigrate.signal.onset as qonset
 import QMigrate.signal.pick.pick as qpick
 import QMigrate.util as util
 

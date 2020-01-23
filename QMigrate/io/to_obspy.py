@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-This module can be used to export a QuakeMigrate output to an obspy Catalog
-object
+This module provides parsers to export the output of a QuakeMigrate run to an
+ObsPy Catalog.
 
 """
 

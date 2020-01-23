@@ -9,8 +9,7 @@ For more details, please see the manual and read the docs.
 from pyproj import Proj
 
 import QMigrate.io.quakeio as qio
-import QMigrate.lut.create_lut as clut
-import QMigrate.lut.lut as qlut
+import QMigrate.lut as qlut
 
 # --- i/o paths ---
 lut_file = "/path/to/save/lut"
@@ -35,16 +34,16 @@ lut = qlut.LUT(ll_corner=[116.075, 5.573, -1750],
                grid_proj=gproj, coord_proj=cproj)
 
 # --- Homogeneous LUT generation ---
-clut.compute(lut, stations, method="homogeneous", vp=5000., vs=3000.)
+qlut.compute(lut, stations, method="homogeneous", vp=5000., vs=3000.)
 
 # --- skfmm LUT generation ---
-clut.compute(lut, stations, method="1dfmm", vmod=vmod)
+qlut.compute(lut, stations, method="1dfmm", vmod=vmod)
 
 # --- NLLoc sweep LUT generation ---
-clut.compute(lut, stations, method="1dsweep", vmod=vmod, block_model=True)
+qlut.compute(lut, stations, method="1dsweep", vmod=vmod, block_model=True)
 
 # --- Read NLLoc lookup tables ---
-lut = clut.read_nlloc("/path/to/nlloc_files", stations)
+lut = qlut.read_nlloc("/path/to/nlloc_files", stations)
 
 # --- Save LUT ---
 lut.save(lut_file)

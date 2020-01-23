@@ -11,37 +11,39 @@ from obspy import read, Trace, Stream, UTCDateTime
 import numpy as np
 
 import QMigrate.util as util
-import QMigrate.io.quakeio as qio
+import QMigrate.io as qio
 
 
 class Archive(object):
     """
-    Archive object
+    The Archive class handles the reading of archived waveform data.
 
-    Reads data all available data from archive between specified times. Selects
-    data for requested stations to perform some clean-up and remove any gappy
-    recordings.
+    It is capable of handling any regular archive structure. Some minor cleanup
+    is performed to remove waveform data from stations when there are time gaps
+    greater than the sample size. There is also the option to resample (up or
+    down) the waveform data by decimation. Keeps a record of which stations had
+    data available for a given timestep.
 
     Attributes
     ----------
-    archive_path : pathlib Path object
-        Location of seismic data archive: e.g.: ./DATA_ARCHIVE
+    archive_path : pathlib.Path
+        Location of seismic data archive: e.g.: ./DATA_ARCHIVE.
 
     format : str
-        File naming format of data archive
+        File naming format of data archive.
 
     raw_waveforms : obspy Stream object
         All raw seismic data found and read in from the archive in the
-        specified time period
+        specified time period.
 
     signal : array-like
         Processed 3-component seismic data at the desired sampling rate only
         for desired stations with continuous data on all 3 components
         throughout the desired time period and where the data could be
-        successfully resampled to the desired sampling rate
+        successfully resampled to the desired sampling rate.
 
     filtered_signal : array-like
-        Filtered data originally from signal
+        Filtered data originally from signal.
 
     resample : bool, optional
         If true, perform resampling of data which cannot be decimated directly
@@ -49,20 +51,20 @@ class Archive(object):
 
     upfactor : int, optional
         Factor by which to upsample the data (using _upsample() )to enable it
-        to be decimated to the desired sampling rate.
-            E.g. 40Hz -> 50Hz requires upfactor = 5.
+        to be decimated to the desired sampling rate, e.g. 40Hz -> 50Hz
+        requires upfactor = 5.
 
     allstations : bool, optional
         If True, read all stations in archive for that time period. Else,
         only read specified stations.
 
     stations : pandas Series object
-        Series object containing station names
+        Series object containing station names.
 
     Methods
     -------
     path_structure(path_type="YEAR/JD/STATION")
-        Set the file naming format of the data archive
+        Set the file naming format of the data archive.
 
     read_waveform_data(start_time, end_time, sampling_rate)
         Read in all waveform data between two times, downsample / resample if
@@ -81,13 +83,13 @@ class Archive(object):
         station_file : str
             File path to QMigrate station file: list of stations selected
             for QuakeMigrate run. Station file must contain header with
-            columns: ["Latitude", "Longitude", "Elevation", "Name"]
+            columns: ["Latitude", "Longitude", "Elevation", "Name"].
 
         delimiter : char, optional
-            QMigrate station file delimiter; defaults to ","
+            QMigrate station file delimiter; defaults to ",".
 
         archive_path : str
-            Location of seismic data archive: e.g.: "./DATA_ARCHIVE"
+            Location of seismic data archive: e.g.: ./DATA_ARCHIVE.
 
         """
 
@@ -113,11 +115,10 @@ class Archive(object):
 
     def __str__(self):
         """
-        Return short summary string of the Archive object.
+        Returns a short summary string of the Archive object.
 
-        It will provide information about the archive location and structure,
-        data sampling rate and time period over which the archive is being
-        queried.
+        Provides information about the archive location and structure, data
+        sampling rate and time period over which the archive is being queried.
 
         """
 
@@ -138,7 +139,7 @@ class Archive(object):
         Parameters
         ----------
         archive_format : str, optional
-            Sets path type for different archive formats
+            Sets path type for different archive formats.
 
         """
 
@@ -168,19 +169,19 @@ class Archive(object):
         Output both processed data for stations in station file and all raw
         data in an obspy Stream object.
 
-        Supports all formats currently supported by obspy, including: "MSEED"
+        Supports all formats currently supported by ObsPy, including: "MSEED"
         (default), "SAC", "SEGY", "GSE2" .
 
         Parameters
         ----------
         start_time : UTCDateTime object
-            Start datetime to read waveform data
+            Start datetime to read waveform data.
 
         end_time : UTCDateTime object
-            End datetime to read waveform data
+            End datetime to read waveform data.
 
         sampling_rate : int
-            Sampling rate in hertz
+            Sampling rate in Hz.
 
         pre_pad : float, optional
             Additional pre pad of data to cut based on user-defined pre_cut
@@ -279,19 +280,19 @@ class Archive(object):
         Parameters
         ----------
         stream : obspy Stream object
-            Stream containing 3-component data for stations in station file
+            Stream containing 3-component data for stations in station file.
 
         samples : int
-            Number of samples expected in the signal
+            Number of samples expected in the signal.
 
         Returns
         -------
         signal : array-like
             3-component seismic data only for stations with continuous data
-            on all 3 components throughout the desired time period
+            on all 3 components throughout the desired time period.
 
         availability : array-like
-            Array containing 0s (no data) or 1s (data)
+            Array containing 0s (no data) or 1s (data).
 
         """
 
@@ -339,15 +340,15 @@ class Archive(object):
         Parameters
         ----------
         start_time : UTCDateTime object
-            Start datetime to read waveform data
+            Start datetime to read waveform data.
 
         end_time : UTCDateTime object
-            End datetime to read waveform data
+            End datetime to read waveform data.
 
         Returns
         -------
         files : generator
-            Iterator object of available waveform data files
+            Iterator object of available waveform data files.
 
         """
 
@@ -390,10 +391,10 @@ class Archive(object):
         Parameters
         ----------
         stream : obspy Stream object
-            Contains list of Trace objects to be downsampled
+            Contains list of Trace objects to be downsampled.
 
         sr : int
-            Output sampling rate
+            Output sampling rate.
 
         Returns
         -------
@@ -439,14 +440,15 @@ class Archive(object):
         Parameters
         ----------
         trace : obspy Trace object
-            Trace to be upsampled
+            Trace to be upsampled.
+
         upfactor : int
-            Factor by which to upsample the data in trace
+            Factor by which to upsample the data in trace.
 
         Returns
         -------
         out : obpsy Trace object
-            Upsampled trace
+            Upsampled trace.
 
         """
 
@@ -468,6 +470,6 @@ class Archive(object):
 
     @property
     def sample_size(self):
-        """Get the size of a sample (units: s)"""
+        """Get the size of a sample (units: s)."""
 
         return 1 / self.sampling_rate

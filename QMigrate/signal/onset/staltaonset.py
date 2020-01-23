@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-The default onset function class - calculates STA/LTA onset (characteristic)
-function from filtered seismic data.
+The default onset function class - performs some pre-processing on raw
+seismic data and calculates STA/LTA onset (characteristic) function.
 
 """
 
@@ -59,7 +59,7 @@ def sta_lta_centred(a, nsta, nlta):
     sta[-nsta:] = 0
 
     # Avoid division by zero by setting zero values to tiny float
-    dtiny = np.finfo(0.0).tiny
+    dtiny = np.finfo(float).tiny
     idx = lta < dtiny
     lta[idx] = dtiny
     sta[idx] = 0.0
@@ -67,10 +67,10 @@ def sta_lta_centred(a, nsta, nlta):
     return sta / lta
 
 
-def onset(sig, stw, ltw, centred):
+def onset(sig, stw, ltw, centred, log):
     """
-    Calculate STA/LTA onset (characteristic) function from filtered seismic
-    data.
+    Calculate STA/LTA onset (characteristic) function from pre-processed
+    seismic data.
 
     Parameters
     ----------
@@ -98,14 +98,14 @@ def onset(sig, stw, ltw, centred):
     Returns
     -------
     onset : array-like
-        log10(onset_raw) ; after clipping between -0.2 and infinity.
+        log(onset_raw) ; after clipping between -0.2 and infinity.
 
     """
 
     stw = int(round(stw))
     ltw = int(round(ltw))
 
-    n_channels, n_samples = sig.shape
+    n_channels, _ = sig.shape
     onset = np.copy(sig)
     for i in range(n_channels):
         if np.sum(sig[i, :]) == 0.0:
@@ -116,19 +116,21 @@ def onset(sig, stw, ltw, centred):
             else:
                 onset[i, :] = classic_sta_lta(sig[i, :], stw, ltw)
             np.clip(1 + onset[i, :], 0.8, np.inf, onset[i, :])
-            np.log(onset[i, :], onset[i, :])
+            if log:
+                np.log(onset[i, :], onset[i, :])
 
     return onset
 
 
-def filter(sig, sampling_rate, lc, hc, order=2):
+def pre_process(sig, sampling_rate, lc, hc, order=2):
     """
-    Apply zero phase-shift Butterworth band-pass filter to seismic data.
+    Apply cosine taper and zero phase-shift Butterworth band-pass filter to
+    raw seismic data.
 
     Parameters
     ----------
     sig : array-like
-        Data signal to be filtered
+        Data signal to be pre-processed
 
     sampling_rate : int
         Number of samples per second, in Hz
@@ -153,7 +155,7 @@ def filter(sig, sampling_rate, lc, hc, order=2):
     # Construct butterworth band-pass filter
     b1, a1 = butter(order, [2.0 * lc / sampling_rate,
                             2.0 * hc / sampling_rate], btype="band")
-    nchan, nsamp = sig.shape
+    nchan, _ = sig.shape
     fsig = np.copy(sig)
 
     # Apply cosine taper then apply band-pass filter in both directions
@@ -267,7 +269,7 @@ class ClassicSTALTAOnset(qonset.Onset):
 
         return out
 
-    def calculate_onsets(self, data):
+    def calculate_onsets(self, data, log=True):
         """
         Returns a stacked pair of onset (characteristic) functions for the P-
         and S- phase arrivals
@@ -279,10 +281,12 @@ class ClassicSTALTAOnset(qonset.Onset):
 
         """
 
-        p_onset, data.filtered_signal[2, :, :] = self._p_onset(data.signal[2])
+        p_onset, data.filtered_signal[2, :, :] = self._p_onset(data.signal[2],
+                                                               log)
         s_onset, data.filtered_signal[1, :, :], \
             data.filtered_signal[0, :, :] = self._s_onset(data.signal[0],
-                                                          data.signal[1])
+                                                          data.signal[1],
+                                                          log)
         if not isinstance(p_onset, np.ndarray) \
            or not isinstance(s_onset, np.ndarray):
             raise TypeError
@@ -294,7 +298,7 @@ class ClassicSTALTAOnset(qonset.Onset):
 
         return ps_onset
 
-    def _p_onset(self, sigz):
+    def _p_onset(self, sigz, log):
         """
         Generates an onset (characteristic) function for the P-phase from the
         Z-component signal.
@@ -307,7 +311,7 @@ class ClassicSTALTAOnset(qonset.Onset):
         Returns
         -------
         p_onset : array-like
-            Onset function generated from log10(STA/LTA) of vertical
+            Onset function generated from log(STA/LTA) of vertical
             component data
 
         """
@@ -317,13 +321,14 @@ class ClassicSTALTAOnset(qonset.Onset):
         ltw = int(ltw * self.sampling_rate) + 1
 
         lc, hc, ord_ = self.p_bp_filter
-        filt_sigz = filter(sigz, self.sampling_rate, lc, hc, ord_)
+        filt_sigz = pre_process(sigz, self.sampling_rate, lc, hc, ord_)
 
-        p_onset = onset(filt_sigz, stw, ltw, centred=self.onset_centred)
+        p_onset = onset(filt_sigz, stw, ltw, centred=self.onset_centred,
+                        log=log)
 
         return p_onset, filt_sigz
 
-    def _s_onset(self, sige, sign):
+    def _s_onset(self, sige, sign, log):
         """
         Generates an onset (characteristic) function for the S-phase from the
         E- and N-components signal.
@@ -339,7 +344,7 @@ class ClassicSTALTAOnset(qonset.Onset):
         Returns
         -------
         s_onset : array-like
-            Onset function generated from log10(STA/LTA) of horizontal
+            Onset function generated from log(STA/LTA) of horizontal
             component data
 
         """
@@ -349,11 +354,13 @@ class ClassicSTALTAOnset(qonset.Onset):
         ltw = int(ltw * self.sampling_rate) + 1
 
         lc, hc, ord_ = self.s_bp_filter
-        filt_sige = filter(sige, self.sampling_rate, lc, hc, ord_)
-        filt_sign = filter(sign, self.sampling_rate, lc, hc, ord_)
+        filt_sige = pre_process(sige, self.sampling_rate, lc, hc, ord_)
+        filt_sign = pre_process(sign, self.sampling_rate, lc, hc, ord_)
 
-        s_e_onset = onset(filt_sige, stw, ltw, centred=self.onset_centred)
-        s_n_onset = onset(filt_sign, stw, ltw, centred=self.onset_centred)
+        s_e_onset = onset(filt_sige, stw, ltw, centred=self.onset_centred,
+                          log=log)
+        s_n_onset = onset(filt_sign, stw, ltw, centred=self.onset_centred,
+                          log=log)
 
         s_onset = np.sqrt((s_e_onset ** 2 + s_n_onset ** 2) / 2.)
 

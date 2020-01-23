@@ -72,6 +72,13 @@ class GaussianPicker(qpick.PhasePicker):
         self.pick_threshold = 1.0
         self.fraction_tt = 0.1
 
+        self.data = None
+        self.event = None
+        self.times = None
+        self.p_ttime = None
+        self.s_ttime = None
+        self.phase_picks = None
+
     def __str__(self):
         """
         Return short summary string of the Pick object
@@ -103,7 +110,7 @@ class GaussianPicker(qpick.PhasePicker):
         # If an Onset object has been provided to the picker, recalculate the
         # onset functions for the data
         if self.onset is not None:
-            _ = self.onset.calculate_onsets(waveform_data)
+            _ = self.onset.calculate_onsets(waveform_data, log=False)
 
         self.data = waveform_data
         self.event = event
@@ -455,7 +462,7 @@ class GaussianPicker(qpick.PhasePicker):
             phase_picks = picks[picks["Name"] == station].replace(-1, np.nan)
             phase_picks = phase_picks.reset_index(drop=True)
 
-            for j, pick in phase_picks.iterrows():
+            for _, pick in phase_picks.iterrows():
                 if np.isnan(pick["PickError"]):
                     continue
 

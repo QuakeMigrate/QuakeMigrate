@@ -508,8 +508,8 @@ class QuakeScan(DefaultQuakeScan):
 
             try:
                 self.data.read_waveform_data(w_beg, w_end, self.sampling_rate)
-                daten, max_coa, max_coa_norm, coord, _ = self._compute(
-                                                              w_beg, w_end)
+                daten, max_coa, max_coa_norm, coord, _ = self._compute(w_beg,
+                                                                       w_end)
                 stn_ava_data.loc[i] = self.data.availability
 
             except util.ArchiveEmptyException:
@@ -566,7 +566,6 @@ class QuakeScan(DefaultQuakeScan):
 
         Parameters
         ----------
-
         args :
             A variable length tuple holding either a start_time - end_time pair
             or a filename a triggered events to read
@@ -593,13 +592,6 @@ class QuakeScan(DefaultQuakeScan):
             fname = args[0]
             trig_events = self.output.read_triggered_events(fname).reset_index()
         n_evts = len(trig_events)
-
-        # Define pre-pad as a function of the onset windows
-        if self.pre_pad is None:
-            self.pre_pad = max(self.p_onset_win[1],
-                               self.s_onset_win[1]) \
-                           + 3 * max(self.p_onset_win[0],
-                                     self.s_onset_win[0])
 
         # Adjust pre- and post-pad to take into account cosine taper
         t_length = self.pre_pad + 4*self.marginal_window + self.post_pad
@@ -635,7 +627,7 @@ class QuakeScan(DefaultQuakeScan):
             timer = util.Stopwatch()
             self.output.log("\tReading waveform data...", self.log)
             try:
-                self._read_event_waveform_data(trig_event, w_beg, w_end)
+                self._read_event_waveform_data(w_beg, w_end)
             except util.ArchiveEmptyException:
                 msg = "\tNo files found in archive for this time period"
                 self.output.log(msg, self.log)
@@ -650,8 +642,8 @@ class QuakeScan(DefaultQuakeScan):
             timer = util.Stopwatch()
             self.output.log("\tComputing 4D coalescence grid...", self.log)
 
-            daten, max_coa, max_coa_norm, coord, map_4d = self._compute(
-                                                               w_beg, w_end)
+            daten, max_coa, max_coa_norm, coord, map_4d = self._compute(w_beg,
+                                                                        w_end)
             event_coa_data = pd.DataFrame(np.array((daten, max_coa,
                                                     max_coa_norm,
                                                     coord[:, 0],
@@ -666,7 +658,7 @@ class QuakeScan(DefaultQuakeScan):
             w_end_mw = event_coa_data_dtmax + self.marginal_window
 
             if (event_coa_data_dtmax >= trig_event["CoaTime"]
-                - self.marginal_window) \
+                    - self.marginal_window) \
                and (event_coa_data_dtmax <= trig_event["CoaTime"]
                     + self.marginal_window):
                 w_beg_mw = event_coa_data_dtmax - self.marginal_window
@@ -712,13 +704,12 @@ class QuakeScan(DefaultQuakeScan):
             # Determine amplitudes
             if self.amplitudes:
                 self.output.log("\tGetting amplitudes...", self.log)
-                amps = self._get_amplitudes(event_max_coa.values[0],
-                                            loc_gau)
+                amps = self._get_amplitudes(loc_gau)
                 self.output.write_amplitudes(amps, event_uid)
 
             if self.amplitudes and self.calc_mag:
                 self.output.log("\tCalculating magnitude...", self.log)
-                mags = qmag.calc_magnitude(amps, self.magnitude_params)
+                mags = qmag.calculate_magnitude(amps, self.magnitude_params)
                 self.output.write_amplitudes(mags, event_uid)
                 ML, ML_error = qmag.mean_magnitude(mags, self.magnitude_params)
                 self.output.log(timer(), self.log)
@@ -750,15 +741,12 @@ class QuakeScan(DefaultQuakeScan):
             del map_4d, event_coa_data, event_mw_data, event_max_coa
             self.coa_map = None
 
-    def _get_amplitudes(self, otime, coord):
+    def _get_amplitudes(self, coord):
         """
         Measure the amplitudes for the purpose of magnitude calculation.
 
         Parameters
         ----------
-        otime : obspy UTCDateTime object
-            Origin time of earthquake.
-
         coord : array-like
             Coordinate of earthquake in the input projection space.
 
@@ -996,17 +984,12 @@ class QuakeScan(DefaultQuakeScan):
 
         return full_amp / 2, approx_freq
 
-    def _read_event_waveform_data(self, event, w_beg, w_end):
+    def _read_event_waveform_data(self, w_beg, w_end):
         """
         Read waveform data for a triggered event.
 
         Parameters
         ----------
-        event : pandas DataFrame
-            Triggered event output from _trigger_scn().
-            Columns: ["EventNum", "CoaTime", "COA_V", "COA_X", "COA_Y",
-                      "COA_Z", "MinTime", "MaxTime"]
-
         w_beg : UTCDateTime object
             Start datetime to read waveform data
 
@@ -1087,7 +1070,7 @@ class QuakeScan(DefaultQuakeScan):
         avail_idx = np.where(self.data.availability == 1)[0]
 
         onsets = self.onset.calculate_onsets(self.data)
-        nchan, tsamp = onsets.shape
+        _, tsamp = onsets.shape
 
         ttimes = self.lut.ttimes(self.sampling_rate)
 
@@ -1108,8 +1091,12 @@ class QuakeScan(DefaultQuakeScan):
         max_coa_idx = np.zeros(nsamp, np.int64)
         ilib.find_max_coa(map_4d, max_coa, max_coa_idx, 0, nsamp, self.n_cores)
 
+        # Correct map_4d for number of contributing traces
+        map_4d = np.exp(map_4d / (len(avail_idx)*2))
+
         # Get max_coa_norm
-        max_coa_norm = max_coa / np.sum(map_4d, axis=(0, 1, 2))
+        max_coa_norm = (np.exp(max_coa / (len(avail_idx)*2))
+                        / np.sum(map_4d, axis=(0, 1, 2)))
         max_coa_norm = max_coa_norm * map_4d.shape[0] * map_4d.shape[1] * \
             map_4d.shape[2]
 
@@ -1119,7 +1106,7 @@ class QuakeScan(DefaultQuakeScan):
         daten = [x.datetime for x in tmp]
 
         # Calculate max_coa (with correction for number of stations)
-        max_coa = np.exp((max_coa / (len(avail_idx) * 2)) - 1.0)
+        max_coa = np.exp(max_coa / (len(avail_idx) * 2)) - 1.0
 
         # Convert the flat grid indices (of maximum coalescence) to coordinates
         # in the input projection space.
@@ -1208,7 +1195,7 @@ class QuakeScan(DefaultQuakeScan):
 
         return mask
 
-    def _covfit3d(self, coa_map, thresh=0.88, win=None):
+    def _covfit3d(self, coa_map, thresh=0.75, win=None):
         """
         Calculate the 3-D covariance of the marginalised coalescence map,
         filtered above a percentile threshold {thresh}. Optionally can also
@@ -1519,7 +1506,7 @@ class QuakeScan(DefaultQuakeScan):
         """
 
         # MARGINALISE: Determining the 3-D coalescence map
-        self.coa_map = np.log(np.sum(np.exp(map_4d), axis=-1))
+        self.coa_map = np.sum(map_4d, axis=-1)
 
         # Normalise
         self.coa_map = self.coa_map / np.nanmax(self.coa_map)

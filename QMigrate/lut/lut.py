@@ -539,7 +539,8 @@ class LUT(Grid3D):
         for i, station in self.station_data.iterrows():
             maps[..., i] = self[station["Name"]]["TIME_{}".format(phase)]
 
-        interpolator = RegularGridInterpolator(grid, maps, bounds_error=False)
+        interpolator = RegularGridInterpolator(grid, maps, bounds_error=False,
+                                               fill_value=None)
         return interpolator(ijk)[0]
 
     @property

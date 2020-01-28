@@ -41,6 +41,9 @@ def stations(station_file, delimiter=","):
        not in stn_data.columns:
         raise util.StationFileHeaderException
 
+    # Ensure station names are strings
+    stn_data = stn_data.astype({"Name": "str"})
+
     return stn_data
 
 

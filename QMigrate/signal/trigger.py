@@ -256,7 +256,7 @@ class Trigger:
                         break
                 min_idx = c
                 max_idx = d
-                val_idx = np.argmax(coa_data["COA"].iloc[np.arange(c, d + 1)])
+                val_idx = np.argmax(coa_data["COA"].iloc[np.arange(c, d + 1)].values)
             except IndexError:
                 # Handling for last sample if it is a single sample above
                 # threshold
@@ -324,7 +324,7 @@ class Trigger:
                             self.log)
             tmp = init_events[init_events["EventNum"] == i]
             tmp = tmp.reset_index(drop=True)
-            j = np.argmax(tmp["COA_V"])
+            j = np.argmax(tmp["COA_V"].values)
             min_mt = np.min(tmp["MinTime"])
             max_mt = np.max(tmp["MaxTime"])
             event = pd.DataFrame([[i, tmp["CoaTime"].iloc[j],

@@ -291,7 +291,7 @@ class QuakePlot:
                     s_onset.plot(gau_dts, yy)
                     self._pick_vlines(s_onset, pick_time, pick_err)
 
-            dt_max = self.event_mw_data["DT"].iloc[np.argmax(self.event_mw_data["COA"])]
+            dt_max = self.event_mw_data["DT"].iloc[np.argmax(np.array(self.event_mw_data["COA"]))]
             dt_max = UTCDateTime(dt_max)
             self._ttime_vlines(z_trace, dt_max, ptt[i])
             self._ttime_vlines(p_onset, dt_max, ptt[i])
@@ -381,7 +381,7 @@ class QuakePlot:
             print(msg)
             return
 
-        dt_max = (self.event_mw_data["DT"].iloc[np.argmax(self.event_mw_data["COA"])]).to_pydatetime()
+        dt_max = (self.event_mw_data["DT"].iloc[np.argmax(np.array(self.event_mw_data["COA"]))]).to_pydatetime()
 
         # Determining the marginal window value from the coalescence function
         coa_map = np.ma.masked_invalid(self.coa_map)
@@ -713,7 +713,7 @@ class QuakePlot:
 
         # --- Plotting the Station Travel Times ---
         ttime_range = self.lut.get_value_at("TIME_P", point)[0].shape[0]
-        dt_max = self.event_mw_data["DT"].iloc[np.argmax(self.event_mw_data["COA"])]
+        dt_max = self.event_mw_data["DT"].iloc[np.argmax(np.array(self.event_mw_data["COA"]))]
         tps = []
         tss = []
         dt_max = UTCDateTime(dt_max)

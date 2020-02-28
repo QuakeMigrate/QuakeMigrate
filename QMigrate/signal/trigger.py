@@ -12,6 +12,51 @@ import QMigrate.io.quakeio as qio
 import QMigrate.plot.triggered_events as tplot
 
 
+def mad(x, scale=1.4826):
+    """
+    Calculates the Median Absolute Deviation (MAD) of the input array x.
+
+    Parameters
+    ----------
+    x : array-like
+        Coalescence array in.
+
+    scale : float
+        A scaling factor for the MAD output to make the calculated MAD factor
+        a consistent estimation of the standard deviation of the distribution.
+        Default is 1.4826, which is the appropriate scaling factor for a
+        normal distribution.
+
+    Returns
+    -------
+    scaled_mad : array-like
+        Array of scaled mean absolute deviation values for the input array, x,
+        scaled to provide an estimation of the standard deviation of the
+        distribution.
+
+    """
+
+    x = np.asarray(x)
+
+    if not x.size:
+        return np.nan
+
+    if np.isnan(np.sum(x)):
+        return np.nan
+
+    # Calculate median and mad values:
+    med = np.apply_over_axes(np.median, x, 0)
+    mad = np.median(np.abs(x - med), axis=0)
+
+    return scale * mad
+
+
+def chunks2trace(a, new_shape):
+    b = np.broadcast_to(a[:, None], new_shape)
+    b = np.reshape(b, np.product(new_shape))
+    return b
+
+
 class Trigger:
     """
     QuakeMigrate triggering class
@@ -33,10 +78,10 @@ class Trigger:
         Parameters
         ----------
         output_path : str
-            Path to output location
+            Path to output location.
 
         output_name : str
-            Name of run
+            Name of run.
 
         stations : pandas DataFrame
             Station information.
@@ -92,6 +137,10 @@ class Trigger:
         # Detection threshold above which to trigger events
         self.detection_threshold = 1.5
 
+        # Set some defaults for the dynamic trigger threshold
+        self.mad_window_length = 3600.
+        self.mad_multiplier = 10.
+
         # Trigger from normalised max coalescence through time
         self.normalise_coalescence = True
 
@@ -130,7 +179,7 @@ class Trigger:
             Units are longitude / latitude / metres (elevation; up is positive)
 
         save_fig : bool, optional
-            Save triggered events figure (default) or open for interactive view
+            Save triggered events figure (default) or open interactive view.
 
         """
 
@@ -143,25 +192,27 @@ class Trigger:
             msg = "\tMinimum repeat must be >= 2 * marginal window."
             raise Exception(msg)
 
-        msg = "=" * 110 + "\n"
-        msg += "   TRIGGER - Triggering events from coalescence\n"
-        msg += "=" * 110 + "\n\n"
-        msg += "   Parameters:\n"
-        msg += "         Start time                = {}\n"
-        msg += "         End   time                = {}\n"
-        msg += "         Pre/post pad              = {} s\n\n"
-        msg += "         Detection threshold       = {}\n"
-        msg += "         Marginal window           = {} s\n"
-        msg += "         Minimum repeat            = {} s\n\n"
-        msg += "         Trigger from normalised coalescence - {}\n\n"
-        msg += "=" * 110
-        msg = msg.format(str(self.start_time), str(self.end_time),
-                         str(self.pad), self.detection_threshold,
-                         self.marginal_window, self.minimum_repeat,
-                         self.normalise_coalescence)
+        msg = ("="*110 + "\n"
+               "\tTRIGGER - Triggering events from coalescence\n"
+               + "="*110 + "\n\n"
+               "\tParameters:\n"
+               f"\t\tStart time   = {self.start_time}\n"
+               f"\t\tEnd   time   = {self.end_time}\n"
+               f"\t\tPre/post pad = {self.pad} s\n\n"
+               f"\t\tMarginal window = {self.marginal_window} s\n"
+               f"\t\tMinimum repeat  = {self.minimum_repeat} s\n\n"
+               f"\t\tTriggering from ")
+        if self.normalise_coalescence:
+            msg += "normalised "
+        msg += "coalescence stream.\n\n"
+        msg += f"\t\tDetection threshold = {self.detection_threshold}\n"
+        if self.detection_threshold == "dynamic":
+            msg += (f"\t\tMAD Window          = {self.mad_window_length}\n"
+                    f"\t\tMAD Multiplier      = {self.mad_multiplier}\n")
+        msg += "\n" + "="*110
         self.output.log(msg, self.log)
 
-        self.output.log("    Reading in scanmseed...", self.log)
+        self.output.log("\tReading in scanmseed...", self.log)
         read_start = self.start_time - self.pad
         read_end = self.end_time + self.pad
         self.coa_data, coa_stats = self.output.read_coastream(read_start,
@@ -170,23 +221,25 @@ class Trigger:
         # Check if coa_data found by read_coastream covers whole trigger period
         msg = ""
         if coa_stats.starttime > self.start_time:
-            msg += "\tWarning! scanmseed data start is after trigger() start_time!\n"
+            msg += ("\tWarning! scanmseed data start is after trigger()"
+                    "start_time!\n")
         elif coa_stats.starttime > read_start:
             msg += "\tWarning! No scanmseed data found for pre-pad!\n"
         if coa_stats.endtime < self.end_time - 1 / coa_stats.sampling_rate:
-            msg += "\tWarning! scanmseed data end is before trigger() end_time!\n"
+            msg += ("\tWarning! scanmseed data end is before trigger()"
+                    "end_time!\n")
         elif coa_stats.endtime < read_end:
             msg += "\tWarning! No scanmseed data found for post-pad!\n"
         self.output.log(msg, self.log)
-        self.output.log("    scanmseed read complete.", self.log)
+        self.output.log("\tscanmseed read complete.", self.log)
 
         self.sampling_rate = coa_stats.sampling_rate
 
-        self.events = self._trigger_scn()
+        self.events = self._trigger_events()
 
         if self.events is None:
-            msg = "\tNo events triggered at this threshold - "
-            msg += "try reducing the detection threshold."
+            msg = ("\tNo events triggered at this threshold - "
+                   "try reducing the detection threshold.")
             self.output.log(msg, self.log)
         else:
             self.output.write_triggered_events(self.events, self.start_time,
@@ -195,14 +248,15 @@ class Trigger:
         tplot.triggered_events(events=self.events, start_time=self.start_time,
                                end_time=self.end_time, output=self.output,
                                marginal_window=self.marginal_window,
-                               detection_threshold=self.detection_threshold,
+                               detection_threshold=self.threshold,
                                normalise_coalescence=self.normalise_coalescence,
                                log=self.log, data=self.coa_data,
-                               region=self.region, stations=self.stations, savefig=savefig)
+                               region=self.region, stations=self.stations,
+                               savefig=savefig)
 
         self.output.log("=" * 110, self.log)
 
-    def _trigger_scn(self):
+    def _trigger_events(self):
         """
         Function to perform the triggering on the maximum coalescence through
         time data.
@@ -226,17 +280,36 @@ class Trigger:
         start_time = self.start_time - self.pad
         end_time = self.end_time + self.pad
 
-        # Mask based on first and final time stamps and detection threshold
-        if self.normalise_coalescence is True:
-            coa_data = self.coa_data[self.coa_data["COA_N"] >=
-                                     self.detection_threshold]
-            coa_data = coa_data[(coa_data["DT"] >= start_time) &
-                                (coa_data["DT"] <= end_time)]
+        if self.normalise_coalescence:
+            coa_data = self.coa_data["COA_N"]
         else:
-            coa_data = self.coa_data[self.coa_data["COA"] >=
-                                     self.detection_threshold]
-            coa_data = coa_data[(coa_data["DT"] >= start_time) &
-                                (coa_data["DT"] <= end_time)]
+            coa_data = self.coa_data["COA"]
+
+        if self.detection_threshold == "dynamic":
+            # Split the data in window_length chunks
+            breaks = np.array(range(len(coa_data)))
+            breaks = breaks[breaks % int(self.mad_window_length
+                                         * self.sampling_rate) == 0][1:]
+            chunks = np.split(coa_data.values, breaks)
+            # Calculate the mad and median values
+            mad_values = np.asarray([mad(chunk) for chunk in chunks])
+            median_values = np.asarray([np.median(chunk) for chunk in chunks])
+            mad_trace = chunks2trace(mad_values, (len(chunks), len(chunks[0])))
+            median_trace = chunks2trace(median_values, (len(chunks),
+                                        len(chunks[0])))
+            mad_trace = mad_trace[:len(coa_data)]
+            median_trace = median_trace[:len(coa_data)]
+
+            # Set the dynamic threshold
+            self.threshold = median_trace + (mad_trace * self.mad_multiplier)
+        else:
+            # Set static threshold
+            self.threshold = np.zeros_like(coa_data) + self.detection_threshold
+
+        # Mask based on first and final time stamps and detection threshold
+        coa_data = self.coa_data[coa_data >= self.threshold]
+        coa_data = coa_data[(coa_data["DT"] >= start_time) &
+                            (coa_data["DT"] <= end_time)]
 
         coa_data = coa_data.reset_index(drop=True)
 
@@ -325,10 +398,9 @@ class Trigger:
         init_events["EventNum"] = evt_num
 
         events = pd.DataFrame(columns=event_cols)
-        self.output.log("\n    Triggering...", self.log)
+        self.output.log("\n\tTriggering...", self.log)
         for i in range(1, count + 1):
-            self.output.log("    Triggered event {} of {}".format(i, count),
-                            self.log)
+            self.output.log(f"\tTriggered event {i} of {count}", self.log)
             tmp = init_events[init_events["EventNum"] == i]
             tmp = tmp.reset_index(drop=True)
             j = np.argmax(tmp["COA_V"].values)
@@ -351,12 +423,12 @@ class Trigger:
                         (events["CoaTime"] < self.end_time)]
 
         if self.region is not None:
-            events = events[(events['COA_X'] >= self.region[0]) &
-                            (events['COA_Y'] >= self.region[1]) &
-                            (events['COA_Z'] >= self.region[2]) &
-                            (events['COA_X'] <= self.region[3]) &
-                            (events['COA_Y'] <= self.region[4]) &
-                            (events['COA_Z'] <= self.region[5])]
+            events = events[(events["COA_X"] >= self.region[0]) &
+                            (events["COA_Y"] >= self.region[1]) &
+                            (events["COA_Z"] >= self.region[2]) &
+                            (events["COA_X"] <= self.region[3]) &
+                            (events["COA_Y"] <= self.region[4]) &
+                            (events["COA_Z"] <= self.region[5])]
 
         # Reset EventNum column
         events.loc[:, "EventNum"] = np.arange(1, len(events) + 1)

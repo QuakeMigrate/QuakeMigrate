@@ -1447,7 +1447,7 @@ class QuakeScan(DefaultQuakeScan):
                 msg += " with maximum coalescence value"
                 self.output.log(msg, self.log)
 
-            location = self.lut.coord2grid([[mxi, myi, mzi]], inverse=True)[0]
+            location = self.lut.index2coord([[mxi, myi, mzi]])[0]
 
             # Run check that spline location is within window
             if (abs(mx - mxi) > w2) or (abs(my - myi) > w2) or \
@@ -1456,13 +1456,13 @@ class QuakeScan(DefaultQuakeScan):
                 msg += "window !!!!\n\t\t\tGridded Location returned"
                 self.output.log(msg, self.log)
 
-                location = self.lut.coord2grid([[mx, my, mz]], inverse=True)[0]
+                location = self.lut.index2coord([[mx, my, mz]])[0]
         else:
             msg = "\t !!!! Spline error: interpolation window crosses edge of "
             msg += "grid !!!!\n\t\t\tGridded Location returned"
             self.output.log(msg, self.log)
 
-            location = self.lut.coord2grid([[mx, my, mz]], inverse=True)[0]
+            location = self.lut.index2coord([[mx, my, mz]])[0]
 
         return location
 

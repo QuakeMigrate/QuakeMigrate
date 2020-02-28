@@ -30,7 +30,14 @@ trig = qtrigger.Trigger(out_path, run_name, stations)
 trig.normalise_coalescence = True
 trig.marginal_window = 1.
 trig.minimum_repeat = 30.
+
+# Static threshold
 trig.detection_threshold = 1.75
+
+# Dynamic (Median Absolute Deviation) threshold
+# trig.detection_threshold = "dynamic"
+# trig.mad_window_length = 7200.
+# trig.mad_multiplier = 8.
 
 # --- Run trigger ---
 trig.trigger(start_time, end_time, savefig=False)

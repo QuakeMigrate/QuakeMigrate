@@ -11,7 +11,6 @@ from obspy import read, Trace, Stream, UTCDateTime
 import numpy as np
 
 import QMigrate.util as util
-import QMigrate.io as qio
 
 
 class Archive(object):
@@ -74,19 +73,16 @@ class Archive(object):
 
     """
 
-    def __init__(self, station_file, archive_path, delimiter=","):
+    def __init__(self, stations, archive_path):
         """
         Archive object initialisation.
 
         Parameters
         ----------
-        station_file : str
-            File path to QMigrate station file: list of stations selected
-            for QuakeMigrate run. Station file must contain header with
-            columns: ["Latitude", "Longitude", "Elevation", "Name"].
-
-        delimiter : char, optional
-            QMigrate station file delimiter; defaults to ",".
+        stations : pandas DataFrame
+            Station information.
+            Columns (in any order): ["Latitude", "Longitude", "Elevation",
+                                     "Name"]
 
         archive_path : str
             Location of seismic data archive: e.g.: ./DATA_ARCHIVE.
@@ -110,7 +106,7 @@ class Archive(object):
 
         self.read_all_stations = False
 
-        self.stations = qio.stations(station_file, delimiter=delimiter)["Name"]
+        self.stations = stations["Name"]
         self.st = None
 
     def __str__(self):

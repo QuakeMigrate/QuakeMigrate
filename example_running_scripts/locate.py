@@ -6,15 +6,15 @@ For more details, please see the manual and read the docs.
 
 """
 
-import QMigrate.io.data as qdata
-import QMigrate.lut.lut as qlut
-import QMigrate.signal.onset.staltaonset as qonset
-import QMigrate.signal.pick.gaussianpicker as qpick
-import QMigrate.signal.scan as qscan
+import QMigrate.io as qio
+from QMigrate.lut import LUT
+from QMigrate.signal import QuakeScan
+from QMigrate.signal.onset import CentredSTALTAOnset
+from QMigrate.signal.pick import GaussianPicker
 
 # --- i/o paths ---
-lut_path = "/path/to/lut"
-data_path = "/path/to/data"
+archive_path = "/path/to/archived/data"
+lut_file = "/path/to/lut"
 station_file = "/path/to/station_file"
 out_path = "/path/to/output"
 run_name = "name_of_run"
@@ -23,8 +23,11 @@ run_name = "name_of_run"
 start_time = "2018-001T00:00:00.0"
 end_time = "2018-002T00:00:00.0"
 
+# --- Read in station file ---
+stations = qio.stations(station_file)
+
 # --- Create new Archive and set path structure ---
-data = qdata.Archive(station_file=station_file, archive_path=data_path)
+data = qio.Archive(stations=stations, archive_path=archive_path)
 data.path_structure(archive_format="YEAR/JD/STATION")
 # For custom structures...
 # data.format = "custom/archive_{year}_{month}_structure"
@@ -34,13 +37,13 @@ data.path_structure(archive_format="YEAR/JD/STATION")
 # data.upfactor = 2
 
 # --- Load the LUT ---
-lut = qlut.LUT(lut_file=lut_path)
+lut = LUT(lut_file=lut_file)
 
 # --- Decimate the lookup table ---
 # lut = lut.decimate([1, 1, 1])
 
 # --- Create new Onset ---
-onset = qonset.CentredSTALTAOnset()
+onset = CentredSTALTAOnset()
 onset.p_bp_filter = [2, 9.9, 2]
 onset.s_bp_filter = [2, 9.9, 2]
 onset.p_onset_win = [0.2, 1.5]
@@ -49,31 +52,31 @@ onset.s_onset_win = [0.2, 1.5]
 # --- Create new PhasePicker ---
 # For a complete list of parameters and guidance on how to choose them, please
 # see the manual and read the docs.
-gausspicker_onset = qonset.CentredSTALTAOnset()
+gausspicker_onset = CentredSTALTAOnset()
 gausspicker_onset.p_bp_filter = [2, 9.9, 2]
 gausspicker_onset.s_bp_filter = [2, 9.9, 2]
 gausspicker_onset.p_onset_win = [0.2, 1.5]
 gausspicker_onset.s_onset_win = [0.2, 1.5]
 
-picker = qpick.GaussianPicker(onset=gausspicker_onset)
+picker = GaussianPicker(onset=gausspicker_onset)
 picker.marginal_window = 1
 picker.plot_phase_picks = True
 
 # --- Create new QuakeScan ---
-scan = qscan.QuakeScan(data, lut, onset=onset, picker=picker,
-                       output_path=out_path, run_name=run_name, log=True)
-
+scan = QuakeScan(data, lut, onset=onset, picker=picker,
+                 output_path=out_path, run_name=run_name, log=True)
 
 # --- Set locate parameters ---
 # For a complete list of parameters and guidance on how to choose them, please
 # see the manual and read the docs.
-scan.sampling_rate = 20
-scan.n_cores = 12
 scan.marginal_window = 1
+scan.n_cores = 12
+scan.sampling_rate = 20
 
 # --- Toggle plotting options ---
+scan.plot_event_video = False
 scan.plot_event_summary = True
-scan.plot_coal_video = False
+scan.plot_station_traces = True
 
 # --- Toggle writing of waveforms ---
 scan.write_cut_waveforms = True

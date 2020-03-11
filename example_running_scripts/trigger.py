@@ -6,8 +6,8 @@ For more details, please see the manual and read the docs.
 
 """
 
-import QMigrate.io.quakeio as qio
-import QMigrate.signal.trigger as qtrigger
+import QMigrate.io as qio
+from QMigrate.signal import Trigger
 
 # --- i/o paths ---
 out_path = "/path/to/output"
@@ -22,19 +22,19 @@ end_time = "2018-002T00:00:00.00"
 stations = qio.stations(station_file)
 
 # --- Create new Trigger ---
-trig = qtrigger.Trigger(out_path, run_name, stations)
+trig = Trigger(out_path, run_name, stations)
 
 # --- Set trigger parameters ---
 # For a complete list of parameters and guidance on how to choose them, please
 # see the manual and read the docs.
-trig.normalise_coalescence = True
 trig.marginal_window = 1.
 trig.minimum_repeat = 30.
+trig.normalise_coalescence = True
 
-# Static threshold
+# --- Static threshold ---
 trig.detection_threshold = 1.75
 
-# Dynamic (Median Absolute Deviation) threshold
+# --- Dynamic (Median Absolute Deviation) threshold ---
 # trig.detection_threshold = "dynamic"
 # trig.mad_window_length = 7200.
 # trig.mad_multiplier = 8.

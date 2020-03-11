@@ -8,7 +8,7 @@ For more details, please see the manual and read the docs.
 
 from pyproj import Proj
 
-import QMigrate.io.quakeio as qio
+import QMigrate.io as qio
 import QMigrate.lut as qlut
 
 # --- i/o paths ---

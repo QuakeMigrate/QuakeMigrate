@@ -8,8 +8,8 @@ import numpy as np
 from obspy import UTCDateTime
 import pandas as pd
 
-import QMigrate.io.quakeio as qio
-import QMigrate.plot.triggered_events as tplot
+import QMigrate.io as qio
+from QMigrate.plot import triggered_events
 
 
 def mad(x, scale=1.4826):
@@ -245,14 +245,14 @@ class Trigger:
             self.output.write_triggered_events(self.events, self.start_time,
                                                self.end_time)
 
-        tplot.triggered_events(events=self.events, start_time=self.start_time,
-                               end_time=self.end_time, output=self.output,
-                               marginal_window=self.marginal_window,
-                               detection_threshold=self.threshold,
-                               normalise_coalescence=self.normalise_coalescence,
-                               log=self.log, data=self.coa_data,
-                               region=self.region, stations=self.stations,
-                               savefig=savefig)
+        triggered_events(events=self.events, start_time=self.start_time,
+                         end_time=self.end_time, output=self.output,
+                         marginal_window=self.marginal_window,
+                         detection_threshold=self.threshold,
+                         normalise_coalescence=self.normalise_coalescence,
+                         log=self.log, data=self.coa_data,
+                         region=self.region, stations=self.stations,
+                         savefig=savefig)
 
         self.output.log("=" * 110, self.log)
 

@@ -10,7 +10,7 @@ from obspy.signal.invsim import cosine_taper
 from obspy.signal.trigger import classic_sta_lta
 from scipy.signal import butter, lfilter
 
-import QMigrate.signal.onset.onset as qonset
+from QMigrate.signal.onset import Onset
 
 
 def sta_lta_centred(a, nsta, nlta):
@@ -169,7 +169,7 @@ def pre_process(sig, sampling_rate, lc, hc, order=2):
     return fsig
 
 
-class ClassicSTALTAOnset(qonset.Onset):
+class ClassicSTALTAOnset(Onset):
     """
     QuakeMigrate default onset function class - uses a classic STA/LTA onset
 

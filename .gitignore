@@ -9,3 +9,5 @@ dist/
 *.ipynb_checkpoints
 *.so
 .vscode/
+runs/
+lut/

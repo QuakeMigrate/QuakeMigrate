@@ -456,7 +456,7 @@ def _read_nlloc(fname, ignore_proj=False):
         line = f.readline().split()
         cproj = pyproj.Proj("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")
         gproj = None
-        if line[1] == "NONE" and ignore_proj == False:
+        if line[1] == "NONE" and not ignore_proj:
             print("\tNo projection selected.")
         elif line[1] == "SIMPLE":
             orig_lat = float(line[3])

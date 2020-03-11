@@ -11,11 +11,11 @@ from obspy import UTCDateTime
 import pandas as pd
 from scipy.optimize import curve_fit
 
-import QMigrate.signal.pick.pick as qpick
+from QMigrate.signal.pick import PhasePicker
 import QMigrate.util as util
 
 
-class GaussianPicker(qpick.PhasePicker):
+class GaussianPicker(PhasePicker):
     """
     QuakeMigrate default pick function class.
 

@@ -10,17 +10,18 @@ import numpy as np
 from obspy import UTCDateTime, Stream, Trace
 from obspy.geodetics.base import gps2dist_azimuth
 from obspy.io.xseed import Parser
-from obspy.signal.invsim import paz_2_amplitude_value_of_freq_resp, evalresp_for_frequencies
+from obspy.signal.invsim import (paz_2_amplitude_value_of_freq_resp,
+                                 evalresp_for_frequencies)
 import pandas as pd
 from scipy.interpolate import Rbf
 from scipy.signal import fftconvolve, find_peaks
 
 import QMigrate.core as ilib
-import QMigrate.io.quakeio as qio
-import QMigrate.plot.quakeplot as qplot
+import QMigrate.io as qio
+import QMigrate.plot as plot
 import QMigrate.signal.magnitudes as qmag
-import QMigrate.signal.onset as qonset
-import QMigrate.signal.pick.pick as qpick
+from QMigrate.signal.onset import Onset
+from QMigrate.signal.pick import PhasePicker
 import QMigrate.util as util
 
 # Filter warnings
@@ -218,14 +219,14 @@ class QuakeScan(DefaultQuakeScan):
         else:
             self.output = None
 
-        if isinstance(onset, qonset.Onset):
+        if isinstance(onset, Onset):
             self.onset = onset
         else:
             raise util.OnsetTypeError
 
         if picker is None:
             pass
-        elif isinstance(picker, qpick.PhasePicker):
+        elif isinstance(picker, PhasePicker):
             self.picker = picker
             self.picker.lut = lut
             self.picker.output = self.output
@@ -1598,9 +1599,9 @@ class QuakeScan(DefaultQuakeScan):
         """
 
         if self.plot_event_summary or self.plot_event_video:
-            quake_plot = qplot.QuakePlot(self.lut, self.data, event_mw_data,
-                                         self.marginal_window, self.output.run,
-                                         event, map_4d, self.coa_map)
+            quake_plot = plot.QuakePlot(self.lut, self.data, event_mw_data,
+                                        self.marginal_window, self.output.run,
+                                        event, map_4d, self.coa_map)
 
         if self.plot_event_summary:
             timer = util.Stopwatch()

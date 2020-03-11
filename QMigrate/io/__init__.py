@@ -13,5 +13,5 @@ performed by QuakeMigrate. This includes:
 
 """
 
-from .quakeio import *
-from .data import Archive
+from .quakeio import *  # NOQA
+from .data import Archive  # NOQA

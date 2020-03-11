@@ -6,10 +6,10 @@ attenuation curve for the region of interest.
 
 """
 
-import numpy as np
-from scipy import sparse
 from matplotlib import pyplot as plt
+import numpy as np
 import pandas as pds
+from scipy import sparse
 
 
 def mean_magnitude(magnitudes, params):

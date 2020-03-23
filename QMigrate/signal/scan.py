@@ -307,9 +307,11 @@ class QuakeScan(DefaultQuakeScan):
 
         """
 
-        # Convert times to UTCDateTime objects
+        # Convert times to UTCDateTime objects and check for muppetry
         start_time = UTCDateTime(start_time)
         end_time = UTCDateTime(end_time)
+        if start_time > end_time:
+            raise util.TimeSpanException
 
         msg = "=" * 110 + "\n"
         msg += "\tDETECT - Continuous Seismic Processing\n"
@@ -356,9 +358,11 @@ class QuakeScan(DefaultQuakeScan):
             raise RuntimeError("Must supply an input argument.")
 
         if not fname:
-            # Convert times to UTCDateTime objects
+            # Convert times to UTCDateTime objects and check for muppetry
             start_time = UTCDateTime(start_time)
             end_time = UTCDateTime(end_time)
+            if start_time > end_time:
+                raise util.TimeSpanException
 
         msg = "=" * 110 + "\n"
         msg += "\tLOCATE - Determining earthquake location and uncertainty\n"
@@ -490,7 +494,7 @@ class QuakeScan(DefaultQuakeScan):
         try:
             nsteps = int(np.ceil((end_time - start_time) / self.time_step))
         except AttributeError:
-            msg = "Error: Time step has not been specified"
+            msg = "Error: Time step has not been specified."
             self.output.log(msg, self.log)
             return
 

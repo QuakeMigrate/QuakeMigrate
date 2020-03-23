@@ -35,6 +35,8 @@ def read_nlloc(path, stations):
 
     """
 
+    path = pathlib.Path(path)
+
     for i, station in stations.iterrows():
         name = station["Name"]
         msg = "Loading P- and S- travel-time lookup tables for {}".format(name)
@@ -442,7 +444,7 @@ def _read_nlloc(fname, ignore_proj=False):
 
     """
 
-    with open(fname + ".hdr", "r") as f:
+    with open(f"{fname}.hdr", "r") as f:
         # Read the grid definition line
         line = f.readline().split()
         nx, ny, nz = int(line[0]), int(line[1]), int(line[2])
@@ -513,7 +515,7 @@ def _read_nlloc(fname, ignore_proj=False):
 
         transform = [gproj, cproj]
 
-    with open("{}.buf".format(fname), "rb") as f:
+    with open(f"{fname}.buf", "rb") as f:
         npts = nx * ny * nz
         buf = f.read(npts * 4)
         ttimes = struct.unpack("f" * npts, buf)

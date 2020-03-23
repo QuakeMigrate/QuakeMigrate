@@ -10,6 +10,7 @@ import pandas as pd
 
 import QMigrate.io as qio
 from QMigrate.plot import triggered_events
+import QMigrate.util as util
 
 
 def mad(x, scale=1.4826):
@@ -183,9 +184,11 @@ class Trigger:
 
         """
 
-        # Convert times to UTCDateTime objects
+        # Convert times to UTCDateTime objects and check for muppetry
         self.start_time = UTCDateTime(start_time)
         self.end_time = UTCDateTime(end_time)
+        if self.start_time > self.end_time:
+            raise util.TimeSpanException
         self.region = region
 
         if self.minimum_repeat < 2 * self.marginal_window:

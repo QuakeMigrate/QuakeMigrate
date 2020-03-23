@@ -10,4 +10,4 @@ dist/
 *.so
 .vscode/
 runs/
-lut/
+LUT/

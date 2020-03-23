@@ -39,13 +39,12 @@ def read_nlloc(path, stations):
 
     for i, station in stations.iterrows():
         name = station["Name"]
-        msg = "Loading P- and S- travel-time lookup tables for {}".format(name)
-        print(msg)
+        print(f"Loading P- and S- travel-time lookup tables for {name}")
 
-        p_file = path / name
-        s_file = path / name
+        p_file = path / f"layer.P.{name}.time"
+        s_file = path / f"layer.S.{name}.time"
 
-        if i == 1:
+        if i == 0:
             gridspec, transform, pttimes = _read_nlloc(p_file)
             _, _, sttimes = _read_nlloc(s_file)
             cell_count = np.array(gridspec[0])
@@ -164,16 +163,15 @@ def _compute_homogeneous(lut, vp, vs):
     """
 
     lut.velocity_model = ("Homogeneous velocity model:\n"
-                          "Vp = {vp:5.2f} m / s\n"
-                          "Vs = {vs:5.2f} m / s").format(vp=vp, vs=vs)
+                          f"Vp = {vp:5.2f} m / s\n"
+                          f"Vs = {vs:5.2f} m / s")
 
     grid_xyz = lut.grid_xyz
     stations_xyz = lut.stations_xyz
 
     for i, station in lut.station_data.iterrows():
-        msg = "Computing homogeneous travel-time lookup table - {} of {}"
-        msg = msg.format(i + 1, stations_xyz.shape[0])
-        print(msg)
+        print(f"Computing homogeneous traveltime lookup table - {i+1} of"
+              f" {stations_xyz.shape[0]}")
 
         dx, dy, dz = [grid_xyz[j] - stations_xyz[i, j] for j in range(3)]
         dist = np.sqrt(dx**2 + dy**2 + dz**2)
@@ -220,9 +218,8 @@ def _compute_1d_fmm(lut, vmod):
     gvs = f(grid_xyz[2])
 
     for i, station in lut.station_data.iterrows():
-        msg = "Computing 1-D fast-marching travel-time lookup table - {} of {}"
-        msg = msg.format(i + 1, stations_xyz.shape[0])
-        print(msg)
+        print(f"Computing 1-D fast-marching traveltime lookup table - {i+1} of"
+              f" {stations_xyz.shape[0]}")
 
         lut.maps[station["Name"]] = {"TIME_P": _eikonal(grid_xyz,
                                                         lut.cell_size, gvp,
@@ -321,9 +318,8 @@ def _compute_1d_sweep(lut, vmod, nlloc_dx, nlloc_path, blocks):
     (pathlib.Path.cwd() / "model").mkdir(exist_ok=True)
 
     for i, station in lut.station_data.iterrows():
-        msg = "Computing 1-D sweep travel-time lookup table - {} of {}"
-        msg = msg.format(i + 1, stations_xyz.shape[0])
-        print(msg)
+        print(f"Computing 1-D sweep traveltime lookup table - {i+1} of"
+              f" {stations_xyz.shape[0]}")
 
         name = station["Name"]
         lut.maps[name] = {}
@@ -345,14 +341,14 @@ def _compute_1d_sweep(lut, vmod, nlloc_dx, nlloc_path, blocks):
                                 depth_extent, phase=phase, dx=nlloc_dx,
                                 block_model=blocks)
 
-            print("\tRunning NonLinLoc - phase =", phase)
+            print(f"\tRunning NonLinLoc - phase = {phase}")
             for mode in ["Vel2Grid", "Grid2Time"]:
                 out = check_output([os.path.join(nlloc_path, mode),
                                     "control.in"], stderr=STDOUT)
                 if b"ERROR" in out:
-                    raise Exception("{} Error".format(mode), out)
+                    raise Exception(f"{mode} Error", out)
 
-            to_read = "./time/layer.{}.{}.time".format(phase, name)
+            to_read = f"./time/layer.{phase}.{name}.time"
             gridspec, _, ttimes = _read_nlloc(to_read, ignore_proj=True)
 
             distance = distance_grid.flatten()
@@ -362,7 +358,7 @@ def _compute_1d_sweep(lut, vmod, nlloc_dx, nlloc_path, blocks):
                                            gridspec[2, 1:],
                                            ttimes[0, :, :])
 
-            lut.maps[name]["TIME_{}".format(phase)] = ttimes.reshape(cc)
+            lut.maps[name][f"TIME_{phase}"] = ttimes.reshape(cc)
 
 
 def _write_control_file(station_xyz, name, max_dist, vmodel, depth_limits,
@@ -431,7 +427,7 @@ def _read_nlloc(fname, ignore_proj=False):
         the extension.
 
     ignore_proj : bool (optional)
-        Flag to suppress the 'No projection specified message'.
+        Flag to suppress the "No projection specified message".
 
     Returns
     -------
@@ -464,7 +460,8 @@ def _read_nlloc(fname, ignore_proj=False):
             orig_lat = float(line[3])
             orig_lon = float(line[5])
 
-            gproj = pyproj.Proj(proj='eqc', lat_0=orig_lat, lon_0=orig_lon)
+            # The simple projection is the Plate Carree/Equidistant Cylindrical
+            gproj = pyproj.Proj(proj="eqc", lat_0=orig_lat, lon_0=orig_lon)
         elif line[1] == "LAMBERT":
             proj_ellipsoid = line[3]
             orig_lat = float(line[5])
@@ -472,46 +469,47 @@ def _read_nlloc(fname, ignore_proj=False):
             parallel_1 = float(line[9])
             parallel_2 = float(line[11])
 
-            if proj_ellipsoid == 'WGS-84':
-                proj_ellipsoid = 'WGS84'
-            elif proj_ellipsoid == 'GRS-80':
-                proj_ellipsoid = 'GRS80'
-            elif proj_ellipsoid == 'WGS-72':
-                proj_ellipsoid = 'WGS72'
-            elif proj_ellipsoid == 'Australian':
-                proj_ellipsoid = 'aust_SA'
-            elif proj_ellipsoid == 'Krasovsky':
-                proj_ellipsoid = 'krass'
-            elif proj_ellipsoid == 'International':
-                proj_ellipsoid = 'intl'
-            elif proj_ellipsoid == 'Hayford-1909':
-                proj_ellipsoid = 'intl'
-            elif proj_ellipsoid == 'Clarke-1880':
-                proj_ellipsoid = 'clrk80'
-            elif proj_ellipsoid == 'Clarke-1866':
-                proj_ellipsoid = 'clrk66'
-            elif proj_ellipsoid == 'Airy':
-                proj_ellipsoid = 'airy'
-            elif proj_ellipsoid == 'Bessel':
-                proj_ellipsoid = 'bessel'
-            elif proj_ellipsoid == 'Hayford-1830':
-                proj_ellipsoid = 'evrst30'
-            elif proj_ellipsoid == 'Sphere':
-                proj_ellipsoid = 'sphere'
+            if proj_ellipsoid == "WGS-84":
+                proj_ellipsoid = "WGS84"
+            elif proj_ellipsoid == "GRS-80":
+                proj_ellipsoid = "GRS80"
+            elif proj_ellipsoid == "WGS-72":
+                proj_ellipsoid = "WGS72"
+            elif proj_ellipsoid == "Australian":
+                proj_ellipsoid = "aust_SA"
+            elif proj_ellipsoid == "Krasovsky":
+                proj_ellipsoid = "krass"
+            elif proj_ellipsoid == "International":
+                proj_ellipsoid = "intl"
+            elif proj_ellipsoid == "Hayford-1909":
+                proj_ellipsoid = "intl"
+            elif proj_ellipsoid == "Clarke-1880":
+                proj_ellipsoid = "clrk80"
+            elif proj_ellipsoid == "Clarke-1866":
+                proj_ellipsoid = "clrk66"
+            elif proj_ellipsoid == "Airy":
+                proj_ellipsoid = "airy"
+            elif proj_ellipsoid == "Bessel":
+                proj_ellipsoid = "bessel"
+            elif proj_ellipsoid == "Hayford-1830":
+                proj_ellipsoid = "evrst30"
+            elif proj_ellipsoid == "Sphere":
+                proj_ellipsoid = "sphere"
             else:
-                msg = 'Projection Ellipsoid {} not supported!\n \tPlease'
-                msg += 'notify the QuakeMigrate developers.\n\n \tWGS-84 used'
-                msg += 'instead...\n'
-                proj_ellipsoid = 'WGS-84'
+                msg = (f"Projection Ellipsoid {proj_ellipsoid} not supported!"
+                       "\n\tPlease notify the QuakeMigrate developers.\n"
+                       "\n\tWGS-84 used instead...\n")
+                print(msg)
+                proj_ellipsoid = "WGS84"
 
-            gproj = pyproj.Proj(proj="LCC", lon0=orig_lon, lat0=orig_lat,
-                                parallel_1=parallel_1, parallel_2=parallel_2,
-                                ellps=proj_ellipsoid, datum='WGS84')
+            gproj = pyproj.Proj(proj="lcc", lon_0=orig_lon, lat_0=orig_lat,
+                                lat_1=parallel_1, lat_2=parallel_2,
+                                ellps=proj_ellipsoid, datum="WGS84")
         elif line[1] == "TRANS_MERC":
             orig_lat = float(line[5])
             orig_lon = float(line[7])
 
-            gproj = pyproj.Proj(proj="TM", lon=orig_lon, lat=orig_lat)
+            gproj = pyproj.Proj(proj="tmerc", lon=orig_lon, lat=orig_lat)
 
         transform = [gproj, cproj]
 

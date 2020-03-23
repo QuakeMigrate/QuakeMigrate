@@ -238,3 +238,16 @@ class PickerTypeError(Exception):
         msg = ("PickerTypeError: The PhasePicker object you have created does"
                "not inherit from the required base class - see manual.")
         super().__init__(msg)
+
+
+class TimeSpanException(Exception):
+    """
+    Custom exception to handle case when the user has submitted a start time
+    that is after the end time.
+
+    """
+
+    def __init__(self):
+        msg = ("TimeSpanException: The start time specified is after the end"
+               " time.")
+        super().__init__(msg)

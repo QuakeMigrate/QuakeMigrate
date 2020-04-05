@@ -1111,7 +1111,7 @@ class QuakeScan(DefaultQuakeScan):
         daten = [x.datetime for x in tmp]
 
         # Calculate max_coa (with correction for number of stations)
-        max_coa = np.exp(max_coa / (len(avail_idx) * 2)) - 1.0
+        max_coa = np.exp(max_coa / (len(avail_idx) * 2))
 
         # Convert the flat grid indices (of maximum coalescence) to coordinates
         # in the input projection space.

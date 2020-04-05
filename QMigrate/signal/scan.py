@@ -1099,9 +1099,11 @@ class QuakeScan(DefaultQuakeScan):
         # Correct map_4d for number of contributing traces
         map_4d = np.exp(map_4d / (len(avail_idx)*2))
 
+        # Calculate max_coa (with correction for number of stations)
+        max_coa = np.exp(max_coa / (len(avail_idx) * 2))
+
         # Get max_coa_norm
-        max_coa_norm = (np.exp(max_coa / (len(avail_idx)*2))
-                        / np.sum(map_4d, axis=(0, 1, 2)))
+        max_coa_norm = max_coa / np.sum(map_4d, axis=(0, 1, 2)))
         max_coa_norm = max_coa_norm * map_4d.shape[0] * map_4d.shape[1] * \
             map_4d.shape[2]
 
@@ -1109,9 +1111,6 @@ class QuakeScan(DefaultQuakeScan):
                         w_end - self.post_pad + (1 / self.sampling_rate),
                         1 / self.sampling_rate)
         daten = [x.datetime for x in tmp]
-
-        # Calculate max_coa (with correction for number of stations)
-        max_coa = np.exp(max_coa / (len(avail_idx) * 2))
 
         # Convert the flat grid indices (of maximum coalescence) to coordinates
         # in the input projection space.

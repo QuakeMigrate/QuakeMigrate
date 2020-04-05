@@ -1103,7 +1103,7 @@ class QuakeScan(DefaultQuakeScan):
         max_coa = np.exp(max_coa / (len(avail_idx) * 2))
 
         # Get max_coa_norm
-        max_coa_norm = max_coa / np.sum(map_4d, axis=(0, 1, 2)))
+        max_coa_norm = max_coa / np.sum(map_4d, axis=(0, 1, 2))
         max_coa_norm = max_coa_norm * map_4d.shape[0] * map_4d.shape[1] * \
             map_4d.shape[2]
 

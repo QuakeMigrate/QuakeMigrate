@@ -39,7 +39,7 @@ Requirements
 Collaboration
 =============
 
-* **Jonathan Smith** - *Project Leader & Developer* - *Induced Seismicity, Geomechanics and Mitigating Geohazard* [Link](https://www.esc.cam.ac.uk/directory/jonathan-smith)
+* **Jonathan Smith** - *Project Leader & Developer* - *Induced Seismicity, Geomechanics and Mitigating Geohazard* [Link](https://www.gps.caltech.edu/people/jonathan-d-smith)
 * **Tom Winder** - *Project Leader & Developer* - *Volcano Seismology and Earthquake Triggering* [Link](https://www.esc.cam.ac.uk/directory/tom-winder)
 * **Tom Hudson**  - *Developer* - *Glacioseismology and Ice dynamics* [Link](https://www.esc.cam.ac.uk/directory/tom-s-hudson)
 * **Conor Bacon** - *Developer* - *Volcano Seismology and Seismic Anisotropy* [Link](https://www.esc.cam.ac.uk/directory/conor-bacon)

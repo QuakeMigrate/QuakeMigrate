@@ -16,9 +16,11 @@ Citing
 
 
 QuakeMigrate is currently in preparation for publication. However, an outline to the technique is outline 
+
   `Smith, J.D., White, R.S., Avouac, JP, and S. Bourne (2020), Probabilistic earthquake locations of induced seismicity in the Groningen region, Netherlands, Geophysical Journal International.`
   
 We hope that the publication will be submitted shortly at: 
+
   `Smith, J.D., Winder, T., Hudson, T.S., Bacon, C., Greenfield, T., Drew, J. and R.S. White, QuakeMigrate: a Python package for earthquake detection and location using waveform stacking. Seismological Research Letters.`
 
 ---

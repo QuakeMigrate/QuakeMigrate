@@ -6,7 +6,6 @@ dependencies:
   - ffmpeg
   - ipython
   - jupyter
-  - libgcc-ng
   - obspy
   - pandas
   - pip

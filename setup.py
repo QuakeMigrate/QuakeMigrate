@@ -46,7 +46,7 @@ INSTALL_REQUIRES = [
     'scikit-fmm==2019.1.30',
     'pyproj',
     'matplotlib',
-    'vispy',
+#    'vispy',
     'pyzmq',
     'msgpack-python']
 

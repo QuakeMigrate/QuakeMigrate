@@ -7,19 +7,19 @@ Module to perform core QuakeMigrate functions: detect() and locate().
 import warnings
 
 import numpy as np
-from obspy import UTCDateTime, Stream, Trace
+from obspy import UTCDateTime, Stream, Trace, read_inventory
 from obspy.geodetics.base import gps2dist_azimuth
 from obspy.io.xseed import Parser
 from obspy.signal.invsim import (paz_2_amplitude_value_of_freq_resp,
                                  evalresp_for_frequencies)
 import pandas as pd
 from scipy.interpolate import Rbf
-from scipy.signal import fftconvolve, find_peaks
+from scipy.signal import fftconvolve, find_peaks, iirfilter, sosfreqz
 
 import QMigrate.core as ilib
 import QMigrate.io as qio
 import QMigrate.plot as plot
-import QMigrate.signal.magnitudes as qmag
+from QMigrate.signal import magnitudes as qmag
 from QMigrate.signal.onset import Onset
 from QMigrate.signal.pick import PhasePicker
 import QMigrate.util as util
@@ -137,6 +137,9 @@ class DefaultQuakeScan(object):
         self.pre_cut = None
         self.post_cut = None
 
+        # Response inventory
+        self.response_inv = None
+
         # xy files for plotting
         self.xy_files = None
 
@@ -196,6 +199,18 @@ class QuakeScan(DefaultQuakeScan):
         picker : PhasePicker object
             Wraps methods to perform phase picking on the seismic data
 
+        get_amplitudes : bool, optional
+            ADD DOCSTRING
+
+        calc_mag : bool, optional
+            ADD DOCSTRING
+
+        quick_amplitudes : bool, optional
+            ADD DOCSTRING
+
+        get_polarities : bool, optional
+            ADD DOCSTRING
+
         output_path : str
             Path of parent output directory: e.g. ./OUTPUT
 
@@ -253,12 +268,20 @@ class QuakeScan(DefaultQuakeScan):
 
         # Create Wood Anderson response - different to the ObsPy values
         # http://www.iris.washington.edu/pipermail/sac-help/2013-March/001430.html
-        self.WOODANDERSON = {"poles": [-5.49779 + 5.60886j,
-                                       -5.49779 - 5.60886j],
+        # self.WOODANDERSON = {"poles": [-5.49779 + 5.60886j,
+        #                                -5.49779 - 5.60886j],
+        #                      # ** two zeros to go from displacement to displacement **
+        #                      "zeros": [0j, 0j],
+        #                      "sensitivity": 2080,
+        #                      "gain": 1.}
+
+        # Create Wood Anderson response - ObsPy values
+        self.WOODANDERSON = {"poles": [-6.283185 - 4.712j,
+                                       -6.283185 + 4.712j],
+                             # ** two zeros to go from displacement to displacement **
                              "zeros": [0j, 0j],
                              "sensitivity": 2080,
                              "gain": 1.}
-
         self.log = log
 
         # Get pre- and post-pad values from the onset class
@@ -376,6 +399,19 @@ class QuakeScan(DefaultQuakeScan):
         msg += "=" * 110 + "\n"
         msg = msg.format(str(start_time), str(end_time), self.n_cores)
         self.output.log(msg, self.log)
+
+        if self.amplitudes:
+            # Check amplitude parameters have been specified
+            if not self.amplitude_params:
+                msg = ("Must define a set of amplitude parameters.\n"
+                       "For more information, please consult the documentation.")
+                raise AttributeError(msg)
+        if self.calc_mag:
+            # Check magnitudes parameters have been specified
+            if not self.magnitude_params:
+                msg = ("Must define a set of magnitude parameters.\n"
+                       "For more information, please consult the documentation.")
+                raise AttributeError(msg)
 
         if fname:
             self._locate_events(fname)
@@ -708,13 +744,17 @@ class QuakeScan(DefaultQuakeScan):
 
             # Determine amplitudes
             if self.amplitudes:
+                timer = util.Stopwatch()
                 self.output.log("\tGetting amplitudes...", self.log)
-                amps = self._get_amplitudes(loc_gau)
+                amps = self._get_amplitudes(event_max_coa)
                 self.output.write_amplitudes(amps, event_uid)
+                self.output.log(timer(), self.log)
 
+            # Calculate magnitudes from amplitude observations
             if self.amplitudes and self.calc_mag:
+                timer = util.Stopwatch()
                 self.output.log("\tCalculating magnitude...", self.log)
-                mags = qmag.calculate_magnitude(amps, self.magnitude_params)
+                mags = qmag.calculate_magnitudes(amps, self.magnitude_params)
                 self.output.write_amplitudes(mags, event_uid)
                 ML, ML_error = qmag.mean_magnitude(mags, self.magnitude_params)
                 self.output.log(timer(), self.log)
@@ -746,178 +786,539 @@ class QuakeScan(DefaultQuakeScan):
             del map_4d, event_coa_data, event_mw_data, event_max_coa
             self.coa_map = None
 
-    def _get_amplitudes(self, coord):
+    def _get_amplitudes(self, event):
         """
         Measure the amplitudes for the purpose of magnitude calculation.
 
         Parameters
         ----------
-        coord : array-like
-            Coordinate of earthquake in the input projection space.
+        event : pandas DataFrame
+            Contains data about located event.
+            Columns: ["DT", "COA", "X", "Y", "Z"] - X and Y as lon/lat; Z in m
+
+        self.amplitude_params : dict
+            Keys:
+                'pre_filt'
+                'water_level'
+                'response_format'
+                'response_fname'
+                'noise_win'
+                'signal_window'
+                'prominence_multiplier'
+                'highpass_filter'
+                'highpass_freq'
+                'bandpass_filter'
+                'bandpass_lowcut'
+                'bandpass_highcut'
+                'filter_corners'
+                'remove_FIR_response'
+
+        self.response_inv
+
+        self.quick_amps : bool
+
+        self.picker.phase_picks
+
+        self.lut.station_data
+
+        self.data.raw_waveforms
 
         Returns
         -------
-        amps : pandas DataFrame object
+        amplitudes : pandas DataFrame object
+            P and S wave amplitude measurements for each component of each
+            station in the station file.
+            Columns = ["epi_dist", "z_dist", "P_amp", "P_freq", "S_amp",
+                       "S_freq", "Noise_amp", "is_picked"]
+            Index = Trace ID (see obspy Trace object property 'id')
 
+        Raises
+        ------
+        AttributeError
+            Raised if the parameters required for measuring phase amplitudes
+            have not been specified (self.amplitude_params)
 
         """
 
-        if not self.amplitude_params:
-            msg = ("Must define a set of amplitude parameters.\n"
-                   "For more information, please consult the documentation.")
+        # Check required parameters are specified
+        if 'noise_win' not in self.amplitude_params.keys():
+            msg = ('"noise_win" not found in amplitude_params. Please '
+                   'specify the duration of the noise window')
             raise AttributeError(msg)
+        if 'response_fname' not in self.amplitude_params.keys():
+            msg = ('"response_fname" not found in amplitude_params. '
+                   'Please specify a file containing the instrument responses.')
+            raise AttributeError(msg)
+        if 'signal_window' not in self.amplitude_params.keys():
+            msg = ('Warning: no signal window specified in '
+                   'amplitude_params.')
+            warnings.warn(msg)
+            self.output.log(msg, self.log)
+        if not self.quick_amps and 'water_level' not in self.amplitude_params.keys():
+            msg = ('Warning: water level for instrument correction not '
+                   'specified in amplitude_params. Using default (60).')
+            warnings.warn(msg)
+            self.output.log(msg, self.log)
 
-        if self.amplitude_params["response_format"] == "dataless":
-            dataless = Parser(self.amplitude_params["response_fname"])
-            resp = False
-        else:
-            resp_file = self.amplitude_params["response_fname"]
-            resp = True
-
-        if not self.quick_amps:
-            water_level = self.amplitude_params.get("water_level")
-            pre_filt = self.amplitude_params.get("pre_filt")
-        # else:
-        #     inv = read_inventory(self.amplitude_params["dataless_xml"])
-
+        # read in noise and signal windows
         noise_window = self.amplitude_params.get("noise_win")
+        signal_window = self.amplitude_params.get("signal_window", 0.)
 
-        evlo, evla, evdp = coord
+        # read in response-removal parameters if doing full deconvolution
+        if not self.quick_amps:
+            water_level = self.amplitude_params.get("water_level", 60)
+            pre_filt = self.amplitude_params.get("pre_filt")
+
+        # Check if the user has specified a filter to apply before
+        # making the amplitude measurement
+        if self.amplitude_params.get('highpass_filter') and \
+            self.amplitude_params.get('bandpass_filter'):
+            msg = ('Both bandpass filter *and* highpass filter selected! '
+                   'Please choose one or the other.')
+            raise AttributeError(msg)
+        elif self.amplitude_params.get('highpass_filter') is True:
+            highpass = True
+            bandpass = False
+            try:
+                filt_freq = self.amplitude_params['highpass_freq']
+            except KeyError as e:
+                msg = 'Highpass filter frequency not specified! {}'.format(e)
+                raise AttributeError(msg)
+            corners = self.amplitude_params.get('filter_corners', 4)
+        elif self.amplitude_params.get('bandpass_filter') is True:
+            bandpass = True
+            highpass = False
+            try:
+                freqmin = self.amplitude_params['bandpass_lowcut']
+                freqmax = self.amplitude_params['bandpass_highcut']
+            except KeyError as e:
+                msg = 'Bandpass filter frequencies not specified! {}'.format(e)
+                raise AttributeError(msg)
+            corners = self.amplitude_params.get('filter_corners', 4)
+        else:
+            highpass = False
+            bandpass = False
+
+        # Read in response inventory
+        if self.amplitude_params.get("response_format") == "sacpz":
+            # don't deal with this atm
+            raise NotImplementedError('SAC_PZ is not currently supported. '
+                                      'Please contact the developers.')
+        else:
+            try:
+                if not self.response_inv:
+                    timer = util.Stopwatch()
+                    self.output.log("\t\tReading response inventory...", self.log)
+                    self.response_inv = read_inventory(self.amplitude_params["response_fname"])
+                    self.output.log(timer(), self.log)
+            except TypeError as e:
+                msg = ('Response file not readable by ObsPy: {}\n'
+                       'Please consult the ObsPy documentation.'.format(e))
+                raise TypeError(msg)
+
+        # Read in option whether to remove response of FIR stages, or just PAZ
+        # and overall instrument sensitivity (default; much faster)
+        remove_FIR_response = self.amplitude_params.get('remove_FIR_response', False)
+
+        # Read in event location, picks and station information
+        evlo, evla, evdp = event[["X", "Y", "Z"]].values
+        eq_otime = event["DT"]
         picks = self.picker.phase_picks["Pick"]
-        stations = self.lut.station_data
+        station_data = self.lut.station_data
 
+        # Read in raw cut waveforms
         raw_waveforms = self.data.raw_waveforms.copy()
 
-        amplitudes = pd.DataFrame(columns=["id", "epi_distance", "depth",
+        # Read in P and S traveltimes to each station to be used to
+        # determine the noise, P and S window times.
+        event_ijk = self.lut.index2coord(event[["X", "Y", "Z"]].values,
+                                         inverse=True)[0]
+        p_ttimes = self.lut.traveltime_to("P", event_ijk)
+        s_ttimes = self.lut.traveltime_to("S", event_ijk)
+
+        fraction_tt = self.picker.fraction_tt
+        marginal_window = self.marginal_window
+        max_tt = self.lut.max_ttime
+
+        tr_start = eq_otime - marginal_window - noise_window
+        tr_end = eq_otime + marginal_window + (1. + fraction_tt) * \
+            max_tt + signal_window
+
+        # Set up DataFrame to be populated with amplitude measurements
+        amplitudes = pd.DataFrame(columns=["id", "epi_dist", "z_dist",
                                            "P_amp", "P_freq", "S_amp",
-                                           "S_freq", "Error", "is_picked"])
+                                           "S_freq", "Noise_amp", "is_picked"])
 
-        for i, pick in picks.iterrows():
-            p = pick["PickTime"]
+        # Loop through stations, calculating amplitude info
+        for i, station_info in station_data.iterrows():
+            p_pick = picks.iloc[i*2]["PickTime"]
+            s_pick = picks.iloc[i*2+1]["PickTime"]
+
             picked = True
-            if p == -1:
-                p = pick["ModelledTime"]
-                picked = not picked
+            # If neither P nor S is picked, picked=False
+            if p_pick == -1 and s_pick == -1:
+                picked = False
 
-            # Take advantage of Python's function scope - state of variables pp
-            # and ppicked are retained when going to next loop
-            if pick["Phase"] == "P":
-                pp = UTCDateTime(p)
-                ppicked = picked
-                continue
-            elif pick["Phase"] == "S":
-                sp = UTCDateTime(p)
-                spicked = picked
-            picked = (ppicked or spicked)
+            if p_pick == -1:
+                # if picked:
+                #     p_picktime = eq_otime + (s_picktime - eq_otime) / vpvs
+                p_pick = picks.iloc[i*2]["ModelledTime"]
 
-            station = pick["Name"]
-            station_info = stations[stations["Name"] == station]
-            stla = station_info["Latitude"].iloc[0]
-            stlo = station_info["Longitude"].iloc[0]
-            stel = station_info["Elevation"].iloc[0]
+            if s_pick == -1:
+                # if picked:
+                #     S_picktime = eq_otime + (p_picktime - eq_otime) * vpvs
+                s_pick = picks.iloc[i*2+1]["ModelledTime"]
 
-            # Evaluate epicentral/vertical distances between station/event
-            edist, *_ = gps2dist_azimuth(evla, evlo, stla, stlo) / 1000.
-            zdist = (evdp - stel) / 1000.
+            # Convert to UTCDateTime objects
+            p_pick = UTCDateTime(p_pick)
+            s_pick = UTCDateTime(s_pick)
 
-            amps_template = ["", edist, zdist, np.nan, np.nan, np.nan, np.nan,
+            # Read in station information
+            station = station_info["Name"]
+            stla = station_info["Latitude"]
+            stlo = station_info["Longitude"]
+            stel = station_info["Elevation"]
+
+            # Evaluate epicentral/vertical distances between station and event
+            epi_dist = gps2dist_azimuth(evla, evlo, stla, stlo)[0] / 1000.
+            z_dist = (evdp - stel) / 1000.
+
+            # Columns: tr_id; epicentral distance, vertical distance, P_amp,
+            #          P_freq, S_amp, S_freq, Noise_amp, "is_picked"
+            amps_template = ["", epi_dist, z_dist, np.nan, np.nan, np.nan, np.nan,
                              np.nan, False]
 
+            # Read in raw waveforms
             st = raw_waveforms.select(station=station)
-            st.merge(method=1, fill_value="interpolate")
+            st.detrend('linear')
+
+            # # merge -- method=1 means discard data from previous trace if there
+            # # are overlaps; contained traces will be discarded.
+            # # fill_value='interpolate' means linearly interpolate gaps.
+            # st.merge(method=1, fill_value="interpolate")
+
+            # if stream is empty (no traces) or more than 3 traces (gaps), skip
             if not bool(st) or len(st) > 3:
-                print("No data available for {}.".format(station))
                 amps = amps_template.copy()
-                for j, channel in enumerate(["N", "E", "Z"]):
-                    amps[0] = ".{}..{}".format(station, channel)
-                    amplitudes.loc[i//2+j] = amps
-                    continue
+                for j, comp in enumerate(["E", "N", "Z"]):      # Will not work with Z, 1, 2 (etc.)
+                    amps[0] = ".{}..{}".format(station, comp)
+                    amplitudes.loc[i*3+j] = amps
+                continue
 
+            # Do full response deconvolution / convolution with WA response,
+            # unless using quick amps
             if not self.quick_amps:
-                if not resp:
-                    st.simulate(seedresp={"filename": dataless,
-                                          "units": "DIS"},
-                                paz_simulate=self.WOODANDERSON,
-                                pre_filt=pre_filt, taper=False,
-                                water_level=water_level)
-                else:
-                    tmp = Stream()
-                    for tr in st:
-                        tr.simulate(seedresp={"filename": resp_file,
-                                              "units": "DIS"},
-                                    paz_simulate=self.WOODANDERSON,
-                                    pre_filt=pre_filt, taper=False,
-                                    water_level=water_level)
-                        tmp += tr
-                    st = tmp
+                if not remove_FIR_response:
+                    # Loop through traces, and lookup response PAZ and remove using
+                    # tr.simulate as this is ~ 5x faster than st.remove_response()
+                    for j, tr in enumerate(st):
+                        try:
+                            response = self.response_inv.get_response(tr.id,
+                                                                tr.stats.starttime)
+                            paz = response.get_paz()
+                            # Add a zero to get displacement
+                            paz.zeros.extend([0j])
+                            paz = {'poles': paz.poles,
+                                'zeros': paz.zeros,
+                                'gain': paz.normalization_factor,
+                                'sensitivity': response.instrument_sensitivity.value}
 
-            for j, channel in enumerate(["N", "E", "Z"]):
+                            tr.simulate(paz_remove=paz,
+                                        pre_filt=pre_filt,
+                                        water_level=water_level,
+                                        taper=True,
+                                        sacsim=True, pitsasim=False, #)  # To replicate remove_response()
+                                        paz_simulate=self.WOODANDERSON)
+                            # tr.simulate(paz_simulate=self.WOODANDERSON)
+                        except (Exception, ValueError) as e:
+                            stn = '.'.join(tr.id.split('.')[:3])
+                            print('\t\t'+str(e),
+                                '  -- skipping instrument {}'.format(stn))
+                            amps = amps_template.copy()
+                            amps[0] = tr.id
+                            amplitudes.loc[i*3+j] = amps
+                            continue
+
+                else:
+                    # Use remove_response(), which removes the effect of _all_ response
+                    # stages, including the FIR stages. Considerably slower.
+                    try:
+                        st.remove_response(inventory=self.response_inv,
+                                           output='DISP',
+                                           pre_filt=pre_filt,
+                                           water_level=water_level,
+                                           taper=True)
+                        st.simulate(paz_simulate=self.WOODANDERSON)
+                    except ValueError as e:
+                        stn = '.'.join(st[0].id.split('.')[:3])
+                        print('\t\t'+str(e),
+                                '  -- skipping instrument {}'.format(stn))
+                        amps = amps_template.copy()
+                        for j, tr in enumerate(st.traces):
+                            amps[0] = tr.id
+                            amplitudes.loc[i*3+j] = amps
+                            continue
+
+            # Loop through components and make amplitude measurements from each
+            # trace.
+            for j, comp in enumerate(["E", "N", "Z"]):      # Will not work with Z, 1, 2 (etc.)
                 amps = amps_template.copy()
-                tr = st.select(channel="*{}".format(channel))[0]
-                stats = tr.stats
-                if bool(tr):
-                    print("No data for {} component.".format(channel))
-                    amps[0] = ".{}..{}".format(station, channel)
-                    amplitudes.loc[i//2+j] = amps
+                tr = st.select(channel="*{}".format(comp))[0]
+                # If trace is empty, or data isn't continuous within the time
+                # window where data is needed to make the amplitude
+                # measurements, skip
+                if not bool(tr) or tr.stats.starttime > tr_start + tr.stats.delta or \
+                    tr.stats.endtime < tr_end - tr.stats.delta:
+                    amps[0] = ".{}..{}".format(station, comp)
+                    amplitudes.loc[i*3+j] = amps
                     continue
 
                 amps[0] = tr.id
 
-                assert pp < sp
-                if np.abs(pp - sp) < 1.:
-                    windows = [[pp, sp], [sp, sp + noise_window]]
-                else:
-                    windows = [[pp, sp - 1.], [sp - 1., sp + noise_window]]
+                # For matching Tim!!!
+                # tr.trim(starttime=tr.stats.starttime, endtime=tr.stats.starttime+40.)
+                # tr.detrend('demean')
+                # tr.taper(type='cosine', max_percentage=0.05)
+                # tr.filter(type='highpass', freq=2)
 
-                for k, (stime, etime) in enumerate(windows):
-                    # Add 5% for tapering
-                    taper = (etime - stime) * 0.05
-                    window = tr.slice(stime - taper, etime + taper)
+                if bandpass:
+                    f_nyquist = 0.5 * tr.stats.sampling_rate
+                    low_f_crit = freqmin / f_nyquist
+                    high_f_crit = freqmax / f_nyquist
+                    if high_f_crit - 1.0 > -1e-6:
+                        msg = ("Selected high corner frequency ({}) of bandpass is at or "
+                               "above Nyquist ({}) for trace {}. Applying a high-pass instead.").format(
+                                   freqmax, f_nyquist, tr.id)
+                        warnings.warn(msg)
+                        highpass = True
+                    else:
+                        tr.detrend('linear')
+                        tr.taper(0.05, 'cosine')
+                        tr.filter(type='bandpass', freqmin=freqmin, freqmax=freqmax, corners=corners, zerophase=False)
+                        # Generate filter coefficients for the bandpass filter we
+                        # applied; this is how the filter is designed within ObsPy
+                        filter_sos = iirfilter(N=corners, Wn=[low_f_crit, high_f_crit],
+                                               btype='bandpass', ftype='butter', output='sos')
+
+                if highpass:
+                    f_nyquist = 0.5 * tr.stats.sampling_rate
+                    f_crit = filt_freq / f_nyquist
+                    tr.detrend('linear')
+                    tr.taper(0.05, 'cosine')
+                    tr.filter(type='highpass', freq=filt_freq, corners=corners, zerophase=False)
+                    # Generate filter coefficients for the highpass filter we
+                    # applied; this is how the filter is designed within ObsPy
+                    filter_sos = iirfilter(N=corners, Wn=f_crit, btype='highpass', ftype='butter', output='sos')
+                    # Switch highpass back off if redirected here from bandpass
+                    if bandpass:
+                        highpass = False
+
+                # Check p_pick is before s_pick
+                assert p_pick < s_pick # No catch for this
+
+                # If they are separated by less than 1 second (hmm..), use
+                # whole window from P arrival to S arrival for P, noise window
+                # starting from S arrival for S; else use 1 second after P for
+                # P, 1 second before S to noise window after S for S.
+                # if np.abs(p_pick - s_pick) < 1.:
+                #     windows = [[p_pick, s_pick], [s_pick, s_pick + noise_window]]
+                # else:
+                #     windows = [[p_pick, s_pick - 1.],
+                #                [s_pick - 1., s_pick + noise_window]]
+
+                # windows = [[p_pick-2, s_pick+5.],
+                #            [p_pick-2, s_pick+5.]]
+
+                # For P:
+                p_start = p_pick - marginal_window - p_ttimes[i] * fraction_tt
+                p_end = p_pick + marginal_window + p_ttimes[i] * fraction_tt
+                # For S:
+                s_start = s_pick - marginal_window - s_ttimes[i] * fraction_tt
+                s_end = s_pick + marginal_window + s_ttimes[i] * fraction_tt + signal_window
+
+                if s_start < p_end:
+                    if p_end < s_pick:
+                        windows = [[p_start, p_end],
+                                   [p_end, s_end]]
+                    else:
+                        windows = [[p_start, s_pick - marginal_window / 2],
+                                   [s_pick - marginal_window / 2, s_end]]
+                else:
+                    windows = [[p_start, s_start],
+                               [s_start, s_end]]
+
+                # Loop over windows, cut data and measure amplitude
+                for k, (start_time, end_time) in enumerate(windows):
+                    # Add buffer for 5% tapering
+                    # t_taper = (end_time - start_time) * 0.06
+                    # window = tr.slice(start_time - t_taper, end_time + t_taper)
+                    window = tr.slice(start_time, end_time)
+
+                    # window.detrend('linear')
+
                     data = window.data
 
-                    if bool(window) or np.all(data == 0.0) or np.all(data == data.mean()):
+                    # if trace (window) is empty (no data points) or all zeros
+                    # or a flat line, do not make a measurement
+                    if not bool(window) or np.all(data == 0.0) or np.all(data == data.mean()):
+                        print('Uh oh! Outside where we have data :(')
                         continue
 
-                    half_amp, approx_freq = self._peak_to_trough_amplitude(window)
+                    # Measure peak-to-peak amplitude; already corrected if full
+                    # response convolution has been used. Otherwise, an
+                    # estimate of the relevant frequency is used to read the
+                    # seismometer gain from its response, without deconvolving.
+                    prom_mult = self.amplitude_params.get("prominence_multiplier", 0.)
+                    half_amp, approx_freq = self._peak_to_trough_amplitude(window, prom_mult)
 
+                    # Correct for gain if not doing full deconvolution
                     if self.quick_amps:
-                        gain = paz_2_amplitude_value_of_freq_resp(self.WOODANDERSON,
-                                                                  approx_freq) * self.WOODANDERSON["sensitivity"]
+                        # Get wood-anderson gain at frequency of amplitude observation
+                        wa_gain = paz_2_amplitude_value_of_freq_resp(self.WOODANDERSON,
+                                                                     approx_freq) * \
+                                                        self.WOODANDERSON["sensitivity"]
 
-                        if not resp:
-                            # Get the response from the dataless SEED volume
-                            blockettes = dataless._select(tr.id,
-                                                          datetime=stats.starttime)
-                            response = dataless.get_response_for_channel(blockettes[1:], "")
-                            gain /= np.abs(response.get_evalresp_response_for_frequencies([approx_freq],
-                                                                                          output="DISP"))
-                        else:
-                            try:
-                                gain /= np.abs(evalresp_for_frequencies(stats.delta,
-                                                                        [approx_freq],
-                                                                        resp_file,
-                                                                        stats.starttime,
-                                                                        units="DISP",
-                                                                        station=stats.station,
-                                                                        channel=stats.channel))
-                            except ValueError:
-                                continue
-                        half_amp *= gain
+                        # Get instrument gain at frequency of wood-anderson observation
+                        try:
+                            response = self.response_inv.get_response(tr.id,
+                                                                      start_time)
+                            gain = np.abs(response.get_evalresp_response_for_frequencies([approx_freq],
+                                                                                         output="DISP")[0])
+                        except (Exception, ValueError) as e:
+                            print('\t\t'+str(e),
+                                  '  -- skipping instrument {}'.format(tr.stats.station))
+                            amplitudes.loc[i*3+j] = amps
+                            continue
 
+                        # Correct measured amplitude
+                        half_amp *= wa_gain / gain
+
+                    # Correct for filter gain at approximate frequency of
+                    # measured amplitude
+                    if bandpass or highpass:
+                        _, filter_gain = sosfreqz(filter_sos, worN=[approx_freq],
+                                                  fs=tr.stats.sampling_rate)
+                        half_amp /= np.abs(filter_gain[0])
+
+                    # Put in relevant columns for P / S amplitude / approx_freq
+                    # Multiply amplitude by 1000 to convert to millimetres
                     amps[3+k*2:5+k*2] = half_amp * 1000., approx_freq
 
-                # Grab a noise window
-                data = tr.slice(pp - 3. - noise_window, pp - 3.)
-                noise = np.std(data.data)
+                # Make a noise measurement in a window of length noise_window,
+                # ending 3 seconds before the P arrival.
+                # noise = tr.slice(p_pick - 3. - noise_window, p_pick - 3.)
+                # noise = tr.slice(eq_otime-18., p_pick-2.)
+
+                noise_start = p_start - noise_window
+                noise = tr.slice(noise_start, p_start)
+
+                # Use standard deviation in noise window as an estimate of the
+                # background noise amplitude *in millimetres*
+                # noise_amp = np.std(noise.data) * 1000.
+                noise_amp = np.sqrt(np.mean(np.square(noise.data))) * 1000.
+
                 if self.quick_amps:
-                    noise *= gain
-                amps[7:9] = noise * 2., picked
+                    noise_amp *= wa_gain / gain
+                # Put in relevant columns
+                # amps[7:9] = noise_amp * 2000., picked
+                amps[7:9] = noise_amp, picked
 
-                amplitudes[i//2+j] = amps
+                # 3 rows per station; one for each component
+                amplitudes.loc[i*3+j] = amps
 
-        return amplitudes.set_index("id")
+        amplitudes = amplitudes.set_index("id")
 
-    def _peak_to_trough_amplitude(self, trace):
+        return amplitudes
+
+    def _read_SAC_PZ(self, sac_pz_pat, tr_id, tr_start):
+        """
+        Reads SAC polezero files containing instrument response info.
+
+        Parameters
+        ----------
+        sac_pz_pat : str
+            Path to SAC PZ files.
+
+        tr_id : str
+            Trace ID for obspy Trace to find response data for.
+
+        tr_start : obspy UTCDateTime object
+            Trace start time.
+
+        Returns
+        -------
+        paz : dict
+            Dictionary containing instrument response information; keys:
+                gain -
+                sensitivity -
+                zeros -
+                poles -
+
+        Raises
+        ------
+        FileNotFoundError
+            Raised if the parameters required for measuring phase amplitudes
+            have not been specified (self.amplitude_params)
+
+        """
+
+        # get a list of all the files that match this channel
+        files = glob(sac_pz_pat+'/*_{0}_{1}_{3}_{2}_*'.format(*tr_id.split('.')))
+        if not files:
+            msg = 'No SAC PZ files found at {} for {}'.format(sac_pz_pat, tr_id)
+            raise FileNotFoundError(msg)
+
+        # select the PZ file that goes with the correct time period
+        sacpz_file = False
+        for f in files:
+            fname = f.split('/')[-1].split('_')
+            start_str = fname[6].split('.')
+            end_str = fname[7].split('.')
+            file_start = UTCDateTime('{}-{}T{}:{}:{}'.format(*start_str[0:5]))
+            file_end = UTCDateTime('{}-{}T{}:{}:{}'.format(*end_str[0:5]))
+            if file_start < tr_start < file_end:
+                sacpz_file = f
+                break
+
+        if not sacpz_file:
+            msg = 'No SAC PZ file for {} matching start time {}'
+            msg = msg.format(tr_id, tr_start)
+            raise FileNotFoundError(msg)
+
+        # read in the values into the dictionary
+        with open(sacpz_file, 'r') as sacpz:
+            paz = {}
+            z = num_zeros = 0
+            p = num_poles = 0
+            zeros = []
+            poles = []
+
+            for line in sacpz.readlines():
+                line = line.rstrip().split()
+
+                if len(line) < 2:
+                    continue
+                elif line[1] == 'SENSITIVITY':
+                    paz['sensitivity'] = float(line[3])
+                elif line[1] == 'A0':
+                    paz['gain'] = float(line[3])
+                elif line[0] == 'ZEROS':
+                    num_zeros = int(line[1])
+                elif z < num_zeros and num_zeros > 0:
+                    zeros.append(complex(float(line[0]), float(line[1])))
+                    z += 1
+                elif line[0] == 'POLES':
+                    num_poles = int(line[1])
+                elif p < num_poles and num_poles > 0:
+                    poles.append(complex(float(line[0]), float(line[1])))
+                    p += 1
+
+            paz['zeros'] = zeros
+            paz['poles'] = poles
+
+        return paz
+
+    def _peak_to_trough_amplitude(self, trace, prom_mult=0.):
         """
         Calculate the peak-to-trough amplitude for a given trace.
 
@@ -925,6 +1326,8 @@ class QuakeScan(DefaultQuakeScan):
         ----------
         trace : ObsPy Trace object
             Waveform for which to calculate peak-to-trough amplitude.
+
+        prom_mult : float
 
         Returns
         -------
@@ -939,18 +1342,16 @@ class QuakeScan(DefaultQuakeScan):
 
         """
 
-        try:
-            prom_mult = self.amplitude_params["prominence_multiplier"]
-        except KeyError:
-            prom_mult = 0.
-
-        trace.detrend("linear")
-        trace.taper(0.05)
+        # Do some pre-processing
+        # trace.detrend("linear")
+        # trace.taper(0.05)
 
         prominence = prom_mult * np.max(np.abs(trace.data))
         peaks, _ = find_peaks(trace.data, prominence=prominence)
         troughs, _ = find_peaks(-trace.data, prominence=prominence)
 
+        # Loop through possible orders of peaks and troughs to find the maximum
+        # peak-to-peak amplitude, and the time difference separating the peaks
         if len(peaks) == 0 or len(troughs) == 0:
             return -1, -1
         elif len(peaks) == 1 and len(troughs) == 1:
@@ -983,11 +1384,15 @@ class QuakeScan(DefaultQuakeScan):
             full_amp = np.max(fp2)
             peaks, troughs = c, d
 
-        peak_t = trace.times()[peaks[pos]]
-        trough_t = trace.times()[troughs[pos]]
-        approx_freq = 1. / (np.abs(peak_t - trough_t) * 2.)
+        peak_time = trace.times()[peaks[pos]]
+        trough_time = trace.times()[troughs[pos]]
+        # Peak-to-trough is half a period
+        approx_freq = 1. / (np.abs(peak_time - trough_time) * 2.)
 
-        return full_amp / 2, approx_freq
+        # Local magnitude is defined based on maximum zero-to-peak amplitude
+        half_amp = full_amp / 2
+
+        return half_amp, approx_freq
 
     def _read_event_waveform_data(self, w_beg, w_end):
         """
@@ -1011,23 +1416,41 @@ class QuakeScan(DefaultQuakeScan):
 
         # Extra pre- and post-pad default to None
         pre_pad = post_pad = None
-        if self.pre_cut:
+
+        if self.pre_cut or self.amplitudes:
+            if self.amplitudes:
+                # Earliest possible start of noise window for amplitude
+                # measurement
+                noise_window = self.amplitude_params.get("noise_win")
+                pre_cut = max(self.pre_cut, noise_window + self.marginal_window)
+                if (noise_window + self.marginal_window) > self.pre_cut:
+                    print('Noise window bigger than pre_cut!!')
+                    print(noise_window + self.marginal_window, self.pre_cut)
             # only subtract 1*marginal_window so if the event otime moves by
             # this much the selected pre_cut can still be applied
-            pre_pad = self.pre_cut - self.marginal_window - self.pre_pad
+            pre_pad = pre_cut - self.marginal_window - self.pre_pad
             if pre_pad < 0:
                 msg = "\t\tWarning: specified pre_cut {} is shorter than"
                 msg += "default pre_pad\n"
                 msg += "\t\t\tCutting from pre_pad = {}"
                 msg = msg.format(self.pre_cut, self.pre_pad)
                 self.output.log(msg, self.log)
-
                 pre_pad = None
 
-        if self.post_cut:
+        if self.post_cut or self.amplitudes:
+            if self.amplitudes:
+                # Latest possible end for signal window for amplitude
+                # measurement
+                max_signal_win = (1 + self.picker.fraction_tt) * self.lut.max_ttime \
+                                        + self.marginal_window \
+                                        + self.amplitude_params.get("signal_window", 0.)
+                post_cut = max(self.post_cut, max_signal_win)
+                if max_signal_win > self.post_cut:
+                    print('Max signal win bigger than post_cut!!')
+                    print(max_signal_win, self.post_cut)
             # only subtract 1*marginal_window so if the event otime moves by
             # this much the selected post_cut can still be applied
-            post_pad = self.post_cut - self.marginal_window - \
+            post_pad = post_cut - self.marginal_window - \
                        self.post_pad
             if post_pad < 0:
                 msg = "\t\tWarning: specified post_cut {} is shorter than"
@@ -1099,9 +1522,11 @@ class QuakeScan(DefaultQuakeScan):
         # Correct map_4d for number of contributing traces
         map_4d = np.exp(map_4d / (len(avail_idx)*2))
 
+        # Calculate max_coa (with correction for number of stations)
+        max_coa = np.exp(max_coa / (len(avail_idx) * 2))
+
         # Get max_coa_norm
-        max_coa_norm = (np.exp(max_coa / (len(avail_idx)*2))
-                        / np.sum(map_4d, axis=(0, 1, 2)))
+        max_coa_norm = max_coa / np.sum(map_4d, axis=(0, 1, 2))
         max_coa_norm = max_coa_norm * map_4d.shape[0] * map_4d.shape[1] * \
             map_4d.shape[2]
 
@@ -1109,9 +1534,6 @@ class QuakeScan(DefaultQuakeScan):
                         w_end - self.post_pad + (1 / self.sampling_rate),
                         1 / self.sampling_rate)
         daten = [x.datetime for x in tmp]
-
-        # Calculate max_coa (with correction for number of stations)
-        max_coa = np.exp(max_coa / (len(avail_idx) * 2)) - 1.0
 
         # Convert the flat grid indices (of maximum coalescence) to coordinates
         # in the input projection space.
@@ -1200,7 +1622,7 @@ class QuakeScan(DefaultQuakeScan):
 
         return mask
 
-    def _covfit3d(self, coa_map, thresh=0.88, win=None):
+    def _covfit3d(self, coa_map, thresh=0.75, win=None):
         """
         Calculate the 3-D covariance of the marginalised coalescence map,
         filtered above a percentile threshold {thresh}. Optionally can also
@@ -1624,7 +2046,7 @@ class QuakeScan(DefaultQuakeScan):
             self.output.log(timer(), self.log)
 
         if self.write_cut_waveforms:
-            self.output.log("\tSaving raw cut waveforms...", self.log)
+            self.output.log("\tSaving cut waveforms...", self.log)
             timer = util.Stopwatch()
             self.output.write_cut_waveforms(self.data, event, event_uid,
                                             self.cut_waveform_format,

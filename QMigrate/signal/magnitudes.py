@@ -14,8 +14,8 @@ from scipy import sparse
 
 def mean_magnitude(magnitudes, params):
     """
-    Calculate the mean magnitude for an event based on the magnitudes
-    calculated at each station for each component.
+    Calculate the mean magnitude for an event based on the magnitude estimates
+    calculated from each component of each station.
 
     Parameters
     ----------
@@ -24,14 +24,15 @@ def mean_magnitude(magnitudes, params):
         every station, as well as magnitude calculated using these amplitudes.
         Has columns:
             "epi_dist" - epicentral distance between the station and event.
-            "depth" - vertical distance between the station and event.
+            "z_dist" - vertical distance between the station and event.
             "P_amp" - half peak-to-trough amplitude of the P phase
             "P_freq" - approximate frequency of the P phase.
             "S_amp" - half peak-to-trough amplitude of the S phase.
             "S_freq" - approximate frequency of the S phase.
-            "Error" - the error, calculated from the standard deviation of the
-                         noise before the event.
+            "Noise_amp" - the standard deviation of the noise before the event.
             "Picked" - boolean designating whether or not a phase was picked.
+            "ML" - calculated magnitude estimate
+            "ML_Err" - estimate error on calculated magnitude
 
     params : dict
         Contains a set of parameters that are used to tune the average
@@ -46,13 +47,20 @@ def mean_magnitude(magnitudes, params):
             "use_only_picked" - bool, use only auto-picked channels.
             "weighted" - bool, calculate a weighted average.
 
+    Returns
+    -------
+    mean_mag : float or NaN
+        Mean of the
+
+    mean_mag_err : float or NaN
+
     """
 
     if params.get("trace_filter"):
         magnitudes = magnitudes.filter(regex=params["trace_filter"], axis=0)
 
     if params.get("dist_filter"):
-        edist, zdist = magnitudes["epi_dist"], magnitudes["depth"]
+        edist, zdist = magnitudes["epi_dist"], magnitudes["z_dist"]
         if params["use_hyp_distance"]:
             dist = np.sqrt(edist.values**2 + zdist.values**2)
         else:
@@ -63,83 +71,81 @@ def mean_magnitude(magnitudes, params):
         magnitudes = magnitudes[magnitudes["is_picked"]]
 
     if params.get("noise_filter"):
-        feat = magnitudes[params["amplitude_feature"]].values
-        noise = magnitudes["Error"].values
-        magnitudes = magnitudes[feat >= noise * params["noise_filter"]]
+        amps = magnitudes[params["amplitude_feature"]].values
+        noise_amps = magnitudes["Noise_amp"].values
+        # Avoad RunTimeWarning from comparing nans (don't use these mags)
+        amps[np.isnan(amps)] = 0
+        noise_amps[np.isnan(noise_amps)] = np.finfo('float').max
+        magnitudes = magnitudes[amps >= noise_amps * params["noise_filter"]]
 
     if len(magnitudes) == 0:
         return np.nan, np.nan
 
-    mag = magnitudes["Magnitude"].values
+    mags = magnitudes["ML"].values
 
     if params.get("weighted"):
-        wght = magnitudes["Magnitude_err"]
+        weights = (1 / magnitudes["ML_Err"]) ** 2
     else:
-        wght = np.ones_like(mag)
+        weights = np.ones_like(mags)
 
-    mn_m = np.sum(mag*wght) / np.sum(wght)
-    mn_m_err = np.sqrt(np.sum(((mag - mn_m)*wght)**2) / np.sum(wght))
+    mean_mag = np.sum(mags*weights) / np.sum(weights)
+    mean_mag_err = np.sqrt(np.sum(((mags - mean_mag)*weights)**2) / np.sum(weights))
 
-    return mn_m, mn_m_err
+    return mean_mag, mean_mag_err
 
-
-def calculate_magnitude(amplitudes, params):
+def calculate_magnitudes(amplitudes, params):
     """
-    Calculate the magnitude of an event for each station on each component
-    from the output of QuakeMigrate.
+    Calculate magnitude estimates for an event based on amplitude measurements
+    on individual components / stations.
 
     Parameters
     ----------
     amplitudes : pandas DataFrame object
         Contains information about the measured amplitudes on each component at
-        every station. Has columns:
-        "epi_dist" "depth" "P_amp" "P_freq" "S_amp" "S_freq" "Error" "Picked"
+        every station.
+        Columns = ["epi_dist", "z_dist", "P_amp", "P_freq", "S_amp", "S_freq",
+                   "Noise_amp", "Picked"]
+        Index =  Trace ID (see obspy Trace object property 'id')
+        Amplitude measurements in ***millimetres*** <--- check this.
 
     params : dict
         Contains a set of parameters that are used to tune the magnitude
         calculation. Must include:
-            "station_corrections" - dictionary of id, correction pairs.
-                                    Missing stations don't matter.
-            "amplitude_feature" - which amplitude feature to do the calculation
-                                  on. Normally S_amp makes sense. This should
-                                  be the full peak-to-trough amplitude.
             "use_hyp_distance" - make True if you want to use hypocentral
                                  distance, rather than epicentral distance.
             "A0" - which A0 attenuation correction to use. See logA0 function
             for options, or pass the function directly.
+        Optionally also specify:
+            "station_corrections" - dictionary of id, correction pairs.
+                                    Missing stations don't matter.
+            "amplitude_feature" - which amplitude feature to do the calculation
+                                  on. Normally S_amp makes sense. This should
+                                  be half the full peak-to-trough amplitude.
 
     Returns
     -------
     amplitudes : pandas DataFrame object
         The original amplitudes DataFrame, with new columns containing the
         calculated magnitude and an associated error.
+        Columns = ["epi_dist", "z_dist", "P_amp", "P_freq", "S_amp",
+                   "S_freq", "Noise_amp", "is_picked", "ML", "ML_Err"]
+        Index = Trace ID (see obspy Trace object property 'id')
 
     """
 
-    try:
-        stcorr = params["station_corrections"]
-    except KeyError:
-        stcorr = {}
-
-    try:
-        multiplier = params["amplitude_multiplier"]
-    except KeyError:
-        multiplier = 1.
-
-    try:
-        feature = params["amplitude_feature"]
-    except KeyError:
-        feature = "S_amp"
+    station_corrections = params.get('station_corrections', {})
+    multiplier = params.get('amplitude_multiplier', 1.)
+    feature = params.get('amplitude_feature', 'S_amp')
 
     trace_ids = amplitudes.index
-    amp = amplitudes[feature].values * multiplier
-    amp_err = amplitudes["Error"].values * multiplier
+    amps = amplitudes[feature].values * multiplier
+    noise_amps = amplitudes["Noise_amp"].values * multiplier
 
     # Remove those amplitudes where the noise is greater than the amplitude
     with np.errstate(invalid="ignore"):
-        amp[amp < amp_err] = np.nan
+        amps[amps < noise_amps] = np.nan
 
-    edist, zdist = amplitudes["epi_dist"], amplitudes["depth"]
+    edist, zdist = amplitudes["epi_dist"], amplitudes["z_dist"]
     if params["use_hyp_distance"]:
         dist = np.sqrt(edist.values**2 + zdist.values**2)
     else:
@@ -147,17 +153,19 @@ def calculate_magnitude(amplitudes, params):
     dist[dist == 0.] = np.nan
 
     # Calculate magnitudes and associated errors
-    mags = calc_mag(trace_ids, amp, dist, params["A0"], stcorr)
-    mag_err_u = calc_mag(trace_ids, amp + amp_err, dist, params["A0"], stcorr)
-    mag_err_l = calc_mag(trace_ids, amp - amp_err, dist, params["A0"], stcorr)
+    mags, mag_errs = _calc_mags(trace_ids, amps, noise_amps, dist, params["A0"],
+                                station_corrections)
+    # mag_err_u = calc_mag(trace_ids, amp + amp_err, dist, params["A0"], stcorr)
+    # mag_err_l = calc_mag(trace_ids, amp - amp_err, dist, params["A0"], stcorr)
 
-    amplitudes["Magnitude"] = mags
-    amplitudes["Magnitude_err"] = mag_err_u - mag_err_l
+    amplitudes["ML"] = mags
+    amplitudes["ML_Err"] = mag_errs #_u - mag_err_l
 
     return amplitudes
 
 
-def calc_mag(trace_ids, amplitudes, dist, A0_calib, station_corrections):
+def _calc_mags(trace_ids, amps, noise_amps, dist, A0_calib,
+               station_corrections):
     """
     Calculates magnitudes from a series of amplitude measurements.
 
@@ -166,8 +174,12 @@ def calc_mag(trace_ids, amplitudes, dist, A0_calib, station_corrections):
     trace_ids : array-like, contains strings
         List of ID strings for each trace.
 
-    amplitudes : array-like, contains floats
-        Measurements of peak-to-trough amplitudes
+    amps : array-like, contains floats
+        Measurements of *half* peak-to-trough amplitudes
+
+    noise_amps : array-like, contains floats
+        Estimate of uncertainty in amplitude measurements caused by noise on
+        the signal
 
     dist : float
         Distance between source and receiver.
@@ -183,8 +195,12 @@ def calc_mag(trace_ids, amplitudes, dist, A0_calib, station_corrections):
 
     Returns
     -------
-    magnitudes : array-like
+    mags : array-like
         An array containing the calculated magnitudes.
+
+    mag_errs : array-like
+        An array containing the calculated errors on the magnitudes, as
+        determined by the errors on the amplitude measurements.
 
     """
 
@@ -196,8 +212,13 @@ def calc_mag(trace_ids, amplitudes, dist, A0_calib, station_corrections):
     else:
         att = _logA0(dist, A0_calib)
 
-    return np.log10(amplitudes) + att + np.array(corrs)
+    mags = np.log10(amps) + att + np.array(corrs)
 
+    upper_mags = np.log10(amps + noise_amps) + att + np.array(corrs)
+    lower_mags = np.log10(amps - noise_amps) + att + np.array(corrs)
+    mag_errs = upper_mags - lower_mags
+
+    return mags, mag_errs
 
 def _logA0(dist, eqn):
     """
@@ -249,7 +270,6 @@ def _logA0(dist, eqn):
     else:
         raise ValueError(eqn, "is not a valid method.")
 
-
 def GR_mags(nevents, b_value, m_min):
     """
     Generates a series of magnitudes according to the Gutenberg-Richter
@@ -275,10 +295,9 @@ def GR_mags(nevents, b_value, m_min):
 
     # Seed random number generator
     rng = np.random.RandomState()
-    rng.seed
+    rng.seed()
 
     return m_min + rng.exponential(1. / (-b_value / np.log10(np.e)), nevents)
-
 
 def generate_synthetic_cat(nev, nsta, noise_level, xlim, ylim, zlim,
                            magrange, stcorr_width, **kwargs):
@@ -343,7 +362,7 @@ def generate_synthetic_cat(nev, nsta, noise_level, xlim, ylim, zlim,
                 index.append('.{:04d}..BH{:1d}'.format(j, k+1))
             j += 1
         amp = pds.DataFrame(amp,
-                            columns=['epi_dist', 'depth',
+                            columns=['epi_dist', 'z_dist',
                                      'P_amp', 'P_freq',
                                      'S_amp', 'S_freq',
                                      'Error'],
@@ -352,7 +371,6 @@ def generate_synthetic_cat(nev, nsta, noise_level, xlim, ylim, zlim,
         i += 1
 
     return observations, mags, stcorr, (eqloc, stloc)
-
 
 def invert_mag_scale(data, stcorr_only=False, **kwargs):
     """

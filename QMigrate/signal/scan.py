@@ -771,10 +771,10 @@ class QuakeScan(DefaultQuakeScan):
                 self.output.log("\tCalculating magnitude...", self.log)
                 mags = qmag.calculate_magnitudes(amps, self.magnitude_params)
                 self.output.write_amplitudes(mags, event_uid)
-                ML, ML_Err = qmag.mean_magnitude(mags, self.magnitude_params)
+                ML, ML_Err, ML_r2 = qmag.mean_magnitude(mags, self.magnitude_params)
                 event['ML'] = ML
                 event['ML_Err'] = ML_Err
-                # event['ML_R2'] = ML_R2
+                event['ML_r_squared'] = ML_r2
                 self.output.log(timer(), self.log)
 
             self.output.write_event(event, event_uid)

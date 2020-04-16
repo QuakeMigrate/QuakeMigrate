@@ -36,7 +36,10 @@ def mean_magnitude(magnitudes, params):
 
     params : dict
         Contains a set of parameters that are used to tune the average
-        magnitude calculation. May include:
+        magnitude calculation. Must include:
+            "A0" - which A0 attenuation correction to use. See _logA0 function
+                   for options, or pass the function directly.
+        May also optionally include:
             "trace_filter" - reg_expr, filter by channel to use in the average.
             "dist_filter" - float, use only reported magnitudes with distances
                             less than dist_filter.
@@ -50,9 +53,22 @@ def mean_magnitude(magnitudes, params):
     Returns
     -------
     mean_mag : float or NaN
-        Mean of the
+        Mean (or weighted mean) of the magnitude estimates calculated from each
+        individual channel after (optionally) removing some observations based
+        on trace ID, distance, etcetera.
 
     mean_mag_err : float or NaN
+        Standard deviation (or weighted standard deviation) of the magnitude
+        estimates calculated from individual channels which contributed to the
+        calculation of the (weighted) mean magnitude.
+
+    mag_r_squared : float or NaN
+        r-squared statistic describing the fit of the amplitude vs. distance
+        curve predicted by the calculated mean_mag and chosen attenuation
+        model to the measured amplitude observations. This is intended to be
+        used to help discriminate between 'real' events, for which the
+        predicted amplitude vs. distance curve should provide a good fit to
+        the observations, from artefacts, which in general will not.
 
     """
 
@@ -91,7 +107,105 @@ def mean_magnitude(magnitudes, params):
     mean_mag = np.sum(mags*weights) / np.sum(weights)
     mean_mag_err = np.sqrt(np.sum(((mags - mean_mag)*weights)**2) / np.sum(weights))
 
-    return mean_mag, mean_mag_err
+    # Pass the *already filtered* magnitudes DataFrame to the _amp_r_squared
+    # function.
+    mag_r_squared = _amp_r_squared(params, magnitudes, mean_mag)
+
+    return mean_mag, mean_mag_err, mag_r_squared
+
+def _amp_r_squared(params, magnitudes, mean_mag):
+    """
+    Calculate the r-squared statistic for the fit of the amplitudes vs distance
+    model predicted by the estimated event magnitude and the chosen
+    attenuation function to the observed amplitudes. The fit is calculated in
+    log(amplitude) space to linearise the data, in order for the calculation of
+    the r-squared statistic to be appropriate.
+
+    Parameters
+    ----------
+    params : dict
+        Contains a set of parameters that are used to tune the average
+        magnitude calculation. Must include:
+            "A0" - which A0 attenuation correction to use. See _logA0 function
+                   for options, or pass the function directly.
+        May also optionally include:
+            "trace_filter" - reg_expr, filter by channel to use in the average.
+            "dist_filter" - float, use only reported magnitudes with distances
+                            less than dist_filter.
+            "use_hyp_distance" - bool, use hypocentral distance, rather than
+                                 epicentral distance.
+            "noise_filter" - float, use only channels where amplitude exceeds
+                             pre-signal noise * noise_filter.
+            "use_only_picked" - bool, use only auto-picked channels.
+            "weighted" - bool, calculate a weighted average.
+
+    magnitudes : pandas DataFrame object
+        Contains information about the measured amplitudes on each component at
+        every station, as well as magnitude calculated using these amplitudes.
+        Has columns:
+            "epi_dist" - epicentral distance between the station and event.
+            "z_dist" - vertical distance between the station and event.
+            "P_amp" - half peak-to-trough amplitude of the P phase
+            "P_freq" - approximate frequency of the P phase.
+            "S_amp" - half peak-to-trough amplitude of the S phase.
+            "S_freq" - approximate frequency of the S phase.
+            "Noise_amp" - the standard deviation of the noise before the event.
+            "Picked" - boolean designating whether or not a phase was picked.
+            "ML" - calculated magnitude estimate
+            "ML_Err" - estimate error on calculated magnitude
+
+    mean_mag : float or NaN
+        Mean (or weighted mean) of the magnitude estimates calculated from each
+        individual channel after (optionally) removing some observations based
+        on trace ID, distance, etcetera.
+
+    Returns
+    -------
+    mag_r_squared : float or NaN
+        r-squared statistic describing the fit of the amplitude vs. distance
+        curve predicted by the calculated mean_mag and chosen attenuation
+        model to the measured amplitude observations. This is intended to be
+        used to help discriminate between 'real' events, for which the
+        predicted amplitude vs. distance curve should provide a good fit to
+        the observations, from artefacts, which in general will not.
+
+    """
+
+    multiplier = params.get('amplitude_multiplier', 1.)
+    feature = params.get('amplitude_feature', 'S_amp')
+    
+    A0_calib = params.get('A0')
+    if not A0_calib:
+        msg = "A0 attenuation correction not specified in params!"
+        raise AttributeError(msg)
+
+    amps = magnitudes[feature].values * multiplier
+
+    edist, zdist = magnitudes["epi_dist"], magnitudes["z_dist"]
+    if params["use_hyp_distance"]:
+        dist = np.sqrt(edist.values**2 + zdist.values**2)
+    else:
+        dist = edist.values
+    dist[dist == 0.] = np.nan
+
+    A0_calib = params.get("A0", )
+
+    if callable(A0_calib):
+        att = A0_calib(dist)
+    else:
+        att = _logA0(dist, A0_calib)
+
+    log_amp_mean = np.log10(amps).mean()
+    log_amp_variance = ((np.log10(amps) - log_amp_mean) ** 2).sum()
+    print(log_amp_variance)
+
+    mod_variance = ((np.log10(amps) - (mean_mag - att)) ** 2).sum()
+    print(mod_variance)
+
+    r_squared = (log_amp_variance - mod_variance) / log_amp_variance
+    print(r_squared)
+
+    return r_squared
 
 def calculate_magnitudes(amplitudes, params):
     """
@@ -111,11 +225,11 @@ def calculate_magnitudes(amplitudes, params):
     params : dict
         Contains a set of parameters that are used to tune the magnitude
         calculation. Must include:
+            "A0" - which A0 attenuation correction to use. See _logA0 function
+                   for options, or pass the function directly.
+        Optionally also specify:
             "use_hyp_distance" - make True if you want to use hypocentral
                                  distance, rather than epicentral distance.
-            "A0" - which A0 attenuation correction to use. See logA0 function
-            for options, or pass the function directly.
-        Optionally also specify:
             "station_corrections" - dictionary of id, correction pairs.
                                     Missing stations don't matter.
             "amplitude_feature" - which amplitude feature to do the calculation
@@ -131,11 +245,20 @@ def calculate_magnitudes(amplitudes, params):
                    "S_freq", "Noise_amp", "is_picked", "ML", "ML_Err"]
         Index = Trace ID (see obspy Trace object property 'id')
 
+    Raises
+    ------
+    AttributeError
+        If A0 attenuation correction is not specified.
+
     """
 
     station_corrections = params.get('station_corrections', {})
     multiplier = params.get('amplitude_multiplier', 1.)
     feature = params.get('amplitude_feature', 'S_amp')
+    A0_calib = params.get('A0')
+    if not A0_calib:
+        msg = "A0 attenuation correction not specified in params!"
+        raise AttributeError(msg)
 
     trace_ids = amplitudes.index
     amps = amplitudes[feature].values * multiplier
@@ -153,7 +276,7 @@ def calculate_magnitudes(amplitudes, params):
     dist[dist == 0.] = np.nan
 
     # Calculate magnitudes and associated errors
-    mags, mag_errs = _calc_mags(trace_ids, amps, noise_amps, dist, params["A0"],
+    mags, mag_errs = _calc_mags(trace_ids, amps, noise_amps, dist, A0_calib,
                                 station_corrections)
     # mag_err_u = calc_mag(trace_ids, amp + amp_err, dist, params["A0"], stcorr)
     # mag_err_l = calc_mag(trace_ids, amp - amp_err, dist, params["A0"], stcorr)
@@ -162,7 +285,6 @@ def calculate_magnitudes(amplitudes, params):
     amplitudes["ML_Err"] = mag_errs #_u - mag_err_l
 
     return amplitudes
-
 
 def _calc_mags(trace_ids, amps, noise_amps, dist, A0_calib,
                station_corrections):
@@ -249,6 +371,11 @@ def _logA0(dist, eqn):
     logA0 : float
         Attenuation correction factor.
 
+    Raises
+    ------
+    ValueError
+        If invalid A0 attenuation function is specified.
+
     """
 
     if eqn == "keir2006":
@@ -268,7 +395,7 @@ def _logA0(dist, eqn):
     elif eqn == "UK":
         return 1.11*np.log10(dist) + 0.00189*dist - 1.16*np.exp(-0.2*dist) - 2.09
     else:
-        raise ValueError(eqn, "is not a valid method.")
+        raise ValueError(eqn, "is not a valid logA0 method.")
 
 def GR_mags(nevents, b_value, m_min):
     """

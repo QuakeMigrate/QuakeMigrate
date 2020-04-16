@@ -52,7 +52,7 @@ amp_params = {'pre_filt' : (0.02, 0.03, 20, 25),         # pre-filter used if do
               'remove_FIR_response' : False}             # whether to remove all response stages, inc. FIR (st.remove_response()), not just poles-and-zero response stage; significantly slower
 
 # --- Specify parameters for magnitude calculation ---
-mag_params = {'station_corrections' : None,              # dictionary of trace_id - correction pairs
+mag_params = {'station_corrections' : {},                # dictionary of trace_id - correction pairs
               'amplitude_feature' : 'S_amp',             # which amplitude feature to calculate magnitudes from (S_amp or P_amp)
               'use_hyp_distance' : True,                 # use hypocentral rather than epicentral distance
               'A0' : 'Hutton-Boore',                     # which A0 attenuation correction to apply, a function can be directly passed here

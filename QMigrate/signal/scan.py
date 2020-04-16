@@ -1074,7 +1074,10 @@ class QuakeScan(DefaultQuakeScan):
             # trace.
             for j, comp in enumerate(["E", "N", "Z"]):      # Will not work with Z, 1, 2 (etc.)
                 amps = amps_template.copy()
-                tr = st.select(channel="*{}".format(comp))[0]
+                try:
+                    tr = st.select(channel="*{}".format(comp))[0]
+                except IndexError:
+                    tr = Trace()
                 # If trace is empty, or data isn't continuous within the time
                 # window where data is needed to make the amplitude
                 # measurements, skip
@@ -1437,6 +1440,8 @@ class QuakeScan(DefaultQuakeScan):
                 if (noise_window + self.marginal_window) > self.pre_cut:
                     print('Noise window bigger than pre_cut!!')
                     print(noise_window + self.marginal_window, self.pre_cut)
+            else:
+                pre_cut = self.pre_cut
             # only subtract 1*marginal_window so if the event otime moves by
             # this much the selected pre_cut can still be applied
             pre_pad = pre_cut - self.marginal_window - self.pre_pad
@@ -1459,6 +1464,8 @@ class QuakeScan(DefaultQuakeScan):
                 if max_signal_win > self.post_cut:
                     print('Max signal win bigger than post_cut!!')
                     print(max_signal_win, self.post_cut)
+            else:
+                post_cut = self.post_cut
             # only subtract 1*marginal_window so if the event otime moves by
             # this much the selected post_cut can still be applied
             post_pad = post_cut - self.marginal_window - \

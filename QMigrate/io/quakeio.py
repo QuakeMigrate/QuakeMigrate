@@ -348,6 +348,8 @@ class QuakeIO:
 
     def write_cut_waveforms(self, data, event, event_name, data_format="MSEED",
                             pre_cut=None, post_cut=None):
+                            # , raw=True, real=False,
+                            # wa=False):
         """
         Output raw cut waveform data as a waveform file -- defaults to mSEED.
 
@@ -366,7 +368,7 @@ class QuakeIO:
                        "GlobalCovariance_Y", "GlobalCovariance_Z",
                        "GlobalCovariance_ErrX", "GlobalCovariance_ErrY",
                        "GlobalCovariance_ErrZ", "TRIG_COA", "DEC_COA",
-                       "DEC_COA_NORM"]
+                       "DEC_COA_NORM", "ML", "ML_Err"]
             All X / Y as lon / lat; Z and X / Y / Z uncertainties in metres
 
         event_name : str
@@ -387,6 +389,11 @@ class QuakeIO:
 
         """
 
+        # for waveform_type in raw, real, wa:
+        #     if waveform_type:
+        #         if waveform_type == raw:
+        #             st = data.raw_waveforms
+        #         elif waveform_type == real
         st = data.raw_waveforms
 
         otime = UTCDateTime(event["DT"])
@@ -473,7 +480,7 @@ class QuakeIO:
                        "GlobalCovariance_Y", "GlobalCovariance_Z",
                        "GlobalCovariance_ErrX", "GlobalCovariance_ErrY",
                        "GlobalCovariance_ErrZ", "TRIG_COA", "DEC_COA",
-                       "DEC_COA_NORM"]
+                       "DEC_COA_NORM", "ML", "ML_Err"]
             All X / Y as lon / lat; Z and X / Y / Z uncertainties in metres
 
         event_name : str

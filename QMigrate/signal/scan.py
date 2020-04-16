@@ -684,7 +684,8 @@ class QuakeScan(DefaultQuakeScan):
             self.output.log("\tComputing 4D coalescence grid...", self.log)
 
             daten, max_coa, max_coa_norm, coord, map_4d = self._compute(w_beg,
-                                                                        w_end)
+                                                                        w_end,
+                                                                        locate=True)
             event_coa_data = pd.DataFrame(np.array((daten, max_coa,
                                                     max_coa_norm,
                                                     coord[:, 0],
@@ -727,40 +728,13 @@ class QuakeScan(DefaultQuakeScan):
             out_str = "{}_{}".format(self.output.name, event_uid)
             self.output.log(timer(), self.log)
 
-            # Make phase picks
-            timer = util.Stopwatch()
-            self.output.log("\tMaking phase picks...", self.log)
-            self.picker.pick_phases(self.data, event_max_coa)
-            self.picker.write_picks(event_uid)
-            self.output.log(timer(), self.log)
-
-            # Determining earthquake location error
+            # Determine earthquake location & error
             timer = util.Stopwatch()
             self.output.log("\tDetermining earthquake location and uncertainty...",
                             self.log)
             loc_spline, loc_gau, loc_gau_err, loc_cov, \
                 loc_cov_err = self._calculate_location(map_4d)
             self.output.log(timer(), self.log)
-
-            # Determine amplitudes
-            if self.amplitudes:
-                timer = util.Stopwatch()
-                self.output.log("\tGetting amplitudes...", self.log)
-                amps = self._get_amplitudes(event_max_coa)
-                self.output.write_amplitudes(amps, event_uid)
-                self.output.log(timer(), self.log)
-
-            # Calculate magnitudes from amplitude observations
-            if self.amplitudes and self.calc_mag:
-                timer = util.Stopwatch()
-                self.output.log("\tCalculating magnitude...", self.log)
-                mags = qmag.calculate_magnitudes(amps, self.magnitude_params)
-                self.output.write_amplitudes(mags, event_uid)
-                ML, ML_error = qmag.mean_magnitude(mags, self.magnitude_params)
-                self.output.log(timer(), self.log)
-            else:
-                ML = np.nan
-                ML_error = np.nan
 
             # Make event dictionary with all final event location data
             event = pd.DataFrame([[event_max_coa.values[0],
@@ -773,8 +747,35 @@ class QuakeScan(DefaultQuakeScan):
                                    loc_cov[0], loc_cov[1], loc_cov[2],
                                    loc_cov_err[0], loc_cov_err[1],
                                    loc_cov_err[2], trig_coa, detect_coa,
-                                   detect_coa_norm, ML, ML_error]],
+                                   detect_coa_norm, np.nan, np.nan]],
                                  columns=self.EVENT_FILE_COLS)
+
+            # Make phase picks
+            timer = util.Stopwatch()
+            self.output.log("\tMaking phase picks...", self.log)
+            self.picker.pick_phases(self.data, event)
+            self.picker.write_picks(event_uid)
+            self.output.log(timer(), self.log)
+
+            # Determine amplitudes
+            if self.amplitudes:
+                timer = util.Stopwatch()
+                self.output.log("\tGetting amplitudes...", self.log)
+                amps = self._get_amplitudes(event)
+                self.output.write_amplitudes(amps, event_uid)
+                self.output.log(timer(), self.log)
+
+            # Calculate magnitudes from amplitude observations
+            if self.amplitudes and self.calc_mag:
+                timer = util.Stopwatch()
+                self.output.log("\tCalculating magnitude...", self.log)
+                mags = qmag.calculate_magnitudes(amps, self.magnitude_params)
+                self.output.write_amplitudes(mags, event_uid)
+                ML, ML_Err = qmag.mean_magnitude(mags, self.magnitude_params)
+                event['ML'] = ML
+                event['ML_Err'] = ML_Err
+                # event['ML_R2'] = ML_R2
+                self.output.log(timer(), self.log)
 
             self.output.write_event(event, event_uid)
 
@@ -793,8 +794,16 @@ class QuakeScan(DefaultQuakeScan):
         Parameters
         ----------
         event : pandas DataFrame
-            Contains data about located event.
-            Columns: ["DT", "COA", "X", "Y", "Z"] - X and Y as lon/lat; Z in m
+            Final event location information.
+            Columns = ["DT", "COA", "COA_NORM", "X", "Y", "Z",
+                       "LocalGaussian_X", "LocalGaussian_Y", "LocalGaussian_Z",
+                       "LocalGaussian_ErrX", "LocalGaussian_ErrY",
+                       "LocalGaussian_ErrZ", "GlobalCovariance_X",
+                       "GlobalCovariance_Y", "GlobalCovariance_Z",
+                       "GlobalCovariance_ErrX", "GlobalCovariance_ErrY",
+                       "GlobalCovariance_ErrZ", "TRIG_COA", "DEC_COA",
+                       "DEC_COA_NORM", "ML", "ML_Err"]
+            All X / Y as lon / lat; Z and X / Y / Z uncertainties in metres
 
         self.amplitude_params : dict
             Keys:
@@ -839,6 +848,8 @@ class QuakeScan(DefaultQuakeScan):
             have not been specified (self.amplitude_params)
 
         """
+
+        event = event.iloc[0]
 
         # Check required parameters are specified
         if 'noise_win' not in self.amplitude_params.keys():
@@ -1463,7 +1474,7 @@ class QuakeScan(DefaultQuakeScan):
         self.data.read_waveform_data(w_beg, w_end, self.sampling_rate, pre_pad,
                                      post_pad)
 
-    def _compute(self, w_beg, w_end):
+    def _compute(self, w_beg, w_end, locate=False):
         """
         Compute 3-D coalescence between two time stamps.
 
@@ -1474,6 +1485,10 @@ class QuakeScan(DefaultQuakeScan):
 
         w_end : UTCDateTime object
             Time stamp of final sample in window
+
+        locate : bool, optional
+            Whether to compute the full 4D coalescence map (only needed
+            for locate()). Default: False
 
         Returns
         -------
@@ -1519,8 +1534,10 @@ class QuakeScan(DefaultQuakeScan):
         max_coa_idx = np.zeros(nsamp, np.int64)
         ilib.find_max_coa(map_4d, max_coa, max_coa_idx, 0, nsamp, self.n_cores)
 
-        # Correct map_4d for number of contributing traces
-        map_4d = np.exp(map_4d / (len(avail_idx)*2))
+        # If computing for locate, correct map_4d for number of contributing,
+        # traces. Not needed for detect.
+        if locate:
+            map_4d = np.exp(map_4d / (len(avail_idx)*2))
 
         # Calculate max_coa (with correction for number of stations)
         max_coa = np.exp(max_coa / (len(avail_idx) * 2))
@@ -2010,7 +2027,7 @@ class QuakeScan(DefaultQuakeScan):
                        "GlobalCovariance_Y", "GlobalCovariance_Z",
                        "GlobalCovariance_ErrX", "GlobalCovariance_ErrY",
                        "GlobalCovariance_ErrZ", "TRIG_COA", "DEC_COA",
-                       "DEC_COA_NORM"]
+                       "DEC_COA_NORM", "ML", "ML_Err"]
             All X / Y as lon / lat; Z and X / Y / Z uncertainties in metres
 
         out_str : str

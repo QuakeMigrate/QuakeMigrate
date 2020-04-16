@@ -90,8 +90,8 @@ class GaussianPicker(PhasePicker):
 
         out = "\tPick parameters - using the 1-D Gaussian fit to onset\n"
         out += "\t\tPick threshold = {}\n"
-        out += "\t\tSearch window  = {}s\n\n"
-        out = out.format(self.pick_threshold, self.fraction_tt)
+        out += "\t\tSearch window  = {}% of travel-time\n\n"
+        out = out.format(self.pick_threshold, self.fraction_tt * 100)
 
         return out
 
@@ -102,8 +102,16 @@ class GaussianPicker(PhasePicker):
         Parameters
         ----------
         event : pandas DataFrame
-            Contains data about located event.
-            Columns: ["DT", "COA", "X", "Y", "Z"] - X and Y as lon/lat; Z in m
+            Final event location information.
+            Columns = ["DT", "COA", "COA_NORM", "X", "Y", "Z",
+                       "LocalGaussian_X", "LocalGaussian_Y", "LocalGaussian_Z",
+                       "LocalGaussian_ErrX", "LocalGaussian_ErrY",
+                       "LocalGaussian_ErrZ", "GlobalCovariance_X",
+                       "GlobalCovariance_Y", "GlobalCovariance_Z",
+                       "GlobalCovariance_ErrX", "GlobalCovariance_ErrY",
+                       "GlobalCovariance_ErrZ", "TRIG_COA", "DEC_COA",
+                       "DEC_COA_NORM", "ML", "ML_Err"]
+            All X / Y as lon / lat; Z and X / Y / Z uncertainties in metres
 
         """
 
@@ -113,7 +121,7 @@ class GaussianPicker(PhasePicker):
             _ = self.onset.calculate_onsets(waveform_data, log=False)
 
         self.data = waveform_data
-        self.event = event
+        self.event = event.iloc[0]
 
         # start_time and end_time are start of pre-pad and end of post-pad,
         # respectively.
@@ -122,7 +130,7 @@ class GaussianPicker(PhasePicker):
                         self.data.sample_size)
         self.times = pd.to_datetime([x.datetime for x in tmp])
 
-        event_ijk = self.lut.index2coord(event[["X", "Y", "Z"]].values,
+        event_ijk = self.lut.index2coord(self.event[["X", "Y", "Z"]].values,
                                          inverse=True)[0]
 
         self.p_ttime = self.lut.traveltime_to("P", event_ijk)
@@ -136,8 +144,8 @@ class GaussianPicker(PhasePicker):
         p_gauss = np.array([])
         s_gauss = np.array([])
         for i, station in self.lut.station_data.iterrows():
-            p_arrival = event["DT"] + self.p_ttime[i]
-            s_arrival = event["DT"] + self.s_ttime[i]
+            p_arrival = self.event["DT"] + self.p_ttime[i]
+            s_arrival = self.event["DT"] + self.s_ttime[i]
             idx = 2*i
 
             for phase in ["P", "S"]:

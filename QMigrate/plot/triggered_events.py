@@ -1,4 +1,3 @@
-
 # -*- coding: utf-8 -*-
 """
 Module to plot the triggered events on a decimated grid.

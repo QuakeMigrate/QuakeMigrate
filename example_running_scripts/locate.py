@@ -58,9 +58,7 @@ gausspicker_onset.s_bp_filter = [2, 9.9, 2]
 gausspicker_onset.p_onset_win = [0.2, 1.5]
 gausspicker_onset.s_onset_win = [0.2, 1.5]
 
-picker = GaussianPicker(onset=gausspicker_onset)
-picker.marginal_window = 1
-picker.plot_phase_picks = True
+picker = GaussianPicker(onset=gausspicker_onset, marginal_window=1)
 
 # --- Create new QuakeScan ---
 scan = QuakeScan(data, lut, onset=onset, picker=picker,

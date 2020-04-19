@@ -21,7 +21,7 @@ import QMigrate.io as qio
 import QMigrate.plot as plot
 import QMigrate.signal.magnitudes as qmag
 from QMigrate.signal.onset import Onset
-from QMigrate.signal.pick import PhasePicker
+from QMigrate.signal.pick import PhasePicker, GaussianPicker
 import QMigrate.util as util
 
 # Filter warnings
@@ -174,9 +174,9 @@ class QuakeScan(DefaultQuakeScan):
                        "GlobalCovariance_ErrZ", "TRIG_COA", "DEC_COA",
                        "DEC_COA_NORM", "ML", "ML_Err"]
 
-    def __init__(self, data, lut, onset, picker=None, get_amplitudes=False,
+    def __init__(self, data, lut, onset, get_amplitudes=False,
                  calc_mag=False, quick_amplitudes=False, get_polarities=False,
-                 output_path=None, run_name=None, log=False):
+                 output_path=None, run_name=None, log=False, **kwargs):
         """
         Class initialisation method.
 
@@ -209,7 +209,7 @@ class QuakeScan(DefaultQuakeScan):
 
         """
 
-        DefaultQuakeScan.__init__(self)
+        super().__init__()
 
         self.data = data
         self.lut = lut
@@ -224,12 +224,11 @@ class QuakeScan(DefaultQuakeScan):
         else:
             raise util.OnsetTypeError
 
+        picker = kwargs.get("picker")
         if picker is None:
-            pass
+            self.picker = GaussianPicker(onset=onset)
         elif isinstance(picker, PhasePicker):
             self.picker = picker
-            self.picker.lut = lut
-            self.picker.output = self.output
         else:
             raise util.PickerTypeError
 
@@ -609,11 +608,8 @@ class QuakeScan(DefaultQuakeScan):
 
         for i, trig_event in trig_events.iterrows():
             event_uid = trig_event["EventID"]
-            msg = "=" * 110 + "\n"
-            msg += "\tEVENT - {} of {} - {}\n"
-            msg += "=" * 110 + "\n\n"
-            msg += "\tDetermining event location...\n"
-            msg = msg.format(i + 1, n_evts, event_uid)
+            msg = ("=" * 110 + f"\n\tEVENT - {i+1} of {n_evts} - {event_uid}\n"
+                   + "=" * 110 + "\n\n\tDetermining event location...\n")
             self.output.log(msg, self.log)
 
             trig_coa = trig_event["COA_V"]
@@ -669,13 +665,12 @@ class QuakeScan(DefaultQuakeScan):
                 w_beg_mw = event_coa_data_dtmax - self.marginal_window
                 w_end_mw = event_coa_data_dtmax + self.marginal_window
             else:
-                msg = "\n\tEvent {} is outside marginal window.\n"
-                msg += "\tDefine more realistic error - the marginal window"
-                msg += " should be an estimate of the origin time uncertainty,"
-                msg += "\n\tdetermined by the expected spatial uncertainty and"
-                msg += "the seismic velocity in the region of the earthquake\n"
-                msg += "\n" + "=" * 110 + "\n"
-                msg = msg.format(event_uid)
+                msg = (f"\n\tEvent {event_uid} is outside marginal window.\n"
+                       "\tDefine more realistic error - the marginal window"
+                       " should be an estimate of the origin time uncertainty,"
+                       "\n\tdetermined by the expected spatial uncertainty and"
+                       "the seismic velocity in the region of the earthquake\n"
+                       "\n" + "=" * 110 + "\n")
                 self.output.log(msg, self.log)
                 continue
 
@@ -688,39 +683,16 @@ class QuakeScan(DefaultQuakeScan):
             idxmax = event_mw_data["COA"].astype("float").idxmax()
             event_max_coa = event_mw_data.iloc[idxmax]
 
-            out_str = "{}_{}".format(self.output.name, event_uid)
-            self.output.log(timer(), self.log)
-
-            # Make phase picks
-            timer = util.Stopwatch()
-            self.output.log("\tMaking phase picks...", self.log)
-            self.picker.pick_phases(self.data, event_max_coa)
-            self.picker.write_picks(event_uid)
+            out_str = f"{self.output.name}_{event_uid}"
             self.output.log(timer(), self.log)
 
             # Determining earthquake location error
             timer = util.Stopwatch()
-            self.output.log("\tDetermining earthquake location and uncertainty...",
-                            self.log)
+            self.output.log(("\tDetermining earthquake location and "
+                             "uncertainty..."), self.log)
             loc_spline, loc_gau, loc_gau_err, loc_cov, \
                 loc_cov_err = self._calculate_location(map_4d)
             self.output.log(timer(), self.log)
-
-            # Determine amplitudes
-            if self.amplitudes:
-                self.output.log("\tGetting amplitudes...", self.log)
-                amps = self._get_amplitudes(loc_gau)
-                self.output.write_amplitudes(amps, event_uid)
-
-            if self.amplitudes and self.calc_mag:
-                self.output.log("\tCalculating magnitude...", self.log)
-                mags = qmag.calculate_magnitude(amps, self.magnitude_params)
-                self.output.write_amplitudes(mags, event_uid)
-                ML, ML_error = qmag.mean_magnitude(mags, self.magnitude_params)
-                self.output.log(timer(), self.log)
-            else:
-                ML = np.nan
-                ML_error = np.nan
 
             # Make event dictionary with all final event location data
             event = pd.DataFrame([[event_max_coa.values[0],
@@ -733,8 +705,33 @@ class QuakeScan(DefaultQuakeScan):
                                    loc_cov[0], loc_cov[1], loc_cov[2],
                                    loc_cov_err[0], loc_cov_err[1],
                                    loc_cov_err[2], trig_coa, detect_coa,
-                                   detect_coa_norm, ML, ML_error]],
+                                   detect_coa_norm, np.nan, np.nan]],
                                  columns=self.EVENT_FILE_COLS)
+
+            # Make phase picks
+            timer = util.Stopwatch()
+            self.output.log("\tMaking phase picks...", self.log)
+            self.picker.pick_phases(self.data, self.lut, event_max_coa,
+                                    event_uid, self.output)
+            self.output.log(timer(), self.log)
+
+            # Determine amplitudes
+            if self.amplitudes:
+                timer = util.Stopwatch()
+                self.output.log("\tGetting amplitudes...", self.log)
+                amps = self._get_amplitudes(loc_gau)
+                self.output.write_amplitudes(amps, event_uid)
+                self.output.log(timer(), self.log)
+
+            if self.amplitudes and self.calc_mag:
+                timer = util.Stopwatch()
+                self.output.log("\tCalculating magnitude...", self.log)
+                mags = qmag.calculate_magnitude(amps, self.magnitude_params)
+                self.output.write_amplitudes(mags, event_uid)
+                ML, ML_error = qmag.mean_magnitude(mags, self.magnitude_params)
+                event['ML'] = ML
+                event['ML_error'] = ML_error
+                self.output.log(timer(), self.log)
 
             self.output.write_event(event, event_uid)
 
@@ -783,7 +780,7 @@ class QuakeScan(DefaultQuakeScan):
         noise_window = self.amplitude_params.get("noise_win")
 
         evlo, evla, evdp = coord
-        picks = self.picker.phase_picks["Pick"]
+        picks = self.picker.phase_picks
         stations = self.lut.station_data
 
         raw_waveforms = self.data.raw_waveforms.copy()
@@ -1612,10 +1609,6 @@ class QuakeScan(DefaultQuakeScan):
             self.output.log("\tPlotting event summary figure...", self.log)
             quake_plot.event_summary(file_str=out_str)
             self.output.log(timer(), self.log)
-
-        if self.picker.plot_phase_picks:
-            self.picker.plot(file_str=out_str, event_uid=event_uid,
-                             run_path=self.output.run)
 
         if self.plot_event_video:
             timer = util.Stopwatch()

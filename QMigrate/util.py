@@ -16,10 +16,10 @@ def make_directories(run, subdir=None):
     Parameters
     ----------
     run : pathlib Path object
-        Location of parent output directory, named by run name
+        Location of parent output directory, named by run name.
 
     subdir : string, optional
-        subdir to make within self.run
+        subdir to make beneath the run level.
 
     """
 

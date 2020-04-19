@@ -1,53 +1,77 @@
 # -*- coding: utf-8 -*-
 """
-A simple abstract base class with method stubs to enable users to extend
-QuakeMigrate with custom phase picking methods that remain compatible with the
-core of the package.
+A simple abstract base class with method stubs enabling simple modification of
+QuakeMigrate to use custom phase picking methods that remain compatible with
+the core of the package.
 
 """
 
 from abc import ABC, abstractmethod
 
+from QMigrate.util import make_directories
+
 
 class PhasePicker(ABC):
     """
-    QuakeMigrate default pick function class.
+    Abstract base class providing a simple way of modifying the default
+    picking function in QuakeMigrate.
 
     Attributes
     ----------
-    plot_phase_picks : bool
-        Toggle plotting of phase picks
+    plot_picks : bool
+        Toggle plotting of phase picks.
 
     Methods
     -------
-    pick_phases()
+    pick_phases
+        Abstract method stub providing interface with QuakeMigrate scan.
+    write(event_uid, phase_picks, output)
+        Outputs phase picks to file.
+    plot
+        Method stub for phase pick plotting.
 
     """
 
-    def __init__(self):
-        """Class initialisation method."""
+    def __init__(self, **kwargs):
+        """Instantiate the PhasePicker object."""
+        self.plot_picks = kwargs.get("plot_picks", True)
 
-        self.plot_phase_picks = False
-
-    def __str__(self):
-        """
-        Return short summary string of the Pick object
-
-        It should provide information on all of the various parameters that the
-        user can/has set.
-
-        """
-
-        out = "Default Pick object - add a __str__ method to your Pick class"
-
-        return out
+    def __repr__(self):
+        """Returns a short summary string of the PhasePicker object."""
+        return ("Abstract PhasePicker object - consider adding a __repr__ "
+                "method to your custom PhasePicker class that gives the user "
+                "relevant information about the object.")
 
     @abstractmethod
     def pick_phases(self):
-        """Method stub for phase picking"""
+        """Method stub for phase picking."""
         pass
 
-    @abstractmethod
+    def write(self, event_uid, phase_picks, output):
+        """
+        Write phase picks to a new .picks file.
+
+        Parameters
+        ----------
+        event_uid : str
+            Unique identifier for the event.
+        phase_picks : pandas DataFrame object
+            Phase pick times with columns: ["Name", "Phase",
+                                            "ModelledTime",
+                                            "PickTime", "PickError",
+                                            "SNR"]
+            Each row contains the phase pick from one station/phase.
+        output : QuakeMigrate input/output control object
+            Contains useful methods controlling output for the scan.
+
+        """
+
+        subdir = "locate/picks"
+        make_directories(output.run, subdir=subdir)
+        fname = (output.run / subdir / f"{event_uid}").with_suffix(".picks")
+        phase_picks.to_csv(fname, index=False)
+
     def plot(self):
-        """Method stub for plotting of phase picks"""
-        pass
+        """Method stub for phase pick plotting."""
+        print(("Consider adding a plot method to your custom PhasePicker"
+               " class - see the GaussianPicker class for reference."))

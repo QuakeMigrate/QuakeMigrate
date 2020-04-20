@@ -771,7 +771,12 @@ class QuakeScan(DefaultQuakeScan):
                 self.output.log("\tCalculating magnitude...", self.log)
                 mags = qmag.calculate_magnitudes(amps, self.magnitude_params)
                 self.output.write_amplitudes(mags, event_uid)
-                ML, ML_Err, ML_r2 = qmag.mean_magnitude(mags, self.magnitude_params)
+                ML, ML_Err, ML_r2 = qmag.mean_magnitude(mags,
+                                                        self.magnitude_params,
+                                                        plot_amp_vs_dist=True,
+                                                        event=event,
+                                                        run_path=self.output.run,
+                                                        file_str=out_str)
                 event['ML'] = ML
                 event['ML_Err'] = ML_Err
                 event['ML_r_squared'] = ML_r2
@@ -1025,13 +1030,13 @@ class QuakeScan(DefaultQuakeScan):
                     for j, tr in enumerate(st):
                         try:
                             response = self.response_inv.get_response(tr.id,
-                                                                tr.stats.starttime)
+                                tr.stats.starttime)
                             paz = response.get_paz()
                             # Add a zero to get displacement
                             paz.zeros.extend([0j])
                             paz = {'poles': paz.poles,
-                                'zeros': paz.zeros,
-                                'gain': paz.normalization_factor,
+                                   'zeros': paz.zeros,
+                                   'gain': paz.normalization_factor,
                                 'sensitivity': response.instrument_sensitivity.value}
 
                             tr.simulate(paz_remove=paz,
@@ -1044,7 +1049,7 @@ class QuakeScan(DefaultQuakeScan):
                         except (Exception, ValueError) as e:
                             stn = '.'.join(tr.id.split('.')[:3])
                             print('\t\t'+str(e),
-                                '  -- skipping instrument {}'.format(stn))
+                                  '  -- skipping instrument {}'.format(stn))
                             amps = amps_template.copy()
                             amps[0] = tr.id
                             amplitudes.loc[i*3+j] = amps
@@ -1063,7 +1068,7 @@ class QuakeScan(DefaultQuakeScan):
                     except ValueError as e:
                         stn = '.'.join(st[0].id.split('.')[:3])
                         print('\t\t'+str(e),
-                                '  -- skipping instrument {}'.format(stn))
+                              '  -- skipping instrument {}'.format(stn))
                         amps = amps_template.copy()
                         for j, tr in enumerate(st.traces):
                             amps[0] = tr.id
@@ -1232,6 +1237,8 @@ class QuakeScan(DefaultQuakeScan):
                 noise_amp = np.sqrt(np.mean(np.square(noise.data))) * 1000.
 
                 if self.quick_amps:
+                    # NOTE: implicitly takes the gain at the approx_freq of the
+                    # last amplitude measured; S-wave signal window.
                     noise_amp *= wa_gain / gain
                 # Put in relevant columns
                 # amps[7:9] = noise_amp * 2000., picked
@@ -1341,7 +1348,9 @@ class QuakeScan(DefaultQuakeScan):
         trace : ObsPy Trace object
             Waveform for which to calculate peak-to-trough amplitude.
 
-        prom_mult : float
+        prom_mult : float, optional
+            Specify a prominence threshold for the find_peaks algorithm; used
+            when measuring maximum peak-to-peak amplitude.
 
         Returns
         -------

@@ -5,14 +5,24 @@ trace amplitudes, earthquake location, station locations, and an estimated
 attenuation curve for the region of interest.
 
 """
+import os
 
+import matplotlib
+try:
+    os.environ["DISPLAY"]
+    matplotlib.use("Qt5Agg")
+except KeyError:
+    matplotlib.use("Agg")
 from matplotlib import pyplot as plt
 import numpy as np
-import pandas as pds
+import pandas as pd
 from scipy import sparse
 
+import QMigrate.util as util
 
-def mean_magnitude(magnitudes, params):
+
+def mean_magnitude(magnitudes, params, plot_amp_vs_dist=True,
+                   event=None, run_path=None, file_str=None):
     """
     Calculate the mean magnitude for an event based on the magnitude estimates
     calculated from each component of each station.
@@ -40,7 +50,12 @@ def mean_magnitude(magnitudes, params):
             "A0" - which A0 attenuation correction to use. See _logA0 function
                    for options, or pass the function directly.
         May also optionally include:
+            "amplitude_feature" - which amplitude feature to do the calculation
+                                  on. Normally S_amp makes sense. This should
+                                  be half the full peak-to-trough amplitude.
+            "amplitude_multiplier" - factor to multiply measured amplitudes by
             "trace_filter" - reg_expr, filter by channel to use in the average.
+            "station_filter" - list, filter out certain stations.
             "dist_filter" - float, use only reported magnitudes with distances
                             less than dist_filter.
             "use_hyp_distance" - bool, use hypocentral distance, rather than
@@ -49,6 +64,29 @@ def mean_magnitude(magnitudes, params):
                              pre-signal noise * noise_filter.
             "use_only_picked" - bool, use only auto-picked channels.
             "weighted" - bool, calculate a weighted average.
+
+    plot_amp_vs_distance : bool, optional
+        Whether to produce a plot of measured amplitude with distance vs.
+        predicted amplitude with distance derived from mean_mag and the
+        chosen attenuation model.
+
+    event : pandas DataFrame, optional
+        Final location information for the event to be plotted
+        Columns = ["DT", "COA", "COA_NORM", "X", "Y", "Z",
+                    "LocalGaussian_X", "LocalGaussian_Y", "LocalGaussian_Z",
+                    "LocalGaussian_ErrX", "LocalGaussian_ErrY",
+                    "LocalGaussian_ErrZ", "GlobalCovariance_X",
+                    "GlobalCovariance_Y", "GlobalCovariance_Z",
+                    "GlobalCovariance_ErrX", "GlobalCovariance_ErrY",
+                    "GlobalCovariance_ErrZ", "TRIG_COA", "DEC_COA",
+                    "DEC_COA_NORM", "ML", "ML_Err"]
+        All X / Y as lon / lat; Z and X / Y / Z uncertainties in metres
+
+    run_path : path
+            Path of run directory
+
+    file_str : str, optional
+            String {run_name}_{evt_id} for amp_vs_distance plot file naming
 
     Returns
     -------
@@ -72,8 +110,15 @@ def mean_magnitude(magnitudes, params):
 
     """
 
+    mags_orig = magnitudes.copy()
+
     if params.get("trace_filter"):
         magnitudes = magnitudes.filter(regex=params["trace_filter"], axis=0)
+
+    if params.get("station_filter"):
+        for stn in list(params.get("station_filter")):
+            magnitudes = magnitudes[~magnitudes.index.str.contains(f'.{stn}.',
+                                                                   regex=False)]
 
     if params.get("dist_filter"):
         edist, zdist = magnitudes["epi_dist"], magnitudes["z_dist"]
@@ -105,13 +150,411 @@ def mean_magnitude(magnitudes, params):
         weights = np.ones_like(mags)
 
     mean_mag = np.sum(mags*weights) / np.sum(weights)
-    mean_mag_err = np.sqrt(np.sum(((mags - mean_mag)*weights)**2) / np.sum(weights))
+    mean_mag_err = np.sqrt(np.sum(((mags - mean_mag)*weights)**2) \
+        / np.sum(weights))
 
     # Pass the *already filtered* magnitudes DataFrame to the _amp_r_squared
     # function.
     mag_r_squared = _amp_r_squared(params, magnitudes, mean_mag)
 
+    if plot_amp_vs_dist:
+        _plot_amp_vs_distance(params, mags_orig, mean_mag, mean_mag_err, event,
+                              run_path, file_str, r_squared=mag_r_squared)
+
     return mean_mag, mean_mag_err, mag_r_squared
+
+def _plot_amp_vs_distance(params, mags_orig, mag, mag_err, event, run_path,
+                          file_str, r_squared=None):
+    """
+    Plot a figure showing the measured amplitude with distance vs. predicted
+    amplitude with distance derived from mean_mag and the chosen attenuation
+    model.
+
+    Parameters
+    ----------
+    params : dict
+        Contains a set of parameters that are used to tune the average
+        magnitude calculation. Must include:
+            "A0" - which A0 attenuation correction to use. See _logA0 function
+                   for options, or pass the function directly.
+        May also optionally include:
+            "amplitude_feature" - which amplitude feature to do the calculation
+                                  on. Normally S_amp makes sense. This should
+                                  be half the full peak-to-trough amplitude.
+            "amplitude_multiplier" - factor to multiply measured amplitudes by
+            "trace_filter" - reg_expr, filter by channel to use in the average.
+            "station_filter" - list, filter out certain stations.
+            "dist_filter" - float, use only reported magnitudes with distances
+                            less than dist_filter.
+            "use_hyp_distance" - bool, use hypocentral distance, rather than
+                                 epicentral distance.
+            "noise_filter" - float, use only channels where amplitude exceeds
+                             pre-signal noise * noise_filter.
+            "use_only_picked" - bool, use only auto-picked channels.
+            "weighted" - bool, calculate a weighted average.
+
+    mags_orig : pandas DataFrame object
+        Contains information about the measured amplitudes on each component at
+        every station, as well as magnitude calculated using these amplitudes.
+        Has columns:
+            "epi_dist" - epicentral distance between the station and event.
+            "z_dist" - vertical distance between the station and event.
+            "P_amp" - half peak-to-trough amplitude of the P phase
+            "P_freq" - approximate frequency of the P phase.
+            "S_amp" - half peak-to-trough amplitude of the S phase.
+            "S_freq" - approximate frequency of the S phase.
+            "Noise_amp" - the standard deviation of the noise before the event.
+            "Picked" - boolean designating whether or not a phase was picked.
+            "ML" - calculated magnitude estimate
+            "ML_Err" - estimate error on calculated magnitude
+
+    mag : float or NaN
+        Mean (or weighted mean) of the magnitude estimates calculated from each
+        individual channel after (optionally) removing some observations based
+        on trace ID, distance, etcetera.
+
+    mag_err : float or NaN
+        Standard deviation (or weighted standard deviation) of the magnitude
+        estimates calculated from individual channels which contributed to the
+        calculation of the (weighted) mean magnitude.
+
+    event : pandas DataFrame
+        Final location information for the event to be plotted
+        Columns = ["DT", "COA", "COA_NORM", "X", "Y", "Z",
+                    "LocalGaussian_X", "LocalGaussian_Y", "LocalGaussian_Z",
+                    "LocalGaussian_ErrX", "LocalGaussian_ErrY",
+                    "LocalGaussian_ErrZ", "GlobalCovariance_X",
+                    "GlobalCovariance_Y", "GlobalCovariance_Z",
+                    "GlobalCovariance_ErrX", "GlobalCovariance_ErrY",
+                    "GlobalCovariance_ErrZ", "TRIG_COA", "DEC_COA",
+                    "DEC_COA_NORM", "ML", "ML_Err"]
+        All X / Y as lon / lat; Z and X / Y / Z uncertainties in metres
+
+    run_path : path
+        Path of run directory
+
+    file_str : str
+        String {run_name}_{evt_id} for amp_vs_distance plot file naming
+
+    r_squared : float
+        r-squared statistic describing the fit of the amplitude vs. distance
+        curve predicted by the calculated mean_mag and chosen attenuation
+        model to the measured amplitude observations. This is intended to be
+        used to help discriminate between 'real' events, for which the
+        predicted amplitude vs. distance curve should provide a good fit to
+        the observations, from artefacts, which in general will not.
+
+    """
+
+    # Get UID from file string
+    uid = file_str.split('_')[-1]
+    # print(f'\nEVENT UID: {UID}')
+
+    # Work on a copy of the original magnitudes DataFrame - not strictly needed
+    magnitudes = mags_orig.copy()
+
+    multiplier = params.get('amplitude_multiplier', 1.)
+    feature = params.get('amplitude_feature', 'S_amp')
+
+    A0_calib = params.get('A0')
+    if not A0_calib:
+        msg = "A0 attenuation correction not specified in params!"
+        raise AttributeError(msg)
+
+    # Set filters
+    trace_filter = False
+    station_filter = False
+    hyp_dist = False
+    dist_filter = False
+    pick_filter = False
+    noise_filter = False
+
+    # Get noise filter; remove noise_amp NaN's
+    if params.get("noise_filter"):
+        noise_filter = True
+        amps = magnitudes[params["amplitude_feature"]].values
+        noise_amps = magnitudes["Noise_amp"].values
+        # Avoad RunTimeWarning from comparing nans (don't use these mags)
+        # NOTE: This is operating on a copy, so also changes these values in
+        # the magnitudes DataFrame object!!
+        amps[np.isnan(amps)] = -1
+        noise_amps[np.isnan(noise_amps)] = 0.
+        # magnitudes = magnitudes[amps >= noise_amps * params["noise_filter"]]
+        magnitudes['Noise_Filter'] = False
+        magnitudes.loc[(amps >= noise_amps * params["noise_filter"]),
+                       'Noise_Filter'] = True
+
+    # Remove nan amplitude values
+    magnitudes = magnitudes[~(magnitudes[feature] == -1)]
+
+    # Get trace filter
+    if params.get("trace_filter"):
+        # magnitudes = magnitudes.filter(regex=params["trace_filter"], axis=0)
+        trace_filter = True
+        magnitudes['Trace_Filter'] = False
+        magnitudes.loc[magnitudes.index.str.contains(params["trace_filter"]),
+                       'Trace_Filter'] = True
+
+    # Get station filter
+    if params.get("station_filter"):
+        station_filter = True
+        magnitudes['Station_Filter'] = True
+        for stn in list(params.get("station_filter")):
+            magnitudes.loc[magnitudes.index.str.contains(f'.{stn}.',
+                                                         regex=False),
+                           'Station_Filter'] = False
+
+    # Calculate distances
+    edist, zdist = magnitudes["epi_dist"], magnitudes["z_dist"]
+    if params["use_hyp_distance"]:
+        hyp_dist = True
+        dist = np.sqrt(edist.values**2 + zdist.values**2)
+    else:
+        dist = edist.values
+
+    # Get distance filter
+    if params.get("dist_filter"):
+        dist_filter = True
+        # magnitudes = magnitudes[dist <= params["dist_filter"]]
+        magnitudes['Dist_Filter'] = False
+        magnitudes.loc[(dist <= params["dist_filter"]), 'Dist_Filter'] = True
+
+    # Set distances; remove dist=0 values (logs do not like this)
+    dist[dist == 0.] = np.nan
+    magnitudes['Dist'] = dist
+
+    # Get pick filter
+    if params.get("use_only_picked"):
+        pick_filter = True
+        # magnitudes = magnitudes[magnitudes["is_picked"]]
+
+    # Set used mags (after applying all filters)
+    magnitudes['Used'] = True
+    if trace_filter:
+        magnitudes.loc[~magnitudes['Trace_Filter'], 'Used'] = False
+    if station_filter:
+        magnitudes.loc[~magnitudes['Station_Filter'], 'Used'] = False
+    if dist_filter:
+        magnitudes.loc[~magnitudes['Dist_Filter'], 'Used'] = False
+    if pick_filter:
+        magnitudes.loc[~magnitudes['is_picked'], 'Used'] = False
+    if noise_filter:
+        magnitudes.loc[~magnitudes['Noise_Filter'], 'Used'] = False
+
+    all_amps = magnitudes[feature].values * multiplier
+    noise_amps = magnitudes["Noise_amp"].values * multiplier
+
+    # Find min/max values for x and y axes
+    amps_max = all_amps.max() * 5
+    amps_min = noise_amps.min() / 10
+    dist_min = magnitudes['Dist'].min() / 2
+    dist_max = magnitudes['Dist'].max() * 1.5
+
+    # Calculate distance error (for errorbars)
+    x_err = event['LocalGaussian_ErrX'].values[0] / 1000
+    y_err = event['LocalGaussian_ErrY'].values[0] / 1000
+    epi_err = np.sqrt(x_err**2 + y_err**2)
+
+    if hyp_dist:
+        z_err = event['LocalGaussian_ErrY'].values[0] / 1000
+        dist_err = np.sqrt(epi_err**2 + z_err**2)
+    else:
+        dist_err = epi_err
+
+    # Initiate figure
+    fig = plt.figure(figsize=(25, 15))
+    ax = fig.add_subplot(111)
+
+    # Plot noise amps
+    noise_label = 'Noise amplitude (RMS amplitude in noise window)'
+    ax.scatter(dist, noise_amps, marker='v', c='k', label=noise_label)
+
+    # Plot amplitude obs for used observations
+    used_mags = magnitudes[magnitudes['Used']]
+    signal_label = (f'Signal amplitude (max {feature[0]}-wave amplitude '
+                    f'in {feature[0]} signal window)')
+    # ax.scatter(used_mags['Dist'], used_mags[feature] * multiplier, marker='x',
+    #            label=signal_label)
+    _, _, bars = ax.errorbar(used_mags['Dist'], used_mags[feature] * multiplier,
+                             xerr=dist_err, yerr=noise_amps[magnitudes['Used']],
+                             fmt='o', marker='x', label=signal_label)
+    _ = [errorbar.set_alpha(0.5) for errorbar in bars]
+
+    # One label for each station, above highest observed amplitude; faff.
+    stn = None
+    stns = []
+    comps = []
+    for i, tr_id in enumerate(used_mags.index):
+        if not stn:
+            stn = tr_id[:-1]
+            stn_start = 0
+            comps.append(tr_id[-1])
+            continue
+        elif tr_id[:-1] != stn:
+            stn_end = i
+            distance = used_mags['Dist'].iloc[i-1]
+            amp = max(used_mags[feature].iloc[stn_start:stn_end]) * multiplier
+            compstring = ''
+            for comp in comps:
+                compstring += f'{comp},'
+            label = f'{stn}[{compstring[:-1]}]'
+            ax.annotate(label, (distance, amp), ha='center', va='bottom',
+                        fontsize=8)
+            stns.append(stn)
+            stn = tr_id[:-1]
+            stn_start = i
+            comps = [tr_id[-1]]
+        elif i == len(used_mags.index) - 1:
+            stn = tr_id[:-1]
+            comps.append(tr_id[-1])
+            distance = used_mags['Dist'].iloc[i]
+            amp = max(used_mags[feature].iloc[stn_start:]) * multiplier
+            compstring = ''
+            for comp in comps:
+                compstring += f'{comp},'
+            label = f'{stn}[{compstring[:-1]}]'
+            ax.annotate(label, (distance, amp), ha='center', va='bottom',
+                        fontsize=8)
+            stns.append(stn)
+        else:
+            comps.append(tr_id[-1])
+            continue
+
+    # Plot amplitude obs for rejected observations (if there are any)
+    rejected_mags = magnitudes[~magnitudes['Used']]
+    if len(rejected_mags) > 0:
+        unused_label = f'Unused {feature[0]}-wave amplitude observations'
+        # ax.scatter(rejected_mags['Dist'],
+        #            rejected_mags[feature] * multiplier, marker='x', c='gray',
+        #            label=signal_label)
+        _, _, bars = ax.errorbar(rejected_mags['Dist'],
+                                 rejected_mags[feature] * multiplier,
+                                 xerr=dist_err,
+                                 yerr=noise_amps[~magnitudes['Used']], fmt='o',
+                                 marker='x', c='gray', label=unused_label)
+        _ = [errorbar.set_alpha(0.5) for errorbar in bars]
+
+        # Only label stations which were not already labelled
+        rej_trids = []
+        rej_amps = []
+        rej_dists = []
+        for i, tr_id in enumerate(rejected_mags.index):
+            stn = tr_id[:-1]
+            if stn in stns:
+                continue
+            else:
+                rej_trids.append(tr_id)
+                rej_amps.append(rejected_mags[feature].iloc[i] * multiplier)
+                rej_dists.append(rejected_mags['Dist'].iloc[i])
+
+        # Only one label per new station; faff once again.
+        stn = None
+        comps = []
+        for i, tr_id in enumerate(rej_trids):
+            if not stn:
+                stn = tr_id[:-1]
+                stn_start = i
+                comps.append(tr_id[-1])
+                continue
+            elif tr_id[:-1] != stn:
+                stn_end = i
+                distance = rej_dists[i-1]
+                amp = max(rej_amps[stn_start:stn_end])
+                compstring = ''
+                for comp in comps:
+                    compstring += f'{comp},'
+                label = f'{stn}[{compstring[:-1]}]'
+                ax.annotate(label, (distance, amp), color='gray', ha='center',
+                            va='bottom', fontsize=8)
+                stn = tr_id[:-1]
+                stn_start = i
+                comps = [tr_id[-1]]
+            elif i == len(rej_trids) - 1:
+                stn = tr_id[:-1]
+                comps.append(tr_id[-1])
+                distance = rej_dists[i]
+                amp = max(rej_amps[stn_start:])
+                compstring = ''
+                for comp in comps:
+                    compstring += f'{comp},'
+                label = f'{stn}[{compstring[:-1]}]'
+                ax.annotate(label, (distance, amp), color='gray', ha='center',
+                            va='bottom', fontsize=8)
+            else:
+                comps.append(tr_id[-1])
+                continue
+
+    ## Calculate predicted amplitudes from ML & attenuation function
+    # Upper and lower bounds for predicted amplitude from upper/lower bounds
+    # for mag
+    mag_upper = mag + mag_err
+    mag_lower = mag - mag_err
+
+    # Calculated attenuation correction for full range of distances
+    distances = np.linspace(dist_min, dist_max, 10000)
+    if callable(A0_calib):
+        att = A0_calib(distances)
+    else:
+        att = _logA0(distances, A0_calib)
+
+    # Calculate predicted amplitude with distance
+    predicted_amp = np.power(10, (mag - att))
+    predicted_amp_upper = np.power(10, (mag_upper - att))
+    predicted_amp_lower = np.power(10, (mag_lower - att))
+
+    # Plot predicted amplitude with distance
+    label = (f'Predicted amplitude for ML = {mag:.2f} \u00B1 {mag_err:.2f}'
+             f'\nusing attenuation curve "{A0_calib}"')
+    ax.plot(distances, predicted_amp, linestyle='-', c='r', label=label)
+    ax.plot(distances, predicted_amp_upper, linestyle='--', c='r')
+    ax.plot(distances, predicted_amp_lower, linestyle='--', c='r')
+
+    # Plot median noise amplitude
+    ax.axhline(np.median(noise_amps), linestyle=':', xmin=0, xmax=dist_max,
+               color='k', label='Median noise amplitude')
+
+    # If distance filter specified, add it to the plot
+    if dist_filter:
+        ax.axvline(params['dist_filter'], linestyle='--', ymin=0,
+                   ymax=amps_max, color='k', label='Distance filter')
+
+    # Label r-squared value
+    ax.text(0.98, 0.02, f'r-squared: {r_squared:.2f}', transform=ax.transAxes,
+            bbox=dict(boxstyle='round', fc='w', alpha=0.8), va='bottom',
+            ha='right', fontsize=16)
+
+    # Set axis limits
+    ax.set_xlim(dist_min, dist_max)
+    ax.set_ylim(amps_min, max(np.max(predicted_amp), amps_max))
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+
+    # Set figure and axis titles
+    ax.set_title(f'Amplitude vs distance plot for event: "{uid}"', fontsize=18)
+    ax.set_ylabel('Amplitude / mm', fontsize=16)
+    if hyp_dist:
+        ax.set_xlabel('Hypocentral Distance / km', fontsize=16)
+    else:
+        ax.set_xlabel('Epicentral Distance / km', fontsize=16)
+
+    # Set axis tick label font size
+    ax.tick_params(axis='both', which='major', labelsize=14)
+
+    # Add legend
+    ax.legend(fontsize=16, loc='upper right')
+
+    # Specify tight layout
+    plt.tight_layout()
+
+    # If no file_str specified, show the plot; else save it as a PDF
+    if file_str is None:
+        plt.show()
+    else:
+        subdir = "locate/amp_vs_distance_plots"
+        util.make_directories(run_path, subdir=subdir)
+        out_str = run_path/ subdir / file_str
+        plt.savefig("{}_AmpVsDistance.pdf".format(out_str), dpi=400)
+        plt.close("all")
 
 def _amp_r_squared(params, magnitudes, mean_mag):
     """
@@ -129,6 +572,10 @@ def _amp_r_squared(params, magnitudes, mean_mag):
             "A0" - which A0 attenuation correction to use. See _logA0 function
                    for options, or pass the function directly.
         May also optionally include:
+            "amplitude_feature" - which amplitude feature to do the calculation
+                                  on. Normally S_amp makes sense. This should
+                                  be half the full peak-to-trough amplitude.
+            "amplitude_multiplier" - factor to multiply measured amplitudes by
             "trace_filter" - reg_expr, filter by channel to use in the average.
             "dist_filter" - float, use only reported magnitudes with distances
                             less than dist_filter.
@@ -173,7 +620,7 @@ def _amp_r_squared(params, magnitudes, mean_mag):
 
     multiplier = params.get('amplitude_multiplier', 1.)
     feature = params.get('amplitude_feature', 'S_amp')
-    
+
     A0_calib = params.get('A0')
     if not A0_calib:
         msg = "A0 attenuation correction not specified in params!"
@@ -188,8 +635,6 @@ def _amp_r_squared(params, magnitudes, mean_mag):
         dist = edist.values
     dist[dist == 0.] = np.nan
 
-    A0_calib = params.get("A0", )
-
     if callable(A0_calib):
         att = A0_calib(dist)
     else:
@@ -197,13 +642,13 @@ def _amp_r_squared(params, magnitudes, mean_mag):
 
     log_amp_mean = np.log10(amps).mean()
     log_amp_variance = ((np.log10(amps) - log_amp_mean) ** 2).sum()
-    print(log_amp_variance)
+    # print(log_amp_variance)
 
     mod_variance = ((np.log10(amps) - (mean_mag - att)) ** 2).sum()
-    print(mod_variance)
+    # print(mod_variance)
 
     r_squared = (log_amp_variance - mod_variance) / log_amp_variance
-    print(r_squared)
+    # print(r_squared)
 
     return r_squared
 
@@ -235,6 +680,7 @@ def calculate_magnitudes(amplitudes, params):
             "amplitude_feature" - which amplitude feature to do the calculation
                                   on. Normally S_amp makes sense. This should
                                   be half the full peak-to-trough amplitude.
+            "amplitude_multiplier" - factor to multiply measured amplitudes by
 
     Returns
     -------
@@ -488,12 +934,12 @@ def generate_synthetic_cat(nev, nsta, noise_level, xlim, ylim, zlim,
                 amp[2*j + k, 6] = noise[k]
                 index.append('.{:04d}..BH{:1d}'.format(j, k+1))
             j += 1
-        amp = pds.DataFrame(amp,
-                            columns=['epi_dist', 'z_dist',
-                                     'P_amp', 'P_freq',
-                                     'S_amp', 'S_freq',
-                                     'Error'],
-                            index=index)
+        amp = pd.DataFrame(amp,
+                           columns=['epi_dist', 'z_dist',
+                                    'P_amp', 'P_freq',
+                                    'S_amp', 'S_freq',
+                                    'Error'],
+                           index=index)
         observations[uid] = amp
         i += 1
 

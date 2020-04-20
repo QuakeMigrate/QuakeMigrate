@@ -16,12 +16,12 @@ import pandas as pd
 from scipy.interpolate import Rbf
 from scipy.signal import fftconvolve, find_peaks
 
-import QMigrate.core as ilib
-import QMigrate.io as qio
-import QMigrate.plot as plot
-import QMigrate.signal.magnitudes as qmag
-from QMigrate.signal.onset import Onset
-from QMigrate.signal.pick import PhasePicker
+from QMigrate.core import find_max_coa, migrate
+from QMigrate.io import QuakeIO
+from QMigrate.plot import QuakePlot
+from .magnitudes import calculate_magnitude, mean_magnitude
+from .onset import Onset
+from .pick import PhasePicker
 import QMigrate.util as util
 
 # Filter warnings
@@ -215,7 +215,7 @@ class QuakeScan(DefaultQuakeScan):
         self.lut = lut
 
         if output_path is not None:
-            self.output = qio.QuakeIO(output_path, run_name, log)
+            self.output = QuakeIO(output_path, run_name, log)
         else:
             self.output = None
 
@@ -714,9 +714,9 @@ class QuakeScan(DefaultQuakeScan):
 
             if self.amplitudes and self.calc_mag:
                 self.output.log("\tCalculating magnitude...", self.log)
-                mags = qmag.calculate_magnitude(amps, self.magnitude_params)
+                mags = calculate_magnitude(amps, self.magnitude_params)
                 self.output.write_amplitudes(mags, event_uid)
-                ML, ML_error = qmag.mean_magnitude(mags, self.magnitude_params)
+                ML, ML_error = mean_magnitude(mags, self.magnitude_params)
                 self.output.log(timer(), self.log)
             else:
                 ML = np.nan
@@ -1084,17 +1084,16 @@ class QuakeScan(DefaultQuakeScan):
         pos_smp = int(round(self.post_pad * int(self.sampling_rate)))
         nsamp = tsamp - pre_smp - pos_smp
 
-        # Prep empty 4-D coalescence map and run C-compiled ilib.migrate()
+        # Prep empty 4-D coalescence map and run C-compiled migrate()
         ncell = tuple(self.lut.cell_count)
         map_4d = np.zeros(ncell + (nsamp,), dtype=np.float64)
-        ilib.migrate(onsets, ttimes, pre_smp, pos_smp, nsamp, map_4d,
-                     self.n_cores)
+        migrate(onsets, ttimes, pre_smp, pos_smp, nsamp, map_4d, self.n_cores)
 
         # Prep empty coalescence and unraveled grid index arrays and run
-        # C-compiled ilib.find_max_coa()
+        # C-compiled find_max_coa()
         max_coa = np.zeros(nsamp, np.double)
         max_coa_idx = np.zeros(nsamp, np.int64)
-        ilib.find_max_coa(map_4d, max_coa, max_coa_idx, 0, nsamp, self.n_cores)
+        find_max_coa(map_4d, max_coa, max_coa_idx, 0, nsamp, self.n_cores)
 
         # Correct map_4d for number of contributing traces
         map_4d = np.exp(map_4d / (len(avail_idx)*2))
@@ -1603,9 +1602,9 @@ class QuakeScan(DefaultQuakeScan):
         """
 
         if self.plot_event_summary or self.plot_event_video:
-            quake_plot = plot.QuakePlot(self.lut, self.data, event_mw_data,
-                                        self.marginal_window, self.output.run,
-                                        event, map_4d, self.coa_map)
+            quake_plot = QuakePlot(self.lut, self.data, event_mw_data,
+                                   self.marginal_window, self.output.run,
+                                   event, map_4d, self.coa_map)
 
         if self.plot_event_summary:
             timer = util.Stopwatch()

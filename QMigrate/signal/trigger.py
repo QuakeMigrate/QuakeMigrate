@@ -8,7 +8,7 @@ import numpy as np
 from obspy import UTCDateTime
 import pandas as pd
 
-import QMigrate.io as qio
+from QMigrate.io import QuakeIO
 from QMigrate.plot import triggered_events
 import QMigrate.util as util
 
@@ -124,7 +124,7 @@ class Trigger:
         """
 
         if output_path is not None:
-            self.output = qio.QuakeIO(output_path, output_name, log)
+            self.output = QuakeIO(output_path, output_name, log)
         else:
             self.output = None
 

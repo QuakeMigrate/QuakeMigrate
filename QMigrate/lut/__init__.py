@@ -5,5 +5,5 @@ traveltime lookup tables used in QuakeMigrate.
 
 """
 
-from .lut import LUT  # NOQA
 from .create_lut import compute, read_nlloc  # NOQA
+from .lut import LUT  # NOQA

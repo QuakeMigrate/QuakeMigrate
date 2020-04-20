@@ -37,30 +37,32 @@ data.path_structure(archive_format="YEAR/JD/STATION")
 # data.upfactor = 2
 
 # --- Specify parameters for amplitude measurement ---
-amp_params = {'pre_filt' : (0.02, 0.03, 20, 25),         # pre-filter used if doing full instrument response removal
-              'water_level' : 600,                       # water-level used if doing full instrument response removal
-              'response_fname' : 'Z7_dataless.xml',      # path to file containing instrument response information; dataless.SEED, stationXML, concatenated RESP files, etc.
-              'noise_win' : 10.,                         # length of the noise window; to make a measurement of the background noise before earthquake phase arrivals
-              'signal_window' : 5.,                      # length of the S-wave signal window
-              'prominence_multiplier': 0.,               # parameter passed to find_peaks (0. is recommended)
-              'highpass_filter' : True,                  # whether to apply a high-pass filter before measuring amplitudes
-              'highpass_freq' : 2.,                      # high-pass filter frequency
-              'bandpass_filter' : False,                 # whether to apply a band-pass filter before measuring amplitudes
-              'bandpass_lowcut' : 2.,                    # band-pass filter low-cut frequency 
-              'bandpass_highcut' : 20.,                  # band-pass filter high-cut frequency
-              'filter_corners': 4,                       # number of corners for the chosen filter
-              'remove_FIR_response' : False}             # whether to remove all response stages, inc. FIR (st.remove_response()), not just poles-and-zero response stage; significantly slower
+amp_params = {'response_fname' : 'Z7_dataless.xml',      # str : path to file containing instrument response information; dataless.SEED, stationXML, concatenated RESP files, etc.
+              'noise_win' : 10.,                         # float : length of the noise window; to make a measurement of the background noise before earthquake phase arrivals
+              'signal_window' : 5.,                      # float : length of the S-wave signal window
+              'pre_filt' : (0.02, 0.03, 20, 25),         # tuple, optional : pre-filter used if doing full instrument response removal
+              'water_level' : 600,                       # float, optional : water-level used if doing full instrument response removal
+              'remove_FIR_response' : False,             # bool, optional : whether to remove all response stages, inc. FIR (st.remove_response()), not just poles-and-zero response stage; significantly slower
+              'highpass_filter' : True,                  # bool, optional : whether to apply a high-pass filter before measuring amplitudes
+              'highpass_freq' : 2.,                      # float, optional : high-pass filter frequency
+              'bandpass_filter' : False,                 # bool, optional : whether to apply a band-pass filter before measuring amplitudes
+              'bandpass_lowcut' : 2.,                    # float, optional : band-pass filter low-cut frequency
+              'bandpass_highcut' : 20.,                  # float, optional : band-pass filter high-cut frequency
+              'filter_corners': 4,                       # int, optional : number of corners for the chosen filter
+              'prominence_multiplier': 0.}               # float, optional : parameter passed to find_peaks (0. is recommended)
 
 # --- Specify parameters for magnitude calculation ---
-mag_params = {'station_corrections' : {},                # dictionary of trace_id - correction pairs
-              'amplitude_feature' : 'S_amp',             # which amplitude feature to calculate magnitudes from (S_amp or P_amp)
-              'use_hyp_distance' : True,                 # use hypocentral rather than epicentral distance
-              'A0' : 'Hutton-Boore',                     # which A0 attenuation correction to apply, a function can be directly passed here
-              'trace_filter' : '.[BH]H[NE]$',            # which traces to calculate magnitude from
-              'dist_filter' : False,                     # filter magnitudes based on event-station distance
-              'use_only_picked' : False,                 # use only amplitude observations from traces which have been picked by the autopicker
-              'noise_filter' : 2.,                       # a factor to multiply the noise by to remove traces with high noise levels
-              'weighted' : False}                        # do a weighted mean of the magnitudes
+mag_params = {'A0' : 'Hutton-Boore',                     # str or func : which A0 attenuation correction to apply, a function can be directly passed here
+              'amplitude_feature' : 'S_amp',             # str : which amplitude feature to calculate magnitudes from ('S_amp' or 'P_amp')
+              'station_corrections' : {},                # dict, optional : dictionary of trace_id - correction pairs
+              'use_hyp_distance' : True,                 # bool, optional : use hypocentral rather than epicentral distance
+              'trace_filter' : '.[BH]H[NE]$',            # regex expression, optional : which traces to calculate magnitude from
+              'station_filter' : ['FLUR', 'KVE'],         # list, optional : list of stations to exclude from mean magnitude calculation
+              'dist_filter' : False,                     # False or float, optional : filter magnitudes based on event-station distance (in kilometres)
+              'use_only_picked' : False,                 # bool, optional : use only amplitude observations from traces which have been picked by the autopicker
+              'noise_filter' : 2.,                       # float, optional : a factor to multiply the noise by to remove traces with high noise levels
+              'weighted' : False,                        # bool, optional : do a weighted mean of the magnitudes
+              'amplitude_multiplier' : 1.}               # float, optional : factor to multiply the measured amplitudes by before calculating a magnitude
 
 # --- Load the LUT ---
 lut = LUT(lut_file=lut_file)

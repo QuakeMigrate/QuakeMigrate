@@ -841,9 +841,11 @@ class QuakeScan(DefaultQuakeScan):
         -------
         amplitudes : pandas DataFrame object
             P and S wave amplitude measurements for each component of each
-            station in the station file.
-            Columns = ["epi_dist", "z_dist", "P_amp", "P_freq", "S_amp",
-                       "S_freq", "Noise_amp", "is_picked"]
+            station in the station file. ML and ML_Err are NaNs: these fields
+            will be filled by qmag.calculate_magnitudes().
+            Columns = ["epi_dist", "z_dist", "P_amp", "P_freq", "P_time",
+                       "S_amp", "S_freq", "S_time", "Noise_amp", "is_picked",
+                       "ML", "ML_Err"]
             Index = Trace ID (see obspy Trace object property 'id')
 
         Raises
@@ -962,8 +964,10 @@ class QuakeScan(DefaultQuakeScan):
 
         # Set up DataFrame to be populated with amplitude measurements
         amplitudes = pd.DataFrame(columns=["id", "epi_dist", "z_dist",
-                                           "P_amp", "P_freq", "S_amp",
-                                           "S_freq", "Noise_amp", "is_picked"])
+                                           "P_amp", "P_freq", "P_time",
+                                           "S_amp", "S_freq", "S_time",
+                                           "Noise_amp", "is_picked",
+                                           "ML", "ML_Err"])
 
         # Loop through stations, calculating amplitude info
         for i, station_info in station_data.iterrows():
@@ -1000,9 +1004,10 @@ class QuakeScan(DefaultQuakeScan):
             z_dist = (evdp - stel) / 1000.
 
             # Columns: tr_id; epicentral distance, vertical distance, P_amp,
-            #          P_freq, S_amp, S_freq, Noise_amp, "is_picked"
+            #          P_freq, P_time, S_amp, S_freq, S_time, Noise_amp,
+            #          is_picked, ML, ML_Err
             amps_template = ["", epi_dist, z_dist, np.nan, np.nan, np.nan, np.nan,
-                             np.nan, False]
+                             np.nan, np.nan, np.nan, False, np.nan, np.nan]
 
             # Read in raw waveforms
             st = raw_waveforms.select(station=station)
@@ -1188,7 +1193,8 @@ class QuakeScan(DefaultQuakeScan):
                     # estimate of the relevant frequency is used to read the
                     # seismometer gain from its response, without deconvolving.
                     prom_mult = self.amplitude_params.get("prominence_multiplier", 0.)
-                    half_amp, approx_freq = self._peak_to_trough_amplitude(window, prom_mult)
+                    half_amp, approx_freq, p2t_time = self._peak_to_trough_amplitude(window,
+                        prom_mult, output_p2t_time=True)
 
                     # Correct for gain if not doing full deconvolution
                     if self.quick_amps:
@@ -1219,9 +1225,10 @@ class QuakeScan(DefaultQuakeScan):
                                                   fs=tr.stats.sampling_rate)
                         half_amp /= np.abs(filter_gain[0])
 
-                    # Put in relevant columns for P / S amplitude / approx_freq
+                    # Put in relevant columns for P / S amplitude, approx_freq,
+                    # p2t_time
                     # Multiply amplitude by 1000 to convert to millimetres
-                    amps[3+k*2:5+k*2] = half_amp * 1000., approx_freq
+                    amps[3+k*3:6+k*3] = half_amp * 1000., approx_freq, p2t_time
 
                 # Make a noise measurement in a window of length noise_window,
                 # ending 3 seconds before the P arrival.
@@ -1246,7 +1253,10 @@ class QuakeScan(DefaultQuakeScan):
 
                 # Put in relevant columns
                 # amps[7:9] = noise_amp * 2000., picked
-                amps[7:9] = noise_amp, picked
+                amps[9:11] = noise_amp, picked
+
+                # Fill ML and ML_Err columns with NaNs
+                amps[11:13] = np.nan, np.nan
 
                 # 3 rows per station; one for each component
                 amplitudes.loc[i*3+j] = amps
@@ -1343,7 +1353,7 @@ class QuakeScan(DefaultQuakeScan):
 
         return paz
 
-    def _peak_to_trough_amplitude(self, trace, prom_mult=0.):
+    def _peak_to_trough_amplitude(self, trace, prom_mult=0., output_p2t_time=True):
         """
         Calculate the peak-to-trough amplitude for a given trace.
 
@@ -1355,6 +1365,10 @@ class QuakeScan(DefaultQuakeScan):
         prom_mult : float, optional
             Specify a prominence threshold for the find_peaks algorithm; used
             when measuring maximum peak-to-peak amplitude.
+        
+        output_p2t_time : bool, optional
+            Output the time of the max p2p amplitude (time is halfway between
+            the times of the peak and trough).
 
         Returns
         -------
@@ -1366,6 +1380,10 @@ class QuakeScan(DefaultQuakeScan):
             Approximate frequency of the arrival, based on the half-period
             between the maximum peak/trough.
             Returns -1 if no measurement could be made.
+
+        p2t_time : obspy UTCDateTime object
+            Approximate time of amplitude observation (halfway between peak and
+            trough times.)
 
         """
 
@@ -1413,13 +1431,16 @@ class QuakeScan(DefaultQuakeScan):
 
         peak_time = trace.times()[peaks[pos]]
         trough_time = trace.times()[troughs[pos]]
+        p2t_time = trace.stats.starttime + peak_time + \
+            (trough_time - peak_time) / 2
+
         # Peak-to-trough is half a period
         approx_freq = 1. / (np.abs(peak_time - trough_time) * 2.)
 
         # Local magnitude is defined based on maximum zero-to-peak amplitude
         half_amp = full_amp / 2
 
-        return half_amp, approx_freq
+        return half_amp, approx_freq, p2t_time
 
     def _read_event_waveform_data(self, w_beg, w_end):
         """

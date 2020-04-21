@@ -37,8 +37,10 @@ def mean_magnitude(magnitudes, params, plot_amp_vs_dist=True,
             "z_dist" - vertical distance between the station and event.
             "P_amp" - half peak-to-trough amplitude of the P phase
             "P_freq" - approximate frequency of the P phase.
+            "P_time" - approximate time of P amplitude measurement
             "S_amp" - half peak-to-trough amplitude of the S phase.
             "S_freq" - approximate frequency of the S phase.
+            "S_time" - approximate time of P amplitude measurement
             "Noise_amp" - the standard deviation of the noise before the event.
             "Picked" - boolean designating whether or not a phase was picked.
             "ML" - calculated magnitude estimate
@@ -73,13 +75,13 @@ def mean_magnitude(magnitudes, params, plot_amp_vs_dist=True,
     event : pandas DataFrame, optional
         Final location information for the event to be plotted
         Columns = ["DT", "COA", "COA_NORM", "X", "Y", "Z",
-                    "LocalGaussian_X", "LocalGaussian_Y", "LocalGaussian_Z",
-                    "LocalGaussian_ErrX", "LocalGaussian_ErrY",
-                    "LocalGaussian_ErrZ", "GlobalCovariance_X",
-                    "GlobalCovariance_Y", "GlobalCovariance_Z",
-                    "GlobalCovariance_ErrX", "GlobalCovariance_ErrY",
-                    "GlobalCovariance_ErrZ", "TRIG_COA", "DEC_COA",
-                    "DEC_COA_NORM", "ML", "ML_Err"]
+                   "LocalGaussian_X", "LocalGaussian_Y", "LocalGaussian_Z",
+                   "LocalGaussian_ErrX", "LocalGaussian_ErrY",
+                   "LocalGaussian_ErrZ", "GlobalCovariance_X",
+                   "GlobalCovariance_Y", "GlobalCovariance_Z",
+                   "GlobalCovariance_ErrX", "GlobalCovariance_ErrY",
+                   "GlobalCovariance_ErrZ", "TRIG_COA", "DEC_COA",
+                   "DEC_COA_NORM", "ML", "ML_Err"]
         All X / Y as lon / lat; Z and X / Y / Z uncertainties in metres
 
     run_path : path
@@ -201,8 +203,10 @@ def _plot_amp_vs_distance(params, mags_orig, mag, mag_err, event, run_path,
             "z_dist" - vertical distance between the station and event.
             "P_amp" - half peak-to-trough amplitude of the P phase
             "P_freq" - approximate frequency of the P phase.
+            "P_time" - approximate time of P amplitude measurement
             "S_amp" - half peak-to-trough amplitude of the S phase.
             "S_freq" - approximate frequency of the S phase.
+            "S_time" - approximate time of P amplitude measurement
             "Noise_amp" - the standard deviation of the noise before the event.
             "Picked" - boolean designating whether or not a phase was picked.
             "ML" - calculated magnitude estimate
@@ -221,13 +225,13 @@ def _plot_amp_vs_distance(params, mags_orig, mag, mag_err, event, run_path,
     event : pandas DataFrame
         Final location information for the event to be plotted
         Columns = ["DT", "COA", "COA_NORM", "X", "Y", "Z",
-                    "LocalGaussian_X", "LocalGaussian_Y", "LocalGaussian_Z",
-                    "LocalGaussian_ErrX", "LocalGaussian_ErrY",
-                    "LocalGaussian_ErrZ", "GlobalCovariance_X",
-                    "GlobalCovariance_Y", "GlobalCovariance_Z",
-                    "GlobalCovariance_ErrX", "GlobalCovariance_ErrY",
-                    "GlobalCovariance_ErrZ", "TRIG_COA", "DEC_COA",
-                    "DEC_COA_NORM", "ML", "ML_Err"]
+                   "LocalGaussian_X", "LocalGaussian_Y", "LocalGaussian_Z",
+                   "LocalGaussian_ErrX", "LocalGaussian_ErrY",
+                   "LocalGaussian_ErrZ", "GlobalCovariance_X",
+                   "GlobalCovariance_Y", "GlobalCovariance_Z",
+                   "GlobalCovariance_ErrX", "GlobalCovariance_ErrY",
+                   "GlobalCovariance_ErrZ", "TRIG_COA", "DEC_COA",
+                   "DEC_COA_NORM", "ML", "ML_Err"]
         All X / Y as lon / lat; Z and X / Y / Z uncertainties in metres
 
     run_path : path
@@ -594,8 +598,10 @@ def _amp_r_squared(params, magnitudes, mean_mag):
             "z_dist" - vertical distance between the station and event.
             "P_amp" - half peak-to-trough amplitude of the P phase
             "P_freq" - approximate frequency of the P phase.
+            "P_time" - approximate time of P amplitude measurement
             "S_amp" - half peak-to-trough amplitude of the S phase.
             "S_freq" - approximate frequency of the S phase.
+            "S_time" - approximate time of P amplitude measurement
             "Noise_amp" - the standard deviation of the noise before the event.
             "Picked" - boolean designating whether or not a phase was picked.
             "ML" - calculated magnitude estimate
@@ -662,8 +668,9 @@ def calculate_magnitudes(amplitudes, params):
     amplitudes : pandas DataFrame object
         Contains information about the measured amplitudes on each component at
         every station.
-        Columns = ["epi_dist", "z_dist", "P_amp", "P_freq", "S_amp", "S_freq",
-                   "Noise_amp", "Picked"]
+        Columns = ["epi_dist", "z_dist", "P_amp", "P_freq", "P_time", "S_amp",
+                   "S_freq", "S_time", "Noise_amp", "is_picked", "ML",
+                   "ML_Err"]
         Index =  Trace ID (see obspy Trace object property 'id')
         Amplitude measurements in ***millimetres*** <--- check this.
 
@@ -685,10 +692,11 @@ def calculate_magnitudes(amplitudes, params):
     Returns
     -------
     amplitudes : pandas DataFrame object
-        The original amplitudes DataFrame, with new columns containing the
-        calculated magnitude and an associated error.
-        Columns = ["epi_dist", "z_dist", "P_amp", "P_freq", "S_amp",
-                   "S_freq", "Noise_amp", "is_picked", "ML", "ML_Err"]
+        The original amplitudes DataFrame, with columns containing the
+        calculated magnitude and an associated error now populated.
+        Columns = ["epi_dist", "z_dist", "P_amp", "P_freq", "P_time",
+                   "S_amp", "S_freq", "S_time", "Noise_amp", "is_picked", "ML",
+                   "ML_Err"]
         Index = Trace ID (see obspy Trace object property 'id')
 
     Raises

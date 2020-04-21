@@ -448,11 +448,27 @@ class QuakeIO:
 
     def write_amplitudes(self, amplitudes, event_name):
         """
-        Write amplitude values to a new .amps file.
+        Write amplitude observations to a new .amps file.
 
         Parameters
         ----------
-        amplitudes :
+        amplitudes : pandas DataFrame object
+            Contains information about the measured amplitudes on each
+            component at  every station, as well as magnitude calculated using
+            these amplitudes, if calculated.
+            Has columns:
+                "epi_dist" - epicentral distance between the station and event.
+                "z_dist" - vertical distance between the station and event.
+                "P_amp" - half peak-to-trough amplitude of the P phase
+                "P_freq" - approximate frequency of the P phase.
+                "P_time" - approximate time of P amplitude measurement
+                "S_amp" - half peak-to-trough amplitude of the S phase.
+                "S_freq" - approximate frequency of the S phase.
+                "S_time" - approximate time of P amplitude measurement
+                "Noise_amp" - the standard deviation of the noise before the event.
+                "Picked" - boolean designating whether or not a phase was picked.
+                "ML" - calculated magnitude estimate (or np.nan)
+                "ML_Err" - estimate error on calculated magnitude (or np.nan)
 
         event_name : str
             Event ID for file naming.

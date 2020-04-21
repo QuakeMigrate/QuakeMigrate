@@ -13,7 +13,7 @@ import pyproj
 from scipy.interpolate import interp1d
 import skfmm
 
-import QMigrate.lut as qlut
+from .lut import LUT
 
 
 def read_nlloc(path, stations):
@@ -65,9 +65,8 @@ def read_nlloc(path, stations):
                                              ur_corner[1], ur_corner[2])
 
             # Need to initialise the grid
-            lut = qlut.LUT(ll_corner=ll_corner, ur_corner=ur_corner,
-                           cell_size=cell_size, grid_proj=gproj,
-                           coord_proj=cproj)
+            lut = LUT(ll_corner=ll_corner, ur_corner=ur_corner,
+                      cell_size=cell_size, grid_proj=gproj, coord_proj=cproj)
         else:
             _, _, pttimes = _read_nlloc(p_file)
             _, _, sttimes = _read_nlloc(s_file)

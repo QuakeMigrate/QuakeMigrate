@@ -10,7 +10,7 @@ from obspy.signal.invsim import cosine_taper
 from obspy.signal.trigger import classic_sta_lta
 from scipy.signal import butter, lfilter
 
-from QMigrate.signal.onset import Onset
+from .onset import Onset
 
 
 def sta_lta_centred(a, nsta, nlta):

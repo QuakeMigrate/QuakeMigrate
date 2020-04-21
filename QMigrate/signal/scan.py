@@ -16,12 +16,12 @@ import pandas as pd
 from scipy.interpolate import Rbf
 from scipy.signal import fftconvolve, find_peaks
 
-import QMigrate.core as ilib
-import QMigrate.io as qio
-import QMigrate.plot as plot
-import QMigrate.signal.magnitudes as qmag
-from QMigrate.signal.onset import Onset
-from QMigrate.signal.pick import PhasePicker, GaussianPicker
+from QMigrate.core import find_max_coa, migrate
+from QMigrate.io import QuakeIO
+from QMigrate.plot import QuakePlot
+from .magnitudes import calculate_magnitude, mean_magnitude
+from .onset import Onset
+from .pick import PhasePicker
 import QMigrate.util as util
 
 # Filter warnings
@@ -215,7 +215,7 @@ class QuakeScan(DefaultQuakeScan):
         self.lut = lut
 
         if output_path is not None:
-            self.output = qio.QuakeIO(output_path, run_name, log)
+            self.output = QuakeIO(output_path, run_name, log)
         else:
             self.output = None
 
@@ -729,8 +729,8 @@ class QuakeScan(DefaultQuakeScan):
                 mags = qmag.calculate_magnitude(amps, self.magnitude_params)
                 self.output.write_amplitudes(mags, event_uid)
                 ML, ML_error = qmag.mean_magnitude(mags, self.magnitude_params)
-                event['ML'] = ML
-                event['ML_error'] = ML_error
+                event["ML"] = ML
+                event["ML_error"] = ML_error
                 self.output.log(timer(), self.log)
 
             self.output.write_event(event, event_uid)
@@ -1081,19 +1081,19 @@ class QuakeScan(DefaultQuakeScan):
         pos_smp = int(round(self.post_pad * int(self.sampling_rate)))
         nsamp = tsamp - pre_smp - pos_smp
 
-        # Prep empty 4-D coalescence map and run C-compiled ilib.migrate()
+        # Prep empty 4-D coalescence map and run C-compiled migrate()
         ncell = tuple(self.lut.cell_count)
         map_4d = np.zeros(ncell + (nsamp,), dtype=np.float64)
-        ilib.migrate(onsets, ttimes, pre_smp, pos_smp, nsamp, avail, map_4d,
-                     self.n_cores)
+        migrate(onsets, ttimes, pre_smp, pos_smp, nsamp, avail, map_4d,
+                self.n_cores)
 
         # Prep empty coalescence and unraveled grid index arrays and run
-        # C-compiled ilib.find_max_coa()
+        # C-compiled find_max_coa()
         max_coa = np.zeros(nsamp, np.double)
         max_coa_norm = np.zeros(nsamp, np.double)
         max_coa_idx = np.zeros(nsamp, np.int64)
-        ilib.find_max_coa(map_4d, max_coa, max_coa_norm, max_coa_idx, 0, nsamp,
-                          self.n_cores)
+        find_max_coa(map_4d, max_coa, max_coa_norm, max_coa_idx, 0, nsamp,
+                     self.n_cores)
 
         tmp = np.arange(w_beg + self.pre_pad,
                         w_end - self.post_pad + (1 / self.sampling_rate),
@@ -1429,8 +1429,8 @@ class QuakeScan(DefaultQuakeScan):
             mxi = mxi/upscale + x1
             myi = myi/upscale + y1
             mzi = mzi/upscale + z1
-            self.output.log("\t\tGridded loc: {}   {}   {}".format(mx, my, mz), self.log)
-            self.output.log("\t\tSpline  loc: {} {} {}".format(mxi, myi, mzi), self.log)
+            self.output.log(f"\t\tGridded loc: {mx}   {my}   {mz}", self.log)
+            self.output.log(f"\t\tSpline  loc: {mxi} {myi} {mzi}", self.log)
 
             # Run check that spline location is within grid-cell
             if (abs(mx - mxi) > 1) or (abs(my - myi) > 1) or \
@@ -1590,9 +1590,9 @@ class QuakeScan(DefaultQuakeScan):
         """
 
         if self.plot_event_summary or self.plot_event_video:
-            quake_plot = plot.QuakePlot(self.lut, self.data, event_mw_data,
-                                        self.marginal_window, self.output.run,
-                                        event, map_4d, self.coa_map)
+            quake_plot = QuakePlot(self.lut, self.data, event_mw_data,
+                                   self.marginal_window, self.output.run,
+                                   event, map_4d, self.coa_map)
 
         if self.plot_event_summary:
             timer = util.Stopwatch()

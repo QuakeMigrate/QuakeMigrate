@@ -1240,6 +1240,10 @@ class QuakeScan(DefaultQuakeScan):
                     # NOTE: implicitly takes the gain at the approx_freq of the
                     # last amplitude measured; S-wave signal window.
                     noise_amp *= wa_gain / gain
+                if bandpass or highpass:
+                    # ditto: uses gain at S-wave approx_freq
+                    noise_amp /= np.abs(filter_gain[0])
+
                 # Put in relevant columns
                 # amps[7:9] = noise_amp * 2000., picked
                 amps[7:9] = noise_amp, picked

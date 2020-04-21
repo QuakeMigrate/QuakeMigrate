@@ -45,13 +45,10 @@ INSTALL_REQUIRES = [
     'scipy',
     'scikit-fmm==2019.1.30',
     'pyproj',
-    'matplotlib',
-    'vispy',
-    'pyzmq',
-    'msgpack-python']
+    'matplotlib']
 
 # Compile stage for C-library
-os.system('gcc -shared -fPIC -std=gnu99 ./QMigrate/core/src/QMigrate.c -fopenmp -O0 -o ./QMigrate/core/src/QMigrate.so')
+os.system('gcc -shared -fPIC -std=gnu99 ./QMigrate/core/src/QMigrate.c -fopenmp -Ofast -lm -o ./QMigrate/core/src/QMigrate.so')
 
 
 def read(*parts):

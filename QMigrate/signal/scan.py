@@ -1069,7 +1069,7 @@ class QuakeScan(DefaultQuakeScan):
 
         """
 
-        avail_idx = np.where(self.data.availability == 1)[0]
+        avail = len(np.where(self.data.availability == 1)[0])*2
 
         onsets = self.onset.calculate_onsets(self.data)
         _, tsamp = onsets.shape
@@ -1084,31 +1084,21 @@ class QuakeScan(DefaultQuakeScan):
         # Prep empty 4-D coalescence map and run C-compiled ilib.migrate()
         ncell = tuple(self.lut.cell_count)
         map_4d = np.zeros(ncell + (nsamp,), dtype=np.float64)
-        ilib.migrate(onsets, ttimes, pre_smp, pos_smp, nsamp, map_4d,
+        ilib.migrate(onsets, ttimes, pre_smp, pos_smp, nsamp, avail, map_4d,
                      self.n_cores)
 
         # Prep empty coalescence and unraveled grid index arrays and run
         # C-compiled ilib.find_max_coa()
         max_coa = np.zeros(nsamp, np.double)
+        max_coa_norm = np.zeros(nsamp, np.double)
         max_coa_idx = np.zeros(nsamp, np.int64)
-        ilib.find_max_coa(map_4d, max_coa, max_coa_idx, 0, nsamp, self.n_cores)
-
-        # Correct map_4d for number of contributing traces
-        map_4d = np.exp(map_4d / (len(avail_idx)*2))
-
-        # Get max_coa_norm
-        max_coa_norm = (np.exp(max_coa / (len(avail_idx)*2))
-                        / np.sum(map_4d, axis=(0, 1, 2)))
-        max_coa_norm = max_coa_norm * map_4d.shape[0] * map_4d.shape[1] * \
-            map_4d.shape[2]
+        ilib.find_max_coa(map_4d, max_coa, max_coa_norm, max_coa_idx, 0, nsamp,
+                          self.n_cores)
 
         tmp = np.arange(w_beg + self.pre_pad,
                         w_end - self.post_pad + (1 / self.sampling_rate),
                         1 / self.sampling_rate)
         daten = [x.datetime for x in tmp]
-
-        # Calculate max_coa (with correction for number of stations)
-        max_coa = np.exp(max_coa / (len(avail_idx) * 2)) - 1.0
 
         # Convert the flat grid indices (of maximum coalescence) to coordinates
         # in the input projection space.

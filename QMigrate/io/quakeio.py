@@ -348,6 +348,8 @@ class QuakeIO:
 
     def write_cut_waveforms(self, data, event, event_name, data_format="MSEED",
                             pre_cut=None, post_cut=None):
+                            # , raw=True, real=False,
+                            # wa=False):
         """
         Output raw cut waveform data as a waveform file -- defaults to mSEED.
 
@@ -366,7 +368,7 @@ class QuakeIO:
                        "GlobalCovariance_Y", "GlobalCovariance_Z",
                        "GlobalCovariance_ErrX", "GlobalCovariance_ErrY",
                        "GlobalCovariance_ErrZ", "TRIG_COA", "DEC_COA",
-                       "DEC_COA_NORM"]
+                       "DEC_COA_NORM", "ML", "ML_Err"]
             All X / Y as lon / lat; Z and X / Y / Z uncertainties in metres
 
         event_name : str
@@ -387,6 +389,11 @@ class QuakeIO:
 
         """
 
+        # for waveform_type in raw, real, wa:
+        #     if waveform_type:
+        #         if waveform_type == raw:
+        #             st = data.raw_waveforms
+        #         elif waveform_type == real
         st = data.raw_waveforms
 
         otime = UTCDateTime(event["DT"])
@@ -417,11 +424,27 @@ class QuakeIO:
 
     def write_amplitudes(self, amplitudes, event_name):
         """
-        Write amplitude values to a new .amps file.
+        Write amplitude observations to a new .amps file.
 
         Parameters
         ----------
-        amplitudes :
+        amplitudes : pandas DataFrame object
+            Contains information about the measured amplitudes on each
+            component at  every station, as well as magnitude calculated using
+            these amplitudes, if calculated.
+            Has columns:
+                "epi_dist" - epicentral distance between the station and event.
+                "z_dist" - vertical distance between the station and event.
+                "P_amp" - half peak-to-trough amplitude of the P phase
+                "P_freq" - approximate frequency of the P phase.
+                "P_time" - approximate time of P amplitude measurement
+                "S_amp" - half peak-to-trough amplitude of the S phase.
+                "S_freq" - approximate frequency of the S phase.
+                "S_time" - approximate time of P amplitude measurement
+                "Noise_amp" - the standard deviation of the noise before the event.
+                "Picked" - boolean designating whether or not a phase was picked.
+                "ML" - calculated magnitude estimate (or np.nan)
+                "ML_Err" - estimate error on calculated magnitude (or np.nan)
 
         event_name : str
             Event ID for file naming.
@@ -449,7 +472,7 @@ class QuakeIO:
                        "GlobalCovariance_Y", "GlobalCovariance_Z",
                        "GlobalCovariance_ErrX", "GlobalCovariance_ErrY",
                        "GlobalCovariance_ErrZ", "TRIG_COA", "DEC_COA",
-                       "DEC_COA_NORM"]
+                       "DEC_COA_NORM", "ML", "ML_Err"]
             All X / Y as lon / lat; Z and X / Y / Z uncertainties in metres
 
         event_name : str

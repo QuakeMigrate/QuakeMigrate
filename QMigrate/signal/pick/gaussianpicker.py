@@ -413,8 +413,13 @@ class GaussianPicker(PhasePicker):
             axes = fig.axes
             for j, (ax, ph) in enumerate(zip(axes[3:5], ["P", "S"])):
                 gau = gaus[station][ph]
-                yy = gaussian_1d(gau["xdata"], gau["popt"][0],
-                                 gau["popt"][1], gau["popt"][2])
+
+                # Check a pick has been made
+                if gau["PickValue"] == -1:
+                    continue
+
+                yy = gaussian_1d(gau["xdata"], gau["popt"][0], gau["popt"][1],
+                                 gau["popt"][2])
                 dt = [x.datetime for x in gau["xdata_dt"]]
                 win = window[ph]
                 norm = max(onsets[j][win[0]:win[1]+1])

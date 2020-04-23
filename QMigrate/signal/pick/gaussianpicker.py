@@ -134,8 +134,6 @@ class GaussianPicker(PhasePicker):
                 picks.iloc[2*i+j] = [station["Name"], phase, model_time, pick,
                                      pick_error, max_onset]
 
-        # Write out pick DataFrame
-        picks.PickError
         self.write(event_uid, picks, output)
 
         if self.plot_picks:

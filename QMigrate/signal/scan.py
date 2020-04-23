@@ -748,15 +748,16 @@ class QuakeScan(DefaultQuakeScan):
             # Make phase picks
             timer = util.Stopwatch()
             self.output.log("\tMaking phase picks...", self.log)
-            self.picker.pick_phases(self.data, self.lut, event_max_coa,
-                                    event_uid, self.output)
+            phase_picks = self.picker.pick_phases(self.data, self.lut,
+                                                  event_max_coa, event_uid,
+                                                  self.output)
             self.output.log(timer(), self.log)
 
             # Determine amplitudes
             if self.amplitudes:
                 timer = util.Stopwatch()
                 self.output.log("\tGetting amplitudes...", self.log)
-                amps = self._get_amplitudes(event)
+                amps = self._get_amplitudes(event, phase_picks)
                 self.output.write_amplitudes(amps, event_uid)
                 self.output.log(timer(), self.log)
 
@@ -787,7 +788,7 @@ class QuakeScan(DefaultQuakeScan):
             del map_4d, event_coa_data, event_mw_data, event_max_coa
             self.coa_map = None
 
-    def _get_amplitudes(self, event):
+    def _get_amplitudes(self, event, phase_picks):
         """
         Measure the amplitudes for the purpose of magnitude calculation.
 
@@ -804,6 +805,10 @@ class QuakeScan(DefaultQuakeScan):
                        "GlobalCovariance_ErrZ", "TRIG_COA", "DEC_COA",
                        "DEC_COA_NORM", "ML", "ML_Err"]
             All X / Y as lon / lat; Z and X / Y / Z uncertainties in metres
+        phase_picks : pandas DataFrame
+            DataFrame that contains the measured picks with columns:
+            ["Name", "Phase", "ModelledTime", "PickTime", "PickError", "SNR"]
+            Each row contains the phase pick from one station/phase.
 
         self.amplitude_params : dict
             Keys:
@@ -825,8 +830,6 @@ class QuakeScan(DefaultQuakeScan):
         self.response_inv
 
         self.quick_amps : bool
-
-        self.picker.phase_picks
 
         self.lut.station_data
 
@@ -936,7 +939,6 @@ class QuakeScan(DefaultQuakeScan):
         # Read in event location, picks and station information
         evlo, evla, evdp = event[["X", "Y", "Z"]].values
         eq_otime = event["DT"]
-        picks = self.picker.phase_picks["Pick"]
         station_data = self.lut.station_data
 
         # Read in raw cut waveforms
@@ -966,8 +968,8 @@ class QuakeScan(DefaultQuakeScan):
 
         # Loop through stations, calculating amplitude info
         for i, station_info in station_data.iterrows():
-            p_pick = picks.iloc[i*2]["PickTime"]
-            s_pick = picks.iloc[i*2+1]["PickTime"]
+            p_pick = phase_picks.iloc[i*2]["PickTime"]
+            s_pick = phase_picks.iloc[i*2+1]["PickTime"]
 
             picked = True
             # If neither P nor S is picked, picked=False
@@ -977,12 +979,12 @@ class QuakeScan(DefaultQuakeScan):
             if p_pick == -1:
                 # if picked:
                 #     p_picktime = eq_otime + (s_picktime - eq_otime) / vpvs
-                p_pick = picks.iloc[i*2]["ModelledTime"]
+                p_pick = phase_picks.iloc[i*2]["ModelledTime"]
 
             if s_pick == -1:
                 # if picked:
                 #     S_picktime = eq_otime + (p_picktime - eq_otime) * vpvs
-                s_pick = picks.iloc[i*2+1]["ModelledTime"]
+                s_pick = phase_picks.iloc[i*2+1]["ModelledTime"]
 
             # Convert to UTCDateTime objects
             p_pick = UTCDateTime(p_pick)

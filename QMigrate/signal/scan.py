@@ -21,7 +21,7 @@ from QMigrate.io import QuakeIO
 from QMigrate.plot import QuakePlot
 from .magnitudes import calculate_magnitude, mean_magnitude
 from .onset import Onset
-from .pick import PhasePicker
+from .pick import GaussianPicker, PhasePicker
 import QMigrate.util as util
 
 # Filter warnings

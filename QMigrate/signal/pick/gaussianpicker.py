@@ -413,18 +413,21 @@ class GaussianPicker(PhasePicker):
             axes = fig.axes
             for j, (ax, ph) in enumerate(zip(axes[3:5], ["P", "S"])):
                 gau = gaus[station][ph]
-                yy = gaussian_1d(gau["xdata"], gau["popt"][0],
-                                 gau["popt"][1], gau["popt"][2])
-                dt = [x.datetime for x in gau["xdata_dt"]]
                 win = window[ph]
-                norm = max(onsets[j][win[0]:win[1]+1])
-                ax.plot(dt, yy / norm)
-                thresh = gau["PickThreshold"]
-                ax.axhline(thresh / norm, label="Pick threshold")
 
-                # Add threshold information
+                # Plot threshold
+                thresh = gau["PickThreshold"]
+                norm = max(onsets[j][win[0]:win[1]+1])
+                ax.axhline(thresh / norm, label="Pick threshold")
                 axes[5].text(0.05+j*0.5, 0.25, f"Threshold: {thresh:5.3f}",
                              ha="left", va="center", fontsize=18)
+
+                # Check pick has been made
+                if not gau["PickValue"] == -1:
+                    yy = gaussian_1d(gau["xdata"], gau["popt"][0],
+                                     gau["popt"][1], gau["popt"][2])
+                    dt = [x.datetime for x in gau["xdata_dt"]]
+                    ax.plot(dt, yy / norm)
 
             # --- Picking windows ---
             for j, ax in enumerate(axes[:5]):

@@ -23,10 +23,8 @@ def sta_lta_centred(a, nsta, nlta):
     ----------
     a : array-like
         Signal array
-
     nsta : int
         Number of samples in short-term window
-
     nlta : int
         Number of samples in long-term window
 
@@ -76,10 +74,8 @@ def onset(sig, stw, ltw, centred, log):
     ----------
     sig : array-like
         Data signal used to generate an onset function
-
     stw : int
         Short term window length (# of samples)
-
     ltw : int
         Long term window length (# of samples)
 
@@ -131,18 +127,14 @@ def pre_process(sig, sampling_rate, lc, hc, order=2):
     ----------
     sig : array-like
         Data signal to be pre-processed
-
     sampling_rate : int
         Number of samples per second, in Hz
-
     lc : float
-        Lowpass frequency of band-pass filter
-
+        Lowpass frequency of band-pass filter, in Hz
     hc : float
-        Highpass frequency of band-pass filter
-
+        Highpass frequency of band-pass filter, in Hz
     order : int, optional
-        Number of corners. NOTE: two-pass filter effectively doubles the
+        Number of filter corners. NOTE: two-pass filter effectively doubles the
         number of corners.
 
     Returns
@@ -177,31 +169,25 @@ class ClassicSTALTAOnset(Onset):
     ----------
     p_bp_filter : array-like, [float, float, int]
         Butterworth bandpass filter specification
-        [lowpass, highpass, corners*]
+        [lowpass (Hz), highpass (Hz), corners*]
         *NOTE: two-pass filter effectively doubles the number of corners.
-
     s_bp_filter : array-like, [float, float, int]
         Butterworth bandpass filter specification
-        [lowpass, highpass, corners*]
+        [lowpass (Hz), highpass (Hz), corners*]
         *NOTE: two-pass filter effectively doubles the number of corners.
-
     p_onset_win : array-like, [float, float]
         P onset window parameters
-        [STA, LTA]
-
+        [STA, LTA] (both in seconds)
     s_onset_win : array-like, [float, float]
         S onset window parameters
-        [STA, LTA]
-
+        [STA, LTA] (both in seconds)
     sampling_rate : int
-        Desired sampling rate for input data; sampling rate at which the onset
-        functions will be computed.
-
+        Desired sampling rate for input data, in Hz; sampling rate at which
+        the onset functions will be computed.
     pre_pad : float, optional
         Option to override the default pre-pad duration of data to read
         before computing 4d coalescence in detect() and locate(). Default
-        value is calculated from the onset function durations.
-
+        value is calculated from the onset function parameters.
     onset_centred : bool, optional
         Compute centred STA/LTA (STA window is preceded by LTA window;
         value is assigned to end of LTA window / start of STA window) or
@@ -255,11 +241,11 @@ class ClassicSTALTAOnset(Onset):
             out += " - using the centred STA/LTA onset\n"
         else:
             out += " - using the classic STA/LTA onset\n"
-        out += "\t\tData sampling rate = {}\n\n"
-        out += "\t\tBandpass filter P  = [{}, {}, {}]\n"
-        out += "\t\tBandpass filter S  = [{}, {}, {}]\n\n"
-        out += "\t\tOnset P [STA, LTA] = [{}, {}]\n"
-        out += "\t\tOnset S [STA, LTA] = [{}, {}]\n\n"
+        out += "\t\tData sampling rate = {} Hz\n\n"
+        out += "\t\tBandpass filter P  = [{} Hz, {} Hz, {}]\n"
+        out += "\t\tBandpass filter S  = [{} Hz, {} Hz, {}]\n\n"
+        out += "\t\tOnset P [STA, LTA] = [{} s, {} s]\n"
+        out += "\t\tOnset S [STA, LTA] = [{} s, {} s]\n\n"
         out = out.format(
             self.sampling_rate,
             self.p_bp_filter[0], self.p_bp_filter[1], self.p_bp_filter[2],
@@ -337,7 +323,6 @@ class ClassicSTALTAOnset(Onset):
         ----------
         sige : array-like
             E-component time series
-
         sign : array-like
             N-component time series
 
@@ -410,31 +395,25 @@ class CentredSTALTAOnset(ClassicSTALTAOnset):
     ----------
     p_bp_filter : array-like, [float, float, int]
         Butterworth bandpass filter specification
-        [lowpass, highpass, corners*]
+        [lowpass (Hz), highpass (Hz), corners*]
         *NOTE: two-pass filter effectively doubles the number of corners.
-
     s_bp_filter : array-like, [float, float, int]
         Butterworth bandpass filter specification
-        [lowpass, highpass, corners*]
+        [lowpass (Hz), highpass (Hz), corners*]
         *NOTE: two-pass filter effectively doubles the number of corners.
-
     p_onset_win : array-like, [float, float]
         P onset window parameters
-        [STA, LTA]
-
+        [STA, LTA] (both in seconds)
     s_onset_win : array-like, [float, float]
         S onset window parameters
-        [STA, LTA]
-
+        [STA, LTA] (both in seconds)
     sampling_rate : int
-        Desired sampling rate for input data; sampling rate at which the onset
-        functions will be computed.
-
+        Desired sampling rate for input data, in Hz; sampling rate at which
+        the onset functions will be computed.
     pre_pad : float, optional
         Option to override the default pre-pad duration of data to read
         before computing 4-D coalescence in detect() and locate(). Default
-        value is calculated from the onset function durations.
-
+        value is calculated from the onset function parameters.
     onset_centred : bool, optional
         Compute centred STA/LTA (STA window is preceded by LTA window;
         value is assigned to end of LTA window / start of STA window) or

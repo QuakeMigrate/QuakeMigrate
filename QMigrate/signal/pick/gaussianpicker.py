@@ -67,10 +67,11 @@ class GaussianPicker(PhasePicker):
 
     def __repr__(self):
         """Returns a short summary string of the GaussianPicker."""
-        return ("\tPhase picking by fitting a 1-D Gaussian fit to onsets\n"
+        return ("\tPhase picking by fitting a 1-D Gaussian to onsets\n"
                 f"\t\tPick threshold  = {self.pick_threshold}\n"
-                f"\t\tMarginal window = {self.marginal_window}\n"
-                f"\t\tSearch window   = {self.fraction_tt}s\n\n")
+                f"\t\tMarginal window = {self.marginal_window} s\n"
+                f"\t\tSearch window   = {self.fraction_tt*100}% of travel-time"
+                "\n\n")
 
     def pick_phases(self, data, lut, event, event_uid, output):
         """
@@ -157,22 +158,16 @@ class GaussianPicker(PhasePicker):
         ----------
         onset : array-like
             Onset (characteristic) function.
-
         phase : str
             Phase name ("P" or "S").
-
         start_time : UTCDateTime object
             Start time of data (w_beg).
-
         p_arr : UTCDateTime object
             Time when P phase is expected to arrive based on best location.
-
         s_arr : UTCDateTime object
             Time when S phase is expected to arrive based on best location.
-
         ptt : UTCDateTime object
             Traveltime of P phase.
-
         stt : UTCDateTime object
             Traveltime of S phase.
 
@@ -184,13 +179,10 @@ class GaussianPicker(PhasePicker):
                                       "xdata_dt": x_data_dt,
                                       "PickValue": max_onset,
                                       "PickThreshold": threshold}
-
         max_onset : float
             amplitude of gaussian fit to onset function
-
         sigma : float
             sigma of gaussian fit to onset function
-
         mean : UTCDateTime
             mean of gaussian fit to onset function == pick time
 
@@ -441,3 +433,5 @@ class GaussianPicker(PhasePicker):
 
             fname = out_dir / f"{event_uid}_{station}.pdf"
             plt.savefig(fname)
+
+            plt.close(fig)

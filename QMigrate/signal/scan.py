@@ -52,11 +52,9 @@ class DefaultQuakeScan(object):
             detect run duration should be divisible by time_step. Increasing
             time_step will increase RAM usage during detect, but will slightly
             speed up overall detect run.
-
         sampling_rate : int
             Desired sampling rate for input data; sampling rate that detect()
             and locate() will be computed at.
-
         marginal_window : float
             Time window (+/- marginal_window) about the maximum coalescence
             time to marginalise the 4-D coalescence grid computed in locate()
@@ -64,44 +62,34 @@ class DefaultQuakeScan(object):
             estimate of the time uncertainty in the earthquake origin time -
             a combination of the expected spatial error and the seismic
             velocity in the region of the event
-
         n_cores : int
             Number of cores to use on the executing host for detect() /locate()
-
         continuous_scanmseed_write : bool
             Option to continuously write the .scanmseed file outputted by
             detect() at the end of every time step. Default behaviour is to
             write at the end of the time period, or the end of each day.
-
         plot_event_summary : bool, optional
             Plot event summary figure - see QMigrate.plot.quakeplot for more
             details.
-
         plot_event_video : bool, optional
             Plot coalescence video for each earthquake located in locate()
-
         write_4d_coal_grid : bool, optional
             Save the full 4d coalescence grid output by compute for each event
             located by locate() -- NOTE these files are large.
-
         write_cut_waveforms : bool, optional
             Write raw cut waveforms for all data found in the archive for each
             event located by locate() -- NOTE this data has not been processed
             or quality-checked!
-
         cut_waveform_format : str, optional
             File format to write waveform data to. Options are all file formats
             supported by obspy, including: "MSEED" (default), "SAC", "SEGY",
             "GSE2"
-
         pre_cut : float, optional
             Specify how long before the event origin time to cut the waveform
             data from
-
         post_cut : float, optional
             Specify how long after the event origin time to cut the waveform
             data to
-
         xy_files : list, string
             List of file strings:
             With columns ["File", "Color", "Linewidth", "Linestyle"]
@@ -157,7 +145,6 @@ class QuakeScan(DefaultQuakeScan):
         Core detection method -- compute decimated 3-D coalescence continuously
                                  throughout entire time period; output as
                                  .scanmseed (in mSEED format).
-
     locate(start_time, end_time)
         Core locate method -- compute 3-D coalescence over short time window
                               around candidate earthquake triggered from
@@ -175,7 +162,7 @@ class QuakeScan(DefaultQuakeScan):
                        "GlobalCovariance_Y", "GlobalCovariance_Z",
                        "GlobalCovariance_ErrX", "GlobalCovariance_ErrY",
                        "GlobalCovariance_ErrZ", "TRIG_COA", "DEC_COA",
-                       "DEC_COA_NORM", "ML", "ML_Err"]
+                       "DEC_COA_NORM", "ML", "ML_Err", "ML_r_squared"]
 
     def __init__(self, data, lut, onset, get_amplitudes=False,
                  calc_mag=False, quick_amplitudes=False, get_polarities=False,
@@ -188,36 +175,24 @@ class QuakeScan(DefaultQuakeScan):
         data : Archive object
             Contains information on data archive structure and
             read_waveform_data() method
-
         lut : LUT object
             Contains the travel-time lookup tables for P- and S-phases,
             computed for some pre-defined velocity model
-
         onset : Onset object
             Contains definitions for the P- and S-phase onset functions
-
-        picker : PhasePicker object
-            Wraps methods to perform phase picking on the seismic data
-
         get_amplitudes : bool, optional
             ADD DOCSTRING
-
         calc_mag : bool, optional
             ADD DOCSTRING
-
         quick_amplitudes : bool, optional
             ADD DOCSTRING
-
         get_polarities : bool, optional
             ADD DOCSTRING
-
         output_path : str
             Path of parent output directory: e.g. ./OUTPUT
-
         run_name : str
             Name of current run: all outputs will be saved in the directory
             output_path/run_name
-
         log : bool, optional
             Toggle for logging - default is to print all information to stdout.
             If True, will also create a log file.
@@ -304,11 +279,11 @@ class QuakeScan(DefaultQuakeScan):
         """
 
         out = "Scan parameters:"
-        out += "\n\tTime step\t\t:\t{}".format(self.time_step)
-        out += "\n\n\tData sampling rate\t:\t{}".format(self.sampling_rate)
-        out += "\n\n\tPre-pad\t\t\t:\t{}".format(self.pre_pad)
-        out += "\n\tPost-pad\t\t:\t{}".format(self.post_pad)
-        out += "\n\n\tMarginal window\t\t:\t{}".format(self.marginal_window)
+        out += "\n\tTime step\t\t:\t{} s".format(self.time_step)
+        out += "\n\n\tData sampling rate\t:\t{} Hz".format(self.sampling_rate)
+        out += "\n\n\tPre-pad\t\t\t:\t{} s".format(self.pre_pad)
+        out += "\n\tPost-pad\t\t:\t{} s".format(self.post_pad)
+        out += "\n\n\tMarginal window\t\t:\t{} s".format(self.marginal_window)
         out += "\n\n\tNumber of CPUs\t\t:\t{}".format(self.n_cores)
 
         return out
@@ -322,7 +297,6 @@ class QuakeScan(DefaultQuakeScan):
         ----------
         start_time : str
             Start time of continuous scan
-
         end_time : str
             End time of continuous scan (last sample returned will be that
             which immediately precedes this time stamp)
@@ -365,11 +339,9 @@ class QuakeScan(DefaultQuakeScan):
         ----------
         fname : str
             Filename of triggered events that will be located
-
         start_time : str
             Start time of locate run: earliest event trigger time that will be
             located
-
         end_time : str
             End time of locate run: latest event trigger time that will be
             located is one sample before this time
@@ -431,18 +403,14 @@ class QuakeScan(DefaultQuakeScan):
         coastream : obspy Stream object
             Data output by detect() so far
             channels: ["COA", "COA_N", "X", "Y", "Z"]
-            NOTE these values have been multiplied by a factor and converted to
-            an int
-
+            NOTE these values have been multiplied by a power of 10 and
+            converted to an int
         daten : array-like
             Array of UTCDateTime time stamps for the time step
-
         max_coa : array-like
             Coalescence value through time
-
         max_coa_norm : array-like
             Normalised coalescence value through time
-
         loc : array-like
             Location of maximum coalescence through time
 
@@ -451,8 +419,8 @@ class QuakeScan(DefaultQuakeScan):
         coastream : obspy Stream object
             Data output by detect() so far with most recent timestep appended
             channels: ["COA", "COA_N", "X", "Y", "Z"]
-            NOTE these values have been multiplied by a factor and converted to
-            an int
+            NOTE these values have been multiplied by a power of 10 and
+            converted to an int
 
         """
 
@@ -509,7 +477,6 @@ class QuakeScan(DefaultQuakeScan):
         ----------
         start_time : UTCDateTime object
             Time stamp of first sample
-
         end_time : UTCDateTime object
             Time stamp of final sample
 
@@ -609,15 +576,12 @@ class QuakeScan(DefaultQuakeScan):
         args :
             A variable length tuple holding either a start_time - end_time pair
             or a filename a triggered events to read
-
         start_time : UTCDateTime object
            Start time of locate run: earliest event trigger time that will be
             located
-
         end_time : UTCDateTime object
             End time of locate run: latest event trigger time that will be
             located
-
         fname : str
             File of triggered events to read
 
@@ -680,8 +644,7 @@ class QuakeScan(DefaultQuakeScan):
             self.output.log("\tComputing 4D coalescence grid...", self.log)
 
             daten, max_coa, max_coa_norm, coord, map_4d = self._compute(w_beg,
-                                                                        w_end,
-                                                                        locate=True)
+                                                                        w_end)
             event_coa_data = pd.DataFrame(np.array((daten, max_coa,
                                                     max_coa_norm,
                                                     coord[:, 0],
@@ -703,9 +666,9 @@ class QuakeScan(DefaultQuakeScan):
                 w_end_mw = event_coa_data_dtmax + self.marginal_window
             else:
                 msg = (f"\n\tEvent {event_uid} is outside marginal window.\n"
-                       "\tDefine more realistic error - the marginal window"
-                       " should be an estimate of the origin time uncertainty,"
-                       "\n\tdetermined by the expected spatial uncertainty and"
+                       "\tDefine more realistic error - the marginal window "
+                       "should be an estimate of the origin time uncertainty,"
+                       "\n\tdetermined by the expected spatial uncertainty and "
                        "the seismic velocity in the region of the earthquake\n"
                        "\n" + "=" * 110 + "\n")
                 self.output.log(msg, self.log)
@@ -742,7 +705,7 @@ class QuakeScan(DefaultQuakeScan):
                                    loc_cov[0], loc_cov[1], loc_cov[2],
                                    loc_cov_err[0], loc_cov_err[1],
                                    loc_cov_err[2], trig_coa, detect_coa,
-                                   detect_coa_norm, np.nan, np.nan]],
+                                   detect_coa_norm, np.nan, np.nan, np.nan]],
                                  columns=self.EVENT_FILE_COLS)
 
             # Make phase picks
@@ -809,7 +772,6 @@ class QuakeScan(DefaultQuakeScan):
             DataFrame that contains the measured picks with columns:
             ["Name", "Phase", "ModelledTime", "PickTime", "PickError", "SNR"]
             Each row contains the phase pick from one station/phase.
-
         self.amplitude_params : dict
             Keys:
                 'pre_filt'
@@ -826,7 +788,6 @@ class QuakeScan(DefaultQuakeScan):
                 'bandpass_highcut'
                 'filter_corners'
                 'remove_FIR_response'
-
         self.response_inv
 
         self.quick_amps : bool
@@ -834,6 +795,7 @@ class QuakeScan(DefaultQuakeScan):
         self.lut.station_data
 
         self.data.raw_waveforms
+
 
         Returns
         -------
@@ -1046,7 +1008,7 @@ class QuakeScan(DefaultQuakeScan):
                                         pre_filt=pre_filt,
                                         water_level=water_level,
                                         taper=True,
-                                        sacsim=True, pitsasim=False,  # )  # To replicate remove_response()
+                                        sacsim=True, pitsasim=False,  # To replicate remove_response()
                                         paz_simulate=self.WOODANDERSON)
                             # tr.simulate(paz_simulate=self.WOODANDERSON)
                         except (Exception, ValueError) as e:
@@ -1108,29 +1070,38 @@ class QuakeScan(DefaultQuakeScan):
                     low_f_crit = freqmin / f_nyquist
                     high_f_crit = freqmax / f_nyquist
                     if high_f_crit - 1.0 > -1e-6:
-                        msg = ("Selected high corner frequency ({}) of bandpass is at or "
-                               "above Nyquist ({}) for trace {}. Applying a high-pass instead.").format(
+                        msg = ("Selected high corner frequency ({}) of "
+                               "bandpass is at or above Nyquist ({}) for trace "
+                               "{}. Applying a high-pass instead.").format(
                                    freqmax, f_nyquist, tr.id)
                         warnings.warn(msg)
                         highpass = True
                     else:
                         tr.detrend('linear')
                         tr.taper(0.05, 'cosine')
-                        tr.filter(type='bandpass', freqmin=freqmin, freqmax=freqmax, corners=corners, zerophase=False)
-                        # Generate filter coefficients for the bandpass filter we
-                        # applied; this is how the filter is designed within ObsPy
-                        filter_sos = iirfilter(N=corners, Wn=[low_f_crit, high_f_crit],
-                                               btype='bandpass', ftype='butter', output='sos')
+                        tr.filter(type='bandpass', freqmin=freqmin, 
+                                  freqmax=freqmax, corners=corners,
+                                  zerophase=False)
+                        # Generate filter coefficients for the bandpass filter
+                        # we applied; this is how the filter is designed within
+                        # ObsPy
+                        filter_sos = iirfilter(N=corners,
+                                               Wn=[low_f_crit, high_f_crit],
+                                               btype='bandpass',
+                                               ftype='butter', output='sos')
 
                 if highpass:
                     f_nyquist = 0.5 * tr.stats.sampling_rate
                     f_crit = filt_freq / f_nyquist
                     tr.detrend('linear')
                     tr.taper(0.05, 'cosine')
-                    tr.filter(type='highpass', freq=filt_freq, corners=corners, zerophase=False)
+                    tr.filter(type='highpass', freq=filt_freq, corners=corners,
+                              zerophase=False)
                     # Generate filter coefficients for the highpass filter we
                     # applied; this is how the filter is designed within ObsPy
-                    filter_sos = iirfilter(N=corners, Wn=f_crit, btype='highpass', ftype='butter', output='sos')
+                    filter_sos = iirfilter(N=corners, Wn=f_crit,
+                                           btype='highpass', ftype='butter',
+                                           output='sos')
                     # Switch highpass back off if redirected here from bandpass
                     if bandpass:
                         highpass = False
@@ -1272,10 +1243,8 @@ class QuakeScan(DefaultQuakeScan):
         ----------
         sac_pz_pat : str
             Path to SAC PZ files.
-
         tr_id : str
             Trace ID for obspy Trace to find response data for.
-
         tr_start : obspy UTCDateTime object
             Trace start time.
 
@@ -1352,7 +1321,8 @@ class QuakeScan(DefaultQuakeScan):
 
         return paz
 
-    def _peak_to_trough_amplitude(self, trace, prom_mult=0., output_p2t_time=True):
+    def _peak_to_trough_amplitude(self, trace, prom_mult=0.,
+                                  output_p2t_time=True):
         """
         Calculate the peak-to-trough amplitude for a given trace.
 
@@ -1486,8 +1456,8 @@ class QuakeScan(DefaultQuakeScan):
                 # Latest possible end for signal window for amplitude
                 # measurement
                 max_signal_win = (1 + self.picker.fraction_tt) * self.lut.max_ttime \
-                                        + self.marginal_window \
-                                        + self.amplitude_params.get("signal_window", 0.)
+                                    + self.marginal_window \
+                                    + self.amplitude_params.get("signal_window", 0.)
                 post_cut = max(self.post_cut, max_signal_win)
                 if max_signal_win > self.post_cut:
                     print('Max signal win bigger than post_cut!!')
@@ -1508,7 +1478,7 @@ class QuakeScan(DefaultQuakeScan):
         self.data.read_waveform_data(w_beg, w_end, self.sampling_rate, pre_pad,
                                      post_pad)
 
-    def _compute(self, w_beg, w_end, locate=False):
+    def _compute(self, w_beg, w_end):
         """
         Compute 3-D coalescence between two time stamps.
 
@@ -1516,29 +1486,20 @@ class QuakeScan(DefaultQuakeScan):
         ----------
         w_beg : UTCDateTime object
             Time stamp of first sample in window
-
         w_end : UTCDateTime object
             Time stamp of final sample in window
-
-        locate : bool, optional
-            Whether to compute the full 4D coalescence map (only needed
-            for locate()). Default: False
 
         Returns
         -------
         daten : array-like
             UTCDateTime time stamp for each sample between w_beg and w_end
-
         max_coa : array-like
             Coalescence value through time
-
         max_coa_norm : array-like
             Normalised coalescence value through time
-
         coord : array-like
             Location of maximum coalescence through time in input projection
             space.
-
         map_4d : array-like
             4-D coalescence map
 
@@ -1590,11 +1551,9 @@ class QuakeScan(DefaultQuakeScan):
         ----------
         coa_map : array-like
             Marginalised 3-D coalescence map
-
         sgm : float
             Sigma value (in grid cells) for the 3-D Gaussian filter function;
             bigger sigma leads to more aggressive (long wavelength) smoothing
-
         shp : array-like, optional
             Shape of volume
 
@@ -1634,10 +1593,8 @@ class QuakeScan(DefaultQuakeScan):
         ----------
         n : array-like, int
             Shape of grid
-
         i : array-like, int
             Location of cell around which to mask
-
         window : int
             Size of window around cell to mask - window of grid cells is
             +/-(win-1)//2 in x, y and z
@@ -1673,11 +1630,9 @@ class QuakeScan(DefaultQuakeScan):
         ----------
         coa_map : array-like
             Marginalised 3-D coalescence map.
-
         thresh : float (between 0 and 1), optional
             Cut-off threshold (fractional percentile) to trim coa_map; only
             data above this percentile will be retained.
-
         win : int, optional
             Window of grid cells (+/-(win-1)//2 in x, y and z) around max
             value in coa_map to perform the fit over.
@@ -1686,7 +1641,6 @@ class QuakeScan(DefaultQuakeScan):
         -------
         location : array-like, [x, y, z]
             Expectation location from covariance fit.
-
         uncertainty : array-like, [sx, sy, sz]
             One sigma uncertainties on expectation location from covariance
             fit.
@@ -1747,11 +1701,9 @@ class QuakeScan(DefaultQuakeScan):
         ----------
         coa_map : array-like
             Marginalised 3-D coalescence map.
-
         thresh : float (between 0 and 1), optional
             Cut-off threshold (percentile) to trim coa_map: only data above
             this percentile will be retained.
-
         win : int, optional
             Window of grid cells (+/-(win-1)//2 in x, y and z) around max
             value in coa_map to perform the fit over.
@@ -1760,7 +1712,6 @@ class QuakeScan(DefaultQuakeScan):
         -------
         location : array-like, [x, y, z]
             Expectation location from 3-D Gaussian fit.
-
         uncertainty : array-like, [sx, sy, sz]
             One sigma uncertainties on expectation location from 3-D Gaussian
             fit.
@@ -1841,11 +1792,9 @@ class QuakeScan(DefaultQuakeScan):
         ----------
         coa_map : array-like
             Marginalised 3-D coalescence map.
-
         win : int
             Window of grid cells (+/-(win-1)//2 in x, y and z) around max
             value in coa_map to perform the fit over.
-
         upscale : int
             Upscaling factor to interpolate the fitted 3-D spline function by.
 
@@ -1952,20 +1901,16 @@ class QuakeScan(DefaultQuakeScan):
         -------
         loc_spline: array-like
             [x, y, z] : expectation location from local spline interpolation
-
         loc_gau : array-like
             [x, y, z] : best-fit location from local gaussian fit to the
                         coalescence grid
-
         loc_gau_err : array-like
             [x_err, y_err, z_err] : one sigma uncertainties associated with
                                     loc_gau
-
         loc_cov : array-like
             [x, y, z] : best-fit location from covariance fit over entire 3d
                         grid (by default after filtering above a certain
                         percentile).
-
         loc_cov_err : array-like
             [x_err, y_err, z_err] : one sigma uncertainties associated with
                                     loc_cov
@@ -2003,7 +1948,6 @@ class QuakeScan(DefaultQuakeScan):
         ----------
         w_beg : UTCDateTime object
             Start time to create empty arrays
-
         w_end : UTCDateTime object
             End time to create empty arrays
 
@@ -2040,7 +1984,6 @@ class QuakeScan(DefaultQuakeScan):
         event_mw_data : pandas DataFrame
             Gridded maximum coa location through time across the marginal
             window. Columns = ["DT", "COA", "X", "Y", "Z"]
-
         event : pandas DataFrame
             Final event location information.
             Columns = ["DT", "COA", "COA_NORM", "X", "Y", "Z",
@@ -2055,10 +1998,8 @@ class QuakeScan(DefaultQuakeScan):
 
         out_str : str
             String {run_name}_{event_name} (figure displayed by default)
-
         event_uid : str
             UID of earthquake: "YYYYMMDDHHMMSSFFFF"
-
         map_4d : array-like
             4-D coalescence grid output from _compute()
 

@@ -18,11 +18,9 @@ class Onset(ABC):
     sampling_rate : int
         Desired sampling rate for input data; sampling rate at which the onset
         functions will be computed.
-
     pre_pad : float, optional
         Option to override the default pre-pad duration of data to read before
         computing 4-D coalescence in detect() and locate().
-
     post_pad : float
         Option to override the default post-pad duration of data to read before
         computing 4-D coalescence in detect() and locate().

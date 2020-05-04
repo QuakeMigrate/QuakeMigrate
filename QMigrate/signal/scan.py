@@ -1043,68 +1043,45 @@ class QuakeScan(DefaultQuakeScan):
 
         Parameters
         ----------
-        w_beg : UTCDateTime object
-            Time stamp of first sample in window
-
-        w_end : UTCDateTime object
-            Time stamp of final sample in window
+        w_beg : `obspy.UTCDateTime` object
+            Timestamp of first sample in window.
+        w_end : `obspy.UTCDateTime` object
+            Timestamp of final sample in window.
 
         Returns
         -------
         daten : array-like
-            UTCDateTime time stamp for each sample between w_beg and w_end
-
+            UTCDateTime timestamp for each sample between w_beg and w_end.
         max_coa : array-like
-            Coalescence value through time
-
+            Coalescence value through time.
         max_coa_norm : array-like
-            Normalised coalescence value through time
-
+            Normalised coalescence value through time.
         coord : array-like
             Location of maximum coalescence through time in input projection
             space.
-
-        map_4d : array-like
-            4-D coalescence map
+        map4d : `numpy.ndarry`, shape(nx, ny, nz, nsamp)
+            4-D coalescence map.
 
         """
 
-        avail = len(np.where(self.data.availability == 1)[0])*2
-
+        # --- Calculate continuous coalescence within 3-D volume ---
         onsets = self.onset.calculate_onsets(self.data)
-        _, tsamp = onsets.shape
-
         ttimes = self.lut.ttimes(self.sampling_rate)
+        fsmp = util.time2sample(self.pre_pad, self.sampling_rate)
+        lsmp = util.time2sample(self.post_pad, self.sampling_rate)
+        avail = np.sum(self.archive.availability)*2
+        map4d = migrate(onsets, ttimes, fsmp, lsmp, avail, self.threads)
 
-        # Calculate no. of samples in the pre-pad, post-pad and main window
-        pre_smp = int(round(self.pre_pad * int(self.sampling_rate)))
-        pos_smp = int(round(self.post_pad * int(self.sampling_rate)))
-        nsamp = tsamp - pre_smp - pos_smp
-
-        # Prep empty 4-D coalescence map and run C-compiled migrate()
-        ncell = tuple(self.lut.cell_count)
-        map_4d = np.zeros(ncell + (nsamp,), dtype=np.float64)
-        migrate(onsets, ttimes, pre_smp, pos_smp, nsamp, avail, map_4d,
-                self.n_cores)
-
-        # Prep empty coalescence and unraveled grid index arrays and run
-        # C-compiled find_max_coa()
-        max_coa = np.zeros(nsamp, np.double)
-        max_coa_norm = np.zeros(nsamp, np.double)
-        max_coa_idx = np.zeros(nsamp, np.int64)
-        find_max_coa(map_4d, max_coa, max_coa_norm, max_coa_idx, 0, nsamp,
-                     self.n_cores)
+        # --- Find continuous peak coalescence in 3-D volume ---
+        max_coa, max_coa_n, max_idx = find_max_coa(map4d, self.threads)
+        coord = self.lut.index2coord(max_idx, unravel=True)
 
         tmp = np.arange(w_beg + self.pre_pad,
                         w_end - self.post_pad + (1 / self.sampling_rate),
                         1 / self.sampling_rate)
         daten = [x.datetime for x in tmp]
 
-        # Convert the flat grid indices (of maximum coalescence) to coordinates
-        # in the input projection space.
-        coord = self.lut.index2coord(max_coa_idx, unravel=True)
-
-        return daten, max_coa, max_coa_norm, coord, map_4d
+        return daten, max_coa, max_coa_n, coord, map4d
 
     def _gaufilt3d(self, coa_map, sgm=0.8, shp=None):
         """

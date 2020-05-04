@@ -59,14 +59,14 @@ EXPORT void migrate(double *sigPt, int32_t *indPt, double *mapPt, int32_t fsmp, 
 }
 
 
-EXPORT void find_max_coa(double *mapPt, double *snrPt, double *nsnrPt, int64_t *indPt, int32_t fsmp, int32_t lsmp, int32_t nsamp, int64_t ncell, int64_t threads)
+EXPORT void find_max_coa(double *mapPt, double *snrPt, double *nsnrPt, int64_t *indPt, int32_t nsamp, int64_t ncell, int64_t threads)
 {
     double  mv, cv, sm;
     int32_t tm;
     int64_t cell, ix;
 
     #pragma omp parallel for num_threads(threads)
-    for (tm=fsmp; tm<lsmp; tm++)
+    for (tm=0; tm<nsamp; tm++)
     {
         mv = 0.0;
         ix = 0;

@@ -20,157 +20,128 @@ from .pick import GaussianPicker, PhasePicker
 import QMigrate.util as util
 
 # Filter warnings
-warnings.filterwarnings("ignore", message=("Covariance of the parameters"
-                                           " could not be estimated"))
-warnings.filterwarnings("ignore", message=("File will be written with more"
-                                           " than one different record"
-                                           " lengths. This might have a"
-                                           " negative influence on the"
-                                           " compatibility with other"
-                                           " programs."))
+warnings.filterwarnings("ignore", message=("Covariance of the parameters could"
+                                           " not be estimated"))
 
 
-class DefaultQuakeScan(object):
+class QuakeScan:
     """
-    Default parameter class for QuakeScan.
+    QuakeMigrate scanning class.
 
-    """
+    Provides an interface for the wrapped compiled C functions, used to perform
+    the continuous scan (detect) or refined event migrations (locate).
 
-    def __init__(self):
-        """
-        Initialise DefaultQuakeScan object.
+    Parameters
+    ----------
+    data : `QMigrate.io.Archive` object
+        Details the structure and location of a data archive and provides
+        methods for reading data from file.
+    lut : `QMigrate.lut.LUT` object
+        Contains the traveltime lookup tables for seismic phases, computed for
+        some pre-defined velocity model.
+    onset : `QMigrate.signal.onset.Onset` object
+        Provides callback methods for calculation of onset functions.
+    run_path : str
+        Points to the top level directory containing all input files, under
+        which the specific run directory will be created.
+    run_name : str
+        Name of the current QuakeMigrate run.
+    kwargs : **dict
+        See QuakeScan Attributes for details. In addition to these:
 
-        Parameters (all optional)
-        ----------
-        time_step : float
-            Time length (in seconds) of time step used in detect(). Note: total
-            detect run duration should be divisible by time_step. Increasing
-            time_step will increase RAM usage during detect, but will slightly
-            speed up overall detect run.
+    Attributes
+    ----------
+    continuous_scanmseed_write : bool
+        Option to continuously write the .scanmseed file output by detect() at
+        the end of every time step. Default behaviour is to write in day chunks
+        where possible. Default: False.
+    cut_waveform_format : str, optional
+        File format used when writing waveform data. We support any format also
+        supported by ObSpy - "MSEED" (default), "SAC", "SEGY", "GSE2".
+    log : bool, optional
+        Toggle for logging. If True, will output to stdout and generate a
+        log file. Default is to only output to stdout.
+    marginal_window : float, optional
+        Half-width of window centred on the maximum coalescence time. The
+        4-D coalescence functioned is marginalised over time across this window
+        such that the earthquake location and associated uncertainty can be
+        appropriately calculated. It should be an estimate of the time
+        uncertainty in the earthquake origin time, which itself is some
+        combination of the expected spatial uncertainty and uncertainty in the
+        seismic velocity model used. Default: 2 seconds.
+    picker : `QMigrate.signal.pick.PhasePicker` object, optional
+        Provides callback methods for phase picking, performed during locate.
+    plot_event_summary : bool, optional
+        Plot event summary figure - see `QMigrate.plot` for more details.
+        Default: True.
+    plot_event_video : bool, optional
+        Plot coalescence video for each located earthquake. Default: False.
+    post_pad : float
+        Additional amount of data to read in after the timestep, used to
+        ensure the correct coalescence is calculated at every sample.
+    pre_pad : float
+        Additional amount of data to read in before the timestep, used to
+        ensure the correct coalescence is calculated at every sample.
+    run : `QMigrate.io.Run` object
+        Light class encapsulating i/o path information for a given run.
+    sampling_rate : int, optional
+        Desired sampling rate of input data; sampling rate at which to compute
+        the coalescence function. Default: 50 Hz.
+    threads : int, optional
+        The number of threads for the C functions to use on the executing host.
+        Default: 1 thread.
+    timestep : float, optional
+        Length (in seconds) of timestep used in detect(). Note: total detect
+        run duration should be divisible by timestep. Increasing timestep will
+        increase RAM usage during detect, but will slightly speed up overall
+        detect run. Default: 120 seconds.
+    write_cut_waveforms : bool, optional
+        Write raw cut waveforms for all data found in the archive for each
+        event located by locate(). Default: False.
+        Note: this data has not been processed or quality-checked!
+    xy_files : list, string, optional
+        List of file strings:
+        With columns ["File", "Color", "Linewidth", "Linestyle"]
+        Where File is the file path to the xy file to be plotted on the
+        map. File should contain two columns ["Longitude", "Latitude"].
+        ** NOTE ** - do not include a header line in either file.
 
-        sampling_rate : int
-            Desired sampling rate for input data; sampling rate that detect()
-            and locate() will be computed at.
-
-        marginal_window : float
-            Time window (+/- marginal_window) about the maximum coalescence
-            time to marginalise the 4-D coalescence grid computed in locate()
-            to estimate the earthquake location and uncertainty. Should be an
-            estimate of the time uncertainty in the earthquake origin time -
-            a combination of the expected spatial error and the seismic
-            velocity in the region of the event
-
-        n_cores : int
-            Number of cores to use on the executing host for detect() /locate()
-
-        continuous_scanmseed_write : bool
-            Option to continuously write the .scanmseed file outputted by
-            detect() at the end of every time step. Default behaviour is to
-            write at the end of the time period, or the end of each day.
-
-        plot_event_summary : bool, optional
-            Plot event summary figure - see QMigrate.plot.quakeplot for more
-            details.
-
-        plot_event_video : bool, optional
-            Plot coalescence video for each earthquake located in locate()
-
-        write_4d_coal_grid : bool, optional
-            Save the full 4d coalescence grid output by compute for each event
-            located by locate() -- NOTE these files are large.
-
-        write_cut_waveforms : bool, optional
-            Write raw cut waveforms for all data found in the archive for each
-            event located by locate() -- NOTE this data has not been processed
-            or quality-checked!
-
-        cut_waveform_format : str, optional
-            File format to write waveform data to. Options are all file formats
-            supported by obspy, including: "MSEED" (default), "SAC", "SEGY",
-            "GSE2"
-
-        pre_cut : float, optional
-            Specify how long before the event origin time to cut the waveform
-            data from
-
-        post_cut : float, optional
-            Specify how long after the event origin time to cut the waveform
-            data to
-
-        xy_files : list, string
-            List of file strings:
-            With columns ["File", "Color", "Linewidth", "Linestyle"]
-            Where File is the file path to the xy file to be plotted on the
-            map. File should contain two columns ["Longitude", "Latitude"].
-            ** NOTE ** - do not include a header line in either file.
-
-        """
-
-        # Time step for continuous compute in detect
-        self.time_step = 120.
-
-        # Data sampling rate
-        self.sampling_rate = 50
-
-        # Marginal window
-        self.marginal_window = 2.
-
-        # Number of cores to perform detect/locate on
-        self.n_cores = 1
-
-        # Toggle whether to incrementally write .scanmseed in detect()
-        self.continuous_scanmseed_write = False
-
-        # Plotting toggles
-        self.plot_event_summary = True
-        self.plot_event_video = False
-
-        # Saving toggles
-        self.write_4d_coal_grid = False
-        self.write_cut_waveforms = False
-        self.cut_waveform_format = "MSEED"
-        self.pre_cut = None
-        self.post_cut = None
-
-        # xy files for plotting
-        self.xy_files = None
-
-
-class QuakeScan(DefaultQuakeScan):
-    """
-    QuakeMigrate scanning class
-
-    Forms the core of the QuakeMigrate method, providing wrapper functions for
-    the C-compiled migration methods.
+    +++ TO BE REMOVED TO ARCHIVE CLASS +++
+    pre_cut : float, optional
+        Specify how long before the event origin time to cut the waveform
+        data from
+    post_cut : float, optional
+        Specify how long after the event origin time to cut the waveform
+        data to
+    +++ TO BE REMOVED TO ARCHIVE CLASS +++
 
     Methods
     -------
-    detect(start_time, end_time)
+    detect(starttime, endtime)
         Core detection method -- compute decimated 3-D coalescence continuously
-                                 throughout entire time period; output as
-                                 .scanmseed (in mSEED format).
-
-    locate(start_time, end_time)
+        throughout entire time period; output as .scanmseed (in mSEED format).
+    locate(starttime, endtime) or locate(file)
         Core locate method -- compute 3-D coalescence over short time window
-                              around candidate earthquake triggered from
-                              coastream; output location & uncertainties
-                              (.event file), phase picks (.picks file), plus
-                              multiple optional plots / data for further
-                              analysis and processing.
+        around candidate earthquake triggered from coastream; output location &
+        uncertainties (.event file), phase picks (.picks file), plus multiple
+        optional plots / data for further analysis and processing.
+
+    Raises
+    ------
+    OnsetTypeError
+        If an object is passed in through the `onset` argument that does not
+        derive from the `QMigrate.signal.onset.Onset` base class.
+    PickerTypeError
+        If an object is passed in through the `picker` argument that does not
+        derive from the `QMigrate.signal.pick.PhasePicker` base class.
+    RuntimeError
+        If the user does not supply the locate function with valid arguments.
+    TimeSpanException
+        If the user supplies a starttime that is after the endtime.
 
     """
 
-    EVENT_FILE_COLS = ["DT", "COA", "COA_NORM", "X", "Y", "Z",
-                       "LocalGaussian_X", "LocalGaussian_Y", "LocalGaussian_Z",
-                       "LocalGaussian_ErrX", "LocalGaussian_ErrY",
-                       "LocalGaussian_ErrZ", "GlobalCovariance_X",
-                       "GlobalCovariance_Y", "GlobalCovariance_Z",
-                       "GlobalCovariance_ErrX", "GlobalCovariance_ErrY",
-                       "GlobalCovariance_ErrZ", "TRIG_COA", "DEC_COA",
-                       "DEC_COA_NORM", "ML", "ML_Err"]
-
-    def __init__(self, archive, lut, onset, run_path, run_name,
-                 log=False, **kwargs):
+    def __init__(self, archive, lut, onset, run_path, run_name, **kwargs):
         """Instantiate the QuakeScan object."""
 
         super().__init__()
@@ -195,18 +166,34 @@ class QuakeScan(DefaultQuakeScan):
         else:
             raise util.PickerTypeError
 
-        self.log = log
+        # --- Grab QuakeScan parameters or set defaults ---
+        # Parameters related specifically to Detect
+        self.timestep = kwargs.get("timestep", 120.)
+        self.time_step = kwargs.get("time_step")  # DEPRECATING
 
-        # Get pre- and post-pad values from the onset class
-        self.pre_pad = self.onset.pre_pad
-        self.onset.post_pad = lut.max_ttime
-        self.post_pad = self.onset.post_pad
+        # Parameters related specifically to Locate
+        self.marginal_window = kwargs.get("marginal_window", 2.)
 
-        msg = ("=" * 110 + "\n") * 2
-        msg += "\tQuakeMigrate - Coalescence Scanning - Path: {} - Name: {}\n"
-        msg += ("=" * 110 + "\n") * 2
-        msg = msg.format(self.output.path, self.output.name)
-        self.output.log(msg, self.log)
+        # General QuakeScan parameters
+        self.threads = kwargs.get("threads", 1)
+        self.n_cores = kwargs.get("n_cores")  # DEPRECATING
+        self.sampling_rate = kwargs.get("sampling_rate", 50)
+        self.scan_rate = kwargs.get("scan_rate", 50)  # FUTURE
+
+        # Plotting toggles and parameters
+        self.plot_event_summary = kwargs.get("plot_event_summary", True)
+        self.plot_event_video = kwargs.get("plot_event_video", False)
+        self.xy_files = kwargs.get("xy_files")
+
+        # File writing toggles
+        self.continuous_scanmseed_write = kwargs.get("continuous_scanmseed_write", False)
+        self.write_cut_waveforms = kwargs.get("write_cut_waveforms", False)
+        self.cut_waveform_format = kwargs.get("cut_waveform_format", "MSEED")
+
+        # +++ TO BE REMOVED TO ARCHIVE CLASS +++
+        self.pre_cut = None
+        self.post_cut = None
+        # +++ TO BE REMOVED TO ARCHIVE CLASS +++
 
     def __str__(self):
         """Return short summary string of the QuakeScan object."""
@@ -939,3 +926,32 @@ class QuakeScan(DefaultQuakeScan):
         except AttributeError:
             pass
         self._sampling_rate = value
+
+    # --- Deprecation/Future handling ---
+    @property
+    def time_step(self):
+        """Handler for deprecated attribute name 'time_step'"""
+        return self.timestep
+
+    @time_step.setter
+    def time_step(self, value):
+        if value is None:
+            return
+        print("FutureWarning: Parameter name has changed - continuing.")
+        print("To remove this message, change:")
+        print("\t'time_step' -> 'timestep'")
+        self.timestep = value
+
+    @property
+    def n_cores(self):
+        """Handler for deprecated attribute name 'n_cores'"""
+        return self.threads
+
+    @n_cores.setter
+    def n_cores(self, value):
+        if value is None:
+            return
+        print("FutureWarning: Parameter name has changed - continuing.")
+        print("To remove this message, change:")
+        print("\t'n_cores' -> 'threads'")
+        self.threads = value

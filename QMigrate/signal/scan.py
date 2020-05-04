@@ -422,6 +422,7 @@ class QuakeScan:
             del event, marginalised_coalescence
             logging.info(util.log_spacer)
 
+    @util.timeit
     def _compute(self, data):
         """
         Compute 3-D coalescence between two time stamps.
@@ -466,6 +467,7 @@ class QuakeScan:
             times = data.times(type="utcdatetime")
             return times, max_coa, max_coa_n, coord, map4d
 
+    @util.timeit
     def _read_event_waveform_data(self, w_beg, w_end):
         """
         Read waveform data for a triggered event.
@@ -511,6 +513,7 @@ class QuakeScan:
 
         return self.archive.read_waveform_data(w_beg, w_end, pre_pad, post_pad)
 
+    @util.timeit
     def _calculate_location(self, event):
         """
         Marginalise the 4-D coalescence grid and calculate a set of locations
@@ -550,6 +553,7 @@ class QuakeScan:
 
         return coa_map
 
+    @util.timeit
     def _splineloc(self, coa_map, win=5, upscale=10):
         """
         Fit a 3-D spline function to a region around the maximum coalescence
@@ -649,6 +653,7 @@ class QuakeScan:
 
         return location
 
+    @util.timeit
     def _gaufit3d(self, coa_map, thresh=0., win=7):
         """
         Fit a 3-D Gaussian function to a region around the maximum coalescence
@@ -740,6 +745,7 @@ class QuakeScan:
 
         return location, uncertainty
 
+    @util.timeit
     def _covfit3d(self, coa_map, thresh=0.88, win=None):
         """
         Calculate the 3-D covariance of the marginalised coalescence map,
@@ -812,6 +818,7 @@ class QuakeScan:
 
         return location, uncertainty
 
+    @util.timeit
     def _gaufilt3d(self, map3d, sgm=0.8, shp=None):
         """
         Smooth the 3-D marginalised coalescence map using a 3-D Gaussian

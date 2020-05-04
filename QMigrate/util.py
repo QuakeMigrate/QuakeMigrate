@@ -4,6 +4,7 @@ Module that supplies various utility functions and classes.
 
 """
 
+from functools import wraps
 import logging
 import time
 
@@ -21,7 +22,6 @@ def make_directories(run, subdir=None):
     ----------
     run : pathlib Path object
         Location of parent output directory, named by run name.
-
     subdir : string, optional
         subdir to make beneath the run level.
 
@@ -42,13 +42,10 @@ def gaussian_1d(x, a, b, c):
     ----------
     x : array-like
         Array of x values
-
     a : float / int
         Amplitude (height of Gaussian)
-
     b : float / int
         Mean (centre of Gaussian)
-
     c : float / int
         Sigma (width of Gaussian)
 
@@ -72,13 +69,10 @@ def gaussian_3d(nx, ny, nz, sgm):
     ----------
     nx : array-like
         Array of x values
-
     ny : array-like
         Array of y values
-
     nz : array-like
         Array of z values
-
     sgm : float / int
         Sigma (width of gaussian in all directions)
 
@@ -135,21 +129,14 @@ def logger(logstem, log):
                         # format="%(asctime)s [%(levelname)s] %(message)s",
 
 
-class Stopwatch(object):
-    """
-    Simple stopwatch to measure elapsed wall clock time.
-
-    """
-
-    def __init__(self):
-        """Object initialisation"""
-        self.start = time.time()
-
-    def __call__(self):
-        """Return time elapsed since object initialised"""
-        msg = "    \t\tElapsed time: {:6f} seconds.".format(time.time()
-                                                            - self.start)
-        return msg
+def timeit(f):
+    @wraps(f)
+    def wrap(*args, **kw):
+        ts = time.time()
+        result = f(*args, **kw)
+        logging.info(" "*21 + f"Elapsed time: {time.time() - ts:6f} seconds.")
+        return result
+    return wrap
 
 
 class StationFileHeaderException(Exception):

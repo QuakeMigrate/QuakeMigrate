@@ -13,7 +13,7 @@ from scipy.optimize import curve_fit
 
 from .pick import PhasePicker
 from QMigrate.plot.phase_picks import plot_summary
-from QMigrate.util import gaussian_1d, make_directories
+import QMigrate.util as util
 
 
 class GaussianPicker(PhasePicker):
@@ -72,6 +72,7 @@ class GaussianPicker(PhasePicker):
                 f"\t\tMarginal window = {self.marginal_window}\n"
                 f"\t\tSearch window   = {self.fraction_tt}s\n\n")
 
+    @util.timeit
     def pick_phases(self, data, lut, event, event_uid, output):
         """
         Picks phase arrival times for located earthquakes.
@@ -334,7 +335,7 @@ class GaussianPicker(PhasePicker):
                       data_half_range / self.sampling_rate]
 
                 # Do the fit
-                popt, _ = curve_fit(gaussian_1d, x_data, y_data, p0)
+                popt, _ = curve_fit(util.gaussian_1d, x_data, y_data, p0)
 
                 # Results:
                 #  popt = [height, mean (seconds), sigma (seconds)]
@@ -424,8 +425,8 @@ class GaussianPicker(PhasePicker):
 
                 # Check pick has been made
                 if not gau["PickValue"] == -1:
-                    yy = gaussian_1d(gau["xdata"], gau["popt"][0],
-                                     gau["popt"][1], gau["popt"][2])
+                    yy = util.gaussian_1d(gau["xdata"], gau["popt"][0],
+                                          gau["popt"][1], gau["popt"][2])
                     dt = [x.datetime for x in gau["xdata_dt"]]
                     ax.plot(dt, yy / norm)
 

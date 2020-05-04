@@ -10,8 +10,8 @@ import numpy as np
 from obspy import UTCDateTime
 import pandas as pd
 
-from QMigrate.io import Run
-from QMigrate.plot import triggered_events
+from QMigrate.io import Run, read_scanmseed, write_triggered_events
+from QMigrate.plot import trigger_summary
 import QMigrate.util as util
 
 
@@ -55,6 +55,10 @@ def chunks2trace(a, new_shape):
     b = np.broadcast_to(a[:, None], new_shape)
     b = np.reshape(b, np.product(new_shape))
     return b
+
+
+EVENT_FILE_COLS = ["EventNum", "CoaTime", "COA_V", "COA_X", "COA_Y", "COA_Z",
+                   "MinTime", "MaxTime", "COA", "COA_NORM"]
 
 
 class Trigger:
@@ -141,36 +145,19 @@ class Trigger:
                        "trigger")
         self.run.logger(kwargs.get("log", True))
 
-        self.stations = stations
-
-        self.start_time = None
-        self.end_time = None
-
-        # Detection threshold above which to trigger events
-        self.detection_threshold = 1.5
-
-        # Set some defaults for the dynamic trigger threshold
-        self.mad_window_length = 3600.
-        self.mad_multiplier = 10.
-
-        # Trigger from normalised max coalescence through time
-        self.normalise_coalescence = True
-
-        # Marginalise 4D coalescence map over +/- 2 seconds around max
-        # time of max coalescence
-        self.marginal_window = 2.
-
-        # Minumum time interval between triggers. Must be >= 2*marginal_window
-        self.minimum_repeat = 4.
-
-        # Pad at start and end of trigger run
-        self.pad = 120
-
-        self.sampling_rate = None
-        self.coa_data = None
-
-        self.events = None
-        self.region = None
+        # --- Grab Trigger parameters or set defaults ---
+        self.threshold_method = kwargs.get("threshold_method", "static")
+        if self.threshold_method == "static":
+            self.static_threshold = kwargs.get("static_threshold", 1.5)
+        elif self.threshold_method == "dynamic":
+            self.mad_window_length = kwargs.get("mad_window_length", 3600.)
+            self.mad_multiplier = kwargs.get("mad_multiplier", 1.)
+        else:
+            raise util.InvalidThresholdMethodException
+        self.marginal_window = kwargs.get("marginal_window", 2.)
+        self.minimum_repeat = kwargs.get("minimum_repeat", 4.)
+        self.normalise_coalescence = kwargs.get("normalise_coalescence", False)
+        self.pad = kwargs.get("pad", 120.)
 
     def __str__(self):
         """Return short summary string of the Trigger object."""
@@ -227,67 +214,57 @@ class Trigger:
         logging.info(self)
         logging.info(util.log_spacer)
 
-        if self.minimum_repeat < 2 * self.marginal_window:
-            msg = "\tMinimum repeat must be >= 2 * marginal window."
-            raise Exception(msg)
-
         logging.info("\tReading in .scanmseed...")
-        read_start = self.start_time - self.pad
-        read_end = self.end_time + self.pad
-        self.coa_data, coa_stats = self.output.read_coastream(read_start,
-                                                              read_end)
+        data, stats = read_scanmseed(self.run, starttime, endtime, self.pad)
 
-        # Check if coa_data found by read_coastream covers whole trigger period
-        msg = ""
-        if coa_stats.starttime > self.start_time:
-            msg += ("\tWarning! scanmseed data start is after trigger()"
-                    "start_time!\n")
-        elif coa_stats.starttime > read_start:
-            msg += "\tWarning! No scanmseed data found for pre-pad!\n"
-        if coa_stats.endtime < self.end_time - 1 / coa_stats.sampling_rate:
-            msg += ("\tWarning! scanmseed data end is before trigger()"
-                    "end_time!\n")
-        elif coa_stats.endtime < read_end:
-            msg += "\tWarning! No scanmseed data found for post-pad!\n"
-        self.output.log(msg, self.log)
-        self.output.log("\tscanmseed read complete.", self.log)
-
-        self.sampling_rate = coa_stats.sampling_rate
-
-        events = self._trigger_events()
+        logging.info("\tTriggering events...")
+        events = self._trigger_events(starttime, endtime, data, stats, region)
 
         if events is None:
             logging.info("\tNo events triggered at this threshold - try a "
                          "lower detection threshold.")
         else:
             logging.info("\tWriting triggered events to file...")
-            self.output.write_triggered_events(self.events, self.start_time,
-                                               self.end_time)
+            write_triggered_events(self.run, events, starttime, endtime)
 
-        triggered_events(events=self.events, start_time=self.start_time,
-                         end_time=self.end_time, output=self.output,
-                         marginal_window=self.marginal_window,
-                         detection_threshold=self.threshold,
-                         normalise_coalescence=self.normalise_coalescence,
-                         log=self.log, data=self.coa_data,
-                         region=self.region, stations=self.stations,
-                         savefig=savefig)
+        logging.info("\n\tPlotting trigger summary...")
+        trigger_summary(events, starttime, endtime, self.run,
+                        self.marginal_window, self.minimum_repeat,
+                        self.threshold, self.normalise_coalescence,
+                        self.lut, data, region=region, savefig=savefig)
 
         logging.info(util.log_spacer)
 
-    def _trigger_events(self):
+    def _trigger_events(self, starttime, endtime, scandata, stats, region):
         """
         Function to perform the triggering on the maximum coalescence through
         time data.
 
+        Parameters
+        ----------
+        starttime : `obspy.UTCDateTime` object
+            Timestamp from which to trigger.
+        endtime : `obspy.UTCDateTime` object
+            Timestamp up to which to trigger.
+        scandata : `pandas.DataFrame` object
+            Data output by detect() -- decimated scan.
+            Columns: ["DT", "COA", "COA_N", "X", "Y", "Z"] - X/Y/Z as lon/lat/m
+        coa_stats : `obspy.trace.Stats` object
+            Container for additional header information for coalescence trace.
+            Contains keys: network, station, channel, starttime, endtime,
+                           sampling_rate, delta, npts, calib, _format, mseed
+        region : `pandas.DataFrame`
+            Only write triggered events within this region to the triggered
+            events csv file (for use in locate.) Format is:
+                [Xmin, Ymin, Zmin, Xmax, Ymax, Zmax]
+            Units are longitude / latitude / metres (elevation; up is positive)
+
         Returns
         -------
-        events : pandas DataFrame
-            Triggered events information. Columns: ["EventNum", "CoaTime",
-                                                    "COA_V", "COA_X", "COA_Y",
-                                                    "COA_Z", "MinTime",
-                                                    "MaxTime", "COA",
-                                                    "COA_NORM", "evt_id"]
+        events : `pandas.DataFrame`
+        Triggered events information.
+        Columns: ["EventNum", "CoaTime", "COA_V", "COA_X", "COA_Y", "COA_Z",
+                  "MinTime", "MaxTime", "COA", "COA_NORM", "EventID"].
 
         """
 
@@ -296,52 +273,46 @@ class Trigger:
         # buffer on top of marginal window within which events can't overlap)
         minimum_repeat = self.minimum_repeat - self.marginal_window
 
-        start_time = self.start_time - self.pad
-        end_time = self.end_time + self.pad
+        starttime, endtime = starttime - self.pad, endtime + self.pad
 
         if self.normalise_coalescence:
-            coa_data = self.coa_data["COA_N"]
+            tr = scandata["COA_N"]
         else:
-            coa_data = self.coa_data["COA"]
-
-        if self.detection_threshold == "dynamic":
+            tr = scandata["COA"]
+        sampling_rate = stats.sampling_rate
+        if self.threshold_method == "dynamic":
             # Split the data in window_length chunks
-            breaks = np.array(range(len(coa_data)))
+            breaks = np.array(range(len(tr)))
             breaks = breaks[breaks % int(self.mad_window_length
-                                         * self.sampling_rate) == 0][1:]
-            chunks = np.split(coa_data.values, breaks)
+                                         * sampling_rate) == 0][1:]
+            chunks = np.split(tr.values, breaks)
             # Calculate the mad and median values
             mad_values = np.asarray([mad(chunk) for chunk in chunks])
             median_values = np.asarray([np.median(chunk) for chunk in chunks])
             mad_trace = chunks2trace(mad_values, (len(chunks), len(chunks[0])))
             median_trace = chunks2trace(median_values, (len(chunks),
                                         len(chunks[0])))
-            mad_trace = mad_trace[:len(coa_data)]
-            median_trace = median_trace[:len(coa_data)]
+            mad_trace = mad_trace[:len(tr)]
+            median_trace = median_trace[:len(tr)]
 
             # Set the dynamic threshold
             self.threshold = median_trace + (mad_trace * self.mad_multiplier)
         else:
             # Set static threshold
-            self.threshold = np.zeros_like(coa_data) + self.detection_threshold
+            self.threshold = np.zeros_like(tr) + self.static_threshold
 
         # Mask based on first and final time stamps and detection threshold
-        coa_data = self.coa_data[coa_data >= self.threshold]
-        coa_data = coa_data[(coa_data["DT"] >= start_time) &
-                            (coa_data["DT"] <= end_time)]
+        coa_data = scandata[(tr >= self.threshold) &
+                            (scandata["DT"] >= starttime) &
+                            (scandata["DT"] <= endtime)].reset_index(drop=True)
 
-        coa_data = coa_data.reset_index(drop=True)
-
-        if len(coa_data) == 0:
+        if coa_data.empty:
             return None
 
-        event_cols = ["EventNum", "CoaTime", "COA_V", "COA_X", "COA_Y",
-                      "COA_Z", "MinTime", "MaxTime", "COA", "COA_NORM"]
+        ss = 1. / sampling_rate
 
-        ss = 1. / self.sampling_rate
-
-        # Determine the initial triggered events
-        init_events = pd.DataFrame(columns=event_cols)
+        # Determine the triggers, defined as those points exceeding threshold
+        triggers = pd.DataFrame(columns=EVENT_FILE_COLS)
         c = 0
         e = 1
         while c <= len(coa_data) - 1:
@@ -358,21 +329,19 @@ class Trigger:
             min_idx = c
             max_idx = d
             val_idx = coa_data["COA"].iloc[np.arange(min_idx, max_idx+1)].idxmax()
+            coa_max_df = coa_data.iloc[val_idx]
 
             # Determining the times for min, max and max coalescence value
             t_min = coa_data["DT"].iloc[min_idx]
             t_max = coa_data["DT"].iloc[max_idx]
-            t_val = coa_data["DT"].iloc[val_idx]
+            t_val = coa_max_df["DT"]
 
-            if self.normalise_coalescence is True:
-                COA_V = coa_data["COA_N"].iloc[val_idx]
+            if self.normalise_coalescence:
+                COA_V = coa_max_df.COA_N
             else:
-                COA_V = coa_data["COA"].iloc[val_idx]
-            COA_X = coa_data["X"].iloc[val_idx]
-            COA_Y = coa_data["Y"].iloc[val_idx]
-            COA_Z = coa_data["Z"].iloc[val_idx]
-            COA = coa_data["COA"].iloc[val_idx]
-            COA_NORM = coa_data["COA_N"].iloc[val_idx]
+                COA_V = coa_max_df.COA
+            COA_X, COA_Y, COA_Z = coa_max_df.X, coa_max_df.Y, coa_max_df.Z
+            COA, COA_NORM = coa_max_df.COA, coa_max_df.COA_N
 
             # If the first sample above the threshold is within the marginal
             # window, set min time stamp to:
@@ -394,60 +363,52 @@ class Trigger:
 
             tmp = pd.DataFrame([[e, t_val, COA_V, COA_X, COA_Y, COA_Z,
                                 t_min, t_max, COA, COA_NORM]],
-                               columns=event_cols)
+                               columns=EVENT_FILE_COLS)
 
-            init_events = init_events.append(tmp, ignore_index=True)
+            triggers = triggers.append(tmp, ignore_index=True)
 
             c = d + 1
             e += 1
 
-        n_evts = len(init_events)
+        n_evts = len(triggers)
         evt_num = np.ones((n_evts), dtype=int)
 
         # Iterate over initially triggered events and see if there is overlap
         # between the final sample in the event window and the edge of the
         # marginal window of the next. If so, treat them as the same event
         count = 1
-        for i, event in init_events.iterrows():
+        for i, event in triggers.iterrows():
             evt_num[i] = count
             if (i + 1 < n_evts) and ((event["MaxTime"]
-                                      - (init_events["CoaTime"].iloc[i + 1]
+                                      - (triggers["CoaTime"].iloc[i + 1]
                                       - self.marginal_window)) < 0):
                 count += 1
-        init_events["EventNum"] = evt_num
+        triggers["EventNum"] = evt_num
 
-        events = pd.DataFrame(columns=event_cols)
+        events = pd.DataFrame(columns=EVENT_FILE_COLS)
         self.output.log("\n\tTriggering...", self.log)
         for i in range(1, count + 1):
             logging.info(f"\t    Triggered event {i} of {count}")
-            tmp = init_events[init_events["EventNum"] == i]
-            tmp = tmp.reset_index(drop=True)
-            j = np.argmax(tmp["COA_V"].values)
-            min_mt = np.min(tmp["MinTime"])
-            max_mt = np.max(tmp["MaxTime"])
-            event = pd.DataFrame([[i, tmp["CoaTime"].iloc[j],
-                                   tmp["COA_V"].iloc[j],
-                                   tmp["COA_X"].iloc[j],
-                                   tmp["COA_Y"].iloc[j],
-                                   tmp["COA_Z"].iloc[j],
-                                   min_mt,
-                                   max_mt,
-                                   tmp["COA"].iloc[j],
-                                   tmp["COA_NORM"].iloc[j]]],
-                                 columns=event_cols)
+            tmp = triggers[triggers["EventNum"] == i].reset_index(drop=True)
+            _event = tmp.iloc[tmp.COA_V.idxmax()]
+            event = pd.DataFrame([[i, _event.CoaTime, _event.COA_V,
+                                   _event.COA_X, _event.COA_Y, _event.COA_Z,
+                                   tmp.MinTime.max(), tmp.MaxTime.max(),
+                                   _event.COA, _event.COA_NORM]],
+                                 columns=EVENT_FILE_COLS)
             events = events.append(event, ignore_index=True)
 
         # Remove events which occur in the pre-pad and post-pad:
-        events = events[(events["CoaTime"] >= self.start_time) &
-                        (events["CoaTime"] < self.end_time)]
+        events = events[(events["CoaTime"] >= starttime) &
+                        (events["CoaTime"] < endtime)]
 
-        if self.region is not None:
-            events = events[(events["COA_X"] >= self.region[0]) &
-                            (events["COA_Y"] >= self.region[1]) &
-                            (events["COA_Z"] >= self.region[2]) &
-                            (events["COA_X"] <= self.region[3]) &
-                            (events["COA_Y"] <= self.region[4]) &
-                            (events["COA_Z"] <= self.region[5])]
+        if region is not None:
+            events = events[(events["COA_X"] >= region[0]) &
+                            (events["COA_Y"] >= region[1]) &
+                            (events["COA_Z"] >= region[2]) &
+                            (events["COA_X"] <= region[3]) &
+                            (events["COA_Y"] <= region[4]) &
+                            (events["COA_Z"] <= region[5])]
 
         # Reset EventNum column
         events.loc[:, "EventNum"] = np.arange(1, len(events) + 1)
@@ -458,7 +419,21 @@ class Trigger:
         event_uid = event_uid.apply(lambda x: x[:17].ljust(17, "0"))
         events["EventID"] = event_uid
 
-        if len(events) == 0:
-            events = None
+        if events.empty:
+            return None
+        else:
+            return events
 
-        return events
+    @property
+    def minimum_repeat(self):
+        """Get and set the minimum repeat time."""
+
+        return self._minimum_repeat
+
+    @minimum_repeat.setter
+    def minimum_repeat(self, value):
+        if value < 2 * self.marginal_window:
+            msg = "\tMinimum repeat must be >= 2 * marginal window."
+            raise Exception(msg)
+        else:
+            self._minimum_repeat = value

@@ -8,7 +8,7 @@ import numpy as np
 from obspy import UTCDateTime
 import pandas as pd
 
-from QMigrate.io import QuakeIO
+from QMigrate.io import Run
 from QMigrate.plot import triggered_events
 import QMigrate.util as util
 
@@ -72,7 +72,7 @@ class Trigger:
 
     """
 
-    def __init__(self, output_path, output_name, stations, log=False):
+    def __init__(self, run_path, run_name, stations, log=False, **kwargs):
         """
         Class initialisation method.
 
@@ -123,10 +123,9 @@ class Trigger:
 
         """
 
-        if output_path is not None:
-            self.output = QuakeIO(output_path, output_name, log)
-        else:
-            self.output = None
+        # --- Organise i/o and logging ---
+        self.run = Run(run_path, run_name, kwargs.get("trigger_name", ""),
+                       "trigger")
 
         self.log = log
 
@@ -161,33 +160,33 @@ class Trigger:
         self.events = None
         self.region = None
 
-    def trigger(self, start_time, end_time, region=None, savefig=True):
+    def trigger(self, starttime, endtime, region=None, savefig=True):
         """
         Trigger candidate earthquakes from decimated scan data.
 
         Parameters
         ----------
-        start_time : str
-            Time stamp of first sample
-
-        end_time : str
-            Time stamp of final sample
-
+        starttime : str
+            Timestamp from which to trigger.
+        endtime : str
+            Timestamp up to which to trigger.
         region : list of floats, optional
             Only write triggered events within this region to the triggered
             events csv file (for use in locate.) Format is:
                 [Xmin, Ymin, Zmin, Xmax, Ymax, Zmax]
-            Units are longitude / latitude / metres (elevation; up is positive)
-
+            Units are longitude / latitude / metres (in positive-down frame).
         save_fig : bool, optional
             Save triggered events figure (default) or open interactive view.
 
+        Raises
+        ------
+        TimeSpanException
+            If `starttime` is after `endtime`.
+
         """
 
-        # Convert times to UTCDateTime objects and check for muppetry
-        self.start_time = UTCDateTime(start_time)
-        self.end_time = UTCDateTime(end_time)
-        if self.start_time > self.end_time:
+        starttime, endtime = UTCDateTime(starttime), UTCDateTime(endtime)
+        if starttime > endtime:
             raise util.TimeSpanException
         self.region = region
 

@@ -4,6 +4,7 @@ Module to handle input/output for QuakeMigrate.
 
 """
 
+import logging
 import pathlib
 
 import pandas as pd
@@ -135,6 +136,22 @@ class Run:
         return (f"{util.log_spacer}\n{util.log_spacer}\n"
                 f"\tQuakeMigrate RUN - Path: {self.path} - Name: {self.name}\n"
                 f"{util.log_spacer}\n{util.log_spacer}\n")
+
+    def logger(self, log):
+        """
+        Configures the logging feature.
+
+        Parameters
+        ----------
+        log : bool
+            Toggle for logging. If True, will output to stdout and generate a
+            log file.
+
+        """
+
+        logstem = self.path / self.stage / "logs" / self.name
+        util.logger(logstem, log)
+        logging.info(self)
 
     @property
     def name(self):

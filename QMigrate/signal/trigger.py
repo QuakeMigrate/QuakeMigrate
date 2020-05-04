@@ -386,7 +386,6 @@ class Trigger:
         triggers["EventNum"] = evt_num
 
         events = pd.DataFrame(columns=EVENT_FILE_COLS)
-        self.output.log("\n\tTriggering...", self.log)
         for i in range(1, count + 1):
             logging.info(f"\t    Triggered event {i} of {count}")
             tmp = triggers[triggers["EventNum"] == i].reset_index(drop=True)

@@ -7,6 +7,7 @@ Module to produce travel-time lookup tables defined on a Cartesian grid.
 import copy
 import pickle
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pyproj
 from scipy.interpolate import RegularGridInterpolator
@@ -416,8 +417,9 @@ class LUT(Grid3D):
         Dumps the current state of the lookup table object to a pickle file.
     load(filename)
         Restore the state of the saved LUT object from a pickle file.
-    plot()
-        Not yet implemented.
+    plot(fig, gs, slices=None, hypocentre=None, station_clr="k")
+        Plot cross-sections of the LUT with station locations. Optionally plot
+        slices through a coalescence volume.
 
     """
 
@@ -428,19 +430,16 @@ class LUT(Grid3D):
         cc = self.cell_count
         cs = self.cell_size
 
-        out = ("QuakeMigrate travel-time lookup table"
-               "\nGrid parameters"
+        out = ("QuakeMigrate traveltime lookup table\nGrid parameters"
                "\n\tLower-left corner  : {lat1:10.5f}\u00b0N "
                "{lon1:10.5f}\u00b0E {dep1:10.3f} m"
                "\n\tUpper-right corner : {lat2:10.5f}\u00b0N "
                "{lon2:10.5f}\u00b0E {dep2:10.3f} m"
-               "\n\tNumber of cells    : [{nx}, {ny}, {nz}]"
-               "\n\tCell dimensions    : [{dx}, {dy}, {dz}] m\n\n")
+               f"\n\tNumber of cells    : {cc}"
+               f"\n\tCell dimensions    : {cs} m\n\n")
 
         out = out.format(lat1=ll[0], lon1=ll[1], dep1=ll[2],
-                         lat2=ur[0], lon2=ur[1], dep2=ur[2],
-                         nx=cc[0], ny=cc[1], nz=cc[2],
-                         dx=cs[0], dy=cs[1], dz=cs[2])
+                         lat2=ur[0], lon2=ur[1], dep2=ur[2])
 
         out += ("\tVelocity model:\n"
                 "\t{}".format(str(self.velocity_model).replace("\n", "\n\t")))
@@ -487,7 +486,6 @@ class LUT(Grid3D):
         ----------
         phase : str
             The seismic phase to lookup.
-
         ijk : array-like
             Grid indices for which to serve travel time.
 
@@ -550,10 +548,96 @@ class LUT(Grid3D):
 
         self.__dict__.update(tmp_dict)
 
-    def plot(self):
-        """Plot the lookup table for a particular station."""
+    def plot(self, fig, gs, slices=None, hypocentre=None, station_clr="k"):
+        """
+        Plot the lookup table for a particular station.
 
-        raise NotImplementedError
+        Parameters
+        ----------
+        fig : `matplotlib.Figure` object
+            Canvas on which LUT is plotted.
+        gs : tuple(int, int)
+            Grid specification for the plot.
+        slices : array of arrays, optional
+            Slices through a coalescence volume to plot.
+        hypocentre : array of floats
+            Event hypocentre - will add cross-hair to plot.
+        station_clr : str, optional
+            Plot the stations with a particular colour.
+
+        """
+
+        xy = plt.subplot2grid(gs, (2, 0), colspan=5, rowspan=5, fig=fig)
+        xz = plt.subplot2grid(gs, (7, 0), colspan=5, rowspan=2, fig=fig)
+        yz = plt.subplot2grid(gs, (2, 5), colspan=2, rowspan=5, fig=fig)
+
+        xz.get_shared_x_axes().join(xy, xz)
+        yz.get_shared_y_axes().join(xy, yz)
+
+        # --- Set bounds ---
+        corners = self.coord2grid(self.grid_corners, inverse=True)
+        mins = [np.min(dim) for dim in corners.T]
+        maxs = [np.max(dim) for dim in corners.T]
+        sizes = (np.array(maxs) - np.array(mins)) / self.cell_count
+        stack = np.c_[mins, maxs, sizes]
+
+        for idx1, idx2, ax in [(0, 1, xy), (0, 2, xz), (2, 1, yz)]:
+            min1, max1, size1 = stack[idx1]
+            min2, max2, size2 = stack[idx2]
+
+            ax.set_xlim([min1, max1])
+            ax.set_ylim([min2, max2])
+
+            # --- Plot slices through coalescence volume ---
+            if slices is not None:
+                idx = (idx1 + idx2) - 1
+                slice_ = slices[idx]
+                grid1, grid2 = np.mgrid[min1:max1 + size1:size1,
+                                        min2:max2 + size2:size2]
+                grid1 = grid1[:slice_.shape[0]+1, :slice_.shape[1]+1]
+                grid2 = grid2[:slice_.shape[0]+1, :slice_.shape[1]+1]
+                sc = ax.pcolormesh(grid1, grid2, slice_, cmap="viridis",
+                                   edgecolors="face")
+
+                if idx == 0:
+                    # --- Add colourbar ---
+                    cax = plt.subplot2grid(gs, (2, 7), colspan=1, rowspan=5,
+                                           fig=fig)
+                    cax.set_axis_off()
+                    cbar = fig.colorbar(sc, ax=cax, orientation="vertical",
+                                        fraction=0.4)
+                    cbar.ax.set_ylabel("Coalescence value", rotation=90,
+                                       fontsize=14)
+
+            # --- Plot crosshair for event hypocentre ---
+            if hypocentre is not None:
+                ax.axvline(x=hypocentre[idx1], ls="--", lw=1.5, c="white")
+                ax.axhline(y=hypocentre[idx2], ls="--", lw=1.5, c="white")
+
+        # --- Plot stations ---
+        xy.scatter(self.station_data.Longitude, self.station_data.Latitude,
+                   s=15, marker="v", zorder=20, c=station_clr)
+        xz.scatter(self.station_data.Longitude, self.station_data.Elevation,
+                   s=15, marker="v", zorder=20, c=station_clr)
+        yz.scatter(self.station_data.Elevation, self.station_data.Latitude,
+                   s=15, marker=">", zorder=20, c=station_clr)
+        for i, row in self.station_data.iterrows():
+            xy.annotate(row["Name"], [row.Longitude, row.Latitude], zorder=20,
+                        c=station_clr)
+
+        # --- Axes labelling ---
+        xy.xaxis.tick_top()
+
+        xz.yaxis.tick_right()
+        xz.invert_yaxis()
+        xz.set_xlabel("Longitude (deg)", fontsize=14)
+        xz.set_ylabel("Depth (m)", fontsize=14)
+        xz.yaxis.set_label_position("right")
+
+        yz.yaxis.tick_right()
+        yz.set_xlabel("Depth (m)", fontsize=14)
+        yz.set_ylabel("Latitude (deg)", fontsize=14)
+        yz.yaxis.set_label_position("right")
 
     def __add__(self, other):
         """

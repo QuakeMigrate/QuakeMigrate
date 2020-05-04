@@ -4,6 +4,8 @@ Module to perform the trigger stage of QuakeMigrate.
 
 """
 
+import logging
+
 import numpy as np
 from obspy import UTCDateTime
 import pandas as pd
@@ -21,12 +23,9 @@ def mad(x, scale=1.4826):
     ----------
     x : array-like
         Coalescence array in.
-
-    scale : float
+    scale : float, optional
         A scaling factor for the MAD output to make the calculated MAD factor
         a consistent estimation of the standard deviation of the distribution.
-        Default is 1.4826, which is the appropriate scaling factor for a
-        normal distribution.
 
     Returns
     -------
@@ -60,74 +59,87 @@ def chunks2trace(a, new_shape):
 
 class Trigger:
     """
-    QuakeMigrate triggering class
+    QuakeMigrate triggering class.
 
     Triggers candidate earthquakes from the maximum coalescence through time
     data output by the decimated detect scan, ready to be run through locate().
 
+    Parameters
+    ----------
+    lut : `QMigrate.lut.LUT` object
+        Contains the traveltime lookup tables for P- and S-phases, computed for
+        some pre-defined velocity model.
+    run_path : str
+        Points to the top level directory containing all input files, under
+        which the specific run directory will be created.
+    run_name : str
+        Name of the current QuakeMigrate run.
+    kwargs : **dict
+        See Trigger Attributes for details. In addition to these:
+        log : bool, optional
+            Toggle for logging. If True, will output to stdout and generate a
+            log file. Default is to only output to stdout.
+        trigger_name : str
+            Optional name of a sub-run - useful when testing different trigger
+            parameters, for example.
+
+    Attributes
+    ----------
+    mad_window_length : float, optional
+        Length of window within which to calculate the Median Average
+        Deviation. Default: 3600 seconds (1 hour).
+    mad_multiplier : float, optional
+        A scaling factor for the MAD output to make the calculated MAD factor
+        a consistent estimation of the standard deviation of the distribution.
+        Default: 1.4826, which is the appropriate scaling factor for a normal
+        distribution.
+    marginal_window : float, optional
+        Time window over which to marginalise the coalescence, making it solely
+        a function of the spatial dimensions. This should be an estimate of the
+        time error, as derived from an estimate of the spatial error and error
+        in the velocity model. Default: 2 seconds.
+    minimum_repeat : float, optional
+        Minimum time interval between triggered events. Must be at least twice
+        the marginal window. Default: 4 seconds.
+    normalise_coalescence : bool, optional
+        If True, triggering is performed on the maximum coalescence normalised
+        by the mean coalescence value in the 3-D grid. Default: False.
+    pad : float, optional
+        Additional time padding to ensure events close to the starttime/endtime
+        are not cut off and missed. Default: 120 seconds.
+    run : `QMigrate.io.Run` object
+        Light class encapsulating i/o path information for a given run.
+    static_threshold : float, optional
+        Static threshold value above which to trigger candidate events.
+    threshold_method : str, optional
+        Toggle between a "static" threshold and a "dynamic" threshold, based on
+        the Median Average Deviation. Default: "static".
+
     Methods
     -------
-    trigger_scn()
+    trigger(starttime, endtime, region=None, savefig=True)
         Trigger candidate earthquakes from decimated detect scan results.
+
+    Raises
+    ------
+    Exception
+        If `minimum_repeat` < 2 * `marginal_window`.
+    InvalidThresholdMethodException
+        If an invalid threshold method is passed in by the user.
+    TimeSpanException
+        If the user supplies a starttime that is after the endtime.
 
     """
 
-    def __init__(self, run_path, run_name, stations, log=False, **kwargs):
-        """
-        Class initialisation method.
+    def __init__(self, lut, run_path, run_name, **kwargs):
+        """Instantiate the Trigger object."""
 
-        Parameters
-        ----------
-        output_path : str
-            Path to output location.
-
-        output_name : str
-            Name of run.
-
-        stations : pandas DataFrame
-            Station information.
-            Columns (in any order): ["Latitude", "Longitude", "Elevation",
-                                     "Name"]
-
-        start_time : str
-            Time stamp of first sample
-
-        end_time : str
-            Time stamp of final sample
-
-        detection_threshold : float, optional
-            Coalescence value above which to trigger events
-
-        normalise_coalescence : bool, optional
-            If True, use the max coalescence normalised by the average
-            coalescence value in the 3-D grid at each time step
-
-        marginal_window : float, optional
-            Estimate of time error (derived from estimate of spatial error and
-            seismic velocity) over which to marginalise the coalescence
-
-        minimum_repeat : float, optional
-            Minimum time interval between triggers
-
-        pad : float, optional
-            Trigger will attempt to read in coastream data from start_time - pad
-            to end_time + pad. Events will only be triggered if the origin time
-            occurs within the trigger window. Default = 120 seconds
-
-        sampling_rate : int
-            Sampling rate in hertz
-
-        coa_data : pandas DataFrame
-            Data output by detect() -- decimated scan
-            Columns: ["COA", "COA_N", "X", "Y", "Z"]
-
-        """
+        self.lut = lut
 
         # --- Organise i/o and logging ---
         self.run = Run(run_path, run_name, kwargs.get("trigger_name", ""),
                        "trigger")
-
-        self.log = log
+        self.run.logger(kwargs.get("log", True))
 
         self.stations = stations
 
@@ -160,6 +172,25 @@ class Trigger:
         self.events = None
         self.region = None
 
+    def __str__(self):
+        """Return short summary string of the Trigger object."""
+
+        out = ("\tTrigger parameters:\n"
+               f"\t\tPre/post pad = {self.pad} s\n"
+               f"\t\tMarginal window = {self.marginal_window} s\n"
+               f"\t\tMinimum repeat  = {self.minimum_repeat} s\n\n"
+               f"\t\tTriggering from ")
+        out += "normalised " if self.normalise_coalescence else ""
+        out += "coalescence stream.\n\n"
+        out += f"\t\tDetection threshold method: {self.threshold_method}\n"
+        if self.threshold_method == "static":
+            out += f"\t\tStatic threshold = {self.static_threshold}\n"
+        elif self.threshold_method == "dynamic":
+            out += (f"\t\tMAD Window     = {self.mad_window_length}\n"
+                    f"\t\tMAD Multiplier = {self.mad_multiplier}\n")
+
+        return out
+
     def trigger(self, starttime, endtime, region=None, savefig=True):
         """
         Trigger candidate earthquakes from decimated scan data.
@@ -188,33 +219,19 @@ class Trigger:
         starttime, endtime = UTCDateTime(starttime), UTCDateTime(endtime)
         if starttime > endtime:
             raise util.TimeSpanException
-        self.region = region
+
+        logging.info(util.log_spacer)
+        logging.info("\tTRIGGER - Triggering events from coalescence")
+        logging.info(util.log_spacer)
+        logging.info(f"\n\tTriggering events from {starttime} to {endtime}\n")
+        logging.info(self)
+        logging.info(util.log_spacer)
 
         if self.minimum_repeat < 2 * self.marginal_window:
             msg = "\tMinimum repeat must be >= 2 * marginal window."
             raise Exception(msg)
 
-        msg = ("="*110 + "\n"
-               "\tTRIGGER - Triggering events from coalescence\n"
-               + "="*110 + "\n\n"
-               "\tParameters:\n"
-               f"\t\tStart time   = {self.start_time}\n"
-               f"\t\tEnd   time   = {self.end_time}\n"
-               f"\t\tPre/post pad = {self.pad} s\n\n"
-               f"\t\tMarginal window = {self.marginal_window} s\n"
-               f"\t\tMinimum repeat  = {self.minimum_repeat} s\n\n"
-               f"\t\tTriggering from ")
-        if self.normalise_coalescence:
-            msg += "normalised "
-        msg += "coalescence stream.\n\n"
-        msg += f"\t\tDetection threshold = {self.detection_threshold}\n"
-        if self.detection_threshold == "dynamic":
-            msg += (f"\t\tMAD Window          = {self.mad_window_length}\n"
-                    f"\t\tMAD Multiplier      = {self.mad_multiplier}\n")
-        msg += "\n" + "="*110
-        self.output.log(msg, self.log)
-
-        self.output.log("\tReading in scanmseed...", self.log)
+        logging.info("\tReading in .scanmseed...")
         read_start = self.start_time - self.pad
         read_end = self.end_time + self.pad
         self.coa_data, coa_stats = self.output.read_coastream(read_start,
@@ -237,13 +254,13 @@ class Trigger:
 
         self.sampling_rate = coa_stats.sampling_rate
 
-        self.events = self._trigger_events()
+        events = self._trigger_events()
 
-        if self.events is None:
-            msg = ("\tNo events triggered at this threshold - "
-                   "try reducing the detection threshold.")
-            self.output.log(msg, self.log)
+        if events is None:
+            logging.info("\tNo events triggered at this threshold - try a "
+                         "lower detection threshold.")
         else:
+            logging.info("\tWriting triggered events to file...")
             self.output.write_triggered_events(self.events, self.start_time,
                                                self.end_time)
 
@@ -256,7 +273,7 @@ class Trigger:
                          region=self.region, stations=self.stations,
                          savefig=savefig)
 
-        self.output.log("=" * 110, self.log)
+        logging.info(util.log_spacer)
 
     def _trigger_events(self):
         """
@@ -402,7 +419,7 @@ class Trigger:
         events = pd.DataFrame(columns=event_cols)
         self.output.log("\n\tTriggering...", self.log)
         for i in range(1, count + 1):
-            self.output.log(f"\tTriggered event {i} of {count}", self.log)
+            logging.info(f"\t    Triggered event {i} of {count}")
             tmp = init_events[init_events["EventNum"] == i]
             tmp = tmp.reset_index(drop=True)
             j = np.argmax(tmp["COA_V"].values)

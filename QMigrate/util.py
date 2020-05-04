@@ -4,9 +4,13 @@ Module that supplies various utility functions and classes.
 
 """
 
+import logging
 import time
 
 import numpy as np
+
+
+log_spacer = "="*110
 
 
 def make_directories(run, subdir=None):
@@ -104,6 +108,33 @@ def gaussian_3d(nx, ny, nz, sgm):
     return f
 
 
+def logger(logstem, log):
+    """
+    Simple logger that will output to both a log file and stdout.
+
+    Parameters
+    ----------
+    logstem : str
+        Filestem for log file.
+    log : bool
+        Toggle for logging - default is to only print information to stdout.
+        If True, will also create a log file.
+
+    """
+
+    if log:
+        logstem.parent.mkdir(exist_ok=True, parents=True)
+        handlers = [logging.FileHandler(str(logstem.with_suffix(".log"))),
+                    logging.StreamHandler()]
+    else:
+        handlers = [logging.StreamHandler()]
+
+    logging.basicConfig(level=logging.INFO,
+                        format="%(message)s",
+                        handlers=handlers)
+                        # format="%(asctime)s [%(levelname)s] %(message)s",
+
+
 class Stopwatch(object):
     """
     Simple stopwatch to measure elapsed wall clock time.
@@ -146,6 +177,9 @@ class ArchiveEmptyException(Exception):
         msg = "ArchiveEmptyException: No data was available for this timestep."
         super().__init__(msg)
 
+        # Additional message printed to log
+        self.msg = ("\t\tNo files found in archive for this time period.")
+
 
 class NoScanMseedDataException(Exception):
     """
@@ -183,6 +217,10 @@ class DataGapException(Exception):
                "timestep.\n    OR: no data present in the archive for the"
                "selected stations.")
         super().__init__(msg)
+
+        # Additional message printed to log
+        self.msg = ("\t\tAll available data for this time period contains gaps"
+                    "\n\t\tor data not available at start/end of time period")
 
 
 class ChannelNameException(Exception):

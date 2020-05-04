@@ -4,6 +4,7 @@ Module to perform core QuakeMigrate functions: detect() and locate().
 
 """
 
+import logging
 import warnings
 
 import numpy as np
@@ -144,8 +145,6 @@ class QuakeScan:
     def __init__(self, archive, lut, onset, run_path, run_name, **kwargs):
         """Instantiate the QuakeScan object."""
 
-        super().__init__()
-
         self.archive = archive
         self.lut = lut
         if isinstance(onset, Onset):
@@ -222,26 +221,23 @@ class QuakeScan:
 
         # Configure logging
         self.run.stage = "detect"
+        self.run.logger(self.log)
 
         starttime, endtime = UTCDateTime(starttime), UTCDateTime(endtime)
         if starttime > endtime:
             raise util.TimeSpanException
 
-        msg = "=" * 110 + "\n"
-        msg += "\tDETECT - Continuous Seismic Processing\n"
-        msg += "=" * 110 + "\n\n"
-        msg += "\tParameters:\n"
-        msg += "\t\tStart time     = {}\n"
-        msg += "\t\tEnd   time     = {}\n"
-        msg += "\t\tTime step (s)  = {}\n"
-        msg += "\t\tNumber of CPUs = {}\n\n"
-        msg += str(self.onset)
-        msg += "=" * 110
-        msg = msg.format(str(starttime), str(endtime), self.time_step,
-                         self.n_cores, self.sampling_rate)
-        self.output.log(msg, self.log)
+        logging.info(util.log_spacer)
+        logging.info("\tDETECT - Continuous coalescence scan")
+        logging.info(util.log_spacer)
+        logging.info(f"\n\tScanning from {starttime} to {endtime}\n")
+        logging.info(self)
+        logging.info(self.onset)
+        logging.info(util.log_spacer)
 
         self._continuous_compute(starttime, endtime)
+
+        logging.info(util.log_spacer)
 
     def locate(self, starttime=None, endtime=None, trigger_file=None):
         """
@@ -264,6 +260,7 @@ class QuakeScan:
 
         # Configure logging
         self.run.stage = "locate"
+        self.run.logger(self.log)
 
         if not (starttime is None and endtime is None):
             starttime, endtime = UTCDateTime(starttime), UTCDateTime(endtime)
@@ -274,23 +271,24 @@ class QuakeScan:
         if (starttime is None) ^ (endtime is None):
             raise RuntimeError("Must supply a starttime AND an endtime.")
 
-        msg = "=" * 110 + "\n"
-        msg += "\tLOCATE - Determining earthquake location and uncertainty\n"
-        msg += "=" * 110 + "\n\n"
-        msg += "\tParameters:\n"
-        msg += "\t\tStart time     = {}\n"
-        msg += "\t\tEnd   time     = {}\n"
-        msg += "\t\tNumber of CPUs = {}\n\n"
-        msg += str(self.onset)
-        msg += str(self.picker)
-        msg += "=" * 110 + "\n"
-        msg = msg.format(str(starttime), str(endtime), self.n_cores)
-        self.output.log(msg, self.log)
+        logging.info(util.log_spacer)
+        logging.info("\tLOCATE - Determining event location and uncertainty")
+        logging.info(util.log_spacer)
+        if trigger_file is not None:
+            logging.info(f"\n\tLocating events in {trigger_file}")
+        else:
+            logging.info(f"\n\tLocating events from {starttime} to {endtime}\n")
+        logging.info(self)
+        logging.info(self.onset)
+        logging.info(self.picker)
+        logging.info(util.log_spacer)
 
         if trigger_file is not None:
             self._locate_events(trigger_file=trigger_file)
         else:
             self._locate_events(starttime=starttime, endtime=endtime)
+
+        logging.info(util.log_spacer)
 
     def _continuous_compute(self, starttime, endtime):
         """
@@ -326,27 +324,14 @@ class QuakeScan:
         for i in range(nsteps):
             w_beg = starttime + self.timestep*i - self.pre_pad
             w_end = starttime + self.timestep*(i + 1) + self.post_pad
-            msg = ("~" * 19) + " Processing : {} - {} " + ("~" * 19)
-            msg = msg.format(str(w_beg), str(w_end))
-            self.output.log(msg, self.log)
+            logging.info("~"*20 + f" Processing : {w_beg}-{w_end} " + "~"*20)
 
             try:
                 data = self.archive.read_waveform_data(w_beg, w_end)
                 coalescence.append(*self._compute(data))
             except util.ArchiveEmptyException as e:
-                msg = "!" * 24 + " " * 16
-                msg += " No files in archive for this time step "
-                msg += " " * 16 + "!" * 24
-                self.output.log(msg, self.log)
                 coalescence.empty(starttime, self.timestep, i, e.msg)
             except util.DataGapException as e:
-                msg = "!" * 24 + " " * 9
-                msg += "All available data for this time period contains gaps"
-                msg += " " * 10 + "!" * 24
-                msg += "\n" + "!" * 24 + " " * 11
-                msg += "or data not available at start/end of time period"
-                msg += " " * 12 + "!" * 24
-                self.output.log(msg, self.log)
                 coalescence.empty(starttime, self.timestep, i, e.msg)
 
             availability.loc[i] = self.archive.availability
@@ -392,25 +377,22 @@ class QuakeScan:
             event = Event(triggered_event)
             w_beg = event.coa_time - 2*self.marginal_window - self.pre_pad
             w_end = event.coa_time + 2*self.marginal_window + self.post_pad
-            msg = ("=" * 110 + f"\n\tEVENT - {i+1} of {n_events} - {event.uid}\n"
-                   + "=" * 110 + "\n\n\tDetermining event location...\n")
-            self.output.log(msg, self.log)
+            logging.info(util.log_spacer)
+            logging.info(f"\tEVENT - {i+1} of {n_events} - {event.uid}")
+            logging.info(util.log_spacer)
+            logging.info("\tDetermining event location...")
 
-            timer = util.Stopwatch()
-            self.output.log("\tReading waveform data...", self.log)
             try:
-                self._read_event_waveform_data(w_beg, w_end)
+                logging.info("\tReading waveform data...")
+                event.data = self._read_event_waveform_data(w_beg, w_end)
+                logging.info("\tComputing 4-D coalescence function...")
                 event.add_coalescence(*self._compute(event.data))
-            except util.ArchiveEmptyException:
-                msg = "\tNo files found in archive for this time period"
-                self.output.log(msg, self.log)
+            except util.ArchiveEmptyException as e:
+                logging.info(e.msg)
                 continue
-            except util.DataGapException:
-                msg = "\tAll available data for this time period contains gaps"
-                msg += "\n\tOR data not available at start/end of time period\n"
-                self.output.log(msg, self.log)
+            except util.DataGapException as e:
+                logging.info(e.msg)
                 continue
-            self.output.log(timer(), self.log)
 
             # --- Trim coalescence map to marginal window ---
             if event.in_marginal_window(self.marginal_window):
@@ -419,16 +401,11 @@ class QuakeScan:
                 del event
                 continue
 
-            # Determining earthquake location error
-            timer = util.Stopwatch()
-            self.output.log(("\tDetermining earthquake location and "
-                             "uncertainty..."), self.log)
+            logging.info("\tDetermining event location and uncertainty...")
             marginalised_coalescence = self._calculate_location(event)
-            self.output.log(timer(), self.log)
 
-            self.output.log("\tMaking phase picks...", self.log)
-            self.picker.pick_phases(self.data, self.lut, event.max_coalescence,
-                                    event.uid, self.output)
+            logging.info("\tMaking phase picks...")
+            self.picker.pick_phases(event, self.lut, self.run)
 
             event.write(self.run)
 
@@ -442,9 +419,8 @@ class QuakeScan:
             if self.write_cut_waveforms:
                 write_cut_waveforms(self.run, event, self.cut_waveform_format)
 
-            self.output.log("=" * 110 + "\n", self.log)
-
             del event, marginalised_coalescence
+            logging.info(util.log_spacer)
 
     def _compute(self, data):
         """

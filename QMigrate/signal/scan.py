@@ -18,6 +18,7 @@ from QMigrate.io import (Event, Run, ScanmSEED, read_triggered_events,
                          write_availability, write_cut_waveforms)
 from .onset import Onset
 from .pick import GaussianPicker, PhasePicker
+from QMigrate.plot.event import event_summary
 import QMigrate.util as util
 
 # Filter warnings

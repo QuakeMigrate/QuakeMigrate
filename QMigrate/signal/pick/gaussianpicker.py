@@ -7,12 +7,11 @@ onset functions.
 
 import matplotlib.pyplot as plt
 import numpy as np
-from obspy import UTCDateTime
 import pandas as pd
 from scipy.optimize import curve_fit
 
 from .pick import PhasePicker
-from QMigrate.plot.phase_picks import plot_summary
+from QMigrate.plot.phase_picks import pick_summary
 import QMigrate.util as util
 
 
@@ -73,79 +72,73 @@ class GaussianPicker(PhasePicker):
                 f"\t\tSearch window   = {self.fraction_tt}s\n\n")
 
     @util.timeit
-    def pick_phases(self, data, lut, event, event_uid, output):
+    def pick_phases(self, event, lut, run):
         """
         Picks phase arrival times for located earthquakes.
 
         Parameters
         ----------
-        data : QuakeMigrate Archive object
-            Contains pre-processed waveform data on which to perform picking.
-        lut : QuakeMigrate LUT object
-            P- and S-phase traveltime lookup tables.
-        event : pandas DataFrame
-            Contains information on the located event.
-            Columns: ["DT", "COA", "X", "Y", "Z"] - X and Y as lon/lat; Z in m.
-        event_uid : str
-            Unique identifier for the event.
-        output : QuakeMigrate input/output control object
-            Contains useful methods controlling output for the scan.
+        event : `QMigrate.io.event.Event` object
+            Contains pre-processed waveform data on which to perform picking,
+            the event location, and a unique identifier.
+        lut : `QMigrate.lut.LUT` object
+            Contains the traveltime lookup tables for seismic phases, computed
+            for some pre-defined velocity model.
+        run : `QMigrate.io.Run` object
+            Light class encapsulating i/o path information for a given run.
 
         Returns
         -------
-        picks : pandas DataFrame
+        picks : `pandas.DataFrame`
             DataFrame that contains the measured picks with columns:
             ["Name", "Phase", "ModelledTime", "PickTime", "PickError", "SNR"]
             Each row contains the phase pick from one station/phase.
 
         """
 
-        # Optionally recalculate onset functions for phase picking
-        if self.onset is not None:
-            _ = self.onset.calculate_onsets(data, log=False)
+        # Onsets are recalculated without logging
+        _ = self.onset.calculate_onsets(event.data, log=False)
 
-        e_ijk = lut.index2coord(event[["X", "Y", "Z"]].values, inverse=True)[0]
+        e_ijk = lut.index2coord(event.hypocentre, inverse=True)[0]
         ptt = lut.traveltime_to("P", e_ijk)
         stt = lut.traveltime_to("S", e_ijk)
 
         # Pre-define pick DataFrame
-        picks = pd.DataFrame(index=np.arange(0, 2 * len(data.p_onset)),
+        picks = pd.DataFrame(index=np.arange(0, 2 * len(event.data.p_onset)),
                              columns=["Station", "Phase", "ModelledTime",
                                       "PickTime", "PickError", "SNR"])
 
-        gaus = {}
-        wins = {}
         for i, station in lut.station_data.iterrows():
-            gaus[station["Name"]] = {}
-            wins[station["Name"]] = {}
+            event.gaus[station["Name"]] = {}
+            event.wins[station["Name"]] = {}
             for j, phase in enumerate(["P", "S"]):
                 if phase == "P":
-                    onset = data.p_onset[i]
-                    model_time = event["DT"] + ptt[i]
+                    onset = event.data.p_onset[i]
+                    model_time = event.otime + ptt[i]
                 else:
-                    onset = data.s_onset[i]
-                    model_time = event["DT"] + stt[i]
+                    onset = event.data.s_onset[i]
+                    model_time = event.otime + stt[i]
 
                 gau, max_onset, pick, pick_error, window = self._fit_gaussian(
-                    onset, phase, data.start_time, event["DT"], ptt[i], stt[i])
+                    onset, phase, event.data.starttime, event.otime,
+                    ptt[i], stt[i])
 
-                gaus[station["Name"]][phase] = gau
-                wins[station["Name"]][phase] = window
+                event.gaus[station["Name"]][phase] = gau
+                event.wins[station["Name"]][phase] = window
 
                 picks.iloc[2*i+j] = [station["Name"], phase, model_time, pick,
                                      pick_error, max_onset]
 
         # Write out pick DataFrame
         picks.PickError
-        self.write(event_uid, picks, output)
+        self.write(run, event.uid, picks)
 
         if self.plot_picks:
-            self.plot(data, lut, event, picks, list(zip(ptt, stt)), gaus, wins,
-                      event_uid, output)
+            self.plot(event, lut, picks, list(zip(ptt, stt)), run)
 
         return picks
 
-    def _fit_gaussian(self, onset, phase, start_time, otime, ptt, stt):
+    def _fit_gaussian(self, onset, phase, starttime, otime, ptt, stt):
         """
         Fit a Gaussian to the onset function in order to make a time pick with
         an associated uncertainty. Uses the same STA/LTA onset (characteristic)
@@ -160,22 +153,16 @@ class GaussianPicker(PhasePicker):
         ----------
         onset : array-like
             Onset (characteristic) function.
-
         phase : str
             Phase name ("P" or "S").
-
-        start_time : UTCDateTime object
+        starttime : UTCDateTime object
             Start time of data (w_beg).
-
         p_arr : UTCDateTime object
             Time when P phase is expected to arrive based on best location.
-
         s_arr : UTCDateTime object
             Time when S phase is expected to arrive based on best location.
-
         ptt : UTCDateTime object
             Traveltime of P phase.
-
         stt : UTCDateTime object
             Traveltime of S phase.
 
@@ -187,13 +174,10 @@ class GaussianPicker(PhasePicker):
                                       "xdata_dt": x_data_dt,
                                       "PickValue": max_onset,
                                       "PickThreshold": threshold}
-
         max_onset : float
             amplitude of gaussian fit to onset function
-
         sigma : float
             sigma of gaussian fit to onset function
-
         mean : UTCDateTime
             mean of gaussian fit to onset function == pick time
 
@@ -202,8 +186,8 @@ class GaussianPicker(PhasePicker):
         p_arr, s_arr = otime + ptt, otime + stt
 
         # Determine indices of P and S pick times
-        pt_idx = int((p_arr - start_time) * self.sampling_rate)
-        st_idx = int((s_arr - start_time) * self.sampling_rate)
+        pt_idx = int((p_arr - starttime) * self.sampling_rate)
+        st_idx = int((s_arr - starttime) * self.sampling_rate)
 
         # Determine P and S pick window upper and lower bounds based on
         # (P-S)/2 -- either this or the next window definition will be
@@ -321,7 +305,7 @@ class GaussianPicker(PhasePicker):
             # Convert indices to times
             x_data_dt = np.array([])
             for i in range(len(x_data)):
-                x_data_dt = np.hstack([x_data_dt, start_time + x_data[i]])
+                x_data_dt = np.hstack([x_data_dt, starttime + x_data[i]])
 
             # Try to fit a 1-D Gaussian.
             try:
@@ -341,7 +325,7 @@ class GaussianPicker(PhasePicker):
                 #  popt = [height, mean (seconds), sigma (seconds)]
                 max_onset = popt[0]
                 # Convert mean (pick time) to time
-                mean = start_time + float(popt[1])
+                mean = starttime + float(popt[1])
                 sigma = np.absolute(popt[2])
 
                 gaussian_fit = {"popt": popt,
@@ -369,7 +353,7 @@ class GaussianPicker(PhasePicker):
 
         return gaussian_fit, max_onset, mean, sigma, [win_min, win_max]
 
-    def plot(self, data, lut, event, picks, ttimes, gaus, wins, event_uid, output):
+    def plot(self, event, lut, picks, ttimes, run):
         """
         Plot figure showing the filtered traces for each data component and the
         characteristic functions calculated from them (P and S) for each
@@ -386,34 +370,30 @@ class GaussianPicker(PhasePicker):
 
         """
 
-        # Make output dir for this event outside of loop
-        subdir = f"locate/pick_plots/{event_uid}"
-        make_directories(output.run, subdir=subdir)
-        out_dir = output.run / subdir
+        fpath = run.path / "locate" / "pick_plots" / f"{event.uid}"
+        fpath.mkdir(exist_ok=True, parents=True)
 
         # Generate plottable timestamps for data
-        st, et, ds = data.start_time, data.end_time, data.sample_size
-        times = [x.datetime for x in np.arange(st, et + ds, ds)]
+        times = event.times()
 
-        otime = UTCDateTime(event["DT"])
         for i, station in lut.station_data["Name"].iteritems():
-            signal = data.filtered_signal[:, i, :]
-            onsets = [data.p_onset[i, :], data.s_onset[i, :]]
+            signal = event.data.filtered_signal[:, i, :]
+            onsets = [event.data.p_onset[i, :], event.data.s_onset[i, :]]
             stpicks = picks[picks["Station"] == station].reset_index(drop=True)
-            window = wins[station]
+            window = event.wins[station]
 
             # Check if any data available to plot
             if not signal.any():
                 continue
 
             # Call subroutine to plot basic phase pick figure
-            fig = plot_summary(event_uid, station, signal, stpicks, onsets,
-                               times, ttimes[i], otime, window)
+            fig = pick_summary(event, station, signal, stpicks, onsets,
+                               ttimes[i], window)
 
             # --- Gaussian fits ---
             axes = fig.axes
             for j, (ax, ph) in enumerate(zip(axes[3:5], ["P", "S"])):
-                gau = gaus[station][ph]
+                gau = event.gaus[station][ph]
                 win = window[ph]
 
                 # Plot threshold
@@ -440,5 +420,6 @@ class GaussianPicker(PhasePicker):
             for ax in axes[3:5]:
                 ax.legend(fontsize=14)
 
-            fname = out_dir / f"{event_uid}_{station}.pdf"
-            plt.savefig(fname)
+            fstem = f"{event.uid}_{station}"
+            file = (fpath / fstem).with_suffix(".pdf")
+            plt.savefig(file)

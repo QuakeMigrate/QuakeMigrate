@@ -8,8 +8,6 @@ the core of the package.
 
 from abc import ABC, abstractmethod
 
-from QMigrate.util import make_directories
-
 
 class PhasePicker(ABC):
     """
@@ -47,7 +45,7 @@ class PhasePicker(ABC):
         """Method stub for phase picking."""
         pass
 
-    def write(self, event_uid, phase_picks, output):
+    def write(self, run, event_uid, phase_picks):
         """
         Write phase picks to a new .picks file.
 
@@ -66,9 +64,11 @@ class PhasePicker(ABC):
 
         """
 
-        subdir = "locate/picks"
-        make_directories(output.run, subdir=subdir)
-        fname = (output.run / subdir / f"{event_uid}").with_suffix(".picks")
+        fpath = run.path / "locate" / "picks"
+        fpath.mkdir(exist_ok=True, parents=True)
+
+        fstem = f"{event_uid}"
+        fname = (fpath / fstem).with_suffix(".picks")
         phase_picks.to_csv(fname, index=False)
 
     def plot(self):

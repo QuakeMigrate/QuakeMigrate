@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def plot_summary(event_uid, station_uid, signal, picks, onsets, times, ttimes, otime, window):
+def pick_summary(event, station_uid, signal, picks, onsets, ttimes, window):
     """
     Plot figure showing the filtered traces for each data component and the
     characteristic functions calculated from them (P and S) for each
@@ -19,7 +19,7 @@ def plot_summary(event_uid, station_uid, signal, picks, onsets, times, ttimes, o
 
     Parameters
     ----------
-    event_uid : str
+    event : str
         Unique identifier for the event.
     station_uid : str
         Unique identifer for the station.
@@ -33,12 +33,8 @@ def plot_summary(event_uid, station_uid, signal, picks, onsets, times, ttimes, o
         Each row contains the phase pick from one station/phase.
     onsets : array of arrays
         P- and S-phase onset functions for the event-station pair.
-    times : array of datetimes
-        Timestamps for the signal and onset traces.
     ttimes : array, [int, int]
         Modelled phase travel times.
-    otime : UTCDateTime object
-        Event origin time.
     window : array, [int, int]
         Indices specifying the window within which the pick was made.
 
@@ -72,6 +68,10 @@ def plot_summary(event_uid, station_uid, signal, picks, onsets, times, ttimes, o
         ax.yaxis.set_ticks_position('none')
     axes[1].set_title("S phase", fontsize=22, fontweight="bold")
 
+    # --- Grab event information once ---
+    otime = event.otime
+    times = event.times()
+
     # --- Plot data signal ---
     # Trim data to just around phase picks
     min_t = otime + 0.5 * ttimes[0]
@@ -85,13 +85,13 @@ def plot_summary(event_uid, station_uid, signal, picks, onsets, times, ttimes, o
         y = signal[(i+2) % 3, :]
         # Get normalising factor within window
         norm = np.max(abs(y[min_t_idx:max_t_idx+1]))
-        ax.plot(times, y / norm, color="k", linewidth=0.5, zorder=1)
+        ax.plot(times, y / norm, c="k", lw=0.5, zorder=1)
     for i, (ax, ph) in enumerate(zip(axes[3:], ["P", "S"])):
         y = onsets[i]
         win = window[ph]
         # Get normalising factor within window
         norm = np.max(abs(y[win[0]:win[1]+1]))
-        ax.plot(times, y / norm, color="k", linewidth=0.5, zorder=1)
+        ax.plot(times, y / norm, c="k", lw=0.5, zorder=1)
 
     for ax in axes:
         ax.set_xlim([min_t.datetime, max_t.datetime])
@@ -112,12 +112,12 @@ def plot_summary(event_uid, station_uid, signal, picks, onsets, times, ttimes, o
     # --- Plot predicted arrival times ---
     for i, ax in enumerate(axes):
         model_pick = otime + ttimes[0] if i % 3 == 0 else otime + ttimes[1]
-        ax.axvline(model_pick.datetime, alpha=0.9, color="k",
+        ax.axvline(model_pick.datetime, alpha=0.9, c="k",
                    label="Modelled pick time")
 
     # --- Plot picks and summary information ---
     text = fig.add_subplot(3, 2, 1)
-    text.text(0.5, 0.8, f"Event: {event_uid}\nStation: {station_uid}",
+    text.text(0.5, 0.8, f"Event: {event.uid}\nStation: {station_uid}",
               ha="center", va="center", fontsize=22, fontweight="bold")
     for i, pick in picks.iterrows():
         # Pick lines
@@ -154,9 +154,9 @@ def _plot_phase_pick(ax, pick, clr):
 
     Parameters
     ----------
-    ax : matplotlib Axes object
+    ax : `matplotlib.Axes` object
         Axes on which to plot the pick.
-    pick : pandas DataFrame object
+    pick : `pandas.DataFrame` object
         Contains information on the phase pick.
     clr : str
         Colour to use when plotting the phase pick.
@@ -165,7 +165,6 @@ def _plot_phase_pick(ax, pick, clr):
 
     pick_time, pick_err = pick["PickTime"], pick["PickError"]
 
-    ax.axvline((pick_time - pick_err/2).datetime, linestyle="--", color=clr)
-    ax.axvline((pick_time + pick_err/2).datetime, linestyle="--", color=clr)
-    ax.axvline((pick_time).datetime, color=clr,
-               label=f"{pick.Phase} pick time")
+    ax.axvline((pick_time - pick_err/2).datetime, ls="--", c=clr)
+    ax.axvline((pick_time + pick_err/2).datetime, ls="--", c=clr)
+    ax.axvline((pick_time).datetime, c=clr, label=f"{pick.Phase} pick time")

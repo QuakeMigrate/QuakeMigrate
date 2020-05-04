@@ -33,8 +33,6 @@ class ScanmSEED:
 
     Attributes
     ----------
-    run : `QMigrate.io.Run` object
-        Light class encapsulating i/o path information for a given run.
     stream : `obspy.Stream` object
         Output of detect() stored in `obspy.Stream` object. The values have
         been multiplied by a factor to make use of more efficient compression.

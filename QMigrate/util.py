@@ -129,6 +129,54 @@ def logger(logstem, log):
                         # format="%(asctime)s [%(levelname)s] %(message)s",
 
 
+def time2sample(time, sampling_rate):
+    """
+    Utility function to convert from seconds and sampling rate to number of
+    samples.
+
+    Parameters
+    ----------
+    time : float
+        Time to convert
+    sampling_rate : int
+        Sampling rate of input data/sampling rate at which to compute
+        the coalescence function.
+
+    Returns
+    -------
+    out : int
+        Time that correpsonds to an integer number of samples at a specific
+        sampling rate.
+
+    """
+
+    return int(round(time*int(sampling_rate)))
+
+
+def trim2sample(time, sampling_rate):
+    """
+    Utility function to ensure time padding results in a time that is an
+    integer number of samples.
+
+    Parameters
+    ----------
+    time : float
+        Time to trim.
+    sampling_rate : int
+        Sampling rate of input data/sampling rate at which to compute
+        the coalescence function.
+
+    Returns
+    -------
+    out : int
+        Time that correpsonds to an integer number of samples at a specific
+        sampling rate.
+
+    """
+
+    return int(np.ceil(time * sampling_rate) / sampling_rate * 1000) / 1000
+
+
 def timeit(f):
     @wraps(f)
     def wrap(*args, **kw):

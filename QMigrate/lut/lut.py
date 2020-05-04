@@ -33,27 +33,21 @@ class Grid3D(object):
     ll_corner : array-like, [float, float, float]
         Location of the lower-left corner of the grid in the grid
         projection. Should also contain the minimum depth in the grid.
-
     ur_corner : array-like ,[float, float, float]
         Location of the upper-right corner of the grid in the grid
         projection. Should also contain the maximum depth in the grid.
-
     cell_size : array-like, [float, float, float]
         Size of a cell in each dimension of the grid.
-
     grid_proj : pyproj Proj object
         Grid space projection.
-
     coord_proj : pyproj Proj object
         Input coordinate space projection.
-
     cell_count : array-like, [int, int, int]
         Number of cells in each dimension of the grid. This is calculated by
         finding the number of cells with cell_size will fit between the
         lower-left and upper-right corners. This value is rounded up if the
         number of cells returned is non-integer, to ensure the requested area
         is included in the grid.
-
     maps : dict
         A dictionary containing the travel-time lookup tables. The structure of
         this dictionary is:
@@ -65,19 +59,15 @@ class Grid3D(object):
                     - "<PHASE>"
                     - "<PHASE>"
                 etc
-
     velocity_model : pandas DataFrame object
         Contains the input velocity model specification.
         Columns: "Z" "Vs" "Vp"
-
     grid_corners : array-like, shape (8, 3)
         Positions of the corners of the grid in the grid coordinate space.
-
     grid_xyz : array-like, shape (3,)
         Positions of the grid nodes in the grid coordinate space. The shape of
         each element of the list is defined by the number of cells in each
         dimension.
-
     stations_xyz : array-like, shape (n, 3)
         Positions of the stations in the grid coordinate space.
 
@@ -85,15 +75,12 @@ class Grid3D(object):
     -------
     decimate(df, inplace=False)
         Downsamples the travel-time lookup tables by some decimation factor.
-
     index2grid(value, inverse=False, unravel=False)
         Provides a transformation between grid indices (can be a flattened
         index or an [i, j, k] position) and the grid coordinate space.
-
     coord2grid(value, inverse=False, clip=False)
         Provides a transformation between the input projection and grid
         coordinate spaces.
-
     index2coord(value, inverse=False, unravel=False, clip=False)
         Provides a transformation between grid dindices (can be a flattened
         index or an [i, j, k] position) and the input projection coordinate
@@ -111,17 +98,13 @@ class Grid3D(object):
         ll_corner : array-like, [float, float, float]
             Location of the lower-left corner of the grid in the input
             projection. Should also contain the minimum depth in the grid.
-
         ur_corner : array-like ,[float, float, float]
             Location of the upper-right corner of the grid in the input
             projection. Should also contain the maximum depth in the grid.
-
         cell_size : array-like, [float, float, float]
             Size of a cell in each dimension of the grid.
-
         grid_proj : pyproj Proj object
             Grid space projection.
-
         coord_proj : pyproj Proj object
             Input coordinate space projection.
 
@@ -153,7 +136,6 @@ class Grid3D(object):
         ----------
         df : array-like [int, int, int]
             Decimation factor in each dimension.
-
         inplace : bool, optional
             Perform the operation on the lookup table object or a copy.
 
@@ -195,11 +177,9 @@ class Grid3D(object):
         value : array-like
             Array (of arrays) containing the grid indices (grid coordinates)
             to be transformed. Can be an array of flattened indices.
-
         inverse : bool, optionale
             Reverses the direction of the transform.
             Default indices -> grid coordinates.
-
         unravel : bool, optional
             Convert a flat index or array of flat indices into a tuple of
             coordinate arrays.
@@ -238,11 +218,9 @@ class Grid3D(object):
             Array (of arrays) containing the coordinate locations to be
             transformed. Each sub-array should describe a single point in the
             3-D input space.
-
         inverse : bool, optional
             Reverses the direction of the transform.
             Default input coordinates -> grid coordinates
-
         clip : bool, optional
 
         Returns
@@ -272,15 +250,12 @@ class Grid3D(object):
         value : array-like
             Array (of arrays) containing the grid indices (grid coordinates)
             to be transformed. Can be an array of flattened indices.
-
         inverse : bool, optional
             Reverses the direction of the transform.
             Default indices -> input projection coordinates.
-
         unravel : bool, optional
             Convert a flat index or array of flat indices into a tuple of
             coordinate arrays.
-
         clip : bool, optional
 
         Returns
@@ -308,16 +283,12 @@ class Grid3D(object):
         ----------
         x : array-like
             Grid x or longitudinal coordinates to convert
-
         y : array-like
             Grid y or latitudinal coordinates to convert
-
         z : array-like
             Grid z or depth coordinates to convert
-
         inverse : bool, optional
             Reverses the direction of the transform. Default xyz -> lonlatdep
-
         clip : bool, optional
             Collapse all values outside the grid onto the edge of the grid.
             CB: I don't think this will behave, need to find where it is used.
@@ -326,10 +297,8 @@ class Grid3D(object):
         -------
         x' (x_p) : array-like
             Converted grid x or longitudinal coordinates
-
         y' (y_p) : array-like
             Converted grid y or latitudinal coordinates
-
         z' (z_p) : array-like
             Converted grid z or depth coordinates (no change from input)
 
@@ -440,17 +409,13 @@ class LUT(Grid3D):
     -------
     ttimes(sampling_rate)
         Serve up the travel-time lookup tables.
-
     traveltime_to(phase, ijk)
         Query travel times to a grid location (in terms of indices) for a
         particular phase.
-
     save(filename)
         Dumps the current state of the lookup table object to a pickle file.
-
     load(filename)
         Restore the state of the saved LUT object from a pickle file.
-
     plot()
         Not yet implemented.
 
@@ -668,5 +633,4 @@ class LUT(Grid3D):
         try:
             return self.maps[key]
         except KeyError:
-            msg = "No travel-time lookup table available for '{}'."
-            print(msg.format(key))
+            print(f"No travel-time lookup table available for '{key}'.")

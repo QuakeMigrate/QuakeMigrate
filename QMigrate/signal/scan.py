@@ -309,14 +309,8 @@ class QuakeScan:
         coalescence = ScanmSEED(self.run, self.continuous_scanmseed_write,
                                 self.sampling_rate)
 
-        t_length = self.pre_pad + self.post_pad + self.time_step
-        self.pre_pad += np.ceil(t_length * 0.06)
-        self.pre_pad = int(np.ceil(self.pre_pad * self.sampling_rate)
-                           / self.sampling_rate * 1000) / 1000
-        self.post_pad += np.ceil(t_length * 0.06)
-        self.post_pad = int(np.ceil(self.post_pad * self.sampling_rate)
-                            / self.sampling_rate * 1000) / 1000
-
+        pre_pad, post_pad = self.onset.pad(self.timestep)
+        self.pre_pad, self.post_pad = pre_pad, post_pad
         nsteps = int(np.ceil((endtime - starttime) / self.timestep))
         availability = pd.DataFrame(index=np.arange(nsteps),
                                     columns=self.lut.maps.keys())
@@ -364,14 +358,8 @@ class QuakeScan:
         triggered_events = read_triggered_events(self.run, **kwargs)
         n_events = len(triggered_events.index)
 
-        # Adjust pre- and post-pad to take into account cosine taper
-        t_length = self.pre_pad + 4*self.marginal_window + self.post_pad
-        self.pre_pad += np.ceil(t_length * 0.06)
-        self.pre_pad = int(np.ceil(self.pre_pad * self.sampling_rate)
-                           / self.sampling_rate * 1000) / 1000
-        self.post_pad += np.ceil(t_length * 0.06)
-        self.post_pad = int(np.ceil(self.post_pad * self.sampling_rate)
-                            / self.sampling_rate * 1000) / 1000
+        pre_pad, post_pad = self.onset.pad(4*self.marginal_window)
+        self.pre_pad, self.post_pad = pre_pad, post_pad
 
         for i, triggered_event in triggered_events.iterrows():
             event = Event(triggered_event)

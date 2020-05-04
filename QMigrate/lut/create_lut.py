@@ -24,7 +24,6 @@ def read_nlloc(path, stations):
     ----------
     path : str
         Path to directory containing .buf and .hdr files.
-
     stations : pandas DataFrame
         DataFrame containing station information (lat/lon/elev).
 
@@ -87,15 +86,12 @@ def compute(lut, stations, method, **kwargs):
     ----------
     lut : QuakeMigrate lookup table object
         Defines the grid on which the travel times are to be calculated.
-
     stations : pandas DataFrame
         DataFrame containing station information (lat/lon/elev).
-
     method : str
         Method to be used when computing the travel-time lookup tables.
             "homogeneous" - straight line velocities
             "1dfmm" - 1-D fast-marching method using scikit-fmm
-
     kwargs : dict
         Dictionary of all keyword arguments passed to compute when called.
         For lists of valid arguments, please refer to the relevant method.
@@ -152,10 +148,8 @@ def _compute_homogeneous(lut, vp, vs):
     ----------
     lut : QuakeMigrate lookup table object
         Defines the grid on which the travel times are to be calculated.
-
     vp : float
         P-wave velocity (units: m / s).
-
     vs : float
         S-wave velocity (units: m / s).
 
@@ -188,7 +182,6 @@ def _compute_1d_fmm(lut, vmod):
     ----------
     lut : QuakeMigrate lookup table object
         Defines the grid on which the travel times are to be calculated.
-
     vmod : pandas DataFrame object
         DataFrame containing the velocity model to be used to generate the LUT.
         Columns: ["Z", "Vp", "Vs"]
@@ -239,14 +232,11 @@ def _eikonal(grid_xyz, cell_size, velocity_grid, station_xyz):
     ----------
     grid_xyz : array-like
         [X, Y, Z] coordinates of each cell
-
     cell_size : array-like
         [X, Y, Z] dimensions of each cell
-
     velocity_grid : array-like
         Contains the speed of interface propagation at each point in the
         domain
-
     station_xyz : array-like
         Station location (in grid xyz)
 
@@ -282,20 +272,16 @@ def _compute_1d_sweep(lut, vmod, nlloc_dx, nlloc_path, blocks):
     ----------
     lut : QuakeMigrate lookup table object
         Defines the grid on which the travel times are to be calculated.
-
     vmod : pandas DataFrame object
         DataFrame containing the velocity model to be used to generate the LUT.
         Columns: ["Z", "Vp", "Vs"]
             Z : Depth of each layer in model (positive down; units: metres)
             Vp : P-wave velocity for each layer in model (units: m / s)
             Vs : S-wave velocity for each layer in model (units: m / s)
-
     nlloc_dx : float, optional
         NLLoc 2D grid spacing (default: 0.1 km).
-
     nlloc_path : str
         Path to NonLinLoc binaries.
-
     blocks : bool
         Toggle to choose whether to interpret velocity model with constant
         velocity blocks or a linear gradient.
@@ -369,25 +355,18 @@ def _write_control_file(station_xyz, name, max_dist, vmodel, depth_limits,
     ----------
     station_xyz : array-like
         Station location expressed in the coordinate space of the grid.
-
     name : str
         Station name.
-
     max_dist : float
         Maximum distance between the station and any point in the grid.
-
     vmodel : pandas DataFrame
         Contains columns with names "depth", "vp" and "vs".
-
     depth_limits : array-like
         Minimum/maximum extent of the grid in the z-dimension.
-
     phase : str
         Seismic phase to assign to the velocity model.
-
     dx : float
         NLLoc 2D grid spacing (default: 0.1 km).
-
     block_model : bool
         Toggle to choose whether to interpret velocity model with constant
         velocity blocks or a linear gradient.
@@ -424,7 +403,6 @@ def _read_nlloc(fname, ignore_proj=False):
     fname : str
         Path to file containing NonLinLoc travel-time lookup tables, without
         the extension.
-
     ignore_proj : bool (optional)
         Flag to suppress the "No projection specified message".
 
@@ -432,7 +410,6 @@ def _read_nlloc(fname, ignore_proj=False):
     -------
     ttimes : array-like
         Travel-times for the station.
-
     gridspec : array-like
         Details on the NonLinLoc grid specification. Contains the number of
         cells, the grid origin and the cell dimensions.
@@ -537,13 +514,10 @@ def _bilinear_interpolate(xz, xz_origin, xz_dimensions, ttimes):
     xz : array-like
         Column-stacked array of distances from the station and depths for all
         points in grid.
-
     xz_origin : array-like
         The x (actually y) and z values of the grid origin.
-
     xz_dimensions : array-like
         The x (actually y) and z values of the cell dimensions.
-
     ttimes : array-like
         A slice through the travel-time grid at x = 0, on which to perform the
         interpolation.
@@ -585,7 +559,6 @@ def _vmodel_string(vmodel, block_model):
     ----------
     vmodel : pandas DataFrame
         Contains columns with names "depth", "vp" and "vs".
-
     block_model : bool
         Toggle to choose whether to interpret velocity model with constant
         velocity blocks or a linear gradient.
@@ -628,7 +601,6 @@ def _velocity_gradient(i, vmodel):
     ----------
     i : int
         Index of upper layer.
-
     vmodel : pandas DataFrame
         Contains columns with names "depth", "vp" and "vs".
 
@@ -654,10 +626,8 @@ def _grid_string(max_dist, depth_limits, dx):
     ----------
     max_dist : float
         Maximum distance between the station and any point in the grid.
-
     depth_limits : array-like
         Minimum/maximum extent of the grid in the z-dimension.
-
     dx : float
         NLLoc 2D grid spacing (default: 0.1 km).
 

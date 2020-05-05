@@ -434,6 +434,8 @@ class SignalData:
     raw_waveforms : `obspy.Stream` object
         All raw seismic data found and read in from the archive in the
         specified time period.
+    sample_size : float
+        The time increment between each data sample.
     signal : `numpy.ndarray`, shape(3, nstations, nsamples)
         Processed 3-component seismic data at the desired sampling rate only
         for desired stations with continuous data on all 3 components
@@ -503,6 +505,82 @@ class Event:
 
     Attributes
     ----------
+    coa_data : `pandas.DataFrame` object
+        Event coalescence data computed during locate.
+        DT : `numpy.ndarray` of `obspy.UTCDateTime` objects, shape(nsamples)
+            Timestamp of first sample of coalescence data.
+        COA : `numpy.ndarray` of floats, shape(nsamples)
+            Coalescence value through time.
+        COA_NORM : `numpy.ndarray` of floats, shape(nsamples)
+            Normalised coalescence value through time.
+        X : `numpy.ndarray` of floats, shape(nsamples)
+            X coordinate of maximum coalescence through time in input
+            projection space.
+        Y : `numpy.ndarray` of floats, shape(nsamples)
+            Y coordinate of maximum coalescence through time in input
+            projection space.
+        Z : `numpy.ndarray` of floats, shape(nsamples)
+            Z coordinate of maximum coalescence through time in input
+            projection space.
+    coa_time : `obspy.UTCDateTime` object
+        The peak coalescence time of the triggered event from the (decimated)
+        coalescence output by detect.
+    df : `pandas.DataFrame` object
+        Collects all the information together for an event to be written out to
+        a .event file.
+    hypocentre : `numpy.ndarray` of floats
+        Geographical coordinates of the instantaneous event hypocentre.
+    locations : dict
+        Information on the various locations and reported uncertainties.
+        spline : dict
+            The location of the maximum coalescence in the marginalised
+            grid, interpolated using a 3-D spline. If no spline fit was able to
+            be made, it is just the location in the original grid.
+        gaussian : dict
+            The location and uncertainty as determined by fitting a 3-D
+            Gaussian to the coalescence in a small region around the maximum
+            coalescence in the marginalised grid.
+        covariance : dict
+            The location and uncertainty as determined by calculating the
+            covariance of the coalescence values in X, Y, and Z above some
+            percentile.
+    map4d : `numpy.ndarry`, shape(nx, ny, nz, nsamp), optional
+        4-D coalescence map.
+    max_coalescence : dict
+        Dictionary containing the timestamps of the maximum coalescence, the
+        coalescence values, and the normalised coalescence values.
+    otime : `obspy.UTCDateTime` object
+        Timestamp of the instantaneous peak in the coalescence function.
+    trigger_info : dict
+        Other useful information about the triggered event to be fed forward.
+        TRIG_COA : float
+            The peak value of the coalescence stream used to trigger.
+        DEC_COA : float
+            The peak coalescence value.
+        DEC_COA_NORM : float
+            The peak normalised coalescence value.
+    uid : str
+        A unique identifier for the event based on the peak coalescence time.
+
+    Methods
+    -------
+    add_coalescence(times, max_coa, max_coa_n, coord, map4d)
+        Add values returned by QuakeScan._compute to the event.
+    add_covariance_location(xyz, xyz_unc)
+        Add the covariance location and uncertainty to the event.
+    add_gaussian_location(xyz, xyz_unc)
+        Add the gaussian location and uncertainty to the event.
+    add_spline_location(xyz)
+        Add the splined location to the event.
+    in_marginal_window(marginal_window)
+        Simple test to see if event is within the marginal window around the
+        triggered event time.
+    mw_times(marginal_window, sampling_rate)
+        Generates timestamps for data in the marginal window.
+    trim2window(marginal_window)
+        Trim the coalescence data and map4d to the marginal window.
+    write(run)
+        Output the event to a .event file.
 
     """
 
@@ -546,11 +624,12 @@ class Event:
 
         """
 
-        self.coa_data = pd.DataFrame(np.array((times, max_coa, max_coa_n,
-                                               coord[:, 0], coord[:, 1],
-                                               coord[:, 2])).transpose(),
-                                     columns=["DT", "COA", "COA_NORM",
-                                              "X", "Y", "Z"])
+        self.coa_data = pd.DataFrame({"DT": times,
+                                      "COA": max_coa,
+                                      "COA_NORM": max_coa_n,
+                                      "X": coord[:, 0],
+                                      "Y": coord[:, 1],
+                                      "Z": coord[:, 2]})
         self.map4d = map4d
 
     def add_covariance_location(self, xyz, xyz_unc):
@@ -609,26 +688,6 @@ class Event:
 
         self.locations["spline"] = dict(zip(["X", "Y", "Z"], xyz))
 
-    def trim2window(self, marginal_window):
-        """
-        Trim the coalescence data to be within the marginal window.
-
-        Parameters
-        ----------
-        marginal_window : float
-            Half-width of window centred on the maximum coalescence time.
-
-        """
-
-        window_start = self.otime - marginal_window
-        window_end = self.otime + marginal_window
-
-        self.coa_data = self.coa_data[(self.coa_data["DT"] >= window_start) &
-                                      (self.coa_data["DT"] <= window_end)]
-        self.map4d = self.map4d[:, :, :,
-                                self.coa_data.index[0]:self.coa_data.index[-1]]
-        self.coa_data.reset_index(drop=True, inplace=True)
-
     def in_marginal_window(self, marginal_window):
         """
         Test if triggered event time is within marginal window around
@@ -658,6 +717,44 @@ class Event:
             logging.info(util.log_spacer)
 
         return cond
+
+    def mw_times(self, marginal_window, sampling_rate):
+        """
+        Utility function to generate timestamps between `data.starttime` and
+        `data.endtime`, with a sample size of `data.sample_size`
+
+        Returns
+        -------
+        times : `numpy.ndarray`, shape(nsamples)
+            Timestamps for the timeseries data.
+
+        """
+
+        # Utilise the .times() method of `obspy.Trace` objects
+        tr = Trace(header={"npts": 4*marginal_window*sampling_rate + 1,
+                           "sampling_rate": sampling_rate,
+                           "starttime": self.coa_time - 2*marginal_window})
+        return tr.times(type="utcdatetime")
+
+    def trim2window(self, marginal_window):
+        """
+        Trim the coalescence data to be within the marginal window.
+
+        Parameters
+        ----------
+        marginal_window : float
+            Half-width of window centred on the maximum coalescence time.
+
+        """
+
+        window_start = self.otime - marginal_window
+        window_end = self.otime + marginal_window
+
+        self.coa_data = self.coa_data[(self.coa_data["DT"] >= window_start) &
+                                      (self.coa_data["DT"] <= window_end)]
+        self.map4d = self.map4d[:, :, :,
+                                self.coa_data.index[0]:self.coa_data.index[-1]]
+        self.coa_data.reset_index(drop=True, inplace=True)
 
     def write(self, run):
         """

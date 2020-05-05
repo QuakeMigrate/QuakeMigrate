@@ -375,7 +375,7 @@ class QuakeScan:
                 logging.info("\tReading waveform data...")
                 event.data = self._read_event_waveform_data(w_beg, w_end)
                 logging.info("\tComputing 4-D coalescence function...")
-                event.add_coalescence(*self._compute(event.data))
+                event.add_coalescence(*self._compute(event.data, event))
             except util.ArchiveEmptyException as e:
                 logging.info(e.msg)
                 continue
@@ -412,7 +412,7 @@ class QuakeScan:
             logging.info(util.log_spacer)
 
     @util.timeit
-    def _compute(self, data):
+    def _compute(self, data, event=None):
         """
         Compute 3-D coalescence between two time stamps.
 
@@ -451,9 +451,10 @@ class QuakeScan:
 
         if self.run.stage == "detect":
             del map4d
-            return data.starttime, max_coa, max_coa_n, coord
+            time = data.starttime + self.pre_pad
+            return time, max_coa, max_coa_n, coord
         else:
-            times = data.times(type="utcdatetime")
+            times = event.mw_times(self.marginal_window, self.sampling_rate)
             return times, max_coa, max_coa_n, coord, map4d
 
     @util.timeit

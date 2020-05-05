@@ -65,7 +65,7 @@ def sta_lta_centred(a, nsta, nlta):
     return sta / lta
 
 
-def onset(sig, stw, ltw, centred, log):
+def onset(sig, stw, ltw, position, log):
     """
     Calculate STA/LTA onset (characteristic) function from pre-processed
     seismic data.
@@ -73,12 +73,12 @@ def onset(sig, stw, ltw, centred, log):
     Parameters
     ----------
     sig : array-like
-        Data signal used to generate an onset function
+        Data signal used to generate an onset function.
     stw : int
-        Short term window length (# of samples)
+        Short term window length (# of samples).
     ltw : int
         Long term window length (# of samples)
-    centred : bool, optional
+    position : str
         Compute centred STA/LTA (STA window is preceded by LTA window; value
         is assigned to end of LTA window / start of STA window) or classic
         STA/LTA (STA window is within LTA window; value is assigned to end of
@@ -108,9 +108,9 @@ def onset(sig, stw, ltw, centred, log):
         if np.sum(sig[i, :]) == 0.0:
             onset[i, :] = 0.0
         else:
-            if centred is True:
+            if position == "centred":
                 onset[i, :] = sta_lta_centred(sig[i, :], stw, ltw)
-            else:
+            elif position == "classic":
                 onset[i, :] = classic_sta_lta(sig[i, :], stw, ltw)
             np.clip(1 + onset[i, :], 0.8, np.inf, onset[i, :])
             if log:

@@ -6,6 +6,10 @@ Module to produce a summary plot for the phase picking.
 
 import matplotlib.pyplot as plt
 import numpy as np
+from pandas.plotting import register_matplotlib_converters
+
+
+register_matplotlib_converters()
 
 
 def pick_summary(event, station_uid, signal, picks, onsets, ttimes, window):
@@ -70,7 +74,7 @@ def pick_summary(event, station_uid, signal, picks, onsets, ttimes, window):
 
     # --- Grab event information once ---
     otime = event.otime
-    times = event.times()
+    times = event.data.times(type="utcdatetime")
 
     # --- Plot data signal ---
     # Trim data to just around phase picks
@@ -78,8 +82,9 @@ def pick_summary(event, station_uid, signal, picks, onsets, ttimes, window):
     max_t = otime + 1.5 * ttimes[1]
 
     # Find indices for window in which to get normalising factor, then plot
-    min_t_idx = np.argmin([abs(t - min_t.datetime) for t in times])
-    max_t_idx = np.argmin([abs(t - max_t.datetime) for t in times])
+    min_t_idx = np.argmin([abs(t - min_t) for t in times])
+    max_t_idx = np.argmin([abs(t - max_t) for t in times])
+    times = [x.datetime for x in times]
     for i, ax in enumerate(axes[:3]):
         # Funky maths to assign the signal data to correct axes
         y = signal[(i+2) % 3, :]

@@ -8,4 +8,4 @@ Feel free to contribute more Onset function options!
 """
 
 from .onset import Onset  # NOQA
-from .staltaonset import ClassicSTALTAOnset, CentredSTALTAOnset  # NOQA
+from .staltaonset import STALTAOnset, ClassicSTALTAOnset, CentredSTALTAOnset  # NOQA

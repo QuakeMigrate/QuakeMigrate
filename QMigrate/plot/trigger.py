@@ -17,9 +17,14 @@ import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 import numpy as np
 import pandas as pd
+from pandas.plotting import register_matplotlib_converters
+
 
 from QMigrate.io import read_availability
 import QMigrate.util as util
+
+
+register_matplotlib_converters()
 
 
 def trigger_summary(events, starttime, endtime, run, marginal_window,

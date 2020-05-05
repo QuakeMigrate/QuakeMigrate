@@ -5,5 +5,6 @@ QuakeMigrate.
 
 """
 
-from .quakeplot import QuakePlot  # NOQA
-from .triggered_events import triggered_events  # NOQA
+from .event import event_summary  # NOQA
+from .phase_picks import pick_summary # NOQA
+from .trigger import trigger_summary  # NOQA

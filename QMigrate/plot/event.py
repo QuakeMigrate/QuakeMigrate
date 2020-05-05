@@ -69,7 +69,7 @@ def event_summary(run, event, marginal_coalescence, lut):
     # --- Plot waveform information on the station gather ---
     ttp = lut.traveltime_to("P", idx_max)
     sidx = abs(np.argsort(np.argsort(ttp)) - max(np.argsort(np.argsort(ttp))))
-    times = event.times()
+    times = event.data.times(type="matplotlib")
     for i, signal in enumerate(np.rollaxis(event.data.filtered_signal, 1)):
         zipped = zip(signal, ["r", "b", "g"], ["E", "N", "Z"])
         for component, clr, comp in zipped:

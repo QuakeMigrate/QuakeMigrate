@@ -64,7 +64,7 @@ class GaussianPicker(PhasePicker):
         self.fraction_tt = kwargs.get("fraction_tt", 0.1)
         self.marginal_window = kwargs.get("marginal_window", 1.0)
 
-    def __repr__(self):
+    def __str__(self):
         """Returns a short summary string of the GaussianPicker."""
         return ("\tPhase picking by fitting a 1-D Gaussian to onsets\n"
                 f"\t\tPick threshold  = {self.pick_threshold}\n"

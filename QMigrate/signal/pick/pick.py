@@ -34,7 +34,7 @@ class PhasePicker(ABC):
         """Instantiate the PhasePicker object."""
         self.plot_picks = kwargs.get("plot_picks", True)
 
-    def __repr__(self):
+    def __str__(self):
         """Returns a short summary string of the PhasePicker object."""
         return ("Abstract PhasePicker object - consider adding a __repr__ "
                 "method to your custom PhasePicker class that gives the user "

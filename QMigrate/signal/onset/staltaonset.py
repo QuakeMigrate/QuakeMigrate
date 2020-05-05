@@ -131,11 +131,11 @@ def pre_process(sig, sampling_rate, lc, hc, order=2):
     sampling_rate : int
         Number of samples per second, in Hz.
     lc : float
-        Lowpass frequency of band-pass filter.
+        Lowpass frequency of band-pass filter, in Hz.
     hc : float
-        Highpass frequency of band-pass filter.
+        Highpass frequency of band-pass filter, in Hz.
     order : int, optional
-        Number of corners. NOTE: two-pass filter effectively doubles the
+        Number of filter corners. NOTE: two-pass filter effectively doubles the
         number of corners.
 
     Returns
@@ -170,25 +170,25 @@ class STALTAOnset(Onset):
     ----------
     p_bp_filter : array-like, [float, float, int]
         Butterworth bandpass filter specification
-        [lowpass, highpass, corners*]
+        [lowpass (Hz), highpass (Hz), corners*]
         *NOTE: two-pass filter effectively doubles the number of corners.
     s_bp_filter : array-like, [float, float, int]
         Butterworth bandpass filter specification
-        [lowpass, highpass, corners*]
+        [lowpass (Hz), highpass (Hz), corners*]
         *NOTE: two-pass filter effectively doubles the number of corners.
     p_onset_win : array-like, [float, float]
         P onset window parameters
-        [STA, LTA]
+        [STA, LTA] (both in seconds)
     s_onset_win : array-like, [float, float]
         S onset window parameters
-        [STA, LTA]
+        [STA, LTA] (both in seconds)
     sampling_rate : int
-        Desired sampling rate for input data; sampling rate at which the onset
-        functions will be computed.
+        Desired sampling rate for input data, in Hz; sampling rate at which
+        the onset functions will be computed.
     pre_pad : float, optional
         Option to override the default pre-pad duration of data to read
-        before computing 4d coalescence in detect() and locate(). Default
-        value is calculated from the onset function durations.
+        before computing 4-D coalescence in detect() and locate(). Default
+        value is calculated from the onset function parameters.
     position : str, optional
         Compute centred STA/LTA (STA window is preceded by LTA window;
         value is assigned to end of LTA window / start of STA window) or
@@ -226,10 +226,10 @@ class STALTAOnset(Onset):
 
         out = (f"\tOnset parameters - using the {self.position} STA/LTA onset"
                f"\n\t\tData sampling rate = {self.sampling_rate} Hz\n"
-               f"\n\t\tBandpass filter P  = {self.p_bp_filter}"
-               f"\n\t\tBandpass filter S  = {self.s_bp_filter}\n"
-               f"\n\t\tOnset P [STA, LTA] = {self.p_onset_win}"
-               f"\n\t\tOnset S [STA, LTA] = {self.s_onset_win}\n")
+               f"\n\t\tBandpass filter P  = {self.p_bp_filter} (Hz, Hz, -)"
+               f"\n\t\tBandpass filter S  = {self.s_bp_filter} (Hz, Hz, -)\n"
+               f"\n\t\tOnset P [STA, LTA] = {self.p_onset_win} (s, s)"
+               f"\n\t\tOnset S [STA, LTA] = {self.s_onset_win} (s, s)\n")
 
         return out
 

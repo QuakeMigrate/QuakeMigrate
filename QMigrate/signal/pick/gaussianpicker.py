@@ -66,10 +66,11 @@ class GaussianPicker(PhasePicker):
 
     def __repr__(self):
         """Returns a short summary string of the GaussianPicker."""
-        return ("\tPhase picking by fitting a 1-D Gaussian fit to onsets\n"
+        return ("\tPhase picking by fitting a 1-D Gaussian to onsets\n"
                 f"\t\tPick threshold  = {self.pick_threshold}\n"
-                f"\t\tMarginal window = {self.marginal_window}\n"
-                f"\t\tSearch window   = {self.fraction_tt}s\n\n")
+                f"\t\tMarginal window = {self.marginal_window} s\n"
+                f"\t\tSearch window   = {self.fraction_tt*100}% of travel-time"
+                "\n\n")
 
     @util.timeit
     def pick_phases(self, event, lut, run):
@@ -129,8 +130,6 @@ class GaussianPicker(PhasePicker):
                 picks.iloc[2*i+j] = [station["Name"], phase, model_time, pick,
                                      pick_error, max_onset]
 
-        # Write out pick DataFrame
-        picks.PickError
         self.write(run, event.uid, picks)
 
         if self.plot_picks:
@@ -422,3 +421,4 @@ class GaussianPicker(PhasePicker):
             fstem = f"{event.uid}_{station}"
             file = (fpath / fstem).with_suffix(".pdf")
             plt.savefig(file)
+            plt.close(fig)

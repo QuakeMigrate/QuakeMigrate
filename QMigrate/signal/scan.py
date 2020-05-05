@@ -8,6 +8,7 @@ import logging
 import warnings
 
 import numpy as np
+<<<<<<< HEAD
 from obspy import UTCDateTime
 import pandas as pd
 from scipy.interpolate import Rbf
@@ -19,6 +20,23 @@ from QMigrate.io import (Event, Run, ScanmSEED, read_triggered_events,
 from .onset import Onset
 from .pick import GaussianPicker, PhasePicker
 from QMigrate.plot.event import event_summary
+=======
+from obspy import UTCDateTime, Stream, Trace, read_inventory
+from obspy.geodetics.base import gps2dist_azimuth
+from obspy.io.xseed import Parser
+from obspy.signal.invsim import (paz_2_amplitude_value_of_freq_resp,
+                                 evalresp_for_frequencies)
+import pandas as pd
+from scipy.interpolate import Rbf
+from scipy.signal import fftconvolve, find_peaks, iirfilter, sosfreqz
+
+from QMigrate.core import find_max_coa, migrate
+from QMigrate.io import QuakeIO
+from QMigrate.plot import QuakePlot
+from .magnitudes import calculate_magnitudes, mean_magnitude
+from .onset import Onset
+from .pick import GaussianPicker, PhasePicker
+>>>>>>> CB_development
 import QMigrate.util as util
 
 # Filter warnings
@@ -476,12 +494,12 @@ class QuakeScan:
 
         """
 
-        # Extra pre- and post-pad default to None
+        # Extra pre- and post-pad default to 0.
         pre_pad = post_pad = 0.
         if self.pre_cut:
             # only subtract 1*marginal_window so if the event otime moves by
             # this much the selected pre_cut can still be applied
-            pre_pad = self.pre_cut - self.marginal_window - self.pre_pad
+            pre_pad = pre_cut - self.marginal_window - self.pre_pad
             if pre_pad < 0:
                 msg = (f"\t\tWarning: specified pre_cut {self.pre_cut} is"
                        "shorter than default pre_pad\n"
@@ -492,8 +510,7 @@ class QuakeScan:
         if self.post_cut:
             # only subtract 1*marginal_window so if the event otime moves by
             # this much the selected post_cut can still be applied
-            post_pad = self.post_cut - self.marginal_window - \
-                       self.post_pad
+            post_pad = post_cut - self.marginal_window - self.post_pad
             if post_pad < 0:
                 msg = (f"\t\tWarning: specified post_cut {self.post_cut} is"
                        " shorter than default post_pad\n"

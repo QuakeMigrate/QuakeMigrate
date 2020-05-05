@@ -324,3 +324,16 @@ class TimeSpanException(Exception):
         msg = ("TimeSpanException: The start time specified is after the end"
                " time.")
         super().__init__(msg)
+
+
+class InvalidThresholdMethodException(Exception):
+    """
+    Custom exception to handle case when the user has not selected a valid
+    threshold method.
+
+    """
+
+    def __init__(self):
+        msg = ("InvalidThresholdMethodException: Only 'static' or 'dynamic' "
+               "thresholds are supported.")
+        super().__init__(msg)

@@ -6,17 +6,17 @@ Creation of LUT for the Iceland icequake example.
 
 from pyproj import Proj
 
-import QMigrate.io as qio
-import QMigrate.lut as qlut
+from QMigrate.io import stations
+from QMigrate.lut import compute, LUT
 
 station_file = "./inputs/iceland_stations.txt"
 data_in = "./inputs/mSEED"
-lut_out = "./outputs/LUT/icequake.LUT"
+lut_out = "./outputs/lut/icequake.LUT"
 out_path = "./outputs/runs"
 run_name = "icequake_example"
 
 # --- Read in the station information file ---
-stations = qio.stations(station_file)
+stations = stations(station_file)
 
 # --- Define projections ---
 cproj = Proj(proj="longlat", ellps="WGS84", datum="WGS84", no_defs=True)
@@ -25,14 +25,14 @@ gproj = Proj(proj="lcc", lon_0=-17.224, lat_0=64.328, lat_1=64.32, lat_2=64.335,
 
 # --- Create new LUT ---
 # Cell count (x,y,z); cell size (x,y,z in metres)
-lut = qlut.LUT(ll_corner=[-17.24363934275664, 64.31947715407385, -1390.],
-               ur_corner=[-17.204348515198255, 64.3365202025144, 1390],
-               cell_size=[100., 100., 20.], grid_proj=gproj, coord_proj=cproj)
+lut = LUT(ll_corner=[-17.24363934275664, 64.31947715407385, -1390.],
+          ur_corner=[-17.204348515198255, 64.3365202025144, 1390],
+          cell_size=[100., 100., 20.], grid_proj=gproj, coord_proj=cproj)
 
 # --- Homogeneous LUT generation ---
 vp = 3630
 vs = 1833
-qlut.compute(lut, stations, method="homogeneous", vp=vp, vs=vs)
+compute(lut, stations, method="homogeneous", vp=vp, vs=vs)
 
 # --- Save LUT ---
 lut.save(lut_out)

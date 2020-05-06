@@ -32,11 +32,11 @@ trig.minimum_repeat = 30.
 trig.normalise_coalescence = True
 
 # --- Static threshold ---
-trig.threshold_type = "static"
+trig.threshold_method = "static"
 trig.static_threshold = 1.75
 
 # --- Dynamic (Median Absolute Deviation) threshold ---
-# trig.threshold_type = "dynamic"
+# trig.threshold_method = "dynamic"
 # trig.mad_window_length = 7200.
 # trig.mad_multiplier = 8.
 

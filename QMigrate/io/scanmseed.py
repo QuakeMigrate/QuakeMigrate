@@ -139,8 +139,8 @@ class ScanmSEED:
 
         logging.info(msg)
 
-        starttime = [starttime + timestep*i]
-        n = timestep*self.sampling_rate + 1
+        starttime = starttime + timestep*i
+        n = util.time2sample(timestep, self.sampling_rate) + 1
         max_coa = max_coa_n = np.full(n, 0)
         coord = np.full((n, 3), 0)
 

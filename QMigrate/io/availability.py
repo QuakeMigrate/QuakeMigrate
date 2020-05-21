@@ -84,7 +84,7 @@ def write_availability(run, availability):
     fpath.mkdir(exist_ok=True, parents=True)
 
     availability.index = times = pd.to_datetime(availability.index)
-    datelist = [time.date() for time in times]
+    datelist = set([time.date() for time in times])
 
     for date in datelist:
         to_write = availability[availability.index.date == date]

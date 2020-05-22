@@ -273,7 +273,7 @@ class Trigger:
         # buffer on top of marginal window within which events can't overlap)
         minimum_repeat = self.minimum_repeat - self.marginal_window
 
-        starttime, endtime = starttime - self.pad, endtime + self.pad
+        starttime_pad, endtime_pad = starttime - self.pad, endtime + self.pad
 
         if self.normalise_coalescence:
             tr = scandata["COA_N"]
@@ -303,8 +303,8 @@ class Trigger:
 
         # Mask based on first and final time stamps and detection threshold
         coa_data = scandata[(tr >= self.threshold) &
-                            (scandata["DT"] >= starttime) &
-                            (scandata["DT"] <= endtime)].reset_index(drop=True)
+                            (scandata["DT"] >= starttime_pad) &
+                            (scandata["DT"] <= endtime_pad)].reset_index(drop=True)
 
         if coa_data.empty:
             return None

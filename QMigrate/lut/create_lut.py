@@ -211,20 +211,25 @@ def _compute_1d_fmm(lut, vmod):
               f"station {station['Name']} - {i+1} of "
               f"{stations_xyz.shape[0]}")
 
-        lut.maps[station["Name"]] = {"TIME_P": _eikonal(grid_xyz,
-                                                        lut.cell_size, gvp,
-                                                        stations_xyz[i]),
-                                     "TIME_S": _eikonal(grid_xyz,
-                                                        lut.cell_size, gvs,
-                                                        stations_xyz[i])}
+        lut.maps[station["Name"]] = {"TIME_P": _eikonal_fmm(grid_xyz,
+                                                            lut.cell_size, gvp,
+                                                            stations_xyz[i]),
+                                     "TIME_S": _eikonal_fmm(grid_xyz,
+                                                            lut.cell_size, gvs,
+                                                            stations_xyz[i])}
 
 
-def _eikonal(grid_xyz, cell_size, velocity_grid, station_xyz):
+def _eikonal_fmm(grid_xyz, cell_size, velocity_grid, station_xyz):
     """
     Calculates the travel-time lookup tables by solving the eikonal equation
     using an implementation of the fast-marching algorithm.
 
-    Requires the skifmm python package.
+    Travel-time calculation can only be performed between grid nodes: the
+    station location is therefore taken as the closest grid node. Note that
+    for large cell sizes this may cause a modest error in the calculated
+    travel-times.
+
+    Requires the scikit-fmm python package.
 
     Parameters
     ----------
@@ -249,12 +254,14 @@ def _eikonal(grid_xyz, cell_size, velocity_grid, station_xyz):
     """
 
     phi = -np.ones(grid_xyz[0].shape)
+    # Find closest grid node to true station location
     indx = np.argmin(abs(grid_xyz[0] - station_xyz[0])
                      + abs(grid_xyz[1] - station_xyz[1])
                      + abs(grid_xyz[2] - station_xyz[2]))
     phi[np.unravel_index(indx, grid_xyz[0].shape)] = 1.0
 
     t = skfmm.travel_time(phi, velocity_grid, dx=cell_size)
+
     return t
 
 

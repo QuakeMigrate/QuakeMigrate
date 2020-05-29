@@ -92,7 +92,7 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
                  zorder=10)
 
     try:
-        logging.info("\tReading in .StationAvailability...")
+        logging.info("\n\t    Reading in .StationAvailability...")
         availability = read_availability(run, starttime, endtime)
         available = availability.sum(axis=1).astype(int)
         times = list(pd.to_datetime(available.index))

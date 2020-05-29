@@ -243,7 +243,7 @@ def read_scanmseed(run, starttime, endtime, pad):
             scanmseed += read(str(file), starttime=readstart,
                               endtime=readend, format="MSEED")
         except FileNotFoundError:
-            logging.info(f"\tNo .scanmseed file found for day {fstem}!\n")
+            logging.info(f"\n\t    No .scanmseed file found for day {fstem}!")
         dy += 1
 
     if not bool(scanmseed):
@@ -262,19 +262,17 @@ def read_scanmseed(run, starttime, endtime, pad):
 
     # Check if the data covers the entirety of the requested period
     if stats.starttime > starttime:
-        logging.info("\t    Warning!")
-        logging.info("\t    .scanmseed starttime > trigger() starttime!")
+        logging.info("\n\t    Warning! .scanmseed starttime > trigger() "
+                     "starttime!")
     elif stats.starttime > readstart:
-        logging.info("\t    Warning!")
-        logging.info("\t    No .scanmseed data found for pre-pad!")
+        logging.info("\n\t    Warning! No .scanmseed data found for pre-pad!")
     if stats.endtime < endtime - stats.delta:
-        logging.info("\t    Warning!")
-        logging.info("\t    .scanmseed endtime < trigger() endtime!")
+        logging.info("\n\t    Warning! .scanmseed endtime < trigger() "
+                     "endtime!")
     elif stats.endtime < readend:
-        logging.info("\t    Warning!")
-        logging.info("\t    No .scanmseed data found for post-pad!")
-    logging.info(f"\t...from {stats.starttime} - {stats.endtime}.")
+        logging.info("\n\t    Warning! No .scanmseed data found for post-pad!")
+    logging.info(f"\n\t\t...from {stats.starttime} - {stats.endtime}.")
 
-    logging.info("\t.scanmseed read complete.\n")
+    logging.info("\n\t.scanmseed read complete.\n")
 
     return data, stats

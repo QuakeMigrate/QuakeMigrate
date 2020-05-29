@@ -166,10 +166,10 @@ class Trigger:
                f"\t\tPre/post pad = {self.pad} s\n"
                f"\t\tMarginal window = {self.marginal_window} s\n"
                f"\t\tMinimum repeat  = {self.minimum_repeat} s\n\n"
-               f"\t\tTriggering from ")
+               f"\t\tTriggering from the ")
         out += "normalised " if self.normalise_coalescence else ""
-        out += "coalescence stream.\n\n"
-        out += f"\t\tDetection threshold method: {self.threshold_method}\n"
+        out += "maximum coalescence trace.\n\n"
+        out += f"\t\tTrigger threshold method: {self.threshold_method}\n"
         if self.threshold_method == "static":
             out += f"\t\tStatic threshold = {self.static_threshold}\n"
         elif self.threshold_method == "dynamic":
@@ -208,7 +208,7 @@ class Trigger:
             raise util.TimeSpanException
 
         logging.info(util.log_spacer)
-        logging.info("\tTRIGGER - Triggering events from coalescence")
+        logging.info("\tTRIGGER - Triggering events from .scanmseed")
         logging.info(util.log_spacer)
         logging.info(f"\n\tTriggering events from {starttime} to {endtime}\n")
         logging.info(self)
@@ -217,14 +217,14 @@ class Trigger:
         logging.info("\tReading in .scanmseed...")
         data, stats = read_scanmseed(self.run, starttime, endtime, self.pad)
 
-        logging.info("\tTriggering events...")
+        logging.info("\tTriggering events...\n")
         events = self._trigger_events(starttime, endtime, data, stats, region)
 
         if events is None:
             logging.info("\tNo events triggered at this threshold - try a "
                          "lower detection threshold.")
         else:
-            logging.info("\tWriting triggered events to file...")
+            logging.info("\n\tWriting triggered events to file...")
             write_triggered_events(self.run, events, starttime, endtime)
 
         logging.info("\n\tPlotting trigger summary...")

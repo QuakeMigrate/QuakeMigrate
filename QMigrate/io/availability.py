@@ -59,9 +59,9 @@ def read_availability(run, starttime, endtime):
         raise util.NoStationAvailabilityDataException
 
     starttime, endtime = availability.index[0], availability.index[-1]
-    logging.info(f"\t...from {starttime} - {endtime}")
+    logging.info(f"\n\t\t...from {starttime} - {endtime}")
 
-    logging.info("\t.StationAvailability read complete.")
+    logging.info("\n\t    .StationAvailability read complete.\n")
 
     return availability
 

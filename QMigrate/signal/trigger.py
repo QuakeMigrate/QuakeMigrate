@@ -392,7 +392,7 @@ class Trigger:
             _event = tmp.iloc[tmp.COA_V.idxmax()]
             event = pd.DataFrame([[i, _event.CoaTime, _event.COA_V,
                                    _event.COA_X, _event.COA_Y, _event.COA_Z,
-                                   tmp.MinTime.max(), tmp.MaxTime.max(),
+                                   tmp.MinTime.min(), tmp.MaxTime.max(),
                                    _event.COA, _event.COA_NORM]],
                                  columns=EVENT_FILE_COLS)
             events = events.append(event, ignore_index=True)

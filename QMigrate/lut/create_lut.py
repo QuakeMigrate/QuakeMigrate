@@ -7,6 +7,7 @@ Module to produce travel-time lookup tables defined on a Cartesian grid.
 import os
 import pathlib
 import struct
+from shutil import rmtree
 
 import numpy as np
 import pyproj
@@ -121,7 +122,8 @@ def compute(lut, stations, method, **kwargs):
 
     if method == "3dfmm":
 
-        raise NotImplementedError
+        raise NotImplementedError("Feature coming soon - please contact the "
+                                  "QuakeMigrate developers")
 
     if method == "1dsweep":
         # Check if the user has provided suitable arguments
@@ -129,12 +131,7 @@ def compute(lut, stations, method, **kwargs):
             print("Missing argument: 'vmod'")
             return
 
-        blocks = kwargs["block_model"] if "block_model" in kwargs else False
-        dx = kwargs["dx"] if "dx" in kwargs else 0.1
-        path = kwargs["nlloc_path"] if "nlloc_path" in kwargs else ""
-
-        _compute_1d_sweep(lut, kwargs["vmod"], nlloc_dx=dx, nlloc_path=path,
-                          blocks=blocks)
+        _compute_1d_sweep(lut, kwargs["vmod"], kwargs)
 
     return lut
 
@@ -163,8 +160,8 @@ def _compute_homogeneous(lut, vp, vs):
     stations_xyz = lut.stations_xyz
 
     for i, station in lut.station_data.iterrows():
-        print(f"Computing homogeneous traveltime lookup table - {i+1} of"
-              f" {stations_xyz.shape[0]}")
+        print(f"Computing homogeneous traveltime lookup table for station "
+              f"{station['Name']} - {i+1} of {stations_xyz.shape[0]}")
 
         dx, dy, dz = [grid_xyz[j] - stations_xyz[i, j] for j in range(3)]
         dist = np.sqrt(dx**2 + dy**2 + dz**2)
@@ -210,8 +207,9 @@ def _compute_1d_fmm(lut, vmod):
     gvs = f(grid_xyz[2])
 
     for i, station in lut.station_data.iterrows():
-        print(f"Computing 1-D fast-marching traveltime lookup table - {i+1} of"
-              f" {stations_xyz.shape[0]}")
+        print(f"Computing 1-D fast-marching traveltime lookup table for "
+              f"station {station['Name']} - {i+1} of "
+              f"{stations_xyz.shape[0]}")
 
         lut.maps[station["Name"]] = {"TIME_P": _eikonal(grid_xyz,
                                                         lut.cell_size, gvp,
@@ -260,7 +258,7 @@ def _eikonal(grid_xyz, cell_size, velocity_grid, station_xyz):
     return t
 
 
-def _compute_1d_sweep(lut, vmod, nlloc_dx, nlloc_path, blocks):
+def _compute_1d_sweep(lut, vmod, kwargs):
     """
     Calculate 3-D travel-time lookup tables from a 1-D velocity model.
 
@@ -278,17 +276,35 @@ def _compute_1d_sweep(lut, vmod, nlloc_dx, nlloc_path, blocks):
             Z : Depth of each layer in model (positive down; units: metres)
             Vp : P-wave velocity for each layer in model (units: m / s)
             Vs : S-wave velocity for each layer in model (units: m / s)
-    nlloc_dx : float, optional
-        NLLoc 2D grid spacing (default: 0.1 km).
-    nlloc_path : str
-        Path to NonLinLoc binaries.
-    blocks : bool
-        Toggle to choose whether to interpret velocity model with constant
-        velocity blocks or a linear gradient.
+    kwargs : dict
+        Can contain:
+        nlloc_dx : float, optional
+            NLLoc 2D grid spacing (default: 0.1 km).
+        nlloc_path : str, optional
+            Path to NonLinLoc executables Vel2Grid and Grid2Time (default: "").
+        block_model : bool, optional
+            Toggle to choose whether to interpret velocity model with constant
+            velocity blocks or a linear gradient (default: False).
+        retain_nll_grids : bool, optional
+            Toggle to choose whether to keep the 2D travel-time grids created
+            by NonLinLoc (default: False).
 
     """
 
     from subprocess import check_output, STDOUT
+
+    # Unpack kwargs
+    nlloc_dx = kwargs.get("nlloc_dx", 0.1)
+    nlloc_path = pathlib.Path(kwargs.get("nlloc_path", ""))
+    block_model = kwargs.get("block_model", False)
+    retain_nll_grids = kwargs.get("retain_nll_grids", False)
+
+    # Check nlloc_path is valid and contains Vel2Grid and Grid2Time
+    if kwargs.get("nlloc_path", "") != "":
+        if not (nlloc_path / "Vel2Grid").exists() or not \
+            (nlloc_path / "Grid2Time").exists():
+            raise FileNotFoundError(f"Incorrect nlloc_path? - Grid2Time and "
+                                    f"Vel2Grid not found in {nlloc_path}")
 
     lut.velocity_model = vmod
     cc = lut.cell_count
@@ -299,12 +315,13 @@ def _compute_1d_sweep(lut, vmod, nlloc_dx, nlloc_path, blocks):
     ll, *_, ur = lut.grid_corners / 1000
 
     # Make folders in which to run NonLinLoc
-    (pathlib.Path.cwd() / "time").mkdir(exist_ok=True)
-    (pathlib.Path.cwd() / "model").mkdir(exist_ok=True)
+    cwd = pathlib.Path.cwd()
+    (cwd / "time").mkdir(exist_ok=True)
+    (cwd / "model").mkdir(exist_ok=True)
 
     for i, station in lut.station_data.iterrows():
-        print(f"Computing 1-D sweep traveltime lookup table - {i+1} of"
-              f" {stations_xyz.shape[0]}")
+        print(f"Computing 1-D sweep traveltime lookup table for station "
+              f"{station['Name']} - {i+1} of {stations_xyz.shape[0]}")
 
         name = station["Name"]
         lut.maps[name] = {}
@@ -324,16 +341,16 @@ def _compute_1d_sweep(lut, vmod, nlloc_dx, nlloc_path, blocks):
             # Allow 2 nodes on depth extent as a computational buffer
             _write_control_file(stations_xyz[i], name, max_dist, vmod,
                                 depth_extent, phase=phase, dx=nlloc_dx,
-                                block_model=blocks)
+                                block_model=block_model)
 
             print(f"\tRunning NonLinLoc - phase = {phase}")
             for mode in ["Vel2Grid", "Grid2Time"]:
-                out = check_output([os.path.join(nlloc_path, mode),
+                out = check_output([str(nlloc_path / mode),
                                     "control.in"], stderr=STDOUT)
                 if b"ERROR" in out:
                     raise Exception(f"{mode} Error", out)
 
-            to_read = f"./time/layer.{phase}.{name}.time"
+            to_read = cwd / "time" / f"layer.{phase}.{name}.time"
             gridspec, _, ttimes = _read_nlloc(to_read, ignore_proj=True)
 
             distance = distance_grid.flatten()
@@ -344,6 +361,22 @@ def _compute_1d_sweep(lut, vmod, nlloc_dx, nlloc_path, blocks):
                                            ttimes[0, :, :])
 
             lut.maps[name][f"TIME_{phase}"] = ttimes.reshape(cc)
+
+            # Tidy up: remove control file and nll model and time files
+            os.remove(cwd / "control.in")
+            if not retain_nll_grids:
+                for file in (cwd / "time").glob(f"layer.{phase}.{name}.time*"):
+                    file.unlink()
+
+    if not retain_nll_grids:
+        rmtree(cwd / "model")
+        # Check time directory is empty before removing (might have
+        # saved grids from previous runs)
+        if not os.listdir(cwd / "time"):
+            rmtree(cwd / "time")
+        else:
+            print("Warning!! time directory is not empty; does it contain "
+                    "travel-time grids from a previous run?\nNot removed.")
 
 
 def _write_control_file(station_xyz, name, max_dist, vmodel, depth_limits,
@@ -375,22 +408,25 @@ def _write_control_file(station_xyz, name, max_dist, vmodel, depth_limits,
 
     control_string = ("CONTROL 0 54321\n"
                       "TRANS NONE\n\n"
-                      "VGOUT ./model/layer\n"
+                      "VGOUT {modpat:s}\n"
                       "VGTYPE {phase:s}\n\n"
                       "VGGRID {grid:s} SLOW_LEN\n\n"
                       "{vmodel:s}\n\n"
-                      "GTFILES ./model/layer ./time/layer {phase:s}\n"
+                      "GTFILES {modpat:s} {timepat:s} {phase:s}\n"
                       "GTMODE GRID2D ANGLES_NO\n\n"
                       "GTSRCE {name:s} XYZ {x:f} {y:f} {z:f} 0.0\n\n"
                       "GT_PLFD 1.0E-3 0")
 
+    cwd = pathlib.Path.cwd()
     out = control_string.format(phase=phase,
                                 grid=_grid_string(max_dist, depth_limits, dx),
                                 vmodel=_vmodel_string(vmodel, block_model),
+                                modpat=str(cwd / "model" / "layer"),
+                                timepat=str(cwd / "time" / "layer"),
                                 name=name, x=station_xyz[0], y=station_xyz[1],
                                 z=station_xyz[2])
 
-    with open("./control.in", "w") as f:
+    with open(cwd / "control.in", "w") as f:
         f.write(out)
 
 
@@ -428,7 +464,7 @@ def _read_nlloc(fname, ignore_proj=False):
 
         # Read the transform definition line
         line = f.readline().split()
-        cproj = pyproj.Proj("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")
+        cproj = pyproj.Proj(proj="longlat", ellps="WGS84", datum="WGS84", no_defs=True)
         gproj = None
         if line[1] == "NONE" and not ignore_proj:
             print("\tNo projection selected.")

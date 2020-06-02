@@ -4,6 +4,8 @@ Module that supplies various utility functions and classes.
 
 """
 
+import sys
+
 from functools import wraps
 import logging
 import time
@@ -119,9 +121,9 @@ def logger(logstem, log):
     if log:
         logstem.parent.mkdir(exist_ok=True, parents=True)
         handlers = [logging.FileHandler(str(logstem.with_suffix(".log"))),
-                    logging.StreamHandler()]
+                    logging.StreamHandler(sys.stdout)]
     else:
-        handlers = [logging.StreamHandler()]
+        handlers = [logging.StreamHandler(sys.stdout)]
 
     logging.basicConfig(level=logging.INFO,
                         format="%(message)s",

@@ -369,7 +369,7 @@ class GaussianPicker(PhasePicker):
 
         """
 
-        fpath = run.path / "locate" / "pick_plots" / f"{event.uid}"
+        fpath = run.path / "locate" / run.subname / "pick_plots" / f"{event.uid}"
         fpath.mkdir(exist_ok=True, parents=True)
 
         # Generate plottable timestamps for data

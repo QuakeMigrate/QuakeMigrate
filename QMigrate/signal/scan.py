@@ -198,11 +198,16 @@ class QuakeScan:
     def __str__(self):
         """Return short summary string of the QuakeScan object."""
 
-        return ("\tScan parameters:\n"
-                f"\t\tData sampling rate = {self.sampling_rate} Hz\n"
-                f"\t\tTime step = {self.timestep} s\n"
-                f"\t\tMarginal window = {self.marginal_window} s\n"
-                f"\t\tThread count = {self.threads}\n")
+        out = ("\tScan parameters:\n"
+               f"\t\tData sampling rate = {self.sampling_rate} Hz\n"
+               f"\t\tThread count = {self.threads}\n")
+        if self.run.stage == "detect":
+            out += f"\t\tTime step = {self.timestep} s\n"
+        elif self.run.stage == "locate":
+            out += f"\t\tMarginal window = {self.marginal_window} s\n"
+
+        return out
+                
 
     def detect(self, starttime, endtime):
         """

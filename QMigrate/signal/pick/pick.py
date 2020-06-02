@@ -64,7 +64,7 @@ class PhasePicker(ABC):
 
         """
 
-        fpath = run.path / "locate" / "picks"
+        fpath = run.path / "locate" / run.subname / "picks"
         fpath.mkdir(exist_ok=True, parents=True)
 
         fstem = f"{event_uid}"

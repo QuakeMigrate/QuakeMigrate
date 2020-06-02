@@ -379,9 +379,11 @@ class Trigger:
         count = 1
         for i, event in triggers.iterrows():
             evt_num[i] = count
-            if (i + 1 < n_evts) and ((event["MaxTime"]
-                                      - (triggers["CoaTime"].iloc[i + 1]
-                                      - self.marginal_window)) < 0):
+            if i + 1 == n_evts:
+                continue
+            next_event = triggers.iloc[i + 1]
+            if (event["MaxTime"] < (next_event["CoaTime"] - self.marginal_window)) \
+                and (next_event["MinTime"] > (event["CoaTime"] + self.marginal_window)):
                 count += 1
         triggers["EventNum"] = evt_num
 

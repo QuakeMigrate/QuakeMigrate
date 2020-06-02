@@ -193,7 +193,7 @@ class Trigger:
             events csv file (for use in locate.) Format is:
                 [Xmin, Ymin, Zmin, Xmax, Ymax, Zmax]
             Units are longitude / latitude / metres (in positive-down frame).
-        save_fig : bool, optional
+        savefig : bool, optional
             Save triggered events figure (default) or open interactive view.
 
         Raises
@@ -214,8 +214,37 @@ class Trigger:
         logging.info(self)
         logging.info(util.log_spacer)
 
+        batchstart = starttime
+        while batchstart <= endtime:
+            next_day = UTCDateTime(batchstart.date) + 86400
+            batchend = next_day if next_day <= endtime else endtime
+            self._trigger_batch(batchstart, batchend, region, savefig)
+            batchstart = next_day
+
+        logging.info(util.log_spacer)
+
+    def _trigger_batch(self, batchstart, batchend, region, savefig):
+        """
+        Wraps all of the methods used in sequence to determine triggers.
+
+        Parameters
+        ----------
+        starttime : `obspy.UTCDateTime` object
+            Timestamp from which to trigger.
+        endtime : `obspy.UTCDateTime` object
+            Timestamp up to which to trigger.
+        region : list of floats
+            Only write triggered events within this region to the triggered
+            events csv file (for use in locate.) Format is:
+                [Xmin, Ymin, Zmin, Xmax, Ymax, Zmax]
+            Units are longitude / latitude / metres (in positive-down frame).
+        savefig : bool
+            Save triggered events figure (default) or open interactive view.
+
+        """
+
         logging.info("\tReading in .scanmseed...")
-        data, stats = read_scanmseed(self.run, starttime, endtime, self.pad)
+        data, stats = read_scanmseed(self.run, batchstart, batchend, self.pad)
 
         logging.info("\tTriggering events...\n")
         trigger_on = "COA_N" if self.normalise_coalescence else "COA"
@@ -229,18 +258,16 @@ class Trigger:
             events = candidate_events
         else:
             refined_events = self._refine_candidates(candidate_events)
-            events = self._filter_events(refined_events, starttime, endtime,
+            events = self._filter_events(refined_events, batchstart, batchend,
                                          region)
             logging.info("\n\tWriting triggered events to file...")
-            write_triggered_events(self.run, events, starttime, endtime)
+            write_triggered_events(self.run, events, batchstart)
 
         logging.info("\n\tPlotting trigger summary...")
-        trigger_summary(events, starttime, endtime, self.run,
-                        self.marginal_window, self.minimum_repeat, threshold,
-                        self.normalise_coalescence, self.lut, data,
-                        region=region, savefig=savefig)
-
-        logging.info(util.log_spacer)
+        trigger_summary(events, batchstart, batchend, self.run,
+                        self.marginal_window, self.minimum_repeat,
+                        threshold, self.normalise_coalescence, self.lut,
+                        data, region=region, savefig=savefig)
 
     def _get_threshold(self, scandata, sampling_rate):
         """
@@ -309,7 +336,7 @@ class Trigger:
 
         # Switch between user-facing minimum repeat definition (minimum repeat
         # interval between event triggers) and internal definition (extra
-        # buffer on top of marginal window within which events can't overlap)
+        # buffer on top of marginal window within which events cannot overlap)
         minimum_repeat = self.minimum_repeat - self.marginal_window
 
         thresholded = scandata[scandata[trigger_on] >= threshold]

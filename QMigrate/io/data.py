@@ -789,8 +789,8 @@ class Event:
     @property
     def hypocentre(self):
         """Get the hypocentral location based on the peak coalescence."""
-        idxmax = self.coa_data["COA"].astype(float).idxmax()
-        return self.coa_data.iloc[idxmax][["X", "Y", "Z"]].values
+        hypocentre = self.locations["spline"]
+        return np.array([hypocentre["X"], hypocentre["Y"], hypocentre["Z"]])
 
     @property
     def max_coalescence(self):

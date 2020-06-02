@@ -388,15 +388,19 @@ class Trigger:
 
         """
 
-        # First, identify and label overlapping candidate events
-        event_number = 1
-        for i, event in candidate_events.iterrows():
-            candidate_events.loc[i, "EventNum"] = event_number
+        # Iterate pairwise (event1, event2) over the candidate events to
+        # identify overlaps between:
+        #   - event1 marginal window and event2 minimum window position
+        #   - event2 marginal window and event1 maximum window position
+        event_count = 1
+        for i, event1 in candidate_events.iterrows():
+            candidate_events.loc[i, "EventNum"] = event_count
             if i + 1 == len(candidate_events):
                 continue
-            next_event = candidate_events.iloc[i+1]
-            if event["MaxTime"] < next_event["CoaTime"] - self.marginal_window:
-                event_number += 1
+            event2 = candidate_events.iloc[i+1]
+            if all([event1["MaxTime"] < event2["CoaTime"] - self.marginal_window,
+                    event2["MinTime"] > event1["CoaTime"] + self.marginal_window]):
+                event_count += 1
 
         # Split into DataFrames by event number
         merged_candidates = [d for _, d in candidate_events.groupby(

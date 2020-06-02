@@ -150,7 +150,7 @@ def event_summary(run, event, marginal_coalescence, lut):
     fig.tight_layout(pad=1, h_pad=0)
     plt.subplots_adjust(wspace=0.3, hspace=0.3)
 
-    fpath = run.path / "locate" / "summaries"
+    fpath = run.path / "locate" / run.subname / "summaries"
     fpath.mkdir(exist_ok=True, parents=True)
     fstem = f"{run.name}_{event.uid}_EventSummary"
     file = (fpath / fstem).with_suffix(".pdf")

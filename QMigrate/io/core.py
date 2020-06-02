@@ -147,7 +147,7 @@ class Run:
 
         """
 
-        logstem = self.path / self.stage / "logs" / self.name
+        logstem = self.path / self.stage / self.subname / "logs" / self.name
         util.logger(logstem, log)
         logging.info(self)
 

@@ -27,24 +27,22 @@ def pick_summary(event, station_uid, signal, picks, onsets, ttimes, window):
         Unique identifier for the event.
     station_uid : str
         Unique identifer for the station.
-    signal : array of arrays
+    signal : `numpy.ndarray` of int
         Seismic data for the Z N and E components.
     picks : pandas DataFrame object
-        Phase pick times with columns: ["Name", "Phase",
-                                        "ModelledTime",
-                                        "PickTime", "PickError",
-                                        "SNR"]
+        Phase pick times with columns ["Name", "Phase", "ModelledTime",
+        "PickTime", "PickError", "SNR"]
         Each row contains the phase pick from one station/phase.
-    onsets : array of arrays
-        P- and S-phase onset functions for the event-station pair.
-    ttimes : array, [int, int]
+    onsets : `numpy.ndarray` of float
+        Onset functions for each seismic phase, shape(nstations, nsamples).
+    ttimes : list, [int, int]
         Modelled phase travel times.
-    window : array, [int, int]
+    window : list, [int, int]
         Indices specifying the window within which the pick was made.
 
     Returns
     -------
-    fig : matplotlib Figure object
+    fig : `matplotlib.Figure` object
         Figure showing basic phase picking information.
 
     """

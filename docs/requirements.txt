@@ -1,0 +1,4 @@
+matplotlib
+sphinx_rtd_theme
+numpy
+sphinx>=1.5.1

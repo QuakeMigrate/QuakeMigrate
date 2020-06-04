@@ -1,79 +1,53 @@
 # -*- coding: utf-8 -*-
-"""
-QuakeMigrate - a Python and C software package for detection and location of
-seismic events using a coherency and coalescence based technique.
-"""
+try:
+    # Use setuptools if we can
+    from setuptools import setup, Extension
+    from setuptools.command.build_ext import build_ext
+    using_setuptools = True
+except ImportError:
+    from distutils.core import setup, Extension
+    from distutils.command.build_ext import build_ext
+    using_setuptools = False
 
-import codecs
-import glob
-import inspect
 import os
+import pathlib
+from pkg_resources import get_build_platform
 import re
-from setuptools import setup
+import shutil
 import sys
 import time
 
-import numpy.distutils.misc_util
 
+# Check if we are on RTD and don't build extensions if we are.
+READ_THE_DOCS = os.environ.get("READTHEDOCS", None) == "True"
+
+if READ_THE_DOCS:
+    try:
+        environ = os.environb
+    except AttributeError:
+        environ = os.environ
+
+    environ[b"CC"] = b"x86_64-linux-gnu-gcc"
+    environ[b"LD"] = b"x86_64-linux-gnu-ld"
+    environ[b"AR"] = b"x86_64-linux-gnu-ar"
 
 # Directory of the current file
-SETUP_DIRECTORY = os.path.dirname(os.path.abspath(inspect.getfile(
-    inspect.currentframe())))
-
-LOCAL_PATH = os.path.join(SETUP_DIRECTORY, "setup.py")
-
-NAME = "QuakeMigrate"
-
-INCLUDE_DIRS = numpy.distutils.misc_util.get_numpy_include_dirs()
-
-META_PATH = os.path.join("QMigrate", "__init__.py")
-KEYWORDS = ["Seismic", "Location", "Analysis"]
-
-CLASSIFIERS = [
-    "Development Status :: Beta",
-    "Intended Audience :: Geophysicist",
-    "Natural Language :: English",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3.6",
-    "Topic :: Scientific/Engineering",
-]
-
-INSTALL_REQUIRES = [
-    'numpy',
-    'pandas',
-    'scipy',
-    'scikit-fmm==2019.1.30',
-    'pyproj',
-    'matplotlib']
-
-# Compile stage for C-library
-os.system('gcc -shared -fPIC -std=gnu99 ./QMigrate/core/src/QMigrate.c -fopenmp -Ofast -lm -o ./QMigrate/core/src/QMigrate.so')
+SETUP_DIRECTORY = pathlib.Path.cwd()
 
 
 def read(*parts):
     """
     Build an absolute path from *parts* and and return the contents of the
-    resulting file.  Assume UTF-8 encoding.
+    resulting file.
     """
-    with codecs.open(os.path.join(SETUP_DIRECTORY, *parts),
-                     "rb", "utf-8") as f:
+    p = SETUP_DIRECTORY
+    for part in parts:
+        p /= part
+    with p.open("r") as f:
         return f.read()
 
 
-def find_packages():
-    """
-    Simple function to find all modules under the current folder.
-    """
-    modules = []
-    for dirpath, _, filenames in os.walk(os.path.join(SETUP_DIRECTORY,
-                                                      "QMigrate")):
-        if "__init__.py" in filenames:
-            modules.append(os.path.relpath(dirpath, SETUP_DIRECTORY))
-    return [_i.replace(os.sep, ".") for _i in modules]
-
-
-META_FILE = read(META_PATH)
+META_FILE = read("QMigrate", "__init__.py")
 
 
 def find_meta(meta):
@@ -89,48 +63,161 @@ def find_meta(meta):
     raise RuntimeError("Unable to find __{meta}__ string.".format(meta=meta))
 
 
+def get_package_data():
+    package_data = {}
+    if not READ_THE_DOCS:
+        if get_build_platform() in ("win32", "win-amd64"):
+            package_data["QMigrate.core"] = ["QMigrate/core/src/*.dll"]
+
+    return package_data
+
+
+def get_package_dir():
+    package_dir = {}
+    if get_build_platform() in ("win32", "win-amd64"):
+        package_dir["QMigrate.core"] = str(pathlib.Path("QMigrate") / "core")
+
+    return package_dir
+
+
+def get_extras_require():
+    if READ_THE_DOCS:
+        return {"docs": ['Sphinx >= 1.8.1', 'docutils']}
+    else:
+        return {}
+
+
+def get_include_dirs():
+    import numpy
+
+    include_dirs = [str(pathlib.Path.cwd() / "QMigrate" / "core" / "src"),
+                    numpy.get_include(),
+                    str(pathlib.Path(sys.prefix) / "include")]
+
+    if get_build_platform().startswith("freebsd"):
+        include_dirs.append("/usr/local/include")
+
+    return include_dirs
+
+
+def get_library_dirs():
+    library_dirs = []
+    if get_build_platform() in ("win32", "win-amd64"):
+        library_dirs.append(str(pathlib.Path.cwd() / "QMigrate" / "core"))
+        library_dirs.append(str(pathlib.Path(sys.prefix) / "bin"))
+
+    library_dirs.append(str(pathlib.Path(sys.prefix) / "lib"))
+    if get_build_platform().startswith("freebsd"):
+        library_dirs.append("/usr/local/lib")
+
+    return library_dirs
+
+
+def export_symbols(*parts):
+    """
+    Required for Windows systems - functions defined in qmlib.def.
+    """
+    p = SETUP_DIRECTORY
+    for part in parts:
+        p /= part
+    with p.open("r") as f:
+        lines = f.readlines()[2:]
+    return [s.strip() for s in lines if s.strip() != ""]
+
+
+def get_extensions():
+    if READ_THE_DOCS:
+        return []
+
+    common_extension_args = {
+        "include_dirs": get_include_dirs(),
+        "library_dirs": get_library_dirs()}
+
+    sources = [str(pathlib.Path("QMigrate") / "core" / "src" / "QMigrate.c")]
+    exp_symbols = export_symbols("QMigrate/core/src/qmlib.def")
+
+    if get_build_platform() not in ("win32", "win-amd64"):
+        if get_build_platform().startswith("freebsd"):
+            # Clang uses libomp not libgomp
+            extra_link_args = ["-lm", "-lomp"]
+        else:
+            extra_link_args = ["-lm", "-lgomp"]
+        extra_compile_args = ["-fopenmp", "-fPIC", "-Ofast"]
+    else:
+        extra_link_args = []
+        extra_compile_args = ["/openmp", "/TP", "/PIC", "/Ofast"]
+
+    common_extension_args["extra_link_args"] = extra_link_args
+    common_extension_args["extra_compile_args"] = extra_compile_args
+    common_extension_args["export_symbols"] = exp_symbols
+
+    ext_modules = [Extension("QMigrate.core.src.qmlib", sources=sources,
+                   **common_extension_args)]
+
+    return ext_modules
+
+
 def setup_package():
     """Setup package"""
-    setup(
-        name="QMigrate",
-        version=find_meta("version") + time.strftime(".%y.%m.%d"),
-        description=find_meta("description"),
-        long_description=read("README.rst"),
-        author=find_meta("author"),
-        author_email=find_meta("email"),
-        maintainer=find_meta("author"),
-        maintainer_email=find_meta("email"),
-        classifiers=CLASSIFIERS,
-        keywords=KEYWORDS,
-        packages=find_packages(),
-        zip_safe=False,
-        install_requires=INSTALL_REQUIRES,
-        include_package_data=True,
-        include_dirs=INCLUDE_DIRS,
-        package_data={"QMigrate": ["core/src/*.so"]})
+
+    if not READ_THE_DOCS:
+        install_requires = ["matplotlib", "numpy", "obspy", "pandas", "pyproj",
+                            "scikit-fmm==2019.1.30", "scipy"]
+    else:
+        install_requires = ["matplotlib", "mock", "numpy", "obspy", "pandas",
+                            "pyproj", "scikit-fmm==2019.1.30", "scipy"]
+
+    setup_args = {
+        "name": "QMigrate",
+        "version": find_meta("version") + time.strftime(".%y.%m.%d"),
+        "description": find_meta("description"),
+        "long_description": read("README.rst"),
+        "url": "https://github.com/QuakeMigrate/QuakeMigrate",
+        "author": find_meta("author"),
+        "author_email": find_meta("email"),
+        "license": find_meta("license"),
+        "classifiers": [
+            "Development Status :: Beta",
+            "Intended Audience :: Science/Research",
+            "Topic :: Scientific/Engineering",
+            "Natural Language :: English",
+            "License :: OSI Approved :: MIT License",
+            "Operating System :: OS Independent",
+            "Programming Language :: Python :: 3.6",
+            "Programming Language :: Python :: 3.7",
+        ],
+        "keywords": "seismic waveform event detection location",
+        "install_requires": install_requires,
+        "extras_require": get_extras_require(),
+        "zip_safe": False,
+        "packages": ["QMigrate", "QMigrate.core", "QMigrate.io",
+                     "QMigrate.io.export", "QMigrate.lut", "QMigrate.plot",
+                     "QMigrate.signal", "QMigrate.signal.onset",
+                     "QMigrate.signal.pick"],
+        "ext_modules": get_extensions(),
+        "package_data": get_package_data(),
+        "package_dir": get_package_dir()
+                  }
+
+    shutil.rmtree(str(SETUP_DIRECTORY / "build"), ignore_errors=True)
+
+    setup(**setup_args)
 
 
 if __name__ == "__main__":
     # clean --all does not remove extensions automatically
-    if 'clean' in sys.argv and '--all' in sys.argv:
-        import shutil
-        # delete complete build directory
-        path = os.path.join(SETUP_DIRECTORY, 'build')
-        try:
-            shutil.rmtree(path)
-        except Exception:
-            pass
-        # delete all shared libs from clib directory
-        path = os.path.join(SETUP_DIRECTORY, 'QMigrate', 'core', 'src')
-        for filename in glob.glob(path + os.sep + '*.pyd'):
-            try:
-                os.remove(filename)
-            except Exception:
-                pass
-        for filename in glob.glob(path + os.sep + '*.so'):
-            try:
-                os.remove(filename)
-            except Exception:
-                pass
+    if "clean" in sys.argv and "--all" in sys.argv:
+        # Delete complete build directory
+        path = SETUP_DIRECTORY / "build"
+        shutil.rmtree(str(path), ignore_errors=True)
+
+        # Delete all shared libs from clib directory
+        path = SETUP_DIRECTORY / "QMigrate" / "core" / "src"
+        for filename in path.glob("*.pyd"):
+            filename.unlink(missing_ok=True)
+        for filename in path.glob("*.so"):
+            filename.unlink(missing_ok=True)
+        for filename in path.glob("*.dll"):
+            filename.unlink(missing_ok=True)
     else:
         setup_package()

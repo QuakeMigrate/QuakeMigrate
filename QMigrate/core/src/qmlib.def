@@ -1,0 +1,4 @@
+LIBRARY qmlib.pyd
+EXPORTS
+    migrate
+    find_max_coa

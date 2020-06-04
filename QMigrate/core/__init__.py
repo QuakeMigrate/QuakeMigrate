@@ -11,4 +11,4 @@ compiled C routines that form the core of QuakeMigrate:
 
 """
 
-from .QMigratelib import migrate, find_max_coa  # NOQA
+from .lib import migrate, find_max_coa  # NOQA

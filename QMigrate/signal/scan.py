@@ -740,7 +740,7 @@ class QuakeScan:
         return location, uncertainty
 
     @util.timeit
-    def _covfit3d(self, coa_map, thresh=0.88, win=None):
+    def _covfit3d(self, coa_map, thresh=0.90, win=None):
         """
         Calculate the 3-D covariance of the marginalised coalescence map,
         filtered above a percentile threshold `thresh`. Optionally can also

@@ -21,9 +21,10 @@ class Archive(object):
 
     It is capable of handling any regular archive structure. Some minor cleanup
     is performed to remove waveform data from stations when there are time gaps
-    greater than the sample size. There is also the option to resample (up or
-    down) the waveform data by decimation. Keeps a record of which stations had
-    data available for a given timestep.
+    greater than the sample size. There is also the option to resample and/or
+    decimate the waveform data to achieve the user-selected unified sampling
+    rate. Keeps a record of which stations had continuous data  available for a
+    given timestep.
 
     Parameters
     ----------
@@ -44,11 +45,13 @@ class Archive(object):
     read_all_stations : bool, optional
         If True, read all stations in archive for that time period. Else, only
         read specified stations.
+    stations : `pandas.Series` object
+        Series object containing station names.
+    availability : `np.ndarray` of ints, shape(nstations)
+        Array containing 0s (no data) or 1s (data).
     resample : bool, optional
         If true, perform resampling of data which cannot be decimated directly
         to the desired sampling rate.
-    stations : `pandas.Series` object
-        Series object containing station names.
     upfactor : int, optional
         Factor by which to upsample the data (using _upsample() )to enable it
         to be decimated to the desired sampling rate, e.g. 40Hz -> 50Hz
@@ -59,12 +62,14 @@ class Archive(object):
     path_structure(path_type="YEAR/JD/STATION")
         Set the file naming format of the data archive.
     read_waveform_data(starttime, endtime, sampling_rate)
-        Read in all waveform data between two times, downsample / resample if
+        Read in all waveform data between two times, decimate / resample if
         required to reach desired sampling rate. Return all raw data as an
         obspy Stream object and processed data for specified stations as an
-        array for use by QuakeScan.
+        array for use by QuakeScan to calculate onset functions for migration.
 
     """
+
+    availability = None
 
     def __init__(self, stations, archive_path, **kwargs):
         """Instantiate the Archive object."""
@@ -121,11 +126,27 @@ class Archive(object):
         """
         Read in the waveform data for all stations in the archive between two
         times and return station availability of the stations specified in the
-        station file during this period. Downsample / resample (optional) this
+        station file during this period. Decimate / resample (optional) this
         data if required to reach desired sampling rate.
 
         Output both processed data for stations in station file and all raw
         data in an obspy Stream object.
+
+        By default, data with mismatched sampling rates will only be decimated.
+        If necessary, and if the user specifies `resample = True` and an
+        upfactor to upsample by `upfactor = int`, data can also be upsampled
+        and then, if necessary, subsequently decimated to achieve the desired
+        sampling rate.
+
+        For example, for raw input data sampled at a mix of 40, 50 and 100 Hz,
+        to achieve a unified sampling rate of 50 Hz, the user would have to
+        specify an upfactor of 5; 40 Hz x 5 = 200 Hz, which can then be
+        decimated to 50 Hz.
+
+        NOTE: data will be detrended and a cosine taper applied before
+        decimation, in order to avoid edge effects when applying the lowpass
+        filter. Otherwise, data for migration will be added tp data.signal with
+        no processing applied.
 
         Supports all formats currently supported by ObsPy, including: "MSEED"
         (default), "SAC", "SEGY", "GSE2" .
@@ -153,8 +174,8 @@ class Archive(object):
         """
 
         data = SignalData(starttime=starttime, endtime=endtime,
-                          sampling_rate=self.sampling_rate)
-        data.stations = self.stations
+                          sampling_rate=self.sampling_rate,
+                          stations=self.stations)
 
         samples = int(round((endtime - starttime) * self.sampling_rate + 1))
         files = self._load_from_path(starttime - pre_pad, endtime + post_pad)
@@ -166,8 +187,9 @@ class Archive(object):
             for file in files:
                 file = str(file)
                 try:
-                    st += read(file, starttime=starttime - pre_pad,
-                               endtime=endtime + post_pad)
+                    read_start = starttime - pre_pad
+                    read_end = endtime + post_pad
+                    st += read(file, starttime=read_start, endtime=read_end)
                 except TypeError:
                     logging.info(f"File not compatible with ObsPy - {file}")
                     continue
@@ -178,10 +200,10 @@ class Archive(object):
 
             # Make copy of raw waveforms to output if requested
             data.raw_waveforms = st.copy()
-            st_selected = Stream()
 
             # Re-populate st with only stations in station file, and only
             # data between start and end time needed for QuakeScan
+            st_selected = Stream()
             for station in self.stations:
                 st_selected += st.select(station=station)
             st = st_selected.copy()
@@ -189,6 +211,7 @@ class Archive(object):
                 tr.trim(starttime=starttime, endtime=endtime)
                 if not bool(tr):
                     st.remove(tr)
+            del st_selected
 
             # Remove stations which have gaps in at least one trace
             gaps = st.get_gaps()
@@ -205,10 +228,9 @@ class Archive(object):
                 self.availability = np.zeros(len(self.stations))
                 raise util.DataGapException
 
-            # Detrend and downsample / resample stream if required
-            st.detrend("linear")
-            st.detrend("demean")
-            st = self._downsample(st, self.sampling_rate, self.upfactor)
+            # Decimate and/or upsample stream if required to achieve specified
+            # sampling rate
+            st = self._resample(st, self.sampling_rate, self.upfactor)
 
             # Combining the data and determining station availability
             data.signal, availability = self._station_availability(st, samples)
@@ -330,22 +352,37 @@ class Archive(object):
 
         return files
 
-    def _downsample(self, stream, sr, upfactor=None):
+    def _resample(self, stream, sr, upfactor=None):
         """
-        Downsample the stream to the specified sampling rate.
+        Resample the stream to the specified sampling rate.
+
+        By default, this function will only perform decimation of the data. If
+        necessary, and if the user specifies `resample = True` and an upfactor
+        to upsample by `upfactor = int`, data can also be upsampled and then,
+        if necessary, subsequently decimated to achieve the desired sampling
+        rate.
+
+        For example, for raw input data sampled at a mix of 40, 50 and 100 Hz,
+        to achieve a unified sampling rate of 50 Hz, the user would have to
+        specify an upfactor of 5; 40 Hz x 5 = 200 Hz, which can then be
+        decimated to 50 Hz.
+
+        NOTE: data will be detrended and a cosine taper applied before
+        decimation, in order to avoid edge effects when applying the lowpass
+        filter.
 
         Parameters
         ----------
         stream : `obspy.Stream` object
-            Contains list of Trace objects to be downsampled.
+            Contains list of `obspy.Trace` objects to be decimated / resampled.
         sr : int
             Output sampling rate.
 
         Returns
         -------
         stream : `obspy.Stream` object
-            Contains list of `obspy.Trace` objects, downsampled / resampled
-            where necessary and possible.
+            Contains list of resampled `obspy.Trace` objects at the chosen
+            sampling rate `sr`.
 
         """
 
@@ -353,22 +390,15 @@ class Archive(object):
         for trace in stream:
             if sr != trace.stats.sampling_rate:
                 if (trace.stats.sampling_rate % sr) == 0:
-                    trace.filter("lowpass", freq=float(sr) / 2.000001,
-                                 corners=2, zerophase=True)
-                    trace.decimate(factor=int(trace.stats.sampling_rate / sr),
-                                   strict_length=False,
-                                   no_filter=True)
+                    trace = self._decimate(trace, sr)
                 elif self.resample and upfactor is not None:
                     # Check the upsampled sampling rate can be decimated to sr
                     if int(trace.stats.sampling_rate * upfactor) % sr != 0:
                         raise util.BadUpfactorException(trace)
                     stream.remove(trace)
                     trace = self._upsample(trace, upfactor)
-                    trace.filter("lowpass", freq=float(sr) / 2.000001,
-                                 corners=2, zerophase=True)
-                    trace.decimate(factor=int(trace.stats.sampling_rate / sr),
-                                   strict_length=False,
-                                   no_filter=True)
+                    if trace.stats.sampling_rate != sr:
+                        trace = self._decimate(trace, sr)
                     stream += trace
                 else:
                     logging.info("Mismatched sampling rates - cannot decimate "
@@ -376,6 +406,42 @@ class Archive(object):
                                  "= True and choose a suitable upfactor")
 
         return stream
+
+    def _decimate(self, trace, sr):
+        """
+        Decimate a trace to achieve the desired sampling rate, sr.
+
+        NOTE: data will be detrended and a cosine taper applied before
+        decimation, in order to avoid edge effects when applying the lowpass
+        filter.
+
+        Parameters:
+        -----------
+        trace : `obspy.Trace` object
+            Trace to be decimated.
+        sr : int
+            Output sampling rate.
+
+        Returns:
+        --------
+        trace : `obspy.Trace` object
+            Decimated trace.
+
+        """
+
+        # Detrend and apply cosine taper
+        trace.detrend('linear')
+        trace.detrend('demean')
+        trace.taper(type='cosine', max_percentage=0.05)
+
+        # Zero-phase lowpass filter at Nyquist frequency
+        trace.filter("lowpass", freq=float(sr) / 2.000001, corners=2,
+                     zerophase=True)
+        trace.decimate(factor=int(trace.stats.sampling_rate / sr),
+                       strict_length=False,
+                       no_filter=True)
+
+        return trace
 
     def _upsample(self, trace, upfactor):
         """
@@ -426,6 +492,8 @@ class SignalData:
         Timestamp of last sample of waveform data.
     sampling_rate : int
         Sampling rate of waveform data.
+    stations : `pandas.Series` object, optional
+        Series object containing station names.
 
     Attributes
     ----------
@@ -441,6 +509,8 @@ class SignalData:
         for desired stations with continuous data on all 3 components
         throughout the desired time period and where the data could be
         successfully resampled to the desired sampling rate.
+    stations : `pandas.Series` object
+        Series object containing station names.
 
     Methods
     -------
@@ -450,12 +520,18 @@ class SignalData:
 
     """
 
-    def __init__(self, starttime, endtime, sampling_rate):
+    raw_waveforms = None
+    availability = None
+    signal = None
+    filtered_signal = None
+
+    def __init__(self, starttime, endtime, sampling_rate, stations=None):
         """Instantiate the SignalData object."""
 
         self.starttime = starttime
         self.endtime = endtime
         self.sampling_rate = sampling_rate
+        self.stations = stations
 
     def times(self, **kwargs):
         """
@@ -583,6 +659,10 @@ class Event:
         Output the event to a .event file.
 
     """
+
+    coa_data = None
+    df = None
+    map4d = None
 
     def __init__(self, triggered_event):
         """Instantiate the Event object."""
@@ -777,7 +857,7 @@ class Event:
 
         out = {**self.trigger_info, **magnitudes}
         out = {**out, **self.max_coalescence}
-        for key, location in self.locations.items():
+        for _, location in self.locations.items():
             out = {**out, **location}
 
         self.df = pd.DataFrame([out])[EVENT_FILE_COLS]

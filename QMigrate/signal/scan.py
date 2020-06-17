@@ -13,13 +13,13 @@ import pandas as pd
 from scipy.interpolate import Rbf
 from scipy.signal import fftconvolve
 
+import QMigrate.util as util
 from QMigrate.core import find_max_coa, migrate
 from QMigrate.io import (Event, Run, ScanmSEED, read_triggered_events,
                          write_availability, write_cut_waveforms)
+from QMigrate.plot.event import event_summary
 from .onset import Onset
 from .pick import GaussianPicker, PhasePicker
-from QMigrate.plot.event import event_summary
-import QMigrate.util as util
 
 # Filter warnings
 warnings.filterwarnings("ignore", message=("Covariance of the parameters could"
@@ -35,7 +35,7 @@ class QuakeScan:
 
     Parameters
     ----------
-    data : `QMigrate.io.Archive` object
+    archive : `QMigrate.io.Archive` object
         Details the structure and location of a data archive and provides
         methods for reading data from file.
     lut : `QMigrate.lut.LUT` object
@@ -207,7 +207,6 @@ class QuakeScan:
             out += f"\t\tMarginal window = {self.marginal_window} s\n"
 
         return out
-                
 
     def detect(self, starttime, endtime):
         """

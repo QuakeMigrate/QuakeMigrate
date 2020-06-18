@@ -8,7 +8,7 @@ seismic data and calculates STA/LTA onset (characteristic) function.
 import numpy as np
 from obspy.signal.invsim import cosine_taper
 from obspy.signal.trigger import classic_sta_lta
-from scipy.signal import butter, lfilter
+from scipy.signal import butter, lfilter, detrend
 
 from .onset import Onset
 
@@ -65,24 +65,26 @@ def sta_lta_centred(a, nsta, nlta):
     return sta / lta
 
 
-def onset(sig, stw, ltw, position, log):
+def sta_lta_onset(fsig, stw, ltw, position, log):
     """
     Calculate STA/LTA onset (characteristic) function from pre-processed
     seismic data.
 
     Parameters
     ----------
-    sig : array-like
-        Data signal used to generate an onset function.
+    fsig : array-like
+        Filtered (pre-processed) data signal to be used to generate an onset
+        function.
     stw : int
         Short term window length (# of samples).
     ltw : int
         Long term window length (# of samples)
     position : str
-        Compute centred STA/LTA (STA window is preceded by LTA window; value
-        is assigned to end of LTA window / start of STA window) or classic
-        STA/LTA (STA window is within LTA window; value is assigned to end of
-        STA & LTA windows).
+        "centred": Compute centred STA/LTA (STA window is preceded by LTA
+            window; value is assigned to end of LTA window / start of STA
+            window) or:
+        "classic": classic STA/LTA (STA window is within LTA window; value
+            is assigned to end of STA & LTA windows).
 
         Centred gives less phase-shifted (late) onset function, and is closer
         to a Gaussian approximation, but is far more sensitive to data with
@@ -95,23 +97,24 @@ def onset(sig, stw, ltw, position, log):
     Returns
     -------
     onset : array-like
-        log(onset_raw) ; after clipping between -0.2 and infinity.
+        onset_raw or log(onset_raw); both are clipped between 0.8 and
+        infinity.
 
     """
 
     stw = int(round(stw))
     ltw = int(round(ltw))
 
-    n_channels, _ = sig.shape
-    onset = np.copy(sig)
+    n_channels, _ = fsig.shape
+    onset = np.copy(fsig)
     for i in range(n_channels):
-        if np.sum(sig[i, :]) == 0.0:
+        if np.sum(fsig[i, :]) == 0.0:
             onset[i, :] = 0.0
         else:
             if position == "centred":
-                onset[i, :] = sta_lta_centred(sig[i, :], stw, ltw)
+                onset[i, :] = sta_lta_centred(fsig[i, :], stw, ltw)
             elif position == "classic":
-                onset[i, :] = classic_sta_lta(sig[i, :], stw, ltw)
+                onset[i, :] = classic_sta_lta(fsig[i, :], stw, ltw)
             np.clip(1 + onset[i, :], 0.8, np.inf, onset[i, :])
             if log:
                 np.log(onset[i, :], onset[i, :])
@@ -121,8 +124,8 @@ def onset(sig, stw, ltw, position, log):
 
 def pre_process(sig, sampling_rate, lc, hc, order=2):
     """
-    Apply cosine taper and zero phase-shift Butterworth band-pass filter to
-    raw seismic data.
+    Detrend raw seismic data and apply cosine taper and zero phase-shift
+    Butterworth band-pass filter.
 
     Parameters
     ----------
@@ -148,13 +151,18 @@ def pre_process(sig, sampling_rate, lc, hc, order=2):
     # Construct butterworth band-pass filter
     b1, a1 = butter(order, [2.0 * lc / sampling_rate,
                             2.0 * hc / sampling_rate], btype="band")
+
+    # Construct cosine taper
+    tap = cosine_taper(len(sig[0, :]), 0.1)
+
     nchan, _ = sig.shape
     fsig = np.copy(sig)
 
-    # Apply cosine taper then apply band-pass filter in both directions
+    # Detrend, apply cosine taper then apply band-pass filter in both
+    # directions for zero phase-shift
     for ch in range(0, nchan):
-        fsig[ch, :] = fsig[ch, :] - fsig[ch, 0]
-        tap = cosine_taper(len(fsig[ch, :]), 0.1)
+        fsig[ch, :] = detrend(fsig[ch, :], type='linear')
+        fsig[ch, :] = detrend(fsig[ch, :], type='constant')
         fsig[ch, :] = fsig[ch, :] * tap
         fsig[ch, :] = lfilter(b1, a1, fsig[ch, ::-1])[::-1]
         fsig[ch, :] = lfilter(b1, a1, fsig[ch, :])
@@ -240,10 +248,11 @@ class STALTAOnset(Onset):
 
         Parameters
         ----------
-        data : Archive object
-            Contains the seismic signal traces.
+        data :`QMigrate.io.data.SignalData` object
+            Light class encapsulating data returned by an archive query.
         log : bool
             Calculate log(onset) if True, otherwise calculate the raw onset.
+        run :
 
         """
 
@@ -255,7 +264,7 @@ class STALTAOnset(Onset):
             filtered_signal[0, :, :] = self._s_onset(data.signal[0],
                                                      data.signal[1], log)
         if not (isinstance(p_onset, np.ndarray)
-           and isinstance(s_onset, np.ndarray)):
+                and isinstance(s_onset, np.ndarray)):
             raise TypeError
         data.p_onset = p_onset
         data.s_onset = s_onset
@@ -283,6 +292,9 @@ class STALTAOnset(Onset):
         -------
         p_onset : array-like
             Onset function generated from STA/LTA of vertical component data.
+        filt_sigz : array-like
+            Pre-processed vertical component data (detrended, tapered and
+            bandpass filtered.)
 
         """
 
@@ -293,7 +305,8 @@ class STALTAOnset(Onset):
         lc, hc, ord_ = self.p_bp_filter
         filt_sigz = pre_process(sigz, self.sampling_rate, lc, hc, ord_)
 
-        p_onset = onset(filt_sigz, stw, ltw, position=self.position, log=log)
+        p_onset = sta_lta_onset(filt_sigz, stw, ltw, position=self.position,
+                                log=log)
 
         return p_onset, filt_sigz
 
@@ -315,6 +328,12 @@ class STALTAOnset(Onset):
         -------
         s_onset : array-like
             Onset function generated from STA/LTA of horizontal component data.
+        filt_sige : array-like
+            Pre-processed East-component data (detrended, tapered and
+            bandpass filtered.)
+        filt_sign : array-like
+            Pre-processed North-component data (detrended, tapered and
+            bandpass filtered.)
 
         """
 
@@ -326,8 +345,10 @@ class STALTAOnset(Onset):
         filt_sige = pre_process(sige, self.sampling_rate, lc, hc, ord_)
         filt_sign = pre_process(sign, self.sampling_rate, lc, hc, ord_)
 
-        s_e_onset = onset(filt_sige, stw, ltw, position=self.position, log=log)
-        s_n_onset = onset(filt_sign, stw, ltw, position=self.position, log=log)
+        s_e_onset = sta_lta_onset(filt_sige, stw, ltw, position=self.position,
+                                  log=log)
+        s_n_onset = sta_lta_onset(filt_sign, stw, ltw, position=self.position,
+                                  log=log)
 
         s_onset = np.sqrt((s_e_onset ** 2 + s_n_onset ** 2) / 2.)
 
@@ -371,10 +392,15 @@ class STALTAOnset(Onset):
     # --- Deprecation/Future handling ---
     @property
     def onset_centred(self):
+        """Handle deprecated onset_centred kwarg / attribute"""
         return self.position
 
     @onset_centred.setter
     def onset_centred(self, value):
+        """
+        Handle deprecated onset_centred kwarg / attribute and print warning.
+
+        """
         if value is None:
             return
         print("FutureWarning: Parameter name has changed - continuing.")

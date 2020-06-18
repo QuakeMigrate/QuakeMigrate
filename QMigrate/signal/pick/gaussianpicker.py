@@ -369,11 +369,11 @@ class GaussianPicker(PhasePicker):
 
         """
 
-        fpath = run.path / "locate" / "pick_plots" / f"{event.uid}"
+        fpath = run.path / "locate" / run.subname / "pick_plots" / f"{event.uid}"
         fpath.mkdir(exist_ok=True, parents=True)
 
         # Generate plottable timestamps for data
-        times = event.data.times(type="timestamp")
+        times = event.data.times(type="matplotlib")
         for i, station in lut.station_data["Name"].iteritems():
             signal = event.data.filtered_signal[:, i, :]
             onsets = [event.data.p_onset[i, :], event.data.s_onset[i, :]]

@@ -151,11 +151,12 @@ def pre_process(sig, sampling_rate, lc, hc, order=2):
     # Construct butterworth band-pass filter
     b1, a1 = butter(order, [2.0 * lc / sampling_rate,
                             2.0 * hc / sampling_rate], btype="band")
-    nchan, _ = sig.shape
-    fsig = np.copy(sig)
 
     # Construct cosine taper
     tap = cosine_taper(len(sig[0, :]), 0.1)
+
+    nchan, _ = sig.shape
+    fsig = np.copy(sig)
 
     # Detrend, apply cosine taper then apply band-pass filter in both
     # directions for zero phase-shift

@@ -15,7 +15,7 @@ from QMigrate.plot import trigger_summary
 import QMigrate.util as util
 
 
-def mad(x, scale=1.4826):
+def calculate_mad(x, scale=1.4826):
     """
     Calculates the Median Absolute Deviation (MAD) of the input array x.
 
@@ -52,8 +52,26 @@ def mad(x, scale=1.4826):
 
 
 def chunks2trace(a, new_shape):
+    """
+    Create a trace filled with chunks of the same value.
+
+    Parameters:
+    -----------
+    a : array-like
+        Array of chunks.
+    new_shape : tuple of ints
+        (number of chunks, chunk_length)
+
+    Returns:
+    --------
+    b : array-like
+        Single array of values contained in `a`.
+
+    """
+
     b = np.broadcast_to(a[:, None], new_shape)
     b = np.reshape(b, np.product(new_shape))
+
     return b
 
 
@@ -229,9 +247,9 @@ class Trigger:
 
         Parameters
         ----------
-        starttime : `obspy.UTCDateTime` object
+        batchstart : `obspy.UTCDateTime` object
             Timestamp from which to trigger.
-        endtime : `obspy.UTCDateTime` object
+        batchend : `obspy.UTCDateTime` object
             Timestamp up to which to trigger.
         region : list of floats
             Only write triggered events within this region to the triggered
@@ -260,6 +278,8 @@ class Trigger:
             refined_events = self._refine_candidates(candidate_events)
             events = self._filter_events(refined_events, batchstart, batchend,
                                          region)
+            logging.info((f"\n\t\t{len(events)} triggered within the specified "
+                          f"region between {batchstart} and {batchend}"))
             logging.info("\n\tWriting triggered events to file...")
             write_triggered_events(self.run, events, batchstart)
 
@@ -296,11 +316,11 @@ class Trigger:
             chunks = np.split(scandata.values, breaks)
 
             # Calculate the mad and median values
-            mad_values = np.asarray([mad(chunk) for chunk in chunks])
+            mad_values = np.asarray([calculate_mad(chunk) for chunk in chunks])
             median_values = np.asarray([np.median(chunk) for chunk in chunks])
             mad_trace = chunks2trace(mad_values, (len(chunks), len(chunks[0])))
             median_trace = chunks2trace(median_values, (len(chunks),
-                                        len(chunks[0])))
+                                                        len(chunks[0])))
             mad_trace = mad_trace[:len(scandata)]
             median_trace = median_trace[:len(scandata)]
 
@@ -404,7 +424,7 @@ class Trigger:
 
         # Split into DataFrames by event number
         merged_candidates = [d for _, d in candidate_events.groupby(
-                                           candidate_events["EventNum"])]
+            candidate_events["EventNum"])]
 
         # Update the min/max window times and build final event DataFrame
         refined_events = pd.DataFrame(columns=EVENT_FILE_COLS)

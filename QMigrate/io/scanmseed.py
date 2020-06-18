@@ -262,12 +262,12 @@ def read_scanmseed(run, starttime, endtime, pad):
 
     # Check if the data covers the entirety of the requested period
     if stats.starttime > starttime:
-        logging.info("\n\t    Warning! .scanmseed starttime > trigger() "
-                     "starttime!")
+        logging.info("\n\t    Warning! .scanmseed starttime is later than "
+                     "trigger() starttime!")
     elif stats.starttime > readstart:
         logging.info("\n\t    Warning! No .scanmseed data found for pre-pad!")
     if stats.endtime < endtime - stats.delta:
-        logging.info("\n\t    Warning! .scanmseed endtime < trigger() "
+        logging.info("\n\t    Warning! .scanmseed endtime is before trigger() "
                      "endtime!")
     elif stats.endtime < readend:
         logging.info("\n\t    Warning! No .scanmseed data found for post-pad!")

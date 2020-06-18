@@ -585,9 +585,14 @@ class SignalData:
         for i, station in enumerate(self.stations):
             tmp_st = stream.select(station=station)
             if len(tmp_st) == 3:
+                # Check traces are the correct number of samples and not filled
+                # by a constant value (i.e. not flatlines)
                 if (tmp_st[0].stats.npts == samples and
                         tmp_st[1].stats.npts == samples and
-                        tmp_st[2].stats.npts == samples):
+                        tmp_st[2].stats.npts == samples and
+                        tmp_st[0].data.max() != tmp_st[0].data.min() and
+                        tmp_st[1].data.max() != tmp_st[1].data.min() and
+                        tmp_st[2].data.max() != tmp_st[2].data.min()):
 
                     # Defining the station as available
                     availability[i] = 1

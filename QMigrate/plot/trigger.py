@@ -184,7 +184,7 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
     if savefig:
         fpath = run.path / "trigger" / run.subname / "summaries"
         fpath.mkdir(exist_ok=True, parents=True)
-        fstem = f"{run.name}_Trigger"
+        fstem = f"{run.name}_{starttime.year}_{starttime.julday:03d}_Trigger"
         file = (fpath / fstem).with_suffix(".pdf")
         plt.savefig(str(file))
     else:

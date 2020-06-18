@@ -4,6 +4,8 @@ Module to handle input/output of TriggeredEvents.csv files.
 
 """
 
+import logging
+
 from obspy import UTCDateTime
 import pandas as pd
 
@@ -39,12 +41,20 @@ def read_triggered_events(run, **kwargs):
     fpath = run.path / "trigger" / run.subname / "events"
 
     if trigger_file is not None:
-        file = trigger_file
+        events = pd.read_csv(trigger_file)
     else:
-        fstem = f"{run.name}_TriggeredEvents"
-        file = (fpath / fstem).with_suffix(".csv")
-
-    events = pd.read_csv(file)
+        trigger_files = []
+        readstart = starttime
+        while readstart <= endtime:
+            fstem = f"{run.name}_{readstart.year}_{readstart.julday:03d}"
+            file = (fpath / f"{fstem}_TriggeredEvents").with_suffix(".csv")
+            if file.is_file():
+                trigger_files.append(file)
+            else:
+                logging.info(f"\n\t    Cannot find file: {fstem}")
+            readstart += 86400
+        events = pd.concat((pd.read_csv(f) for f in trigger_files),
+                           ignore_index=True)
 
     events["CoaTime"] = events["CoaTime"].apply(UTCDateTime)
     events["MinTime"] = events["MinTime"].apply(UTCDateTime)
@@ -57,7 +67,7 @@ def read_triggered_events(run, **kwargs):
     return events.reset_index()
 
 
-def write_triggered_events(run, events, start_time, end_time):
+def write_triggered_events(run, events, starttime):
     """
     Write triggered events to a .csv file.
 
@@ -69,12 +79,14 @@ def write_triggered_events(run, events, start_time, end_time):
         Triggered events information.
         Columns: ["EventNum", "CoaTime", "COA_V", "COA_X", "COA_Y", "COA_Z",
                   "MinTime", "MaxTime", "COA", "COA_NORM", "EventID"].
+    starttime : `obspy.UTCDateTime` object
+        Timestamp from which events have been triggered.
 
     """
 
     fpath = run.path / "trigger" / run.subname / "events"
     fpath.mkdir(exist_ok=True, parents=True)
 
-    fstem = f"{run.name}_TriggeredEvents"
-    file = (fpath / fstem).with_suffix(".csv")
+    fstem = f"{run.name}_{starttime.year}_{starttime.julday:03d}"
+    file = (fpath / f"{fstem}_TriggeredEvents").with_suffix(".csv")
     events.to_csv(file, index=False)

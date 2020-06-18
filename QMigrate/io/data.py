@@ -40,15 +40,13 @@ class Archive(object):
     ----------
     archive_path : `pathlib.Path` object
         Location of seismic data archive: e.g.: ./DATA_ARCHIVE.
+    stations : `pandas.Series` object
+        Series object containing station names.
     format : str
         File naming format of data archive.
     read_all_stations : bool, optional
         If True, read all stations in archive for that time period. Else, only
         read specified stations.
-    stations : `pandas.Series` object
-        Series object containing station names.
-    availability : `np.ndarray` of ints, shape(nstations)
-        Array containing 0s (no data) or 1s (data).
     resample : bool, optional
         If true, perform resampling of data which cannot be decimated directly
         to the desired sampling rate.
@@ -69,9 +67,7 @@ class Archive(object):
 
     """
 
-    availability = None
-
-    def __init__(self, stations, archive_path, **kwargs):
+    def __init__(self, archive_path, stations, **kwargs):
         """Instantiate the Archive object."""
 
         self.archive_path = pathlib.Path(archive_path)
@@ -80,7 +76,6 @@ class Archive(object):
         self.format = kwargs.get("format", "")
         self.read_all_stations = kwargs.get("read_all_stations", False)
         self.resample = kwargs.get("resample", False)
-        self.sampling_rate = kwargs.get("sampling_rate")
         self.upfactor = kwargs.get("upfactor")
 
     def __str__(self):
@@ -122,7 +117,8 @@ class Archive(object):
         elif archive_format == "YEAR_JD/STATION_*":
             self.format = "{year}_{jday}/{station}_*"
 
-    def read_waveform_data(self, starttime, endtime, pre_pad=0., post_pad=0.):
+    def read_waveform_data(self, starttime, endtime, sampling_rate, pre_pad=0.,
+                           post_pad=0.):
         """
         Read in the waveform data for all stations in the archive between two
         times and return station availability of the stations specified in the
@@ -157,6 +153,11 @@ class Archive(object):
             Timestamp from which to read waveform data.
         endtime : `obspy.UTCDateTime` object, optional
             Timestamp up to which to read waveform data.
+        sampling_rate : int
+            Desired sampling rate for data to be added to signal. This will
+            be achieved by resampling the raw waveform data. By default, only
+            decimation will be applied, but data can also be upsampled if
+            specified by the user when creating the Archive object.
         pre_pad : float, optional
             Additional pre pad of data to cut based on user-defined pre_cut
             parameter. Defaults to none: pre_pad calculated in QuakeScan will
@@ -174,10 +175,11 @@ class Archive(object):
         """
 
         data = SignalData(starttime=starttime, endtime=endtime,
-                          sampling_rate=self.sampling_rate,
-                          stations=self.stations)
+                          sampling_rate=sampling_rate,
+                          stations=self.stations,
+                          read_all_stations=self.read_all_stations,
+                          pre_pad=pre_pad, post_pad=post_pad)
 
-        samples = int(round((endtime - starttime) * self.sampling_rate + 1))
         files = self._load_from_path(starttime - pre_pad, endtime + post_pad)
 
         st = Stream()
@@ -225,82 +227,17 @@ class Archive(object):
             # Test if the stream is completely empty
             # (see __nonzero__ for obspy Stream object)
             if not bool(st):
-                self.availability = np.zeros(len(self.stations))
                 raise util.DataGapException
 
-            # Decimate and/or upsample stream if required to achieve specified
-            # sampling rate
-            st = self._resample(st, self.sampling_rate, self.upfactor)
-
-            # Combining the data and determining station availability
-            data.signal, availability = self._station_availability(st, samples)
+            # Pass stream to be processed and added to data.signal. This
+            # processing includes resampling and determining the availability
+            # of the desired stations.
+            data.add_stream(st, self.resample, self.upfactor)
 
         except StopIteration:
-            self.availability = np.zeros(len(self.stations))
             raise util.ArchiveEmptyException
 
-        self.availability = availability
-
         return data
-
-    def _station_availability(self, stream, samples):
-        """
-        Determine whether continuous data exists between two times for a given
-        station.
-
-        Parameters
-        ----------
-        stream : `obspy.Stream` object
-            Stream containing 3-component data for stations in station file.
-        samples : int
-            Number of samples expected in the signal.
-
-        Returns
-        -------
-        signal : `numpy.ndarray`, shape(3, nstations, nsamples)
-            3-component seismic data only for stations with continuous data
-            on all 3 components throughout the desired time period.
-        availability : `np.ndarray` of ints, shape(nstations)
-            Array containing 0s (no data) or 1s (data).
-
-        """
-
-        availability = np.zeros(len(self.stations)).astype(int)
-        signal = np.zeros((3, len(self.stations), int(samples)))
-
-        for i, station in enumerate(self.stations):
-            tmp_st = stream.select(station=station)
-            if len(tmp_st) == 3:
-                if (tmp_st[0].stats.npts == samples and
-                        tmp_st[1].stats.npts == samples and
-                        tmp_st[2].stats.npts == samples):
-
-                    # Defining the station as available
-                    availability[i] = 1
-
-                    for tr in tmp_st:
-                        # Check channel name has 3 characters
-                        try:
-                            channel = tr.stats.channel[2]
-                            # Assign data to signal array by component
-                            if channel == "E" or channel == "2":
-                                signal[1, i, :] = tr.data
-                            elif channel == "N" or channel == "1":
-                                signal[0, i, :] = tr.data
-                            elif channel == "Z":
-                                signal[2, i, :] = tr.data
-                            else:
-                                raise util.ChannelNameException(tr)
-
-                        except IndexError:
-                            raise util.ChannelNameException(tr)
-
-        # Check to see if no traces were continuously active during this period
-        if not np.any(availability):
-            self.availability = availability
-            raise util.DataGapException
-
-        return signal, availability
 
     def _load_from_path(self, starttime, endtime):
         """
@@ -352,7 +289,141 @@ class Archive(object):
 
         return files
 
-    def _resample(self, stream, sr, upfactor=None):
+
+class SignalData:
+    """
+    The SignalData class encapsulates the signal data to be returned from an
+    Archive query.
+
+    Parameters
+    ----------
+    starttime : `obspy.UTCDateTime` object
+        Timestamp of first sample of waveform data.
+    endtime : `obspy.UTCDateTime` object
+        Timestamp of last sample of waveform data.
+    sampling_rate : int
+        Desired sampling rate of signal data.
+    stations : `pandas.Series` object, optional
+        Series object containing station names.
+    read_all_stations : bool, optional
+        If True, raw_waveforms contain all stations in archive for that time
+        period. Else, only selected stations will be included.
+    pre_pad : float, optional
+        Additional pre pad of data cut based on user-defined pre_cut
+        parameter.
+    post_pad : float, optional
+        Additional post pad of data cut based on user-defined post_cut
+        parameter.
+
+    Attributes
+    ----------
+    starttime : `obspy.UTCDateTime` object
+        Timestamp of first sample of waveform data.
+    endtime : `obspy.UTCDateTime` object
+        Timestamp of last sample of waveform data.
+    sampling_rate : int
+        Sampling rate of signal data.
+    stations : `pandas.Series` object
+        Series object containing station names.
+    read_all_stations : bool
+        If True, raw_waveforms contain all stations in archive for that time
+        period. Else, only selected stations will be included.
+    raw_waveforms : `obspy.Stream` object
+        Raw seismic data found and read in from the archive within the
+        specified time period. This may be for all stations in the archive,
+        or only those specified by the user. See `read_all_stations`.
+    pre_pad : float
+        Additional pre pad of data cut based on user-defined pre_cut
+        parameter.
+    post_pad : float
+        Additional post pad of data cut based on user-defined post_cut
+        parameter.
+    signal : `numpy.ndarray`, shape(3, nstations, nsamples)
+        3-component seismic data at the desired sampling rate; only for
+        desired stations, which have continuous data on all 3 components
+        throughout the desired time period and where (if necessary) the data
+        could be successfully resampled to the desired sampling rate.
+    availability : `np.ndarray` of ints, shape(nstations)
+        Array containing 0s (no data) or 1s (data), corresponding to whether
+        data for each station met the requirements outlined in `signal`
+    filtered_signal : `numpy.ndarray`, shape(3, nstations, nsamples)
+        Filtered data originally from signal.
+
+    Methods
+    -------
+    add_stream
+        Function to add data supplied in the form of an `obspy.Stream` object
+    times
+        Utility function to generate the corresponding timestamps for the
+        waveform and coalescence data.
+
+    """
+
+    def __init__(self, starttime, endtime, sampling_rate, stations=None,
+                 read_all_stations=False, pre_pad=0., post_pad=0.):
+        """Instantiate the SignalData object."""
+
+        self.starttime = starttime
+        self.endtime = endtime
+        self.sampling_rate = sampling_rate
+        self.stations = stations
+
+        self.read_all_stations = read_all_stations
+        self.pre_pad = pre_pad
+        self.post_pad = post_pad
+
+        self.raw_waveforms = None
+        self.signal = None
+        self.availability = None
+        self.filtered_signal = None
+
+    def add_stream(self, stream, resample, upfactor):
+        """
+        Add signal data supplied in an `obspy.Stream` object. Perform
+        resampling if necessary (decimation and/or upsampling), and determine
+        availability of selected stations.
+
+        Parameters:
+        -----------
+        stream : `obspy.Stream` object
+            Contains list of `obspy.Trace` objects containing the waveform
+            data to add.
+        resample : bool, optional
+            If true, perform resampling of data which cannot be decimated directly
+            to the desired sampling rate.
+        upfactor : int, optional
+            Factor by which to upsample the data (using _upsample() )to enable it
+            to be decimated to the desired sampling rate, e.g. 40Hz -> 50Hz
+            requires upfactor = 5.
+
+        """
+
+        # Decimate and/or upsample stream if required to achieve the specified
+        # sampling rate
+        stream = self._resample(stream, resample, upfactor)
+
+        # Combine the data into an array and determine station availability
+        self.signal, self.availability = self._station_availability(stream)
+
+    def times(self, **kwargs):
+        """
+        Utility function to generate timestamps between `data.starttime` and
+        `data.endtime`, with a sample size of `data.sample_size`
+
+        Returns
+        -------
+        times : `numpy.ndarray`, shape(nsamples)
+            Timestamps for the timeseries data.
+
+        """
+
+        # Utilise the .times() method of `obspy.Trace` objects
+        tr = Trace(header={"npts": self.signal.shape[-1],
+                           "sampling_rate": self.sampling_rate,
+                           "starttime": self.starttime})
+        return tr.times(**kwargs)
+
+    def _resample(self, stream, resample, upfactor):
         """
         Resample the stream to the specified sampling rate.
 
@@ -375,8 +446,13 @@ class Archive(object):
         ----------
         stream : `obspy.Stream` object
             Contains list of `obspy.Trace` objects to be decimated / resampled.
-        sr : int
-            Output sampling rate.
+        resample : bool
+            If true, perform resampling of data which cannot be decimated directly
+            to the desired sampling rate.
+        upfactor : int or None
+            Factor by which to upsample the data (using _upsample() )to enable it
+            to be decimated to the desired sampling rate, e.g. 40Hz -> 50Hz
+            requires upfactor = 5.
 
         Returns
         -------
@@ -391,7 +467,7 @@ class Archive(object):
             if sr != trace.stats.sampling_rate:
                 if (trace.stats.sampling_rate % sr) == 0:
                     trace = self._decimate(trace, sr)
-                elif self.resample and upfactor is not None:
+                elif resample and upfactor is not None:
                     # Check the upsampled sampling rate can be decimated to sr
                     if int(trace.stats.sampling_rate * upfactor) % sr != 0:
                         raise util.BadUpfactorException(trace)
@@ -478,78 +554,66 @@ class Archive(object):
 
         return out
 
-
-class SignalData:
-    """
-    The SignalData class encapsulates the signal data to be returned from an
-    Archive query.
-
-    Parameters
-    ----------
-    starttime : `obspy.UTCDateTime` object
-        Timestamp of first sample of waveform data.
-    endtime : `obspy.UTCDateTime` object
-        Timestamp of last sample of waveform data.
-    sampling_rate : int
-        Sampling rate of waveform data.
-    stations : `pandas.Series` object, optional
-        Series object containing station names.
-
-    Attributes
-    ----------
-    filtered_signal : `numpy.ndarray`, shape(3, nstations, nsamples)
-        Filtered data originally from signal.
-    raw_waveforms : `obspy.Stream` object
-        All raw seismic data found and read in from the archive in the
-        specified time period.
-    sample_size : float
-        The time increment between each data sample.
-    signal : `numpy.ndarray`, shape(3, nstations, nsamples)
-        Processed 3-component seismic data at the desired sampling rate only
-        for desired stations with continuous data on all 3 components
-        throughout the desired time period and where the data could be
-        successfully resampled to the desired sampling rate.
-    stations : `pandas.Series` object
-        Series object containing station names.
-
-    Methods
-    -------
-    times
-        Utility function to generate the corresponding timestamps for the
-        waveform and coalescence data.
-
-    """
-
-    raw_waveforms = None
-    availability = None
-    signal = None
-    filtered_signal = None
-
-    def __init__(self, starttime, endtime, sampling_rate, stations=None):
-        """Instantiate the SignalData object."""
-
-        self.starttime = starttime
-        self.endtime = endtime
-        self.sampling_rate = sampling_rate
-        self.stations = stations
-
-    def times(self, **kwargs):
+    def _station_availability(self, stream):
         """
-        Utility function to generate timestamps between `data.starttime` and
-        `data.endtime`, with a sample size of `data.sample_size`
+        Determine whether continuous data exists between two times for a given
+        station.
+
+        Parameters
+        ----------
+        stream : `obspy.Stream` object
+            Stream containing 3-component data for stations in station file.
+        samples : int
+            Number of samples expected in the signal.
 
         Returns
         -------
-        times : `numpy.ndarray`, shape(nsamples)
-            Timestamps for the timeseries data.
+        signal : `numpy.ndarray`, shape(3, nstations, nsamples)
+            3-component seismic data only for stations with continuous data
+            on all 3 components throughout the desired time period.
+        availability : `np.ndarray` of ints, shape(nstations)
+            Array containing 0s (no data) or 1s (data).
 
         """
 
-        # Utilise the .times() method of `obspy.Trace` objects
-        tr = Trace(header={"npts": self.signal.shape[-1],
-                           "sampling_rate": self.sampling_rate,
-                           "starttime": self.starttime})
-        return tr.times(**kwargs)
+        samples = int(round((self.endtime - self.starttime) \
+            * self.sampling_rate + 1))
+
+        availability = np.zeros(len(self.stations)).astype(int)
+        signal = np.zeros((3, len(self.stations), int(samples)))
+
+        for i, station in enumerate(self.stations):
+            tmp_st = stream.select(station=station)
+            if len(tmp_st) == 3:
+                if (tmp_st[0].stats.npts == samples and
+                        tmp_st[1].stats.npts == samples and
+                        tmp_st[2].stats.npts == samples):
+
+                    # Defining the station as available
+                    availability[i] = 1
+
+                    for tr in tmp_st:
+                        # Check channel name has 3 characters
+                        try:
+                            channel = tr.stats.channel[2]
+                            # Assign data to signal array by component
+                            if channel == "E" or channel == "2":
+                                signal[1, i, :] = tr.data
+                            elif channel == "N" or channel == "1":
+                                signal[0, i, :] = tr.data
+                            elif channel == "Z":
+                                signal[2, i, :] = tr.data
+                            else:
+                                raise util.ChannelNameException(tr)
+
+                        except IndexError:
+                            raise util.ChannelNameException(tr)
+
+        # Check to see if no traces were continuously active during this period
+        if not np.any(availability):
+            raise util.DataGapException
+
+        return signal, availability
 
     @property
     def sample_size(self):

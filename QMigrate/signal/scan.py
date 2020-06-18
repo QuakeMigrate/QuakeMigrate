@@ -326,14 +326,17 @@ class QuakeScan:
             logging.info("~"*20 + f" Processing : {w_beg}-{w_end} " + "~"*20)
 
             try:
-                data = self.archive.read_waveform_data(w_beg, w_end)
+                data = self.archive.read_waveform_data(w_beg, w_end,
+                                                       self.sampling_rate)
                 coalescence.append(*self._compute(data))
+                availability.loc[i] = data.availability
             except util.ArchiveEmptyException as e:
                 coalescence.empty(starttime, self.timestep, i, e.msg)
+                availability.loc[i] = np.zeros(len(self.archive.stations))
             except util.DataGapException as e:
                 coalescence.empty(starttime, self.timestep, i, e.msg)
+                availability.loc[i] = np.zeros(len(self.archive.stations))
 
-            availability.loc[i] = self.archive.availability
             availability.rename(index={i: str(starttime + self.timestep*i)},
                                 inplace=True)
 
@@ -446,7 +449,7 @@ class QuakeScan:
         ttimes = self.lut.ttimes(self.sampling_rate)
         fsmp = util.time2sample(self.pre_pad, self.sampling_rate)
         lsmp = util.time2sample(self.post_pad, self.sampling_rate)
-        avail = np.sum(self.archive.availability)*2
+        avail = np.sum(data.availability)*2
         map4d = migrate(onsets, ttimes, fsmp, lsmp, avail, self.threads)
 
         # --- Find continuous peak coalescence in 3-D volume ---
@@ -504,7 +507,9 @@ class QuakeScan:
                 logging.info(msg)
                 post_pad = 0.
 
-        return self.archive.read_waveform_data(w_beg, w_end, pre_pad, post_pad)
+        return self.archive.read_waveform_data(w_beg, w_end, 
+                                               self.sampling_rate, pre_pad,
+                                               post_pad)
 
     @util.timeit
     def _calculate_location(self, event):

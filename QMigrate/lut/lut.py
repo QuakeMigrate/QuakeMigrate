@@ -5,6 +5,7 @@ Module to produce travel-time lookup tables defined on a Cartesian grid.
 """
 
 import copy
+import pathlib
 import pickle
 
 import matplotlib.pyplot as plt
@@ -527,6 +528,9 @@ class LUT(Grid3D):
             Path to location to save pickle file.
 
         """
+
+        # Ensure the output path exists
+        pathlib.Path(filename).parent.mkdir(parents=True, exist_ok=True)
 
         with open(filename, "wb") as f:
             pickle.dump(self.__dict__, f, 4)

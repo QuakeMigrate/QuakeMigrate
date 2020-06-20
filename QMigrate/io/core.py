@@ -14,6 +14,15 @@ import QMigrate.util as util
 
 
 def stations(station_file, delimiter=","):
+    """Alias for read_stations."""
+    print("FutureWarning: function name has changed - continuing.")
+    print("To remove this message, change:")
+    print("\t'stations' -> 'read_stations'")
+
+    return read_stations(station_file, delimiter)
+
+
+def read_stations(station_file, delimiter=","):
     """
     Reads station information from file.
 

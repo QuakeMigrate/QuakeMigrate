@@ -6,7 +6,7 @@ For more details, please see the manual and read the docs.
 
 """
 
-from QMigrate.io import Archive, stations, read_response_inv
+from QMigrate.io import Archive, read_response_inv, read_stations
 from QMigrate.lut import LUT
 from QMigrate.signal import QuakeScan
 from QMigrate.signal.onset import STALTAOnset
@@ -27,7 +27,7 @@ starttime = "2018-001T00:00:00.0"
 endtime = "2018-002T00:00:00.0"
 
 # --- Read in station file ---
-stations = stations(station_file)
+stations = read_stations(station_file)
 
 # --- Read in response inventory
 response_inv = read_response_inv(response_file)
@@ -69,24 +69,24 @@ picker.plot_picks = True
 
 # --- Create new LocalMag object ---
 # All parameters are optional: see the documentation for a complete guide.
-amp_params = {"water_level" : 60,
-              "signal_window" : 5.,
-              "bandpass_filter" : True,
-              "bandpass_lowcut" : 2.,
-              "bandpass_highcut" : 20.,
-              "remove_full_response" : False}
+amp_params = {"water_level": 60,
+              "signal_window": 5.,
+              "bandpass_filter": True,
+              "bandpass_lowcut": 2.,
+              "bandpass_highcut": 20.,
+              "remove_full_response": False}
 
 # A0 attenuation function is required: see the documentation for several
 # built-in options, or specify your own function. All other parameters are
 # optional - see the documentation for a complete guide.
-mag_params = {"A0" : "Hutton-Boore",
-              "use_hyp_dist" : False,
-              "amp_feature" : "S_amp",
-              "station_corrections" : {},
-              "trace_filter" : ".[BH]H[NE]$",
-              "noise_filter" : 1.,
-              "station_filter" : ["KVE", "LIND"],
-              "dist_filter" : False}
+mag_params = {"A0": "Hutton-Boore",
+              "use_hyp_dist": False,
+              "amp_feature": "S_amp",
+              "station_corrections": {},
+              "trace_filter": ".[BH]H[NE]$",
+              "noise_filter": 1.,
+              "station_filter": ["KVE", "LIND"],
+              "dist_filter": False}
 
 mags = LocalMag(amp_params=amp_params, mag_params=mag_params)
 mags.plot_amplitudes = True

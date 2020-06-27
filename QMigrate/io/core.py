@@ -8,6 +8,7 @@ import logging
 import pathlib
 
 import pandas as pd
+from obspy import read_inventory
 
 import QMigrate.util as util
 
@@ -49,6 +50,50 @@ def stations(station_file, delimiter=","):
     stn_data = stn_data.astype({"Name": "str"})
 
     return stn_data
+
+
+def read_response_inv(response_file, sac_pz_format=False):
+    """
+    Reads response information from file, returning it as a `obspy.Inventory`
+    object.
+
+    Parameters
+    ----------
+    response_file : str
+        Path to response file.
+        Please see the `obspy.read_inventory()` documentation for a full list
+        of supported file formats. This includes a dataless.seed volume, a
+        concatenated series of RESP files or a stationXML file.
+    sac_pz_format : bool, optional
+        Toggle to indicate that response information is being provided in SAC
+        Pole-Zero files. NOTE: not yet supported.
+
+    Returns
+    -------
+    response_inv : `obspy.Inventory` object
+        ObsPy response inventory.
+
+    Raises
+    ------
+    NotImplementedError
+        If the user selects sac_pz_format.
+    TypeError
+        If the user provides a response file that is not readable by ObsPy.
+
+    """
+
+    if sac_pz_format:
+        raise NotImplementedError("SAC_PZ is not yet supported. Please contact "
+                                  "the QuakeMigrate developers.")
+    else:
+        try:
+            response_inv = read_inventory(response_file)
+        except TypeError as e:
+            msg = (f"Response file not readable by ObsPy: {e}\n"
+                   "Please consult the ObsPy documentation.")
+            raise TypeError(msg)
+
+    return response_inv
 
 
 def read_vmodel(vmodel_file, delimiter=","):
@@ -153,6 +198,7 @@ class Run:
 
     @property
     def name(self):
+        """Returns the run name as a formatted string"""
         if self.subname == "":
             return self._name
         else:

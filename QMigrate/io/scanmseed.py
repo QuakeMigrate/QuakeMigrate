@@ -62,7 +62,7 @@ class ScanmSEED:
         self.written = False
         self.stream = Stream()
 
-    def append(self, starttime, max_coa, max_coa_n, coord):
+    def append(self, starttime, max_coa, max_coa_n, coord, *args):
         """
         Append latest timestep of detect() output to `obspy.Stream` object.
         Multiply channels ["COA", "COA_N", "X", "Y", "Z"] by factors of

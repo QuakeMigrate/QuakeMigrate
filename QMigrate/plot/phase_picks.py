@@ -4,6 +4,14 @@ Module to produce a summary plot for the phase picking.
 
 """
 
+import os
+
+import matplotlib
+try:
+    os.environ["DISPLAY"]
+    matplotlib.use("Qt5Agg")
+except KeyError:
+    matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 from pandas.plotting import register_matplotlib_converters
@@ -138,10 +146,10 @@ def pick_summary(event, station_uid, signal, picks, onsets, ttimes, window):
         # Summary text
         text.text(0.1+i*0.5, 0.6, f"{pick.Phase} phase", ha="center",
                   va="center", fontsize=20, fontweight="bold")
-        pick_summary = (f"Pick time: {pick.PickTime}\n"
-                        f"Pick error: {pick.PickError:5.3f} s\n"
-                        f"Pick SNR: {pick.SNR:5.3f}")
-        text.text(0.05+i*0.5, 0.45, pick_summary, ha="left", va="center",
+        pick_info = (f"Pick time: {pick.PickTime}\n"
+                     f"Pick error: {pick.PickError:5.3f} s\n"
+                     f"Pick SNR: {pick.SNR:5.3f}")
+        text.text(0.05+i*0.5, 0.45, pick_info, ha="left", va="center",
                   fontsize=18)
     text.set_axis_off()
 

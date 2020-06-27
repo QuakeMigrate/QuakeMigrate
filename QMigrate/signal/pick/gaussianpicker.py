@@ -10,9 +10,9 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import curve_fit
 
-from .pick import PhasePicker
 from QMigrate.plot.phase_picks import pick_summary
 import QMigrate.util as util
+from .pick import PhasePicker
 
 
 class GaussianPicker(PhasePicker):
@@ -63,6 +63,8 @@ class GaussianPicker(PhasePicker):
         self.pick_threshold = kwargs.get("pick_threshold", 1.0)
         self.fraction_tt = kwargs.get("fraction_tt", 0.1)
         self.marginal_window = kwargs.get("marginal_window", 1.0)
+        self.sampling_rate = None
+        self.plot_picks = kwargs.get("plot_picks", False)
 
     def __str__(self):
         """Returns a short summary string of the GaussianPicker."""
@@ -70,7 +72,7 @@ class GaussianPicker(PhasePicker):
                 f"\t\tPick threshold  = {self.pick_threshold}\n"
                 f"\t\tMarginal window = {self.marginal_window} s\n"
                 f"\t\tSearch window   = {self.fraction_tt*100}% of travel-time"
-                "\n\n")
+                "\n")
 
     @util.timeit
     def pick_phases(self, event, lut, run):
@@ -90,6 +92,8 @@ class GaussianPicker(PhasePicker):
 
         Returns
         -------
+        event : `QMigrate.io.event.Event` object
+            Event object provided to pick_phases(), but now with phase picks!
         picks : `pandas.DataFrame`
             DataFrame that contains the measured picks with columns:
             ["Name", "Phase", "ModelledTime", "PickTime", "PickError", "SNR"]
@@ -104,14 +108,16 @@ class GaussianPicker(PhasePicker):
         ptt = lut.traveltime_to("P", e_ijk)
         stt = lut.traveltime_to("S", e_ijk)
 
-        # Pre-define pick DataFrame
+        # Pre-define pick DataFrame and fit params and pick windows dicts
         picks = pd.DataFrame(index=np.arange(0, 2 * len(event.data.p_onset)),
                              columns=["Station", "Phase", "ModelledTime",
                                       "PickTime", "PickError", "SNR"])
+        gaussfits = {}
+        pick_windows = {}
 
         for i, station in lut.station_data.iterrows():
-            event.gaus[station["Name"]] = {}
-            event.wins[station["Name"]] = {}
+            gaussfits[station["Name"]] = {}
+            pick_windows[station["Name"]] = {}
             for j, phase in enumerate(["P", "S"]):
                 if phase == "P":
                     onset = event.data.p_onset[i]
@@ -124,18 +130,22 @@ class GaussianPicker(PhasePicker):
                     onset, phase, event.data.starttime, event.otime,
                     ptt[i], stt[i])
 
-                event.gaus[station["Name"]][phase] = gau
-                event.wins[station["Name"]][phase] = window
+                gaussfits[station["Name"]][phase] = gau
+                pick_windows[station["Name"]][phase] = window
 
                 picks.iloc[2*i+j] = [station["Name"], phase, model_time, pick,
                                      pick_error, max_onset]
+
+        event.add_picks(picks, gaussfits=gaussfits, pick_windows=pick_windows,
+                        pick_threshold=self.pick_threshold,
+                        fraction_tt=self.fraction_tt)
 
         self.write(run, event.uid, picks)
 
         if self.plot_picks:
             self.plot(event, lut, picks, list(zip(ptt, stt)), run)
 
-        return picks
+        return event, picks
 
     def _fit_gaussian(self, onset, phase, starttime, otime, ptt, stt):
         """
@@ -303,8 +313,8 @@ class GaussianPicker(PhasePicker):
 
             # Convert indices to times
             x_data_dt = np.array([])
-            for i in range(len(x_data)):
-                x_data_dt = np.hstack([x_data_dt, starttime + x_data[i]])
+            for _, x in enumerate(x_data):
+                x_data_dt = np.hstack([x_data_dt, starttime + x])
 
             # Try to fit a 1-D Gaussian.
             try:
@@ -378,7 +388,7 @@ class GaussianPicker(PhasePicker):
             signal = event.data.filtered_signal[:, i, :]
             onsets = [event.data.p_onset[i, :], event.data.s_onset[i, :]]
             stpicks = picks[picks["Station"] == station].reset_index(drop=True)
-            window = event.wins[station]
+            window = event.picks.pick_windows[station]
 
             # Check if any data available to plot
             if not signal.any():
@@ -391,7 +401,7 @@ class GaussianPicker(PhasePicker):
             # --- Gaussian fits ---
             axes = fig.axes
             for j, (ax, ph) in enumerate(zip(axes[3:5], ["P", "S"])):
-                gau = event.gaus[station][ph]
+                gau = event.picks.gaussfits[station][ph]
                 win = window[ph]
 
                 # Plot threshold

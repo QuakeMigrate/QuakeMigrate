@@ -15,24 +15,69 @@ import pandas as pd
 import QMigrate.util as util
 
 
-class Archive(object):
+def wa_response(convert='DIS2DIS', obspy_def=True):
     """
-    The Archive class handles the reading of archived waveform data.
-
-    It is capable of handling any regular archive structure. Some minor cleanup
-    is performed to remove waveform data from stations when there are time gaps
-    greater than the sample size. There is also the option to resample and/or
-    decimate the waveform data to achieve the user-selected unified sampling
-    rate. Keeps a record of which stations had continuous data  available for a
-    given timestep.
+    Generate a Wood Anderson response dictionary.
 
     Parameters
     ----------
+    convert : str, optional
+        Type of output to convert between; determines the number of complex
+        zeros used. Options are: 'DIS2DIS', 'VEL2VEL', 'VEL2DIS'
+    obspy_def : bool, optional
+        Use the ObsPy definition of the Wood Anderson response (Default).
+        Otherwise, use the IRIS/SAC definition.
+
+    Returns
+    -------
+    WOODANDERSON : dict
+        Poles, zeros, sensitivity and gain of the Wood-Anderson torsion
+        seismograph.
+
+    """
+
+    if obspy_def:
+        # Create Wood-Anderson response - ObsPy values
+        woodanderson = {"poles": [-6.283185 - 4.712j,
+                                  -6.283185 + 4.712j],
+                        "zeros": [0j],
+                        "sensitivity": 2080,
+                        "gain": 1.}
+    else:
+        # Create Wood Anderson response - different to the ObsPy values
+        # http://www.iris.washington.edu/pipermail/sac-help/2013-March/001430.html
+        woodanderson = {"poles": [-5.49779 + 5.60886j,
+                                  -5.49779 - 5.60886j],
+                        "zeros": [0j],
+                        "sensitivity": 2080,
+                        "gain": 1.}
+
+    if convert in ('DIS2DIS', 'VEL2VEL'):
+        # Add an extra zero to go from disp to disp or vel to vel.
+        woodanderson['zeros'].extend([0j])
+
+    return woodanderson
+
+
+class Archive:
+    """
+    The Archive class handles the reading of archived waveform data. It is
+    capable of handling any regular archive structure. Requests to read
+    waveform data are served up as a `QMigrate.data.SignalData` object. Data
+    will be checked for availability within the requested time period, and
+    optionally resampled to meet a unified sampling rate. The raw data read
+    from the archive will also be retained.
+
+    If provided, a response inventory provided for the archive will be stored
+    with the waveform data for response removal, if needed.
+
+    Parameters
+    ----------
+    archive_path : str
+        Location of seismic data archive: e.g.: ./DATA_ARCHIVE.
     stations : `pandas.DataFrame` object
         Station information.
         Columns ["Latitude", "Longitude", "Elevation", "Name"]
-    archive_path : str
-        Location of seismic data archive: e.g.: ./DATA_ARCHIVE.
     kwargs : **dict
         See Archive Attributes for details.
 
@@ -50,6 +95,9 @@ class Archive(object):
     resample : bool, optional
         If true, perform resampling of data which cannot be decimated directly
         to the desired sampling rate.
+    response_inv : `obspy.Inventory` object, optional
+        ObsPy response inventory for this waveform archive, containing
+        response information for each channel of each station of each network.
     upfactor : int, optional
         Factor by which to upsample the data (using _upsample() )to enable it
         to be decimated to the desired sampling rate, e.g. 40Hz -> 50Hz
@@ -75,6 +123,7 @@ class Archive(object):
 
         self.format = kwargs.get("format", "")
         self.read_all_stations = kwargs.get("read_all_stations", False)
+        self.response_inv = kwargs.get("response_inv")
         self.resample = kwargs.get("resample", False)
         self.upfactor = kwargs.get("upfactor")
 
@@ -178,6 +227,7 @@ class Archive(object):
                           sampling_rate=sampling_rate,
                           stations=self.stations,
                           read_all_stations=self.read_all_stations,
+                          response_inv=self.response_inv,
                           pre_pad=pre_pad, post_pad=post_pad)
 
         files = self._load_from_path(starttime - pre_pad, endtime + post_pad)
@@ -308,6 +358,9 @@ class SignalData:
     read_all_stations : bool, optional
         If True, raw_waveforms contain all stations in archive for that time
         period. Else, only selected stations will be included.
+    response_inv : `obspy.Inventory` object, optional
+        ObsPy response inventory for this waveform archive, containing
+        response information for each channel of each station of each network.
     pre_pad : float, optional
         Additional pre pad of data cut based on user-defined pre_cut
         parameter.
@@ -360,13 +413,15 @@ class SignalData:
     """
 
     def __init__(self, starttime, endtime, sampling_rate, stations=None,
-                 read_all_stations=False, pre_pad=0., post_pad=0.):
+                 response_inv=None, read_all_stations=False, pre_pad=0.,
+                 post_pad=0.):
         """Instantiate the SignalData object."""
 
         self.starttime = starttime
         self.endtime = endtime
         self.sampling_rate = sampling_rate
         self.stations = stations
+        self.response_inv = response_inv
 
         self.read_all_stations = read_all_stations
         self.pre_pad = pre_pad
@@ -376,6 +431,7 @@ class SignalData:
         self.signal = None
         self.availability = None
         self.filtered_signal = None
+        self.wa_waveforms = None
 
     def add_stream(self, stream, resample, upfactor):
         """
@@ -404,6 +460,121 @@ class SignalData:
 
         # Combine the data into an array and determine station availability
         self.signal, self.availability = self._station_availability(stream)
+
+    def get_real_waveforms(self, tr, remove_full_response=False, velocity=True):
+        """
+        Coming soon.
+
+        """
+
+        raise NotImplementedError("Coming soon. Please contact the "
+                                  "QuakeMigrate developers.")
+
+
+    def get_wa_waveform(self, tr, water_level, pre_filt,
+                        remove_full_response=False, velocity=False):
+        """
+        Calculate simulated Wood Anderson displacement waveform for a Trace.
+
+        Parameters
+        ----------
+        tr : `obspy.Trace` object
+            Trace containing the waveform to be corrected to a Wood-Anderson
+            response
+        water_level : float
+            Water-level to be used in the instrument correction.
+        pre_filt : tuple of floats, or None
+            Filter corners describing filter to be applied to the trace before
+            deconvolution. E.g. (0.05, 0.06, 30, 35) (in Hz)
+        remove_full_response : bool, optional
+            Remove all response stages, inc. FIR (st.remove_response()), not
+            just poles-and-zero response stage. Default: False.
+        velocity : bool, optional
+            Output velocity waveform, instead of displacement. Default: False.
+
+        Returns
+        -------
+        tr : `obspy.Trace` object
+            Trace corrected to Wood-Anderson response.
+
+        Raises
+        ------
+        AttributeError
+            If no response inventory has been supplied.
+        ResponseNotFoundError
+            If the response information for a trace can't be found in the
+            supplied response inventory.
+        ResponseRemovalError
+            If the deconvolution of the instrument response and simulation of
+            the Wood-Anderson response is unsuccessful.
+        NotImplementedError
+            If the user selects velocity=True.
+
+        """
+
+        if not self.response_inv:
+            raise AttributeError("No response inventory provided!")
+
+        # Copy the Trace before operating on it
+        tr = tr.copy()
+        tr.detrend('linear')
+
+        if velocity is True:
+            msg = ("Only displacement WA waveforms are currently available. "
+                   "Please contact the QuakeMigrate developers.")
+            raise NotImplementedError(msg)
+
+        if not remove_full_response:
+            # Just remove the response encapsulated in the instrument transfer
+            # function (stored as a PolesAndZeros response). NOTE: this does
+            # not account for the effect of the digital FIR filters applied to
+            # the recorded waveforms. However, due to this it is significantly
+            # faster to compute.
+            try:
+                response = self.response_inv.get_response(tr.id,
+                                                          tr.stats.starttime)
+            except Exception as e:
+                raise util.ResponseNotFoundError(str(e), tr.id)
+
+            # Get the instrument transfer function as a PAZ dictionary
+            paz = response.get_paz()
+
+            # if not velocity:
+            paz.zeros.extend([0j])
+            paz_dict = {'poles': paz.poles,
+                        'zeros': paz.zeros,
+                        'gain': paz.normalization_factor,
+                        'sensitivity': response.instrument_sensitivity.value}
+            try:
+                tr.simulate(paz_remove=paz_dict,
+                            pre_filt=pre_filt,
+                            water_level=water_level,
+                            taper=True,
+                            sacsim=True, pitsasim=False, #)  # To replicate remove_response()
+                            paz_simulate=wa_response())
+                # tr.simulate(paz_simulate=get_wa_response())
+            except ValueError as e:
+                raise util.ResponseRemovalError(e, tr.id)
+        else:
+            # Use remove_response(), which removes the effect of _all_ response
+            # stages, including the FIR stages. Considerably slower.
+            try:
+                tr.remove_response(inventory=self.response_inv,
+                                   output='DISP',
+                                   pre_filt=pre_filt,
+                                   water_level=water_level,
+                                   taper=True)
+                tr.simulate(paz_simulate=wa_response())
+            except ValueError as e:
+                raise util.ResponseRemovalError(e, tr.id)
+
+        try:
+            self.wa_waveforms.append(tr)
+        except AttributeError:
+            self.wa_waveforms = Stream()
+            self.wa_waveforms.append(tr)
+
+        return tr
 
     def times(self, **kwargs):
         """
@@ -634,19 +805,21 @@ EVENT_FILE_COLS = ["DT", "COA", "COA_NORM", "X", "Y", "Z",
                    "GlobalCovariance_Y", "GlobalCovariance_Z",
                    "GlobalCovariance_ErrX", "GlobalCovariance_ErrY",
                    "GlobalCovariance_ErrZ", "TRIG_COA", "DEC_COA",
-                   "DEC_COA_NORM", "ML", "ML_Err"]
+                   "DEC_COA_NORM", "ML", "ML_Err", "ML_r2"]
 
 
 class Event:
     """
     Light class to encapsulate information about an event, including waveform
-    data (raw, filtered, unfiltered), locations, magnitudes, origin times,
-    coalescence information.
+    data (raw, filtered, unfiltered), coalescence information, locations and
+    origin times, picks, magnitudes.
 
     Parameters
     ----------
     triggered_event : `pandas.Series` object
         Contains information on the event output by the trigger stage.
+    marginal_window : float
+        Estimate of the uncertainty in the earthquake origin time.
 
     Attributes
     ----------
@@ -717,6 +890,10 @@ class Event:
         Add the gaussian location and uncertainty to the event.
     add_spline_location(xyz)
         Add the splined location to the event.
+    add_picks(pick_df)
+        Add phase picks to the event.
+    add_local_magnitude(mag, mag_err, mag_r2)
+        Add local magnitude to the event.
     in_marginal_window(marginal_window)
         Simple test to see if event is within the marginal window around the
         triggered event time.
@@ -726,6 +903,8 @@ class Event:
         Trim the coalescence data and map4d to the marginal window.
     write(run)
         Output the event to a .event file.
+    get_hypocentre(method)
+        Get the event hypocentre estimate calculated by a specific method.
 
     """
 
@@ -733,11 +912,12 @@ class Event:
     df = None
     map4d = None
 
-    def __init__(self, triggered_event):
+    def __init__(self, triggered_event, marginal_window):
         """Instantiate the Event object."""
 
         self.coa_time = triggered_event["CoaTime"]
         self.uid = triggered_event["EventID"]
+        self.marginal_window = marginal_window
 
         try:
             self.trigger_info = {"TRIG_COA": triggered_event["COA_V"],
@@ -750,8 +930,8 @@ class Event:
                                  "DEC_COA_NORM": np.nan}
 
         self.locations = {}
-        self.gaus = {}
-        self.wins = {}
+        self.picks = {}
+        self.localmag = {}
 
     def add_coalescence(self, times, max_coa, max_coa_n, coord, map4d):
         """
@@ -837,15 +1017,78 @@ class Event:
 
         self.locations["spline"] = dict(zip(["X", "Y", "Z"], xyz))
 
-    def in_marginal_window(self, marginal_window):
+    def add_picks(self, pick_df, **kwargs):
         """
-        Test if triggered event time is within marginal window around
-        the maximum coalescence time (origin time).
+        Add phase picks, and a selection of picker outputs and parameters.
 
         Parameters
         ----------
-        marginal_window : float
-            Half-width of window centred on the maximum coalescence time.
+        pick_df : `pandas.DataFrame` object
+            DataFrame that contains the measured picks with columns:
+            ["Name", "Phase", "ModelledTime", "PickTime", "PickError", "SNR"]
+            Each row contains the phase pick from one station/phase.
+
+        For GaussianPicker:
+            gaussfits : dict
+                {station : phase{gaussian_fit_params}}
+                gaussian fit params: {"popt": popt,
+                                      "xdata": x_data,
+                                      "xdata_dt": x_data_dt,
+                                      "PickValue": max_onset,
+                                      "PickThreshold": threshold}
+            pick_windows : dict
+                {station : phase{window}}
+                window: [min_time, max_time]
+            pick_threshold : float
+                float (between 0 and 1)
+                Picks will only be made if the onset function exceeds this
+                percentile of the noise level (average amplitude of onset
+                function outside pick windows).
+            fraction_tt : float
+                Defines width of time window around expected phase arrival time
+                in which to search for a phase pick as a function of the
+                traveltime from the event location to that station -- should be
+                an estimate of the uncertainty in the velocity model.
+
+        """
+
+        # DataFrame containing the phase picks
+        self.picks["df"] = pick_df
+
+        # Any further information that is useful to store on the Event object
+        for key, value in kwargs.items():
+            self.picks[key] = value
+
+    def add_local_magnitude(self, mag, mag_err, mag_r2):
+        """
+        Add outputs from local magnitude calculation to the Event object.
+
+        Parameters
+        ----------
+        mag : float
+            Network-averaged local magnitude estimate for the event.
+        mag_err : float
+            (Weighted) standard deviation of the magnitude estimates from
+            amplitude measurements on individual stations/channels.
+        mag_r2 : float
+            r-squared statistic describing the fit of the amplitude vs.
+            distance curve predicted by the calculated mean_mag and chosen
+            attenuation model to the measured amplitude observations. This is
+            intended to be used to help discriminate between 'real' events, for
+            which the predicted amplitude vs. distance curve should provide a
+            good fit to the observations, from artefacts, which in general will
+            not.
+
+        """
+
+        self.localmag["ML"] = mag
+        self.localmag["ML_Err"] = mag_err
+        self.localmag["ML_r2"] = mag_r2
+
+    def in_marginal_window(self):
+        """
+        Test if triggered event time is within marginal window around
+        the maximum coalescence time (origin time).
 
         Returns
         -------
@@ -854,9 +1097,9 @@ class Event:
 
         """
 
-        window_start = self.otime - marginal_window
-        window_end = self.otime + marginal_window
-        cond = (self.coa_time > window_start) or (self.coa_time < window_end)
+        window_start = self.otime - self.marginal_window
+        window_end = self.otime + self.marginal_window
+        cond = (self.coa_time > window_start) and (self.coa_time < window_end)
         if not cond:
             logging.info(f"\tEvent {self.uid} is outside marginal window.")
             logging.info("\tDefine more realistic error - the marginal "
@@ -867,7 +1110,7 @@ class Event:
 
         return cond
 
-    def mw_times(self, marginal_window, sampling_rate):
+    def mw_times(self, sampling_rate):
         """
         Utility function to generate timestamps between `data.starttime` and
         `data.endtime`, with a sample size of `data.sample_size`
@@ -880,24 +1123,19 @@ class Event:
         """
 
         # Utilise the .times() method of `obspy.Trace` objects
-        tr = Trace(header={"npts": 4*marginal_window*sampling_rate + 1,
+        tr = Trace(header={"npts": 4*self.marginal_window*sampling_rate + 1,
                            "sampling_rate": sampling_rate,
-                           "starttime": self.coa_time - 2*marginal_window})
+                           "starttime": self.coa_time - 2*self.marginal_window})
         return tr.times(type="utcdatetime")
 
-    def trim2window(self, marginal_window):
+    def trim2window(self):
         """
         Trim the coalescence data to be within the marginal window.
 
-        Parameters
-        ----------
-        marginal_window : float
-            Half-width of window centred on the maximum coalescence time.
-
         """
 
-        window_start = self.otime - marginal_window
-        window_end = self.otime + marginal_window
+        window_start = self.otime - self.marginal_window
+        window_end = self.otime + self.marginal_window
 
         self.coa_data = self.coa_data[(self.coa_data["DT"] >= window_start) &
                                       (self.coa_data["DT"] <= window_end)]
@@ -919,12 +1157,7 @@ class Event:
         fpath = run.path / "locate" / run.subname / "events"
         fpath.mkdir(exist_ok=True, parents=True)
 
-        # --- Will be moved when magnitudes added ---
-        magnitudes = {"ML": np.nan,
-                      "ML_Err": np.nan}
-        # --- Will be moved when magnitudes added ---
-
-        out = {**self.trigger_info, **magnitudes}
+        out = {**self.trigger_info, **self.localmag}
         out = {**out, **self.max_coalescence}
         for _, location in self.locations.items():
             out = {**out, **location}
@@ -934,6 +1167,29 @@ class Event:
         fstem = f"{self.uid}"
         file = (fpath / fstem).with_suffix(".event")
         self.df.to_csv(file, index=False)
+
+    def get_hypocentre(self, method="spline"):
+        """
+        Get an estimate of the hypocentral location.
+
+        Parameters
+        ----------
+        method : {"spline", "gaussian", "covariance"}, optional
+            Which location result to return. (Default "spline")
+
+        Returns
+        -------
+        ev_loc : ndarray of floats
+            [x_coordinate, y_coordinate, z_coordinate] of event hypocentre, in
+            the global coordinate system.
+
+        """
+
+        hypocentre = self.locations[method]
+
+        ev_loc = np.array([hypocentre[k] for k in list(hypocentre.keys())[:3]])
+
+        return ev_loc
 
     @property
     def hypocentre(self):

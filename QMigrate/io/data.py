@@ -15,50 +15,6 @@ import pandas as pd
 import QMigrate.util as util
 
 
-def wa_response(convert='DIS2DIS', obspy_def=True):
-    """
-    Generate a Wood Anderson response dictionary.
-
-    Parameters
-    ----------
-    convert : str, optional
-        Type of output to convert between; determines the number of complex
-        zeros used. Options are: 'DIS2DIS', 'VEL2VEL', 'VEL2DIS'
-    obspy_def : bool, optional
-        Use the ObsPy definition of the Wood Anderson response (Default).
-        Otherwise, use the IRIS/SAC definition.
-
-    Returns
-    -------
-    WOODANDERSON : dict
-        Poles, zeros, sensitivity and gain of the Wood-Anderson torsion
-        seismograph.
-
-    """
-
-    if obspy_def:
-        # Create Wood-Anderson response - ObsPy values
-        woodanderson = {"poles": [-6.283185 - 4.712j,
-                                  -6.283185 + 4.712j],
-                        "zeros": [0j],
-                        "sensitivity": 2080,
-                        "gain": 1.}
-    else:
-        # Create Wood Anderson response - different to the ObsPy values
-        # http://www.iris.washington.edu/pipermail/sac-help/2013-March/001430.html
-        woodanderson = {"poles": [-5.49779 + 5.60886j,
-                                  -5.49779 - 5.60886j],
-                        "zeros": [0j],
-                        "sensitivity": 2080,
-                        "gain": 1.}
-
-    if convert in ('DIS2DIS', 'VEL2VEL'):
-        # Add an extra zero to go from disp to disp or vel to vel.
-        woodanderson['zeros'].extend([0j])
-
-    return woodanderson
-
-
 class Archive:
     """
     The Archive class handles the reading of archived waveform data. It is
@@ -101,9 +57,8 @@ class Archive:
         ObsPy response inventory for this waveform archive, containing
         response information for each channel of each station of each network.
     upfactor : int, optional
-        Factor by which to upsample the data (using _upsample() )to enable it
-        to be decimated to the desired sampling rate, e.g. 40Hz -> 50Hz
-        requires upfactor = 5.
+        Factor by which to upsample the data to enable it to be decimated to
+        the desired sampling rate, e.g. 40Hz -> 50Hz requires upfactor = 5.
 
     Methods
     -------
@@ -459,12 +414,12 @@ class SignalData:
             Contains list of `obspy.Trace` objects containing the waveform
             data to add.
         resample : bool, optional
-            If true, perform resampling of data which cannot be decimated directly
-            to the desired sampling rate.
+            If true, perform resampling of data which cannot be decimated
+            directly to the desired sampling rate.
         upfactor : int, optional
-            Factor by which to upsample the data (using _upsample() )to enable it
-            to be decimated to the desired sampling rate, e.g. 40Hz -> 50Hz
-            requires upfactor = 5.
+            Factor by which to upsample the data to enable it to be decimated
+            to the desired sampling rate, e.g. 40Hz -> 50Hz requires
+            upfactor = 5.
 
         """
 
@@ -565,8 +520,8 @@ class SignalData:
                             water_level=water_level,
                             taper=True,
                             sacsim=True, pitsasim=False, #)  # To replicate remove_response()
-                            paz_simulate=wa_response())
-                # tr.simulate(paz_simulate=get_wa_response())
+                            paz_simulate=util.wa_response())
+                # tr.simulate(paz_simulate=util.wa_response())
             except ValueError as e:
                 raise util.ResponseRemovalError(e, tr.id)
         else:
@@ -578,7 +533,7 @@ class SignalData:
                                    pre_filt=pre_filt,
                                    water_level=water_level,
                                    taper=True)
-                tr.simulate(paz_simulate=wa_response())
+                tr.simulate(paz_simulate=util.wa_response())
             except ValueError as e:
                 raise util.ResponseRemovalError(e, tr.id)
 
@@ -632,12 +587,12 @@ class SignalData:
         stream : `obspy.Stream` object
             Contains list of `obspy.Trace` objects to be decimated / resampled.
         resample : bool
-            If true, perform resampling of data which cannot be decimated directly
-            to the desired sampling rate.
+            If true, perform resampling of data which cannot be decimated
+            directly to the desired sampling rate.
         upfactor : int or None
-            Factor by which to upsample the data (using _upsample() )to enable it
-            to be decimated to the desired sampling rate, e.g. 40Hz -> 50Hz
-            requires upfactor = 5.
+            Factor by which to upsample the data to enable it to be decimated
+            to the desired sampling rate, e.g. 40Hz -> 50Hz requires
+            upfactor = 5.
 
         Returns
         -------
@@ -651,15 +606,17 @@ class SignalData:
         for trace in stream:
             if sr != trace.stats.sampling_rate:
                 if (trace.stats.sampling_rate % sr) == 0:
-                    trace = self._decimate(trace, sr)
+                    stream.remove(trace)
+                    trace = util.decimate(trace, sr)
+                    stream += trace
                 elif resample and upfactor is not None:
                     # Check the upsampled sampling rate can be decimated to sr
                     if int(trace.stats.sampling_rate * upfactor) % sr != 0:
                         raise util.BadUpfactorException(trace)
                     stream.remove(trace)
-                    trace = self._upsample(trace, upfactor)
+                    trace = util.upsample(trace, upfactor)
                     if trace.stats.sampling_rate != sr:
-                        trace = self._decimate(trace, sr)
+                        trace = util.decimate(trace, sr)
                     stream += trace
                 else:
                     logging.info("Mismatched sampling rates - cannot decimate "
@@ -667,77 +624,6 @@ class SignalData:
                                  "= True and choose a suitable upfactor")
 
         return stream
-
-    def _decimate(self, trace, sr):
-        """
-        Decimate a trace to achieve the desired sampling rate, sr.
-
-        NOTE: data will be detrended and a cosine taper applied before
-        decimation, in order to avoid edge effects when applying the lowpass
-        filter.
-
-        Parameters:
-        -----------
-        trace : `obspy.Trace` object
-            Trace to be decimated.
-        sr : int
-            Output sampling rate.
-
-        Returns:
-        --------
-        trace : `obspy.Trace` object
-            Decimated trace.
-
-        """
-
-        # Detrend and apply cosine taper
-        trace.detrend('linear')
-        trace.detrend('demean')
-        trace.taper(type='cosine', max_percentage=0.05)
-
-        # Zero-phase lowpass filter at Nyquist frequency
-        trace.filter("lowpass", freq=float(sr) / 2.000001, corners=2,
-                     zerophase=True)
-        trace.decimate(factor=int(trace.stats.sampling_rate / sr),
-                       strict_length=False,
-                       no_filter=True)
-
-        return trace
-
-    def _upsample(self, trace, upfactor):
-        """
-        Upsample a data stream by a given factor, prior to decimation. The
-        upsampling is done using a linear interpolation.
-
-        Parameters
-        ----------
-        trace : `obspy.Trace` object
-            Trace to be upsampled.
-        upfactor : int
-            Factor by which to upsample the data in trace.
-
-        Returns
-        -------
-        out : `obpsy.Trace` object
-            Upsampled trace.
-
-        """
-
-        data = trace.data
-        dnew = np.zeros(len(data)*upfactor - (upfactor - 1))
-        dnew[::upfactor] = data
-        for i in range(1, upfactor):
-            dnew[i::upfactor] = float(i)/upfactor*data[1:] \
-                         + float(upfactor - i)/upfactor*data[:-1]
-
-        out = Trace()
-        out.data = dnew
-        out.stats = trace.stats
-        out.stats.npts = len(out.data)
-        out.stats.starttime = trace.stats.starttime
-        out.stats.sampling_rate = int(upfactor * trace.stats.sampling_rate)
-
-        return out
 
     def _station_availability(self, stream):
         """

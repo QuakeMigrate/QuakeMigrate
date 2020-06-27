@@ -404,11 +404,19 @@ class SignalData:
 
     Methods
     -------
-    add_stream
-        Function to add data supplied in the form of an `obspy.Stream` object
+    add_stream(stream, resample, upfactor)
+        Function to add data supplied in the form of an `obspy.Stream` object.
+    get_wa_waveform(trace, **response_removal_params)
+        Calculate the Wood-Anderson corrected waveform for a `obspy.Trace`
+        object.
     times
         Utility function to generate the corresponding timestamps for the
         waveform and coalescence data.
+
+    Raises
+    ------
+    NotImplementedError
+        If the user attempts to use the get_real_waveform() method.
 
     """
 

@@ -180,6 +180,7 @@ def trim2sample(time, sampling_rate):
 
 
 def timeit(f):
+    """Function wrapper that measures the time elapsed during its execution."""
     @wraps(f)
     def wrap(*args, **kw):
         ts = time.time()
@@ -310,8 +311,84 @@ class PickerTypeError(Exception):
     """
 
     def __init__(self):
-        msg = ("PickerTypeError: The PhasePicker object you have created does"
+        msg = ("PickerTypeError: The PhasePicker object you have created does "
                "not inherit from the required base class - see manual.")
+        super().__init__(msg)
+
+
+class NoMagObjectError(Exception):
+    """
+    Custom exception to handle case when calc_magnitudes has been selected for
+    the QuakeScan run, but no magnitudes object has been provided. (e.g.
+    mags=LocalMags() )
+
+    """
+
+    def __init__(self):
+        msg = ("NoMagObjectError: You have selected to calculate magnitudes "
+               "but have not provided a mags object - see manual.")
+        super().__init__(msg)
+
+
+class ResponseNotFoundError(Exception):
+    """
+    Custom exception to handle the case where the provided response inventory
+    doesn't contain the response information for a trace.
+
+    Parameters
+    ----------
+    e : str
+        Error message from ObsPy `Inventory.get_response()`
+    tr_id : str
+        ID string for the Trace for which the response cannot be found
+
+    """
+
+    def __init__(self, e, tr_id):
+        msg = (f"ResponseNotFoundError: {e} -- skipping {tr_id}")
+        super().__init__(msg)
+
+
+class ResponseRemovalError(Exception):
+    """
+    Custom exception to handle the case where the response removal was not
+    successful.
+
+    Parameters
+    ----------
+    e : str
+        Error message from ObsPy `Trace.remove_response()` or
+        `Trace.simulate()`
+    tr_id : str
+        ID string for the Trace for which the response cannot be removed
+
+    """
+
+    def __init__(self, e, tr_id):
+        msg = (f"ResponseRemovalError: {e} -- skipping {tr_id}")
+        super().__init__(msg)
+
+
+class NyquistException(Exception):
+    """
+    Custom exception to handle the case where the specified filter has a
+    lowpass corner above the signal Nyquist frequency.
+
+    Parameters
+    ----------
+    freqmax : float
+        Specified lowpass frequency for filter
+    f_nyquist : float
+        Nyquist frequency for the relevant waveform data
+    tr_id : str
+        ID string for the Trace
+
+    """
+
+    def __init__(self, freqmax, f_nyquist, tr_id):
+        msg = (f"    NyquistException: Selected bandpass_highcut {freqmax} "
+               f"Hz is at or above the Nyquist frequency ({f_nyquist} Hz)"
+               f"\n\t\tfor trace {tr_id}. ")
         super().__init__(msg)
 
 

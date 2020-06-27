@@ -78,6 +78,8 @@ class Archive:
     stations : `pandas.DataFrame` object
         Station information.
         Columns ["Latitude", "Longitude", "Elevation", "Name"]
+    arcive_format : str, optional
+        Sets path type for different archive formats.
     kwargs : **dict
         See Archive Attributes for details.
 
@@ -115,11 +117,15 @@ class Archive:
 
     """
 
-    def __init__(self, archive_path, stations, **kwargs):
+    def __init__(self, archive_path, stations, archive_format=None, **kwargs):
         """Instantiate the Archive object."""
 
         self.archive_path = pathlib.Path(archive_path)
         self.stations = stations["Name"]
+        if archive_format:
+            self.path_structure(archive_format)
+        else:
+            self.format = kwargs.get("format", "")
 
         self.format = kwargs.get("format", "")
         self.read_all_stations = kwargs.get("read_all_stations", False)

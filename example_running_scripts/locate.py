@@ -33,10 +33,10 @@ stations = stations(station_file)
 response_inv = read_response_inv(response_file)
 
 # --- Create new Archive and set path structure ---
-archive = Archive(stations=stations, archive_path=archive_path)
-archive.path_structure(archive_format="YEAR/JD/STATION")
+archive = Archive(archive_path=archive_path, stations=stations,
+                  archive_format="YEAR/JD/STATION")
 # For custom structures...
-# archive.format = "custom/archive_{year}_{month}_structure"
+# archive.format = "custom/archive_{year}_{jday}/{month:02d}-{day:02d}.{station}_structure"
 
 # --- Resample data with mismatched sampling rates ---
 # archive.resample = True

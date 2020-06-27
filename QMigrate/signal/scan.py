@@ -140,6 +140,9 @@ class QuakeScan:
         If the user does not supply the locate function with valid arguments.
     TimeSpanException
         If the user supplies a starttime that is after the endtime.
+    NoMagObjectError
+        If the user selects to calculate magnitudes but does not provide a
+        `QMigrate.signal.local_mag.LocalMag` object.
 
     """
 
@@ -153,6 +156,9 @@ class QuakeScan:
         else:
             raise util.OnsetTypeError
         self.onset.post_pad = lut.max_ttime
+
+        self.pre_pad = 0.
+        self.post_pad = 0.
 
         # --- Set up i/o ---
         self.run = Run(run_path, run_name, kwargs.get("run_subname", ""))
@@ -180,13 +186,21 @@ class QuakeScan:
         self.sampling_rate = kwargs.get("sampling_rate", 50)
         self.scan_rate = kwargs.get("scan_rate", 50)  # FUTURE
 
+        # Magnitudes
+        self.calc_magnitudes = kwargs.get("calc_magnitudes", False)
+        if self.calc_magnitudes is True:
+            self.mags = kwargs.get("mags", None)
+            if not self.mags:
+                raise util.NoMagObjectError
+
         # Plotting toggles and parameters
         self.plot_event_summary = kwargs.get("plot_event_summary", True)
         self.plot_event_video = kwargs.get("plot_event_video", False)
         self.xy_files = kwargs.get("xy_files")
 
         # File writing toggles
-        self.continuous_scanmseed_write = kwargs.get("continuous_scanmseed_write", False)
+        self.continuous_scanmseed_write = kwargs.get(
+            "continuous_scanmseed_write", False)
         self.write_cut_waveforms = kwargs.get("write_cut_waveforms", False)
         self.cut_waveform_format = kwargs.get("cut_waveform_format", "MSEED")
 
@@ -200,11 +214,11 @@ class QuakeScan:
 
         out = ("\tScan parameters:\n"
                f"\t\tData sampling rate = {self.sampling_rate} Hz\n"
-               f"\t\tThread count = {self.threads}\n")
+               f"\t\tThread count       = {self.threads}\n")
         if self.run.stage == "detect":
-            out += f"\t\tTime step = {self.timestep} s\n"
+            out += f"\t\tTime step          = {self.timestep} s\n"
         elif self.run.stage == "locate":
-            out += f"\t\tMarginal window = {self.marginal_window} s\n"
+            out += f"\t\tMarginal window    = {self.marginal_window} s\n"
 
         return out
 
@@ -286,6 +300,8 @@ class QuakeScan:
         logging.info(self)
         logging.info(self.onset)
         logging.info(self.picker)
+        if self.calc_magnitudes:
+            logging.info(self.mags)
         logging.info(util.log_spacer)
 
         if trigger_file is not None:
@@ -370,7 +386,7 @@ class QuakeScan:
         self.pre_pad, self.post_pad = pre_pad, post_pad
 
         for i, triggered_event in triggered_events.iterrows():
-            event = Event(triggered_event)
+            event = Event(triggered_event, self.marginal_window)
             w_beg = event.coa_time - 2*self.marginal_window - self.pre_pad
             w_end = event.coa_time + 2*self.marginal_window + self.post_pad
             logging.info(util.log_spacer)
@@ -391,8 +407,8 @@ class QuakeScan:
                 continue
 
             # --- Trim coalescence map to marginal window ---
-            if event.in_marginal_window(self.marginal_window):
-                event.trim2window(self.marginal_window)
+            if event.in_marginal_window():
+                event.trim2window()
             else:
                 del event
                 continue
@@ -401,7 +417,11 @@ class QuakeScan:
             marginalised_coalescence = self._calculate_location(event)
 
             logging.info("\tMaking phase picks...")
-            self.picker.pick_phases(event, self.lut, self.run)
+            event, _ = self.picker.pick_phases(event, self.lut, self.run)
+
+            if self.calc_magnitudes:
+                logging.info("\tCalculating magnitude...")
+                event, _ = self.mags.calc_magnitude(event, self.lut, self.run)
 
             event.write(self.run)
 
@@ -461,7 +481,7 @@ class QuakeScan:
             time = data.starttime + self.pre_pad
             return time, max_coa, max_coa_n, coord
         else:
-            times = event.mw_times(self.marginal_window, self.sampling_rate)
+            times = event.mw_times(self.sampling_rate)
             return times, max_coa, max_coa_n, coord, map4d
 
     @util.timeit
@@ -485,29 +505,47 @@ class QuakeScan:
 
         # Extra pre- and post-pad default to 0.
         pre_pad = post_pad = 0.
-        if self.pre_cut:
+
+        if self.pre_cut or self.calc_magnitudes:
+            if self.calc_magnitudes and self.pre_cut:
+                pre_cut = max(self.mags.amp.noise_window + self.marginal_window,
+                              self.pre_cut)
+            elif self.calc_magnitudes:
+                pre_cut = self.mags.amp.noise_window + self.marginal_window
+            else:
+                pre_cut = self.pre_cut
             # only subtract 1*marginal_window so if the event otime moves by
             # this much the selected pre_cut can still be applied
-            pre_pad = self.pre_cut - self.marginal_window - self.pre_pad
-            if pre_pad < 0:
+            pre_pad = pre_cut - self.marginal_window - self.pre_pad
+            if pre_pad < 0 and self.pre_cut:
                 msg = (f"\t\tWarning: specified pre_cut {self.pre_cut} is"
                        "shorter than default pre_pad\n"
                        f"\t\t\tCutting from pre_pad = {self.pre_pad}")
                 logging.info(msg)
                 pre_pad = 0.
 
-        if self.post_cut:
+        if self.post_cut or self.calc_magnitudes:
+            if self.calc_magnitudes and self.post_cut:
+                post_cut = max(((1 + self.picker.fraction_tt) *
+                                self.lut.max_ttime + self.marginal_window +
+                                self.mags.amp.signal_window), self.post_cut)
+            elif self.calc_magnitudes:
+                post_cut = ((1 + self.picker.fraction_tt) *
+                            self.lut.max_ttime + self.marginal_window +
+                            self.mags.amp.signal_window)
+            else:
+                post_cut = self.post_cut
             # only subtract 1*marginal_window so if the event otime moves by
             # this much the selected post_cut can still be applied
-            post_pad = self.post_cut - self.marginal_window - self.post_pad
-            if post_pad < 0:
+            post_pad = post_cut - self.marginal_window - self.post_pad
+            if post_pad < 0 and self.post_cut:
                 msg = (f"\t\tWarning: specified post_cut {self.post_cut} is"
                        " shorter than default post_pad\n"
                        f"t\t\tCutting to post_pad = {self.post_pad}")
                 logging.info(msg)
                 post_pad = 0.
 
-        return self.archive.read_waveform_data(w_beg, w_end, 
+        return self.archive.read_waveform_data(w_beg, w_end,
                                                self.sampling_rate, pre_pad,
                                                post_pad)
 

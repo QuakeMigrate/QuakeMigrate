@@ -152,11 +152,11 @@ class Event:
 
     def add_waveform_data(self, data):
         """
-        Add waveform data in the form of a SignalData object.
+        Add waveform data in the form of a WaveformData object.
 
         Parameters
         ----------
-        data : `QMigrate.io.data.SignalData` object
+        data : `QMigrate.io.data.WaveformData` object
             Contains raw cut waveforms, signal data (at a unified sample rate,
             prepared for use in scan), station availability info, onset
             functions calculated from the signal data, pre_processed filtered

@@ -18,7 +18,7 @@ class Archive:
     """
     The Archive class handles the reading of archived waveform data. It is
     capable of handling any regular archive structure. Requests to read
-    waveform data are served up as a `QMigrate.data.SignalData` object. Data
+    waveform data are served up as a `QMigrate.data.WaveformData` object. Data
     will be checked for availability within the requested time period, and
     optionally resampled to meet a unified sampling rate. The raw data read
     from the archive will also be retained.
@@ -177,17 +177,17 @@ class Archive:
 
         Returns
         -------
-        data : `QMigrate.io.data.SignalData` object
+        data : `QMigrate.io.data.WaveformData` object
             Object containing the archived data that satisfies the query.
 
         """
 
-        data = SignalData(starttime=starttime, endtime=endtime,
-                          sampling_rate=sampling_rate,
-                          stations=self.stations,
-                          read_all_stations=self.read_all_stations,
-                          response_inv=self.response_inv,
-                          pre_pad=pre_pad, post_pad=post_pad)
+        data = WaveformData(starttime=starttime, endtime=endtime,
+                            sampling_rate=sampling_rate,
+                            stations=self.stations,
+                            read_all_stations=self.read_all_stations,
+                            response_inv=self.response_inv,
+                            pre_pad=pre_pad, post_pad=post_pad)
 
         files = self._load_from_path(starttime - pre_pad, endtime + post_pad)
 
@@ -302,10 +302,14 @@ class Archive:
         return files
 
 
-class SignalData:
+class WaveformData:
     """
-    The SignalData class encapsulates the signal data to be returned from an
+    The WaveformData class encapsulates the waveforn data be returned from an
     Archive query.
+    
+    This includes the signal data which has been pre-processed to a unified
+    sampling rate, and checked for gaps, ready for use to calculate onset
+    functions.
 
     Parameters
     ----------
@@ -385,7 +389,7 @@ class SignalData:
     def __init__(self, starttime, endtime, sampling_rate, stations=None,
                  response_inv=None, read_all_stations=False, pre_pad=0.,
                  post_pad=0.):
-        """Instantiate the SignalData object."""
+        """Instantiate the WaveformData object."""
 
         self.starttime = starttime
         self.endtime = endtime

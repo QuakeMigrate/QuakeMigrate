@@ -446,7 +446,7 @@ class QuakeScan:
 
         Parameters
         ----------
-        data : `QMigrate.io.data.SignalData` object
+        data : `QMigrate.io.data.WaveformData` object
             Light class encapsulating data returned by an archive query.
 
         Returns
@@ -499,7 +499,7 @@ class QuakeScan:
 
         Returns
         -------
-        data : `QMigrate.io.data.SignalData` object
+        data : `QMigrate.io.data.WaveformData` object
             Light class encapsulating data returned by an archive query.
 
         """

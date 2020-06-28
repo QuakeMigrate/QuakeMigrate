@@ -82,7 +82,6 @@ class Archive:
         else:
             self.format = kwargs.get("format", "")
 
-        self.format = kwargs.get("format", "")
         self.read_all_stations = kwargs.get("read_all_stations", False)
         self.response_inv = kwargs.get("response_inv")
         self.resample = kwargs.get("resample", False)

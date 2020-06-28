@@ -337,11 +337,19 @@ class GaussianPicker(PhasePicker):
                 mean = starttime + float(popt[1])
                 sigma = np.absolute(popt[2])
 
-                gaussian_fit = {"popt": popt,
-                                "xdata": x_data,
-                                "xdata_dt": x_data_dt,
-                                "PickValue": max_onset,
-                                "PickThreshold": threshold}
+                # Check pick mean is within the pick window.
+                if not gau_idxmin < popt[1] * self.sampling_rate < gau_idxmax:
+                    gaussian_fit = self.DEFAULT_GAUSSIAN_FIT
+                    gaussian_fit["PickThreshold"] = threshold
+                    sigma = -1
+                    mean = -1
+                    max_onset = -1
+                else:
+                    gaussian_fit = {"popt": popt,
+                                    "xdata": x_data,
+                                    "xdata_dt": x_data_dt,
+                                    "PickValue": max_onset,
+                                    "PickThreshold": threshold}
 
             # If curve_fit fails. Will also spit error message to stdout,
             # though this can be suppressed  - see warnings.filterwarnings()

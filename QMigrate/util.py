@@ -328,6 +328,15 @@ class VelocityModelFileHeaderException(Exception):
         super().__init__(msg)
 
 
+class ArchiveFormatException(Exception):
+    """Custom exception to handle case where Archive.format is not set."""
+
+    def __init__(self):
+        msg = ("ArchiveFormatException: Archive format has not been set. Set "
+               "with Archive.path_structure() or Archive.format = '' ")
+        super().__init__(msg)
+
+
 class ArchiveEmptyException(Exception):
     """Custom exception to handle empty archive"""
 

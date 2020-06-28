@@ -265,12 +265,15 @@ class Archive:
         files : generator
             Iterator object of available waveform data files.
 
+        Raises
+        ------
+        ArchiveFormatException
+            If the Archive.format attribute has not been set.
+
         """
 
-        if self.format is None:
-            logging.info("No archive structure specified - set with "
-                         " Archive.path_structure = ")
-            return
+        if self.format is None or self.format == "":
+            raise util.ArchiveFormatException
 
         start_day = UTCDateTime(starttime.date)
 

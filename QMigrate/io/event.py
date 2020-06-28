@@ -14,7 +14,7 @@ import pandas as pd
 import QMigrate.util as util
 
 
-EVENT_FILE_COLS = ["DT", "COA", "COA_NORM", "X", "Y", "Z",
+EVENT_FILE_COLS = ["UID", "DT", "COA", "COA_NORM", "X", "Y", "Z",
                    "LocalGaussian_X", "LocalGaussian_Y", "LocalGaussian_Z",
                    "LocalGaussian_ErrX", "LocalGaussian_ErrY",
                    "LocalGaussian_ErrZ", "GlobalCovariance_X",
@@ -390,7 +390,7 @@ class Event:
         fpath = run.path / "locate" / run.subname / "events"
         fpath.mkdir(exist_ok=True, parents=True)
 
-        out = {**self.trigger_info, **self.localmag}
+        out = {"UID": self.uid, **self.trigger_info, **self.localmag}
         out = {**out, **self.max_coalescence}
         for _, location in self.locations.items():
             out = {**out, **location}

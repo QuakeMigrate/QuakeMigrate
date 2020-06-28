@@ -388,7 +388,7 @@ class GaussianPicker(PhasePicker):
             signal = event.data.filtered_signal[:, i, :]
             onsets = [event.data.p_onset[i, :], event.data.s_onset[i, :]]
             stpicks = picks[picks["Station"] == station].reset_index(drop=True)
-            window = event.picks.pick_windows[station]
+            window = event.picks["pick_windows"][station]
 
             # Check if any data available to plot
             if not signal.any():
@@ -401,7 +401,7 @@ class GaussianPicker(PhasePicker):
             # --- Gaussian fits ---
             axes = fig.axes
             for j, (ax, ph) in enumerate(zip(axes[3:5], ["P", "S"])):
-                gau = event.picks.gaussfits[station][ph]
+                gau = event.picks["gaussfits"][station][ph]
                 win = window[ph]
 
                 # Plot threshold

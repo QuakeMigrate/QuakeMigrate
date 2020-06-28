@@ -111,7 +111,8 @@ def amplitudes_summary(magnitudes, amp_feature, amp_multiplier, dist_err,
 
     # One label for each station, above highest observed amplitude; faff.
     ax, stns = label_stations(ax, used_mags.index,
-                              used_mags[amp_feature] * amp_multiplier,
+                              used_mags[amp_feature] * amp_multiplier * \
+                              np.power(10, used_mags["Station_Correction"]),
                               used_mags["Dist"])
 
     # Plot amplitude obs for rejected observations (if there are any)
@@ -138,7 +139,8 @@ def amplitudes_summary(magnitudes, amp_feature, amp_multiplier, dist_err,
             else:
                 rej_trids.append(tr_id)
                 rej_amps.append(rejected_mags[amp_feature].iloc[i] * \
-                                amp_multiplier)
+                    amp_multiplier * np.power(10,
+                    rejected_mags["Station_Correction"].iloc[i]))
                 rej_dists.append(rejected_mags["Dist"].iloc[i])
 
         # Only one label per new station; faff once again.

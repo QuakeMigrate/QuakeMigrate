@@ -398,6 +398,8 @@ class SignalData:
         self.raw_waveforms = None
         self.signal = None
         self.availability = None
+        self.p_onset = None
+        self.s_onset = None
         self.filtered_signal = None
         self.wa_waveforms = None
 
@@ -828,9 +830,26 @@ class Event:
                                  "DEC_COA": np.nan,
                                  "DEC_COA_NORM": np.nan}
 
+        self.data = None
         self.locations = {}
         self.picks = {}
         self.localmag = {}
+
+    def add_waveform_data(self, data):
+        """
+        Add waveform data in the form of a SignalData object.
+
+        Parameters
+        ----------
+        data : `QMigrate.io.data.SignalData` object
+            Contains raw cut waveforms, signal data (at a unified sample rate,
+            prepared for use in scan), station availability info, onset
+            functions calculated from the signal data, pre_processed filtered
+            waveforms, et cetera.
+
+        """
+
+        self.data = data
 
     def add_coalescence(self, times, max_coa, max_coa_n, coord, map4d):
         """

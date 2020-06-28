@@ -34,7 +34,7 @@ response_inv = read_response_inv(response_file)
 
 # --- Create new Archive and set path structure ---
 archive = Archive(archive_path=archive_path, stations=stations,
-                  archive_format="YEAR/JD/STATION")
+                  archive_format="YEAR/JD/STATION", response_inv=response_inv)
 # For custom structures...
 # archive.format = "custom/archive_{year}_{jday}/{month:02d}-{day:02d}.{station}_structure"
 

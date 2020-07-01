@@ -177,6 +177,13 @@ class Run:
 
     def __init__(self, path, name, subname="", stage=None):
         """Instantiate the Run object."""
+
+        if "." in name or "." in subname:
+            print("Warning: The character '.' is not allowed in run"
+                  "names/subnames - replacing with '_'.")
+            name = name.replace(".", "_")
+            subname = subname.replace(".", "_")
+
         self.path = pathlib.Path(path) / name
         self._name = name
         self.stage = stage

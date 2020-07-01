@@ -276,61 +276,6 @@ class Grid3D(object):
 
         return out
 
-    def xyz2lonlatdep(self, x, y, z, inverse=False, clip=False):
-        """
-        Convert between grid (x/y/z) and geographical (lon/lat/dep)
-        coordinates.
-
-        Parameters
-        ----------
-        x : array-like
-            Grid x or longitudinal coordinates to convert
-        y : array-like
-            Grid y or latitudinal coordinates to convert
-        z : array-like
-            Grid z or depth coordinates to convert
-        inverse : bool, optional
-            Reverses the direction of the transform. Default xyz -> lonlatdep
-        clip : bool, optional
-            Collapse all values outside the grid onto the edge of the grid.
-            CB: I don't think this will behave, need to find where it is used.
-
-        Returns
-        -------
-        x' (x_p) : array-like
-            Converted grid x or longitudinal coordinates
-        y' (y_p) : array-like
-            Converted grid y or latitudinal coordinates
-        z' (z_p) : array-like
-            Converted grid z or depth coordinates (no change from input)
-
-        """
-
-        x, y = np.asarray(x), np.asarray(y)
-        z_p = np.asarray(z)
-
-        if inverse:
-            x_p, y_p = pyproj.transform(self.coord_proj, self.grid_proj, x, y)
-
-            if clip:
-                corners = self.grid_corners
-
-                xmin, ymin, zmin = np.min(corners, axis=0)
-                xmax, ymax, zmax = np.max(corners, axis=0)
-
-                # Replace all this with np.clip
-                x_p[x_p < xmin] = xmin + self.cell_size[0] / 2
-                y_p[y_p < ymin] = ymin + self.cell_size[1] / 2
-                z_p[z_p < zmin] = zmin + self.cell_size[2] / 2
-                x_p[x_p > xmax] = xmax - self.cell_size[0] / 2
-                y_p[y_p > ymax] = ymax - self.cell_size[1] / 2
-                z_p[z_p > zmax] = zmax - self.cell_size[2] / 2
-
-        else:
-            x_p, y_p = pyproj.transform(self.grid_proj, self.coord_proj, x, y)
-
-        return x_p, y_p, z_p
-
     @property
     def grid_corners(self):
         """Get the xyz positions of the cells on the edge of the grid."""

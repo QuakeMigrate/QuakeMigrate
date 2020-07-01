@@ -35,6 +35,11 @@ if READ_THE_DOCS:
 SETUP_DIRECTORY = pathlib.Path.cwd()
 
 
+long_description = """A Python package for the detection and location of
+                      seismicity, based on waveform backprojection and
+                      stacking"""
+
+
 def read(*parts):
     """
     Build an absolute path from *parts* and and return the contents of the
@@ -171,7 +176,7 @@ def setup_package():
         "name": "QMigrate",
         "version": find_meta("version") + time.strftime(".%y.%m.%d"),
         "description": find_meta("description"),
-        "long_description": read("README.rst"),
+        "long_description": long_description,
         "url": "https://github.com/QuakeMigrate/QuakeMigrate",
         "author": find_meta("author"),
         "author_email": find_meta("email"),

@@ -109,6 +109,11 @@ class Archive:
         archive_format : str, optional
             Sets path type for different archive formats.
 
+        Raises
+        ------
+        ArchivePathStructureError
+            If the archive_format specified by the user is not a valid option.
+
         """
 
         if archive_format == "SeisComp3":

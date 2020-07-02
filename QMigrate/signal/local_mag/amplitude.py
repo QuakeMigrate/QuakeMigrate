@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Module containing methods to generate event summaries and videos.
+Module containing methods to measure Wood-Anderson corrected waveform
+amplitudes to be used for local magnitude calculation.
 
 """
 
@@ -794,8 +795,7 @@ class Amplitude:
             The gain of the filter applied to the trace at the approximate
             frequency of the S-wave p2p signal, if a filter was chosen.
             (Default None)
-        method : str, optional
-            {"RMS", "STD"}
+        method : {"RMS", "STD"}, optional
             The method by which to measure the amplitude of the signal in the
             noise window: root-mean-square, or standard deviation.
             (Default "RMS")

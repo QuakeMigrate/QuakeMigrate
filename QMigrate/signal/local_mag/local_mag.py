@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Module containing methods to generate event summaries and videos.
+Module containing methods to calculate the local magnitude for an event located
+by `QuakeMigrate`.
 
 """
 

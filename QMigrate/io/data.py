@@ -16,8 +16,9 @@ import QMigrate.util as util
 
 class Archive:
     """
-    The Archive class handles the reading of archived waveform data. It is
-    capable of handling any regular archive structure. Requests to read
+    The Archive class handles the reading of archived waveform data.
+
+    It is capable of handling any regular archive structure. Requests to read
     waveform data are served up as a `QMigrate.data.WaveformData` object. Data
     will be checked for availability within the requested time period, and
     optionally resampled to meet a unified sampling rate. The raw data read

@@ -3,11 +3,10 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - ffmpeg
   - ipython
   - jupyter
-  - obspy
-  - pandas
+  - obspy >=1.2
+  - pandas >=1
   - pip
   - python
   - pyproj

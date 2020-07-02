@@ -15,7 +15,6 @@ from pkg_resources import get_build_platform
 import re
 import shutil
 import sys
-import time
 
 
 # Check if we are on RTD and don't build extensions if we are.
@@ -166,15 +165,16 @@ def setup_package():
     """Setup package"""
 
     if not READ_THE_DOCS:
-        install_requires = ["matplotlib", "numpy", "obspy", "pandas", "pyproj",
-                            "scikit-fmm==2019.1.30", "scipy"]
-    else:
-        install_requires = ["matplotlib", "mock", "numpy", "obspy", "pandas",
+        install_requires = ["matplotlib", "numpy", "obspy>=1.2", "pandas>=1",
                             "pyproj", "scikit-fmm==2019.1.30", "scipy"]
+    else:
+        install_requires = ["matplotlib", "mock", "numpy", "obspy>=1.2",
+                            "pandas>=1", "pyproj", "scikit-fmm==2019.1.30",
+                            "scipy"]
 
     setup_args = {
         "name": "QMigrate",
-        "version": find_meta("version") + time.strftime(".%y.%m.%d"),
+        "version": find_meta("version"),
         "description": find_meta("description"),
         "long_description": long_description,
         "url": "https://github.com/QuakeMigrate/QuakeMigrate",
@@ -190,6 +190,7 @@ def setup_package():
             "Operating System :: OS Independent",
             "Programming Language :: Python :: 3.6",
             "Programming Language :: Python :: 3.7",
+            "Programming Language :: Python :: 3.8",
         ],
         "keywords": "seismic waveform event detection location",
         "install_requires": install_requires,

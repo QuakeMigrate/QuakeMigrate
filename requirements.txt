@@ -1,7 +1,7 @@
 matplotlib
 numpy
-obspy
-pandas
+obspy>=1.2
+pandas>=1
 pyproj
 scipy
 scikit-fmm==2019.1.30

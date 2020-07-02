@@ -33,7 +33,16 @@ Citation
 --------
 If you use this package in your work, please cite the following paper:
 
-Smith, J., Winder, T., Bacon, C., Hudson, T., Greenfield, T., White, R.S., Drew, J., QuakeMigrate: a Python package for earthquake detection and location using waveform stacking. Seismological Research Letters, `2020`.
+Bacon, C.A., Smith, J.D., Winder, T., Hudson, T., Greenfield, T. and White, R.S. QuakeMigrate: a Modular, Open-Source Python Package for Earthquake Detection and Location. In AGU Fall Meeting 2019. AGU.
+
+or, if this is not possible, please cite the following journal article:
+
+Smith, J.D., White, R.S., Avouac, JP, and S. Bourne (2020), Probabilistic earthquake locations of induced seismicity in the Groningen region, Netherlands, Geophysical Journal International.
+
+We hope to have a publication coming out soon:
+
+Winder, T., Smith, J.D., Bacon, C.A., Hudson, T.S., Drew, J., Greenfield, T. and White, R.S. QuakeMigrate: a Python Package for Automatic Earthquake Detection and Location Using Waveform Migration and Stacking. Seismological Research Letters.
+
 
 Contents:
 ---------

@@ -462,6 +462,21 @@ class PickerTypeError(Exception):
         super().__init__(msg)
 
 
+class PickOrderException(Exception):
+    """
+    Custom exception to handle the case when the pick for the P phase is later
+    than the pick for the S phase.
+
+    """
+
+    def __init__(self, event_uid, station, p_pick, s_pick):
+        msg = ("PickOrderException: The P-phase arrival-time pick is later "
+               "than the S-phase arrival pick! Something has gone wrong. "
+               f"Event: {event_uid}, station: {station}, p_pick: {p_pick}, "
+               f"s_pick: {s_pick}. There is probably a bug with the picker.")
+        super().__init__(msg)
+
+
 class NoMagObjectError(Exception):
     """
     Custom exception to handle case when calc_magnitudes has been selected for
@@ -536,6 +551,22 @@ class NyquistException(Exception):
                f"Hz is at or above the Nyquist frequency ({f_nyquist} Hz)"
                f"\n\t\tfor trace {tr_id}. ")
         super().__init__(msg)
+
+
+class PeakToTroughError(Exception):
+    """
+    Custom exception to handle case when amplitude._peak_to_trough_amplitude
+    encounters an anomalous set of peaks and troughs, so can't calculate an
+    amplitude.
+
+    """
+
+    def __init__(self, err):
+        msg = (f"PeakToTroughError: {err}")
+        super().__init__(msg)
+
+        # Additional message printed to log
+        self.msg = (err)
 
 
 class TimeSpanException(Exception):

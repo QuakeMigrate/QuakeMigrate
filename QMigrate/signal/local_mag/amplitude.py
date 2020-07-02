@@ -520,6 +520,11 @@ class Amplitude:
         picked : bool
             Whether at least one of the phases was picked by the autopicker.
 
+        Raises
+        ------
+        PickOrderException
+            If the P pick for an event/station is later than the S pick.
+
         """
 
         p_pick, s_pick, picked = self._get_picks(i, event)
@@ -527,7 +532,10 @@ class Amplitude:
         fraction_tt = event.picks["fraction_tt"]
 
         # Check p_pick is before s_pick
-        assert p_pick < s_pick # NOTE: No catch for this
+        try:
+            assert p_pick < s_pick
+        except AssertionError:
+            raise util.PickOrderException(event.uid, station, p_pick, s_pick)
 
         # For P:
         p_start = p_pick - event.marginal_window - p_ttimes[i] * fraction_tt
@@ -658,18 +666,23 @@ class Amplitude:
             window = tr.slice(start_time, end_time)
             window.detrend('linear')
             data = window.data
+            phase = ['P', 'S'][k]
 
             # if trace (window) is empty (no data points) or a flat line, do
             # not make a measurement
             if not bool(window) or data.max() == data.min():
-                phase = ['P', 'S'][k]
                 logging.warning(f"{phase} signal window doesn't contain any "
                                 f"data for trace {window.id}")
                 continue
 
             # Measure peak-to-peak amplitude
-            half_amp, approx_freq, p2t_time = self._peak_to_trough_amplitude(
-                window)
+            try:
+                half_amp, approx_freq, p2t_time = \
+                    self._peak_to_trough_amplitude(window)
+            except util.PeakToTroughError as e:
+                logging.warning(f"Amplitude measurement failed in {phase} "
+                                f"signal window for trace {window.id}: {e.msg}")
+                continue
 
             # Correct for filter gain at approximate frequency of
             # measured amplitude
@@ -718,6 +731,12 @@ class Amplitude:
             Approximate time of amplitude observation (halfway between peak and
             trough times.)
 
+        Raises
+        ------
+        PeakToTroughError
+            If the measurement fails, due to no peaks or troughs being found or
+            consecutive peaks or troughs being found.
+
         """
 
         prominence = self.prominence_multiplier * np.max(np.abs(trace.data))
@@ -728,7 +747,7 @@ class Amplitude:
         # peak-to-peak amplitude, and the time difference separating the peaks
         full_amp = None
         if len(peaks) == 0 or len(troughs) == 0:
-            return -1, -1, -1
+            raise util.PeakToTroughError("No peaks or troughs found!")
         elif len(peaks) == 1 and len(troughs) == 1:
             full_amp = np.abs(trace.data[peaks] - trace.data[troughs])[0]
             pos = 0
@@ -739,12 +758,18 @@ class Amplitude:
                 a, b, c, d = peaks, troughs, peaks[:-1], troughs[1:]
         elif not np.abs(len(peaks) - len(troughs)) == 1:
             # More than two peaks/troughs next to one another
-            return -1, -1, -1
+            raise util.PeakToTroughError("Consecutive peaks/troughs!")
         elif len(peaks) > len(troughs):
-            assert peaks[0] < troughs[0]
+            try:
+                assert peaks[0] < troughs[0]
+            except AssertionError:
+                raise util.PeakToTroughError("Consecutive peaks/troughs!")
             a, b, c, d = peaks[:-1], troughs, peaks[1:], troughs
         elif len(peaks) < len(troughs):
-            assert peaks[0] > troughs[0]
+            try:
+                assert peaks[0] > troughs[0]
+            except AssertionError:
+                raise util.PeakToTroughError("Consecutive peaks/troughs!")
             a, b, c, d = peaks, troughs[1:], peaks, troughs[:-1]
 
         if not full_amp:

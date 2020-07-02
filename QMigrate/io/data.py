@@ -80,7 +80,7 @@ class Archive:
         if archive_format:
             self.path_structure(archive_format)
         else:
-            self.format = kwargs.get("format", "")
+            self.format = kwargs.get("format")
 
         self.read_all_stations = kwargs.get("read_all_stations", False)
         self.response_inv = kwargs.get("response_inv")
@@ -125,6 +125,8 @@ class Archive:
             self.format = "{year}_{jday}/{station}*"
         elif archive_format == "YEAR_JD/STATION_*":
             self.format = "{year}_{jday}/{station}_*"
+        else:
+            raise util.ArchivePathStructureError(archive_format)
 
     def read_waveform_data(self, starttime, endtime, sampling_rate, pre_pad=0.,
                            post_pad=0.):
@@ -272,7 +274,7 @@ class Archive:
 
         """
 
-        if self.format is None or self.format == "":
+        if self.format is None:
             raise util.ArchiveFormatException
 
         start_day = UTCDateTime(starttime.date)

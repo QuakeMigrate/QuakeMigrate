@@ -333,7 +333,24 @@ class ArchiveFormatException(Exception):
 
     def __init__(self):
         msg = ("ArchiveFormatException: Archive format has not been set. Set "
-               "with Archive.path_structure() or Archive.format = '' ")
+               "when making the Archive object with the kwarg "
+               "'archive_format=<path_structure>', or afterwards by using the "
+               "command 'Archive.path_structure(<path_structure>)'. To set a "
+               "custom format, use 'Archive.format = "
+               "custom/archive_{year}_{jday}/{day:02d}.{station}_structure' ")
+        super().__init__(msg)
+
+
+class ArchivePathStructureError(Exception):
+    """Custom exception to handle case where an invalid Archive path structure
+    is selected."""
+
+    def __init__(self, archive_format):
+        msg = ("ArchivePathStructureError: The archive path structure you have"
+               f" selected: '{archive_format}' is not a valid option! See the "
+               "documentation for QMigrate.data.Archive.path_structure for a "
+               "complete list, or specify a custom format with Archive.format "
+               "= custom/archive_{year}_{jday}/{day:02d}.{station}_structure")
         super().__init__(msg)
 
 

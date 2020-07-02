@@ -25,8 +25,8 @@ endtime = "2009-01-21T04:00:15.0"
 stations = stations(station_file)
 
 # --- Create new Archive and set path structure ---
-archive = Archive(stations=stations, archive_path=data_in)
-archive.path_structure(archive_format="YEAR/JD/*_STATION_*")
+archive = Archive(archive_path=data_in, stations=stations,
+                  archive_format="YEAR/JD/*_STATION_*")
 
 # --- Load the LUT ---
 lut = LUT(lut_file=lut_out)

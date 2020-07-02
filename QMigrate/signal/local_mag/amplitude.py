@@ -305,13 +305,6 @@ class Amplitude:
                     amplitudes.loc[i*3+j] = amps
                     continue
 
-                # For matching Tim!!!
-                # tr.trim(starttime=tr.stats.starttime,
-                #         endtime=tr.stats.starttime+40.)
-                # tr.detrend('demean')
-                # tr.taper(type='cosine', max_percentage=0.05)
-                # tr.filter(type='highpass', freq=2)
-
                 if self.bandpass_filter or self.highpass_filter:
                     filter_sos = self._filter_trace(tr)
                 else:
@@ -329,7 +322,6 @@ class Amplitude:
                                                     method=self.noise_measure)
 
                 # Put in relevant columns; noise amp in *millimetres*
-                # amps[7:9] = noise_amp * 2000., picked
                 amps[9:11] = noise_amp, picked
 
                 # 3 rows per station; one for each component
@@ -544,19 +536,6 @@ class Amplitude:
         # Check p_pick is before s_pick
         assert p_pick < s_pick # NOTE: No catch for this
 
-        # If they are separated by less than 1 second (hmm..), use
-        # whole window from P arrival to S arrival for P, noise window
-        # starting from S arrival for S; else use 1 second after P for
-        # P, 1 second before S to noise window after S for S.
-        # if np.abs(p_pick - s_pick) < 1.:
-        #     windows = [[p_pick, s_pick], [s_pick, s_pick + noise_window]]
-        # else:
-        #     windows = [[p_pick, s_pick - 1.],
-        #                [s_pick - 1., s_pick + noise_window]]
-
-        # windows = [[p_pick-2, s_pick+5.],
-        #            [p_pick-2, s_pick+5.]]
-
         # For P:
         p_start = p_pick - event.marginal_window - p_ttimes[i] * fraction_tt
         p_end = p_pick + event.marginal_window + p_ttimes[i] * fraction_tt
@@ -687,13 +666,8 @@ class Amplitude:
 
         # Loop over windows, cut data and measure amplitude
         for k, (start_time, end_time) in enumerate(windows):
-            # Add buffer for 5% tapering
-            # t_taper = (end_time - start_time) * 0.06
-            # window = tr.slice(start_time - t_taper, end_time + t_taper)
             window = tr.slice(start_time, end_time)
-
             window.detrend('linear')
-
             data = window.data
 
             # if trace (window) is empty (no data points) or a flat line, do
@@ -758,10 +732,6 @@ class Amplitude:
             trough times.)
 
         """
-
-        # Do some pre-processing
-        # trace.detrend("linear")
-        # trace.taper(0.05)
 
         prominence = self.prominence_multiplier * np.max(np.abs(trace.data))
         peaks, _ = find_peaks(trace.data, prominence=prominence)
@@ -860,9 +830,7 @@ class Amplitude:
         p_start = windows[0][0]
 
         # Make a noise measurement in a window of length noise_window,
-        # ending 3 seconds before the P arrival.
-        # noise = tr.slice(p_pick - 3. - noise_window, p_pick - 3.)
-        # noise = tr.slice(eq_otime-18., p_pick-2.)
+        # ending at the start of the p_window
         noise_start = p_start - self.noise_window
         noise_end = p_start
 

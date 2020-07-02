@@ -268,11 +268,6 @@ class Amplitude:
             # Read in raw waveforms
             st = event.data.raw_waveforms.select(station=station)
 
-            # # merge -- method=1 means discard data from previous trace if
-            # # there are overlaps; contained traces will be discarded.
-            # # fill_value='interpolate' means linearly interpolate gaps.
-            # st.merge(method=1, fill_value="interpolate")
-
             for j, comp in enumerate(["E", "N", "Z"]): # NOTE: Will not work with 1, 2 (etc.)
                 amps = amps_template.copy()
                 tr = st.select(component=comp)
@@ -291,9 +286,6 @@ class Amplitude:
                 amps[0] = tr.id
 
                 # Do response removal
-                # Actually makes sense for the function to loop over all traces
-                # in the stream to do this, then loop over the resulting stream
-                # to measure the amplitudes?
                 try:
                     tr = event.data.get_wa_waveform(tr, self.water_level,
                         self.pre_filt,
@@ -584,8 +576,6 @@ class Amplitude:
 
         """
 
-        # eq_otime = event.otime
-
         picks = event.picks["df"]
         p_pick = picks.iloc[i*2]["PickTime"]
         s_pick = picks.iloc[i*2+1]["PickTime"]
@@ -595,10 +585,8 @@ class Amplitude:
         if p_pick == -1 and s_pick == -1:
             picked = False
         if p_pick == -1:
-            # p_picktime = eq_otime + (s_picktime - eq_otime) / vpvs
             p_pick = picks.iloc[i*2]["ModelledTime"]
         if s_pick == -1:
-            # S_picktime = eq_otime + (p_picktime - eq_otime) * vpvs
             s_pick = picks.iloc[i*2+1]["ModelledTime"]
 
         # Convert to UTCDateTime objects
@@ -672,8 +660,6 @@ class Amplitude:
 
             # if trace (window) is empty (no data points) or a flat line, do
             # not make a measurement
-            ## !! Add check that it spans the full measurement window!! - but
-            ## be careful about different sampling rates.
             if not bool(window) or data.max() == data.min():
                 phase = ['P', 'S'][k]
                 logging.warning(f"{phase} signal window doesn't contain any "
@@ -843,9 +829,6 @@ class Amplitude:
             noise_amp = np.sqrt(np.mean(np.square(noise.data))) * 1000.
         elif method == "STD":
             noise_amp = np.std(noise.data) * 1000.
-        # elif method == "MEANMAX":
-        #     noise_amp = mean_max_amplitude(noise.data, noise.stats.delta,
-        #                                    win_length)
         else:
             raise NotImplementedError("Only 'RMS' and 'STD' are available "
                                       "currently. Please contact the "

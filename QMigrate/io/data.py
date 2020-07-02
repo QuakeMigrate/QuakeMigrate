@@ -526,9 +526,8 @@ class WaveformData:
                             pre_filt=pre_filt,
                             water_level=water_level,
                             taper=True,
-                            sacsim=True, pitsasim=False, #)  # To replicate remove_response()
+                            sacsim=True, pitsasim=False,  # To replicate remove_response()
                             paz_simulate=util.wa_response())
-                # tr.simulate(paz_simulate=util.wa_response())
             except ValueError as e:
                 raise util.ResponseRemovalError(e, tr.id)
         else:

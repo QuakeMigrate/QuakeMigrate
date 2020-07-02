@@ -477,17 +477,17 @@ class PickOrderException(Exception):
         super().__init__(msg)
 
 
-class NoMagObjectError(Exception):
+class MagsTypeError(Exception):
     """
-    Custom exception to handle case when calc_magnitudes has been selected for
-    the QuakeScan run, but no magnitudes object has been provided. (e.g.
-    mags=LocalMags() )
+    Custom exception to handle case when an object has been provided to
+    calculate magnitudes during locate, but it isn't supported.
 
     """
 
     def __init__(self):
-        msg = ("NoMagObjectError: You have selected to calculate magnitudes "
-               "but have not provided a mags object - see manual.")
+        msg = ("MagsTypeError: The Mags object you have specified is not "
+               "supported: currently only `QMigrate.signal.local_mag.LocalMag`"
+               " - see manual.")
         super().__init__(msg)
 
 

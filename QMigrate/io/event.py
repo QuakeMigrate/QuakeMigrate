@@ -21,7 +21,7 @@ EVENT_FILE_COLS = ["EventID", "DT", "COA", "COA_NORM", "X", "Y", "Z",
                    "GlobalCovariance_Y", "GlobalCovariance_Z",
                    "GlobalCovariance_ErrX", "GlobalCovariance_ErrY",
                    "GlobalCovariance_ErrZ", "TRIG_COA", "DEC_COA",
-                   "DEC_COA_NORM", "ML", "ML_Err", "ML_r2"]
+                   "DEC_COA_NORM"]
 
 
 class Event:
@@ -394,7 +394,12 @@ class Event:
         for _, location in self.locations.items():
             out = {**out, **location}
 
-        self.eventfile_df = pd.DataFrame([out])[EVENT_FILE_COLS]
+        if self.localmag.get("ML") is not None:
+            event_file_cols = EVENT_FILE_COLS + ["ML", "ML_Err", "ML_r2"]
+        else:
+            event_file_cols = EVENT_FILE_COLS
+
+        self.eventfile_df = pd.DataFrame([out])[event_file_cols]
 
         fstem = f"{self.uid}"
         file = (fpath / fstem).with_suffix(".event")

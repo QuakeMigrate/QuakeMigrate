@@ -20,6 +20,7 @@ from QMigrate.io import (Event, Run, ScanmSEED, read_triggered_events,
 from QMigrate.plot.event import event_summary
 from .onset import Onset
 from .pick import GaussianPicker, PhasePicker
+from .local_mag import LocalMag
 
 # Filter warnings
 warnings.filterwarnings("ignore", message=("Covariance of the parameters could"
@@ -63,6 +64,9 @@ class QuakeScan:
     log : bool, optional
         Toggle for logging. If True, will output to stdout and generate a
         log file. Default is to only output to stdout.
+    mags : `QMigrate.signal.local_mag.LocalMag` object, optional
+        Provides methods for calculating local magnitudes, performed during
+        locate.
     marginal_window : float, optional
         Half-width of window centred on the maximum coalescence time. The
         4-D coalescence functioned is marginalised over time across this window
@@ -187,11 +191,11 @@ class QuakeScan:
         self.scan_rate = kwargs.get("scan_rate", 50)  # FUTURE
 
         # Magnitudes
-        self.calc_magnitudes = kwargs.get("calc_magnitudes", False)
-        if self.calc_magnitudes is True:
-            self.mags = kwargs.get("mags", None)
-            if not self.mags:
-                raise util.NoMagObjectError
+        mags = kwargs.get("mags")
+        if mags is not None:
+            if not isinstance(mags, LocalMag):
+                raise util.MagsTypeError
+        self.mags = mags
 
         # Plotting toggles and parameters
         self.plot_event_summary = kwargs.get("plot_event_summary", True)
@@ -300,7 +304,7 @@ class QuakeScan:
         logging.info(self)
         logging.info(self.onset)
         logging.info(self.picker)
-        if self.calc_magnitudes:
+        if self.mags is not None:
             logging.info(self.mags)
         logging.info(util.log_spacer)
 
@@ -420,7 +424,7 @@ class QuakeScan:
             logging.info("\tMaking phase picks...")
             event, _ = self.picker.pick_phases(event, self.lut, self.run)
 
-            if self.calc_magnitudes:
+            if self.mags is not None:
                 logging.info("\tCalculating magnitude...")
                 event, _ = self.mags.calc_magnitude(event, self.lut, self.run)
 
@@ -507,11 +511,11 @@ class QuakeScan:
         # Extra pre- and post-pad default to 0.
         pre_pad = post_pad = 0.
 
-        if self.pre_cut or self.calc_magnitudes:
-            if self.calc_magnitudes and self.pre_cut:
+        if self.pre_cut or self.mags is not None:
+            if self.mags is not None and self.pre_cut:
                 pre_cut = max(self.mags.amp.noise_window + self.marginal_window,
                               self.pre_cut)
-            elif self.calc_magnitudes:
+            elif self.mags is not None:
                 pre_cut = self.mags.amp.noise_window + self.marginal_window
             else:
                 pre_cut = self.pre_cut
@@ -525,12 +529,12 @@ class QuakeScan:
                 logging.info(msg)
                 pre_pad = 0.
 
-        if self.post_cut or self.calc_magnitudes:
-            if self.calc_magnitudes and self.post_cut:
+        if self.post_cut or self.mags is not None:
+            if self.mags is not None and self.post_cut:
                 post_cut = max(((1 + self.picker.fraction_tt) *
                                 self.lut.max_ttime + self.marginal_window +
                                 self.mags.amp.signal_window), self.post_cut)
-            elif self.calc_magnitudes:
+            elif self.mags is not None:
                 post_cut = ((1 + self.picker.fraction_tt) *
                             self.lut.max_ttime + self.marginal_window +
                             self.mags.amp.signal_window)

@@ -254,11 +254,11 @@ class Amplitude:
                                            "S_amp", "S_freq", "S_time",
                                            "Noise_amp", "is_picked"])
 
-        stations = lut.station_data["Name"]
         # Loop through stations, calculating amplitude info
-        for i, station in stations.iteritems():
+        for i, station_data in lut.station_data.iterrows():
+            station = station_data["Name"]
 
-            epi_dist, z_dist = self._get_distances(ev_loc, station, lut)
+            epi_dist, z_dist = self._get_distances(ev_loc, station_data, lut)
 
             # Columns: tr_id, epicentral distance, vertical distance, P_amp,
             #          P_freq, P_time, S_amp, S_freq, S_time, Noise_amp,
@@ -324,7 +324,7 @@ class Amplitude:
 
         return amplitudes
 
-    def _get_distances(self, ev_loc, station, lut):
+    def _get_distances(self, ev_loc, station_data, lut):
         """
         Get epicentral and vertical distances between a station and an event
         hypocentre.
@@ -333,8 +333,9 @@ class Amplitude:
         ----------
         ev_loc : array-like
             Event hypocentre location in geographic coordinate system.
-        station : str
-            Station name.
+        station_data : `pandas.Series` object
+            Station information - keys: ["Name", "Latitude", "Longitude",
+            "Elevation"].
         lut : `QMigrate.lut.LUT` object
             Contains the traveltime lookup tables for seismic phases, computed
             for some pre-defined velocity model.
@@ -349,10 +350,9 @@ class Amplitude:
         """
 
         # Get station location
-        station_data = lut.station_data[lut.station_data["Name"] == station]
         stla, stlo, stel = station_data[["Latitude",
                                          "Longitude",
-                                         "Elevation"]].values[0]
+                                         "Elevation"]].values
 
         # Get event location
         evlo, evla, evdp = ev_loc

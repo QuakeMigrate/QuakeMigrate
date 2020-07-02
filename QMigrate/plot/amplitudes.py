@@ -60,14 +60,7 @@ def amplitudes_summary(magnitudes, amp_feature, amp_multiplier, dist_err,
     fig : `matplotlib.pyplot.Figure` object
         Figure showing the measured amplitudes against distance from the event.
     ax : `matplotlib.axes.Axes` object
-        Axes on which to add the station labels.
-    dist_min : float
-        Minimum distance for x axis.
-    dist_max : float
-        Maximum distance for x axis
-    amps_min : float
-
-    amps_max : float
+        Figure axes.
 
     """
 

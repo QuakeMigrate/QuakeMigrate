@@ -109,7 +109,6 @@ class Amplitude:
             logging.warning(msg)
         self.signal_window = amplitude_params.get("signal_window", 0.)
 
-
         self.noise_window = amplitude_params.get("noise_window", 5.)
         self.noise_measure = amplitude_params.get("noise_measure", "RMS")
 

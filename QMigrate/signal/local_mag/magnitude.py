@@ -625,7 +625,7 @@ class Magnitude:
         magnitudes.dropna(subset=[self.amp_feature, "Noise_amp"], inplace=True)
 
         # Apply noise filter.
-        if self.noise_filter:
+        if self.noise_filter != 0.:
             amps = magnitudes[self.amp_feature].values
             noise_amps = magnitudes["Noise_amp"].values
             magnitudes["Noise_Filter"] = False
@@ -634,13 +634,13 @@ class Magnitude:
                                "Noise_Filter"] = True
 
         # Apply trace filter
-        if self.trace_filter:
+        if self.trace_filter is not None:
             magnitudes["Trace_Filter"] = False
             magnitudes.loc[magnitudes.index.str.contains(self.trace_filter),
                            "Trace_Filter"] = True
 
         # Apply station filter
-        if self.station_filter:
+        if self.station_filter is not None:
             magnitudes["Station_Filter"] = True
             for stn in list(self.station_filter):
                 magnitudes.loc[magnitudes.index.str.contains(f".{stn}.",

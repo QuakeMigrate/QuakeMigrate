@@ -480,7 +480,7 @@ class QuakeScan:
         if self.run.stage == "detect":
             del map4d
             time = data.starttime + self.pre_pad
-            return time, max_coa, max_coa_n, coord, None
+            return time, max_coa, max_coa_n, coord
         else:
             times = event.mw_times(self.sampling_rate)
             return times, max_coa, max_coa_n, coord, map4d

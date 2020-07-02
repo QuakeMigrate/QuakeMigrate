@@ -16,7 +16,6 @@ try:
 except KeyError:
     matplotlib.use("Agg")
 from matplotlib import pyplot as plt
-
 import numpy as np
 import pandas as pd
 
@@ -114,9 +113,9 @@ class Magnitude:
 
         # Parameters for mean magnitude calculation
         self.weighted_mean = magnitude_params.get("weighted_mean", False)
-        self.trace_filter = magnitude_params.get("trace_filter", None)
+        self.trace_filter = magnitude_params.get("trace_filter")
         self.noise_filter = magnitude_params.get("noise_filter", 1.)
-        self.station_filter = magnitude_params.get("station_filter", None)
+        self.station_filter = magnitude_params.get("station_filter")
         self.dist_filter = magnitude_params.get("dist_filter", False)
         self.pick_filter = magnitude_params.get("pick_filter", False)
 
@@ -131,11 +130,10 @@ class Magnitude:
             out += "\t\tUsing user-provided station corrections\n"
         out += (f"\t\tAmplitude multiplier    = {self.amp_multiplier}\n"
                 f"\t\tUse weighted mean       = {self.weighted_mean}\n")
-        if self.trace_filter:
+        if self.trace_filter is not None:
             out += f"\t\tTrace filter            = {self.trace_filter}\n"
-        if self.noise_filter:
-            out += f"\t\tNoise filter            = {self.noise_filter} x\n"
-        if self.station_filter:
+        out += f"\t\tNoise filter            = {self.noise_filter} x\n"
+        if self.station_filter is not None:
             out += f"\t\tStation filter          = {self.station_filter}\n"
         if self.dist_filter:
             out += f"\t\tDistance filter         = {self.dist_filter} km\n"
@@ -344,8 +342,8 @@ class Magnitude:
         # approximated by a normal distribution. In reality it will have a
         # negative skew, making the mean magnitude a slight underestimate.
         mean_mag = np.sum(mags*weights) / np.sum(weights)
-        mean_mag_err = np.sqrt(np.sum(((mags - mean_mag)*weights)**2) \
-            / np.sum(weights))
+        mean_mag_err = np.sqrt(np.sum(((mags - mean_mag)*weights)**2)
+                               / np.sum(weights))
 
         # Pass the *already filtered* magnitudes DataFrame to the
         # _amp_r_squared function.
@@ -625,8 +623,6 @@ class Magnitude:
 
         # Remove nan amplitude values
         magnitudes.dropna(subset=[self.amp_feature, "Noise_amp"], inplace=True)
-        # magnitudes = magnitudes.loc[~np.isnan(amps), :]
-        # magnitudes = magnitudes.[~(pd.isnull(magnitudes[self.amp_feature]))]
 
         # Apply noise filter.
         if self.noise_filter:
@@ -669,15 +665,15 @@ class Magnitude:
 
         # Identify used mags (after applying all filters)
         magnitudes["Used"] = True
-        if self.trace_filter:
+        if self.trace_filter is not None:
             magnitudes.loc[~magnitudes["Trace_Filter"], "Used"] = False
-        if self.station_filter:
+        if self.station_filter is not None:
             magnitudes.loc[~magnitudes["Station_Filter"], "Used"] = False
         if self.dist_filter:
             magnitudes.loc[~magnitudes["Dist_Filter"], "Used"] = False
         if self.pick_filter:
             magnitudes.loc[~magnitudes["is_picked"], "Used"] = False
-        if self.noise_filter:
+        if self.noise_filter != 0.:
             magnitudes.loc[~magnitudes["Noise_Filter"], "Used"] = False
 
         used_mags = magnitudes[magnitudes["Used"]]

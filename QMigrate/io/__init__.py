@@ -17,7 +17,7 @@ from .amplitudes import write_amplitudes  # NOQA
 from .availability import read_availability, write_availability  # NOQA
 from .cut_waveforms import write_cut_waveforms  # NOQA
 from .data import Archive  # NOQA
-from .event import Event # NOQA
+from .event import Event  # NOQA
 from .core import stations, read_response_inv, read_vmodel, Run  # NOQA
 from .scanmseed import ScanmSEED, read_scanmseed  # NOQA
 from .triggered_events import (read_triggered_events,  # NOQA

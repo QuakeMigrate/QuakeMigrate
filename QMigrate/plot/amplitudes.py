@@ -69,8 +69,8 @@ def amplitudes_summary(magnitudes, amp_feature, amp_multiplier, dist_err,
 
     amps_max : float
 
-
     """
+
     # Initiate figure
     fig = plt.figure(figsize=(25, 15))
     ax = fig.add_subplot(111)

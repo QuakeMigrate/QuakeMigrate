@@ -186,9 +186,9 @@ def wa_response(convert='DIS2DIS', obspy_def=True):
 
     Parameters
     ----------
-    convert : str, optional
+    convert : {'DIS2DIS', 'VEL2VEL', ‘VEL2DIS'}
         Type of output to convert between; determines the number of complex
-        zeros used. Options are: 'DIS2DIS', 'VEL2VEL', 'VEL2DIS'
+        zeros used.
     obspy_def : bool, optional
         Use the ObsPy definition of the Wood Anderson response (Default).
         Otherwise, use the IRIS/SAC definition.

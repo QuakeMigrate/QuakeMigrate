@@ -424,11 +424,7 @@ class Event:
 
         return ev_loc
 
-    @property
-    def hypocentre(self):
-        """Get the hypocentral location based on the peak coalescence."""
-        hypocentre = self.locations["spline"]
-        return np.array([hypocentre["X"], hypocentre["Y"], hypocentre["Z"]])
+    hypocentre = property(get_hypocentre)
 
     @property
     def max_coalescence(self):

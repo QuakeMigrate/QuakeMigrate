@@ -198,7 +198,7 @@ class Run:
 
     @property
     def name(self):
-        """Returns the run name as a formatted string"""
+        """Get the run name as a formatted string."""
         if self.subname == "":
             return self._name
         else:

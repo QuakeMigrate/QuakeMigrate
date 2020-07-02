@@ -6,12 +6,11 @@ Module containing methods to generate event summaries and videos.
 
 import logging
 
+import numpy as np
 from obspy import UTCDateTime
 from obspy.geodetics.base import gps2dist_azimuth
-from scipy.signal import find_peaks, iirfilter, sosfreqz
-
-import numpy as np
 import pandas as pd
+from scipy.signal import find_peaks, iirfilter, sosfreqz
 
 import QMigrate.util as util
 
@@ -106,10 +105,10 @@ class Amplitude:
 
         # Amplitude measurement parameters
         if "signal_window" not in amplitude_params.keys():
-            msg = ('"signal_window" not specified. Set to default.')
+            msg = ("Warning: 'signal_window' not specified. Set to default: 0")
             logging.warning(msg)
-        else:
-            self.signal_window = amplitude_params.get("signal_window", 0.)
+        self.signal_window = amplitude_params.get("signal_window", 0.)
+
 
         self.noise_window = amplitude_params.get("noise_window", 5.)
         self.noise_measure = amplitude_params.get("noise_measure", "RMS")
@@ -133,7 +132,7 @@ class Amplitude:
                 self.bandpass_lowcut = amplitude_params.get("bandpass_lowcut")
                 self.bandpass_highcut = amplitude_params.get("bandpass_highcut")
             except KeyError as e:
-                msg = 'Bandpass filter frequencies not specified! {}'.format(e)
+                msg = f"Bandpass filter frequencies not specified! {e}"
                 raise AttributeError(msg)
         self.filter_corners = amplitude_params.get("filter_corners", 4)
 
@@ -147,8 +146,7 @@ class Amplitude:
             msg = ("Warning: 'water level' for instrument correction not "
                    "specified. Set to default: 60")
             logging.warning(msg)
-        else:
-            self.water_level = amplitude_params.get("water_level", 60.)
+        self.water_level = amplitude_params.get("water_level", 60.)
         self.pre_filt = amplitude_params.get("pre_filt")
         self.remove_full_response = \
             amplitude_params.get("remove_full_response", False)
@@ -175,7 +173,7 @@ class Amplitude:
                     f"\t\t    Filter corners    = {self.filter_corners}\n")
         out += ("\t    Response removal parameters:\n"
                 f"\t\tWater level  = {self.water_level}\n")
-        if self.pre_filt:
+        if self.pre_filt is not None:
             out += f"\t\tPre-filter   = {self.pre_filt} Hz\n"
         out += ("\t\tRemove full response (inc. FIR stages) = "
                 f"{self.remove_full_response}\n")
@@ -287,7 +285,7 @@ class Amplitude:
                     and tr[0].stats.endtime > (tr_end - tr[0].stats.delta):
                     tr = tr[0]
                 else:
-                    amps[0] = ".{}..{}".format(station, comp)
+                    amps[0] = f".{station}..{comp}"
                     amplitudes.loc[i*3+j] = amps
                     continue
 
@@ -419,7 +417,7 @@ class Amplitude:
         Parameters
         ----------
         tr : `obspy.Trace` object
-            Trace to be filtered
+            Trace to be filtered.
 
         Returns
         -------
@@ -467,7 +465,7 @@ class Amplitude:
         Parameters
         ----------
         tr : `obspy.Trace` object
-            Trace to be filtered
+            Trace to be filtered.
 
         Returns
         -------

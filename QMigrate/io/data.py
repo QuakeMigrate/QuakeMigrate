@@ -33,7 +33,7 @@ class Archive:
     stations : `pandas.DataFrame` object
         Station information.
         Columns ["Latitude", "Longitude", "Elevation", "Name"]
-    arcive_format : str, optional
+    archive_format : str, optional
         Sets path type for different archive formats.
     kwargs : **dict
         See Archive Attributes for details.
@@ -304,10 +304,10 @@ class Archive:
 
 class WaveformData:
     """
-    The WaveformData class encapsulates the waveforn data be returned from an
+    The WaveformData class encapsulates the waveform data returned by an`
     Archive query.
     
-    This includes the signal data which has been pre-processed to a unified
+    This includes the waveform data which has been pre-processed to a unified
     sampling rate, and checked for gaps, ready for use to calculate onset
     functions.
 

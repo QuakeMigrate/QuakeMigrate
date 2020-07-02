@@ -8,7 +8,7 @@
  *
  *        Created:  15/05/2020
  *       Revision:  none
- *       Compiler:  gcc
+ *       Compiler:  gcc/clang
  *
  *         Author:  QuakeMigrate developers.
  *   Organization:  QuakeMigrate
@@ -68,7 +68,9 @@ migrate(double *sigPt, int32_t *indPt, double *mapPt, int32_t fSamp,
     int32_t station, t, *ttpPt, ttp;
     int64_t cell;
 
-    #pragma omp parallel for num_threads(threads)
+    #pragma omp parallel for \
+    private(eStkPt, station, stkPt, stnPt, t, ttp, ttpPt) \
+    num_threads(threads)
     for (cell=0; cell<nCells; cell++) {
         stkPt = &mapPt[cell * (int64_t) nSamps];
         eStkPt = &mapPt[cell * (int64_t) nSamps];
@@ -107,11 +109,13 @@ find_max_coa(double *mapPt, double *snrPt, double *nsnrPt, int64_t *indPt,
       nCells: Total number of cells in the 3-D grid.
       threads: Number of threads with which to scan.
     */
-    double  maxVal, curVal, sumVal;
+    double  curVal, maxVal, sumVal;
     int32_t t;
     int64_t cell, idx;
 
-    #pragma omp parallel for num_threads(threads)
+    #pragma omp parallel for \
+    private(cell, curVal, idx, maxVal, sumVal) \
+    num_threads(threads)
     for (t=0; t<nSamps; t++) {
         maxVal = mapPt[t];
         idx = 0;

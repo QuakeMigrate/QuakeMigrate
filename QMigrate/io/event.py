@@ -59,7 +59,7 @@ class Event:
     coa_time : `obspy.UTCDateTime` object
         The peak coalescence time of the triggered event from the (decimated)
         coalescence output by detect.
-    df : `pandas.DataFrame` object
+    eventfile_df : `pandas.DataFrame` object
         Collects all the information together for an event to be written out to
         a .event file.
     hypocentre : `numpy.ndarray` of floats
@@ -124,10 +124,6 @@ class Event:
 
     """
 
-    coa_data = None
-    df = None
-    map4d = None
-
     def __init__(self, triggered_event, marginal_window):
         """Instantiate the Event object."""
 
@@ -146,7 +142,10 @@ class Event:
                                  "DEC_COA_NORM": np.nan}
 
         self.data = None
+        self.coa_data = None
+        self.map4d = None
         self.locations = {}
+        self.eventfile_df = None
         self.picks = {}
         self.localmag = {}
 
@@ -395,11 +394,11 @@ class Event:
         for _, location in self.locations.items():
             out = {**out, **location}
 
-        self.df = pd.DataFrame([out])[EVENT_FILE_COLS]
+        self.eventfile_df = pd.DataFrame([out])[EVENT_FILE_COLS]
 
         fstem = f"{self.uid}"
         file = (fpath / fstem).with_suffix(".event")
-        self.df.to_csv(file, index=False)
+        self.eventfile_df.to_csv(file, index=False)
 
     def get_hypocentre(self, method="spline"):
         """

@@ -93,7 +93,7 @@ mags.plot_amplitudes = True
 
 # --- Create new QuakeScan ---
 scan = QuakeScan(archive, lut, onset=onset, picker=picker, run_path=run_path,
-                 run_name=run_name, log=True, calc_magnitudes=True, mags=mags)
+                 run_name=run_name, log=True, mags=mags)
 
 # --- Set locate parameters ---
 # For a complete list of parameters and guidance on how to choose them, please

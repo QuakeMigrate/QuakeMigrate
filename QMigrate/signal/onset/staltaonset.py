@@ -10,6 +10,7 @@ from obspy.signal.invsim import cosine_taper
 from obspy.signal.trigger import classic_sta_lta
 from scipy.signal import butter, lfilter, detrend
 
+import QMigrate.util as util
 from .onset import Onset
 
 
@@ -146,11 +147,20 @@ def pre_process(sig, sampling_rate, lc, hc, order=2):
     fsig : array-like
         Filtered seismic data.
 
+    Raises
+    ------
+    NyquistException
+        If the high-cut filter specified for the bandpass filter is higher than
+        the Nyquist frequency of the `Waveform.signal` data.
+
     """
 
     # Construct butterworth band-pass filter
-    b1, a1 = butter(order, [2.0 * lc / sampling_rate,
-                            2.0 * hc / sampling_rate], btype="band")
+    try:
+        b1, a1 = butter(order, [2.0 * lc / sampling_rate,
+                                2.0 * hc / sampling_rate], btype="band")
+    except ValueError:
+        raise util.NyquistException(hc, 0.5 * sampling_rate, "")
 
     # Construct cosine taper
     tap = cosine_taper(len(sig[0, :]), 0.1)

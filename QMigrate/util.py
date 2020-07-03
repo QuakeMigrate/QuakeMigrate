@@ -548,8 +548,8 @@ class NyquistException(Exception):
 
     def __init__(self, freqmax, f_nyquist, tr_id):
         msg = (f"    NyquistException: Selected bandpass_highcut {freqmax} "
-               f"Hz is at or above the Nyquist frequency ({f_nyquist} Hz)"
-               f"\n\t\tfor trace {tr_id}. ")
+               f"Hz is at or above the Nyquist frequency ({f_nyquist} Hz) "
+               f"for trace {tr_id}. ")
         super().__init__(msg)
 
 

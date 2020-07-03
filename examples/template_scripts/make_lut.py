@@ -8,7 +8,7 @@ For more details, please see the manual and read the docs.
 
 from pyproj import Proj
 
-from QMigrate.io import stations, read_vmodel
+from QMigrate.io import read_stations, read_vmodel
 from QMigrate.lut import compute, LUT, read_nlloc
 
 # --- i/o paths ---
@@ -17,7 +17,7 @@ station_file = "/path/to/station_file"
 vmodel_file = "/path/to/vmodel_file"
 
 # --- Read in the stations and velocity model files ---
-stations = stations(station_file)
+stations = read_stations(station_file)
 vmod = read_vmodel(vmodel_file)
 
 # --- Define projections ---

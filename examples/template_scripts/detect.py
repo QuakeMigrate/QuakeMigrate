@@ -6,7 +6,7 @@ For more details, please see the manual and read the docs.
 
 """
 
-from QMigrate.io import Archive, stations
+from QMigrate.io import Archive, read_stations
 from QMigrate.lut import LUT
 from QMigrate.signal import QuakeScan
 from QMigrate.signal.onset import STALTAOnset
@@ -24,7 +24,7 @@ starttime = "2018-001T00:00:00.0"
 endtime = "2018-002T00:00:00.0"
 
 # --- Read in station file ---
-stations = stations(station_file)
+stations = read_stations(station_file)
 
 # --- Create new Archive and set path structure ---
 archive = Archive(archive_path=archive_path, stations=stations,

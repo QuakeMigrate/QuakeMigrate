@@ -3,14 +3,15 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - ffmpeg
   - ipython
   - jupyter
+  - matplotlib
+  - numpy
   - obspy
   - pandas
   - pip
   - python
   - pyproj
+  - scipy
   - pip:
     - scikit-fmm==2019.1.30
-

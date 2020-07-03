@@ -6,7 +6,7 @@ Creation of LUT for the Rutford icequake example.
 
 from pyproj import Proj
 
-from QMigrate.io import stations
+from QMigrate.io import read_stations
 from QMigrate.lut import compute, LUT
 
 station_file = "./inputs/rutford_stations.txt"
@@ -16,7 +16,7 @@ out_path = "./outputs/runs"
 run_name = "icequake_example"
 
 # --- Read in the station information file ---
-stations = stations(station_file)
+stations = read_stations(station_file)
 
 # --- Define projections ---
 cproj = Proj(proj="longlat", ellps="WGS84", datum="WGS84", no_defs=True)

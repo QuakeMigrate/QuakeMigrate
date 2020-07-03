@@ -14,6 +14,15 @@ import QMigrate.util as util
 
 
 def stations(station_file, delimiter=","):
+    """Alias for read_stations."""
+    print("FutureWarning: function name has changed - continuing.")
+    print("To remove this message, change:")
+    print("\t'stations' -> 'read_stations'")
+
+    return read_stations(station_file, delimiter)
+
+
+def read_stations(station_file, delimiter=","):
     """
     Reads station information from file.
 
@@ -168,6 +177,13 @@ class Run:
 
     def __init__(self, path, name, subname="", stage=None):
         """Instantiate the Run object."""
+
+        if "." in name or "." in subname:
+            print("Warning: The character '.' is not allowed in run"
+                  "names/subnames - replacing with '_'.")
+            name = name.replace(".", "_")
+            subname = subname.replace(".", "_")
+
         self.path = pathlib.Path(path) / name
         self._name = name
         self.stage = stage

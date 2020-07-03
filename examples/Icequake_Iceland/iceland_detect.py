@@ -4,7 +4,7 @@ Detect stage for the Iceland icequake example.
 
 """
 
-from QMigrate.io import Archive, stations
+from QMigrate.io import Archive, read_stations
 from QMigrate.lut import LUT
 from QMigrate.signal import QuakeScan
 from QMigrate.signal.onset import STALTAOnset
@@ -21,7 +21,7 @@ starttime = "2014-06-29T18:41:55.0"
 endtime = "2014-06-29T18:42:20.0"
 
 # --- Read in station file ---
-stations = stations(station_file)
+stations = read_stations(station_file)
 
 # --- Create new Archive and set path structure ---
 archive = Archive(archive_path=data_in, stations=stations,

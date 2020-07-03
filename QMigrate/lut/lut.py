@@ -35,7 +35,7 @@ class Grid3D(object):
     ll_corner : array-like, [float, float, float]
         Location of the lower-left corner of the grid in the grid
         projection. Should also contain the minimum depth in the grid.
-    ur_corner : array-like ,[float, float, float]
+    ur_corner : array-like, [float, float, float]
         Location of the upper-right corner of the grid in the grid
         projection. Should also contain the maximum depth in the grid.
     cell_size : array-like, [float, float, float]

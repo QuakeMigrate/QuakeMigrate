@@ -7,11 +7,11 @@ dependencies:
   - jupyter
   - matplotlib
   - numpy
-  - obspy
-  - pandas
+  - obspy >=1.2
+  - pandas >=1
   - pip
-  - python
-  - pyproj
+  - python >=3.6
+  - pyproj >=2.5
   - scipy
   - pip:
     - scikit-fmm==2019.1.30

@@ -13,13 +13,14 @@ import pandas as pd
 from scipy.interpolate import Rbf
 from scipy.signal import fftconvolve
 
+import QMigrate.util as util
 from QMigrate.core import find_max_coa, migrate
 from QMigrate.io import (Event, Run, ScanmSEED, read_triggered_events,
                          write_availability, write_cut_waveforms)
+from QMigrate.plot.event import event_summary
 from .onset import Onset
 from .pick import GaussianPicker, PhasePicker
-from QMigrate.plot.event import event_summary
-import QMigrate.util as util
+from .local_mag import LocalMag
 
 # Filter warnings
 warnings.filterwarnings("ignore", message=("Covariance of the parameters could"
@@ -35,7 +36,7 @@ class QuakeScan:
 
     Parameters
     ----------
-    data : `QMigrate.io.Archive` object
+    archive : `QMigrate.io.Archive` object
         Details the structure and location of a data archive and provides
         methods for reading data from file.
     lut : `QMigrate.lut.LUT` object
@@ -63,6 +64,9 @@ class QuakeScan:
     log : bool, optional
         Toggle for logging. If True, will output to stdout and generate a
         log file. Default is to only output to stdout.
+    mags : `QMigrate.signal.local_mag.LocalMag` object, optional
+        Provides methods for calculating local magnitudes, performed during
+        locate.
     marginal_window : float, optional
         Half-width of window centred on the maximum coalescence time. The
         4-D coalescence functioned is marginalised over time across this window
@@ -140,6 +144,9 @@ class QuakeScan:
         If the user does not supply the locate function with valid arguments.
     TimeSpanException
         If the user supplies a starttime that is after the endtime.
+    NoMagObjectError
+        If the user selects to calculate magnitudes but does not provide a
+        `QMigrate.signal.local_mag.LocalMag` object.
 
     """
 
@@ -153,6 +160,9 @@ class QuakeScan:
         else:
             raise util.OnsetTypeError
         self.onset.post_pad = lut.max_ttime
+
+        self.pre_pad = 0.
+        self.post_pad = 0.
 
         # --- Set up i/o ---
         self.run = Run(run_path, run_name, kwargs.get("run_subname", ""))
@@ -180,13 +190,21 @@ class QuakeScan:
         self.sampling_rate = kwargs.get("sampling_rate", 50)
         self.scan_rate = kwargs.get("scan_rate", 50)  # FUTURE
 
+        # Magnitudes
+        mags = kwargs.get("mags")
+        if mags is not None:
+            if not isinstance(mags, LocalMag):
+                raise util.MagsTypeError
+        self.mags = mags
+
         # Plotting toggles and parameters
         self.plot_event_summary = kwargs.get("plot_event_summary", True)
         self.plot_event_video = kwargs.get("plot_event_video", False)
         self.xy_files = kwargs.get("xy_files")
 
         # File writing toggles
-        self.continuous_scanmseed_write = kwargs.get("continuous_scanmseed_write", False)
+        self.continuous_scanmseed_write = kwargs.get(
+            "continuous_scanmseed_write", False)
         self.write_cut_waveforms = kwargs.get("write_cut_waveforms", False)
         self.cut_waveform_format = kwargs.get("cut_waveform_format", "MSEED")
 
@@ -200,14 +218,13 @@ class QuakeScan:
 
         out = ("\tScan parameters:\n"
                f"\t\tData sampling rate = {self.sampling_rate} Hz\n"
-               f"\t\tThread count = {self.threads}\n")
+               f"\t\tThread count       = {self.threads}\n")
         if self.run.stage == "detect":
-            out += f"\t\tTime step = {self.timestep} s\n"
+            out += f"\t\tTime step          = {self.timestep} s\n"
         elif self.run.stage == "locate":
-            out += f"\t\tMarginal window = {self.marginal_window} s\n"
+            out += f"\t\tMarginal window    = {self.marginal_window} s\n"
 
         return out
-                
 
     def detect(self, starttime, endtime):
         """
@@ -287,6 +304,8 @@ class QuakeScan:
         logging.info(self)
         logging.info(self.onset)
         logging.info(self.picker)
+        if self.mags is not None:
+            logging.info(self.mags)
         logging.info(util.log_spacer)
 
         if trigger_file is not None:
@@ -327,14 +346,17 @@ class QuakeScan:
             logging.info("~"*20 + f" Processing : {w_beg}-{w_end} " + "~"*20)
 
             try:
-                data = self.archive.read_waveform_data(w_beg, w_end)
+                data = self.archive.read_waveform_data(w_beg, w_end,
+                                                       self.sampling_rate)
                 coalescence.append(*self._compute(data))
+                availability.loc[i] = data.availability
             except util.ArchiveEmptyException as e:
                 coalescence.empty(starttime, self.timestep, i, e.msg)
+                availability.loc[i] = np.zeros(len(self.archive.stations))
             except util.DataGapException as e:
                 coalescence.empty(starttime, self.timestep, i, e.msg)
+                availability.loc[i] = np.zeros(len(self.archive.stations))
 
-            availability.loc[i] = self.archive.availability
             availability.rename(index={i: str(starttime + self.timestep*i)},
                                 inplace=True)
 
@@ -368,7 +390,7 @@ class QuakeScan:
         self.pre_pad, self.post_pad = pre_pad, post_pad
 
         for i, triggered_event in triggered_events.iterrows():
-            event = Event(triggered_event)
+            event = Event(triggered_event, self.marginal_window)
             w_beg = event.coa_time - 2*self.marginal_window - self.pre_pad
             w_end = event.coa_time + 2*self.marginal_window + self.post_pad
             logging.info(util.log_spacer)
@@ -378,9 +400,10 @@ class QuakeScan:
 
             try:
                 logging.info("\tReading waveform data...")
-                event.data = self._read_event_waveform_data(w_beg, w_end)
+                event.add_waveform_data(self._read_event_waveform_data(w_beg,
+                                                                       w_end))
                 logging.info("\tComputing 4-D coalescence function...")
-                event.add_coalescence(*self._compute(event.data, event))
+                event.add_coalescence(*self._compute(event.data, event))  # pylint: disable=E1120
             except util.ArchiveEmptyException as e:
                 logging.info(e.msg)
                 continue
@@ -389,8 +412,8 @@ class QuakeScan:
                 continue
 
             # --- Trim coalescence map to marginal window ---
-            if event.in_marginal_window(self.marginal_window):
-                event.trim2window(self.marginal_window)
+            if event.in_marginal_window():
+                event.trim2window()
             else:
                 del event
                 continue
@@ -399,7 +422,11 @@ class QuakeScan:
             marginalised_coalescence = self._calculate_location(event)
 
             logging.info("\tMaking phase picks...")
-            self.picker.pick_phases(event, self.lut, self.run)
+            event, _ = self.picker.pick_phases(event, self.lut, self.run)
+
+            if self.mags is not None:
+                logging.info("\tCalculating magnitude...")
+                event, _ = self.mags.calc_magnitude(event, self.lut, self.run)
 
             event.write(self.run)
 
@@ -423,7 +450,7 @@ class QuakeScan:
 
         Parameters
         ----------
-        data : `QMigrate.io.data.SignalData` object
+        data : `QMigrate.io.data.WaveformData` object
             Light class encapsulating data returned by an archive query.
 
         Returns
@@ -447,7 +474,7 @@ class QuakeScan:
         ttimes = self.lut.ttimes(self.sampling_rate)
         fsmp = util.time2sample(self.pre_pad, self.sampling_rate)
         lsmp = util.time2sample(self.post_pad, self.sampling_rate)
-        avail = np.sum(self.archive.availability)*2
+        avail = np.sum(data.availability)*2
         map4d = migrate(onsets, ttimes, fsmp, lsmp, avail, self.threads)
 
         # --- Find continuous peak coalescence in 3-D volume ---
@@ -459,7 +486,7 @@ class QuakeScan:
             time = data.starttime + self.pre_pad
             return time, max_coa, max_coa_n, coord
         else:
-            times = event.mw_times(self.marginal_window, self.sampling_rate)
+            times = event.mw_times(self.sampling_rate)
             return times, max_coa, max_coa_n, coord, map4d
 
     @util.timeit
@@ -476,36 +503,56 @@ class QuakeScan:
 
         Returns
         -------
-        data : `QMigrate.io.data.SignalData` object
+        data : `QMigrate.io.data.WaveformData` object
             Light class encapsulating data returned by an archive query.
 
         """
 
         # Extra pre- and post-pad default to 0.
         pre_pad = post_pad = 0.
-        if self.pre_cut:
+
+        if self.pre_cut or self.mags is not None:
+            if self.mags is not None and self.pre_cut:
+                pre_cut = max(self.mags.amp.noise_window + self.marginal_window,
+                              self.pre_cut)
+            elif self.mags is not None:
+                pre_cut = self.mags.amp.noise_window + self.marginal_window
+            else:
+                pre_cut = self.pre_cut
             # only subtract 1*marginal_window so if the event otime moves by
             # this much the selected pre_cut can still be applied
-            pre_pad = self.pre_cut - self.marginal_window - self.pre_pad
-            if pre_pad < 0:
+            pre_pad = pre_cut - self.marginal_window - self.pre_pad
+            if pre_pad < 0 and self.pre_cut:
                 msg = (f"\t\tWarning: specified pre_cut {self.pre_cut} is"
                        "shorter than default pre_pad\n"
                        f"\t\t\tCutting from pre_pad = {self.pre_pad}")
                 logging.info(msg)
                 pre_pad = 0.
 
-        if self.post_cut:
+        if self.post_cut or self.mags is not None:
+            if self.mags is not None and self.post_cut:
+                post_cut = max(((1 + self.picker.fraction_tt) *
+                                self.lut.max_ttime + self.marginal_window +
+                                self.mags.amp.signal_window), self.post_cut)
+            elif self.mags is not None:
+                post_cut = ((1 + self.picker.fraction_tt) *
+                            self.lut.max_ttime + self.marginal_window +
+                            self.mags.amp.signal_window)
+            else:
+                post_cut = self.post_cut
             # only subtract 1*marginal_window so if the event otime moves by
             # this much the selected post_cut can still be applied
-            post_pad = self.post_cut - self.marginal_window - self.post_pad
-            if post_pad < 0:
+            post_pad = post_cut - self.marginal_window - self.post_pad
+            if post_pad < 0 and self.post_cut:
                 msg = (f"\t\tWarning: specified post_cut {self.post_cut} is"
                        " shorter than default post_pad\n"
                        f"t\t\tCutting to post_pad = {self.post_pad}")
                 logging.info(msg)
                 post_pad = 0.
 
-        return self.archive.read_waveform_data(w_beg, w_end, pre_pad, post_pad)
+        return self.archive.read_waveform_data(w_beg, w_end,
+                                               self.sampling_rate, pre_pad,
+                                               post_pad)
 
     @util.timeit
     def _calculate_location(self, event):
@@ -740,7 +787,7 @@ class QuakeScan:
         return location, uncertainty
 
     @util.timeit
-    def _covfit3d(self, coa_map, thresh=0.88, win=None):
+    def _covfit3d(self, coa_map, thresh=0.90, win=None):
         """
         Calculate the 3-D covariance of the marginalised coalescence map,
         filtered above a percentile threshold `thresh`. Optionally can also

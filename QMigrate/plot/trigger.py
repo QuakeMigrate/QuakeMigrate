@@ -105,7 +105,7 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
         axes[2].step(times, available, c="green", where="post")
         axes[2].set_ylim([0, max(available) + 1])
     except util.NoStationAvailabilityDataException as e:
-        logging.info(e.msg)
+        logging.info(e)
 
     if events is not None:
         for i, event in events.iterrows():
@@ -184,7 +184,7 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
     if savefig:
         fpath = run.path / "trigger" / run.subname / "summaries"
         fpath.mkdir(exist_ok=True, parents=True)
-        fstem = f"{run.name}_Trigger"
+        fstem = f"{run.name}_{starttime.year}_{starttime.julday:03d}_Trigger"
         file = (fpath / fstem).with_suffix(".pdf")
         plt.savefig(str(file))
     else:

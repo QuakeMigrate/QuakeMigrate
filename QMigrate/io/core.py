@@ -8,11 +8,21 @@ import logging
 import pathlib
 
 import pandas as pd
+from obspy import read_inventory
 
 import QMigrate.util as util
 
 
 def stations(station_file, delimiter=","):
+    """Alias for read_stations."""
+    print("FutureWarning: function name has changed - continuing.")
+    print("To remove this message, change:")
+    print("\t'stations' -> 'read_stations'")
+
+    return read_stations(station_file, delimiter)
+
+
+def read_stations(station_file, delimiter=","):
     """
     Reads station information from file.
 
@@ -49,6 +59,50 @@ def stations(station_file, delimiter=","):
     stn_data = stn_data.astype({"Name": "str"})
 
     return stn_data
+
+
+def read_response_inv(response_file, sac_pz_format=False):
+    """
+    Reads response information from file, returning it as a `obspy.Inventory`
+    object.
+
+    Parameters
+    ----------
+    response_file : str
+        Path to response file.
+        Please see the `obspy.read_inventory()` documentation for a full list
+        of supported file formats. This includes a dataless.seed volume, a
+        concatenated series of RESP files or a stationXML file.
+    sac_pz_format : bool, optional
+        Toggle to indicate that response information is being provided in SAC
+        Pole-Zero files. NOTE: not yet supported.
+
+    Returns
+    -------
+    response_inv : `obspy.Inventory` object
+        ObsPy response inventory.
+
+    Raises
+    ------
+    NotImplementedError
+        If the user selects sac_pz_format.
+    TypeError
+        If the user provides a response file that is not readable by ObsPy.
+
+    """
+
+    if sac_pz_format:
+        raise NotImplementedError("SAC_PZ is not yet supported. Please contact "
+                                  "the QuakeMigrate developers.")
+    else:
+        try:
+            response_inv = read_inventory(response_file)
+        except TypeError as e:
+            msg = (f"Response file not readable by ObsPy: {e}\n"
+                   "Please consult the ObsPy documentation.")
+            raise TypeError(msg)
+
+    return response_inv
 
 
 def read_vmodel(vmodel_file, delimiter=","):
@@ -123,6 +177,13 @@ class Run:
 
     def __init__(self, path, name, subname="", stage=None):
         """Instantiate the Run object."""
+
+        if "." in name or "." in subname:
+            print("Warning: The character '.' is not allowed in run"
+                  "names/subnames - replacing with '_'.")
+            name = name.replace(".", "_")
+            subname = subname.replace(".", "_")
+
         self.path = pathlib.Path(path) / name
         self._name = name
         self.stage = stage
@@ -153,6 +214,7 @@ class Run:
 
     @property
     def name(self):
+        """Get the run name as a formatted string."""
         if self.subname == "":
             return self._name
         else:

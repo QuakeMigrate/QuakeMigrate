@@ -403,7 +403,7 @@ class QuakeScan:
                 event.add_waveform_data(self._read_event_waveform_data(w_beg,
                                                                        w_end))
                 logging.info("\tComputing 4-D coalescence function...")
-                event.add_coalescence(*self._compute(event.data, event))
+                event.add_coalescence(*self._compute(event.data, event))  # pylint: disable=E1120
             except util.ArchiveEmptyException as e:
                 logging.info(e.msg)
                 continue

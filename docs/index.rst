@@ -45,4 +45,3 @@ Contents:
    installation
    tutorials
    sourcecode
-   references

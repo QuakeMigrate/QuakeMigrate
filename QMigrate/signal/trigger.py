@@ -75,8 +75,8 @@ def chunks2trace(a, new_shape):
     return b
 
 
-EVENT_FILE_COLS = ["EventNum", "CoaTime", "COA_V", "COA_X", "COA_Y", "COA_Z",
-                   "MinTime", "MaxTime", "COA", "COA_NORM"]
+TRIGGER_FILE_COLS = ["EventNum", "CoaTime", "COA_V", "COA_X", "COA_Y", "COA_Z",
+                     "MinTime", "MaxTime", "COA", "COA_NORM"]
 
 
 class Trigger:
@@ -233,7 +233,7 @@ class Trigger:
         logging.info(util.log_spacer)
 
         batchstart = starttime
-        while batchstart <= endtime:
+        while batchstart < endtime:
             next_day = UTCDateTime(batchstart.date) + 86400
             batchend = next_day if next_day <= endtime else endtime
             self._trigger_batch(batchstart, batchend, region, savefig)
@@ -363,7 +363,7 @@ class Trigger:
         r = np.arange(len(thresholded))
         candidates = [d for _, d in thresholded.groupby(thresholded.index - r)]
 
-        triggers = pd.DataFrame(columns=EVENT_FILE_COLS)
+        triggers = pd.DataFrame(columns=TRIGGER_FILE_COLS)
         for i, candidate in enumerate(candidates):
             peak = candidate.loc[candidate["COA"].idxmax()]
 
@@ -384,7 +384,7 @@ class Trigger:
             trigger = pd.Series([i, peak["DT"], peak[trigger_on],
                                  peak["X"], peak["Y"], peak["Z"],
                                  min_dt, max_dt, peak["COA"], peak["COA_N"]],
-                                index=EVENT_FILE_COLS)
+                                index=TRIGGER_FILE_COLS)
 
             triggers = triggers.append(trigger, ignore_index=True)
 
@@ -427,7 +427,7 @@ class Trigger:
             candidate_events["EventNum"])]
 
         # Update the min/max window times and build final event DataFrame
-        refined_events = pd.DataFrame(columns=EVENT_FILE_COLS)
+        refined_events = pd.DataFrame(columns=TRIGGER_FILE_COLS)
         for i, candidate in enumerate(merged_candidates):
             logging.info(f"\t    Triggered event {i+1} of "
                          f"{len(merged_candidates)}")
@@ -466,16 +466,16 @@ class Trigger:
         """
 
         # Remove events which occur in the pre-pad and post-pad:
-        events = events[(events["CoaTime"] >= starttime) &
-                        (events["CoaTime"] < endtime)]
+        events = events.loc[(events["CoaTime"] >= starttime) &
+                            (events["CoaTime"] < endtime), :].copy()
 
         if region is not None:
-            events = events[(events["COA_X"] >= region[0]) &
-                            (events["COA_Y"] >= region[1]) &
-                            (events["COA_Z"] >= region[2]) &
-                            (events["COA_X"] <= region[3]) &
-                            (events["COA_Y"] <= region[4]) &
-                            (events["COA_Z"] <= region[5])]
+            events = events.loc[(events["COA_X"] >= region[0]) &
+                                (events["COA_Y"] >= region[1]) &
+                                (events["COA_Z"] >= region[2]) &
+                                (events["COA_X"] <= region[3]) &
+                                (events["COA_Y"] <= region[4]) &
+                                (events["COA_Z"] <= region[5]), :].copy()
 
         # Reset EventNum column and add a unique identifier
         events.loc[:, "EventNum"] = np.arange(len(events)) + 1

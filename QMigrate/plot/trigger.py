@@ -105,7 +105,7 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
         axes[2].step(times, available, c="green", where="post")
         axes[2].set_ylim([0, max(available) + 1])
     except util.NoStationAvailabilityDataException as e:
-        logging.info(e.msg)
+        logging.info(e)
 
     if events is not None:
         for i, event in events.iterrows():

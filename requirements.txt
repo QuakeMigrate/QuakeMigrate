@@ -1,0 +1,7 @@
+matplotlib
+numpy
+obspy>=1.2
+pandas>=1
+pyproj>=2.5
+scipy
+scikit-fmm==2019.1.30

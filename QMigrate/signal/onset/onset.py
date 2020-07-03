@@ -8,6 +8,10 @@ of the package.
 
 from abc import ABC, abstractmethod
 
+import numpy as np
+
+import QMigrate.util as util
+
 
 class Onset(ABC):
     """
@@ -18,11 +22,9 @@ class Onset(ABC):
     sampling_rate : int
         Desired sampling rate for input data; sampling rate at which the onset
         functions will be computed.
-
     pre_pad : float, optional
         Option to override the default pre-pad duration of data to read before
         computing 4-D coalescence in detect() and locate().
-
     post_pad : float
         Option to override the default post-pad duration of data to read before
         computing 4-D coalescence in detect() and locate().
@@ -34,28 +36,47 @@ class Onset(ABC):
 
     """
 
-    def __init__(self):
-        """Class initialisation method."""
+    def __init__(self, **kwargs):
+        """Instantiate the Onset object."""
 
-        # Default data sampling rate
-        self.sampling_rate = 50
-
-        # Default pre-pad/post-pad
+        self.sampling_rate = kwargs.get("sampling_rate", 50)
         self._pre_pad = 0
         self._post_pad = 0
 
     def __str__(self):
+        """Return short summary string of the Onset object."""
+
+        return "Base Onset object - add a __str__ method to your Onset class"
+
+    def pad(self, timespan):
         """
-        Return short summary string of the Onset object
+        Determine the number of samples needed to pre- and post-pad the
+        timespan.
 
-        It will provide information on all of the various parameters that the
-        user can/has set.
+        Parameters
+        ----------
+        timespan : float
+            The time window to pad.
+
+        Returns
+        -------
+        pre_pad : float
+            Option to override the default pre-pad duration of data to read
+            before computing 4-D coalescence in detect() and locate().
+        post_pad : float
+            Option to override the default post-pad duration of data to read
+            before computing 4-D coalescence in detect() and locate().
 
         """
 
-        out = "Default Onset object - add a __str__ method to your Onset class"
+        # Add additional padding for any tapering applied to data
+        timespan += (self.pre_pad + self.post_pad)
+        pre_pad = util.trim2sample(self.pre_pad + np.ceil(timespan*0.06),
+                                   self.sampling_rate)
+        post_pad = util.trim2sample(self.post_pad + np.ceil(timespan*0.06),
+                                    self.sampling_rate)
 
-        return out
+        return pre_pad, post_pad
 
     @abstractmethod
     def calculate_onsets(self):

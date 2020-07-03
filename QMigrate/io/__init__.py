@@ -13,5 +13,12 @@ performed by QuakeMigrate. This includes:
 
 """
 
-from .quakeio import *  # NOQA
+from .amplitudes import write_amplitudes  # NOQA
+from .availability import read_availability, write_availability  # NOQA
+from .cut_waveforms import write_cut_waveforms  # NOQA
 from .data import Archive  # NOQA
+from .event import Event  # NOQA
+from .core import read_response_inv, read_stations, read_vmodel, Run  # NOQA
+from .scanmseed import ScanmSEED, read_scanmseed  # NOQA
+from .triggered_events import (read_triggered_events,  # NOQA
+                               write_triggered_events)

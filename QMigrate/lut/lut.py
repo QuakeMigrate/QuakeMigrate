@@ -5,8 +5,10 @@ Module to produce travel-time lookup tables defined on a Cartesian grid.
 """
 
 import copy
+import pathlib
 import pickle
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pyproj
 from scipy.interpolate import RegularGridInterpolator
@@ -33,27 +35,21 @@ class Grid3D(object):
     ll_corner : array-like, [float, float, float]
         Location of the lower-left corner of the grid in the grid
         projection. Should also contain the minimum depth in the grid.
-
-    ur_corner : array-like ,[float, float, float]
+    ur_corner : array-like, [float, float, float]
         Location of the upper-right corner of the grid in the grid
         projection. Should also contain the maximum depth in the grid.
-
     cell_size : array-like, [float, float, float]
         Size of a cell in each dimension of the grid.
-
     grid_proj : pyproj Proj object
         Grid space projection.
-
     coord_proj : pyproj Proj object
         Input coordinate space projection.
-
     cell_count : array-like, [int, int, int]
         Number of cells in each dimension of the grid. This is calculated by
         finding the number of cells with cell_size will fit between the
         lower-left and upper-right corners. This value is rounded up if the
         number of cells returned is non-integer, to ensure the requested area
         is included in the grid.
-
     maps : dict
         A dictionary containing the travel-time lookup tables. The structure of
         this dictionary is:
@@ -65,19 +61,15 @@ class Grid3D(object):
                     - "<PHASE>"
                     - "<PHASE>"
                 etc
-
     velocity_model : pandas DataFrame object
         Contains the input velocity model specification.
         Columns: "Z" "Vs" "Vp"
-
     grid_corners : array-like, shape (8, 3)
         Positions of the corners of the grid in the grid coordinate space.
-
     grid_xyz : array-like, shape (3,)
         Positions of the grid nodes in the grid coordinate space. The shape of
         each element of the list is defined by the number of cells in each
         dimension.
-
     stations_xyz : array-like, shape (n, 3)
         Positions of the stations in the grid coordinate space.
 
@@ -85,15 +77,12 @@ class Grid3D(object):
     -------
     decimate(df, inplace=False)
         Downsamples the travel-time lookup tables by some decimation factor.
-
     index2grid(value, inverse=False, unravel=False)
         Provides a transformation between grid indices (can be a flattened
         index or an [i, j, k] position) and the grid coordinate space.
-
     coord2grid(value, inverse=False, clip=False)
         Provides a transformation between the input projection and grid
         coordinate spaces.
-
     index2coord(value, inverse=False, unravel=False, clip=False)
         Provides a transformation between grid dindices (can be a flattened
         index or an [i, j, k] position) and the input projection coordinate
@@ -111,17 +100,13 @@ class Grid3D(object):
         ll_corner : array-like, [float, float, float]
             Location of the lower-left corner of the grid in the input
             projection. Should also contain the minimum depth in the grid.
-
         ur_corner : array-like ,[float, float, float]
             Location of the upper-right corner of the grid in the input
             projection. Should also contain the maximum depth in the grid.
-
         cell_size : array-like, [float, float, float]
             Size of a cell in each dimension of the grid.
-
         grid_proj : pyproj Proj object
             Grid space projection.
-
         coord_proj : pyproj Proj object
             Input coordinate space projection.
 
@@ -153,7 +138,6 @@ class Grid3D(object):
         ----------
         df : array-like [int, int, int]
             Decimation factor in each dimension.
-
         inplace : bool, optional
             Perform the operation on the lookup table object or a copy.
 
@@ -195,11 +179,9 @@ class Grid3D(object):
         value : array-like
             Array (of arrays) containing the grid indices (grid coordinates)
             to be transformed. Can be an array of flattened indices.
-
         inverse : bool, optionale
             Reverses the direction of the transform.
             Default indices -> grid coordinates.
-
         unravel : bool, optional
             Convert a flat index or array of flat indices into a tuple of
             coordinate arrays.
@@ -238,11 +220,9 @@ class Grid3D(object):
             Array (of arrays) containing the coordinate locations to be
             transformed. Each sub-array should describe a single point in the
             3-D input space.
-
         inverse : bool, optional
             Reverses the direction of the transform.
             Default input coordinates -> grid coordinates
-
         clip : bool, optional
 
         Returns
@@ -272,15 +252,12 @@ class Grid3D(object):
         value : array-like
             Array (of arrays) containing the grid indices (grid coordinates)
             to be transformed. Can be an array of flattened indices.
-
         inverse : bool, optional
             Reverses the direction of the transform.
             Default indices -> input projection coordinates.
-
         unravel : bool, optional
             Convert a flat index or array of flat indices into a tuple of
             coordinate arrays.
-
         clip : bool, optional
 
         Returns
@@ -298,67 +275,6 @@ class Grid3D(object):
             out = self.coord2grid(value, inverse=True, clip=clip)
 
         return out
-
-    def xyz2lonlatdep(self, x, y, z, inverse=False, clip=False):
-        """
-        Convert between grid (x/y/z) and geographical (lon/lat/dep)
-        coordinates.
-
-        Parameters
-        ----------
-        x : array-like
-            Grid x or longitudinal coordinates to convert
-
-        y : array-like
-            Grid y or latitudinal coordinates to convert
-
-        z : array-like
-            Grid z or depth coordinates to convert
-
-        inverse : bool, optional
-            Reverses the direction of the transform. Default xyz -> lonlatdep
-
-        clip : bool, optional
-            Collapse all values outside the grid onto the edge of the grid.
-            CB: I don't think this will behave, need to find where it is used.
-
-        Returns
-        -------
-        x' (x_p) : array-like
-            Converted grid x or longitudinal coordinates
-
-        y' (y_p) : array-like
-            Converted grid y or latitudinal coordinates
-
-        z' (z_p) : array-like
-            Converted grid z or depth coordinates (no change from input)
-
-        """
-
-        x, y = np.asarray(x), np.asarray(y)
-        z_p = np.asarray(z)
-
-        if inverse:
-            x_p, y_p = pyproj.transform(self.coord_proj, self.grid_proj, x, y)
-
-            if clip:
-                corners = self.grid_corners
-
-                xmin, ymin, zmin = np.min(corners, axis=0)
-                xmax, ymax, zmax = np.max(corners, axis=0)
-
-                # Replace all this with np.clip
-                x_p[x_p < xmin] = xmin + self.cell_size[0] / 2
-                y_p[y_p < ymin] = ymin + self.cell_size[1] / 2
-                z_p[z_p < zmin] = zmin + self.cell_size[2] / 2
-                x_p[x_p > xmax] = xmax - self.cell_size[0] / 2
-                y_p[y_p > ymax] = ymax - self.cell_size[1] / 2
-                z_p[z_p > zmax] = zmax - self.cell_size[2] / 2
-
-        else:
-            x_p, y_p = pyproj.transform(self.grid_proj, self.coord_proj, x, y)
-
-        return x_p, y_p, z_p
 
     @property
     def grid_corners(self):
@@ -440,19 +356,16 @@ class LUT(Grid3D):
     -------
     ttimes(sampling_rate)
         Serve up the travel-time lookup tables.
-
     traveltime_to(phase, ijk)
         Query travel times to a grid location (in terms of indices) for a
         particular phase.
-
     save(filename)
         Dumps the current state of the lookup table object to a pickle file.
-
     load(filename)
         Restore the state of the saved LUT object from a pickle file.
-
-    plot()
-        Not yet implemented.
+    plot(fig, gs, slices=None, hypocentre=None, station_clr="k")
+        Plot cross-sections of the LUT with station locations. Optionally plot
+        slices through a coalescence volume.
 
     """
 
@@ -463,19 +376,16 @@ class LUT(Grid3D):
         cc = self.cell_count
         cs = self.cell_size
 
-        out = ("QuakeMigrate travel-time lookup table"
-               "\nGrid parameters"
+        out = ("QuakeMigrate traveltime lookup table\nGrid parameters"
                "\n\tLower-left corner  : {lat1:10.5f}\u00b0N "
                "{lon1:10.5f}\u00b0E {dep1:10.3f} m"
                "\n\tUpper-right corner : {lat2:10.5f}\u00b0N "
                "{lon2:10.5f}\u00b0E {dep2:10.3f} m"
-               "\n\tNumber of cells    : [{nx}, {ny}, {nz}]"
-               "\n\tCell dimensions    : [{dx}, {dy}, {dz}] m\n\n")
+               f"\n\tNumber of cells    : {cc}"
+               f"\n\tCell dimensions    : {cs} m\n\n")
 
         out = out.format(lat1=ll[0], lon1=ll[1], dep1=ll[2],
-                         lat2=ur[0], lon2=ur[1], dep2=ur[2],
-                         nx=cc[0], ny=cc[1], nz=cc[2],
-                         dx=cs[0], dy=cs[1], dz=cs[2])
+                         lat2=ur[0], lon2=ur[1], dep2=ur[2])
 
         out += ("\tVelocity model:\n"
                 "\t{}".format(str(self.velocity_model).replace("\n", "\n\t")))
@@ -522,7 +432,6 @@ class LUT(Grid3D):
         ----------
         phase : str
             The seismic phase to lookup.
-
         ijk : array-like
             Grid indices for which to serve travel time.
 
@@ -565,6 +474,9 @@ class LUT(Grid3D):
 
         """
 
+        # Ensure the output path exists
+        pathlib.Path(filename).parent.mkdir(parents=True, exist_ok=True)
+
         with open(filename, "wb") as f:
             pickle.dump(self.__dict__, f, 4)
 
@@ -585,10 +497,96 @@ class LUT(Grid3D):
 
         self.__dict__.update(tmp_dict)
 
-    def plot(self):
-        """Plot the lookup table for a particular station."""
+    def plot(self, fig, gs, slices=None, hypocentre=None, station_clr="k"):
+        """
+        Plot the lookup table for a particular station.
 
-        raise NotImplementedError
+        Parameters
+        ----------
+        fig : `matplotlib.Figure` object
+            Canvas on which LUT is plotted.
+        gs : tuple(int, int)
+            Grid specification for the plot.
+        slices : array of arrays, optional
+            Slices through a coalescence volume to plot.
+        hypocentre : array of floats
+            Event hypocentre - will add cross-hair to plot.
+        station_clr : str, optional
+            Plot the stations with a particular colour.
+
+        """
+
+        xy = plt.subplot2grid(gs, (2, 0), colspan=5, rowspan=5, fig=fig)
+        xz = plt.subplot2grid(gs, (7, 0), colspan=5, rowspan=2, fig=fig)
+        yz = plt.subplot2grid(gs, (2, 5), colspan=2, rowspan=5, fig=fig)
+
+        xz.get_shared_x_axes().join(xy, xz)
+        yz.get_shared_y_axes().join(xy, yz)
+
+        # --- Set bounds ---
+        corners = self.coord2grid(self.grid_corners, inverse=True)
+        mins = [np.min(dim) for dim in corners.T]
+        maxs = [np.max(dim) for dim in corners.T]
+        sizes = (np.array(maxs) - np.array(mins)) / self.cell_count
+        stack = np.c_[mins, maxs, sizes]
+
+        for idx1, idx2, ax in [(0, 1, xy), (0, 2, xz), (2, 1, yz)]:
+            min1, max1, size1 = stack[idx1]
+            min2, max2, size2 = stack[idx2]
+
+            ax.set_xlim([min1, max1])
+            ax.set_ylim([min2, max2])
+
+            # --- Plot slices through coalescence volume ---
+            if slices is not None:
+                idx = (idx1 + idx2) - 1
+                slice_ = slices[idx]
+                grid1, grid2 = np.mgrid[min1:max1 + size1:size1,
+                                        min2:max2 + size2:size2]
+                grid1 = grid1[:slice_.shape[0]+1, :slice_.shape[1]+1]
+                grid2 = grid2[:slice_.shape[0]+1, :slice_.shape[1]+1]
+                sc = ax.pcolormesh(grid1, grid2, slice_, cmap="viridis",
+                                   edgecolors="face")
+
+                if idx == 0:
+                    # --- Add colourbar ---
+                    cax = plt.subplot2grid(gs, (2, 7), colspan=1, rowspan=5,
+                                           fig=fig)
+                    cax.set_axis_off()
+                    cbar = fig.colorbar(sc, ax=cax, orientation="vertical",
+                                        fraction=0.4)
+                    cbar.ax.set_ylabel("Coalescence value", rotation=90,
+                                       fontsize=14)
+
+            # --- Plot crosshair for event hypocentre ---
+            if hypocentre is not None:
+                ax.axvline(x=hypocentre[idx1], ls="--", lw=1.5, c="white")
+                ax.axhline(y=hypocentre[idx2], ls="--", lw=1.5, c="white")
+
+        # --- Plot stations ---
+        xy.scatter(self.station_data.Longitude, self.station_data.Latitude,
+                   s=15, marker="v", zorder=20, c=station_clr)
+        xz.scatter(self.station_data.Longitude, self.station_data.Elevation,
+                   s=15, marker="v", zorder=20, c=station_clr)
+        yz.scatter(self.station_data.Elevation, self.station_data.Latitude,
+                   s=15, marker=">", zorder=20, c=station_clr)
+        for i, row in self.station_data.iterrows():
+            xy.annotate(row["Name"], [row.Longitude, row.Latitude], zorder=20,
+                        c=station_clr)
+
+        # --- Axes labelling ---
+        xy.xaxis.tick_top()
+
+        xz.yaxis.tick_right()
+        xz.invert_yaxis()
+        xz.set_xlabel("Longitude (deg)", fontsize=14)
+        xz.set_ylabel("Depth (m)", fontsize=14)
+        xz.yaxis.set_label_position("right")
+
+        yz.yaxis.tick_right()
+        yz.set_xlabel("Depth (m)", fontsize=14)
+        yz.set_ylabel("Latitude (deg)", fontsize=14)
+        yz.yaxis.set_label_position("right")
 
     def __add__(self, other):
         """
@@ -668,5 +666,4 @@ class LUT(Grid3D):
         try:
             return self.maps[key]
         except KeyError:
-            msg = "No travel-time lookup table available for '{}'."
-            print(msg.format(key))
+            print(f"No travel-time lookup table available for '{key}'.")

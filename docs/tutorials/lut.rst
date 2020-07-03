@@ -59,9 +59,9 @@ In all cases we will make use of the :mod:`QMigrate.io` module, so let's import 
 
 ::
 
-    import QMigrate.io as qio
+    from QMigrate.io import read_stations, read_vmodel
 
-    stations = qio.stations("/path/to/station_file")
+    stations = read_stations("/path/to/station_file")
 
 Homogeneous velocity model
 ##########################
@@ -69,7 +69,7 @@ Simply calculates the straight line traveltimes between stations and points in t
 
 ::
 
-	qlut.compute(lut, stations, method="homogeneous", vp=5000., vs=3000.)
+	create_lut.compute(lut, stations, method="homogeneous", vp=5000., vs=3000.)
 
 Fast-marching method
 ####################
@@ -77,8 +77,8 @@ The fast-marching method implicitly tracks the evolution of the wavefront. See R
 
 ::
 
-	vmod = qio.read_vmodel("/path/to/vmodel_file")
-	qlut.compute(lut, stations, method="1dfmm", vmod=vmod)
+	vmod = read_vmodel("/path/to/vmodel_file")
+	create_lut.compute(lut, stations, method="1dfmm", vmod=vmod)
 
 NonLinLoc style 2-D sweep
 #########################
@@ -86,8 +86,8 @@ Uses the Eikonal solver from NonLinLoc under the hood to generate a traveltime g
 
 ::
 
-	vmod = qio.read_vmodel("/path/to/vmodel_file")
-	qlut.compute(lut, stations, method="1dsweep", vmod=vmod, block_model=True)
+	vmod = read_vmodel("/path/to/vmodel_file")
+	create_lut.compute(lut, stations, method="1dsweep", vmod=vmod, block_model=True)
 
 Other formats
 #############

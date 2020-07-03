@@ -166,11 +166,11 @@ def setup_package():
 
     if not READ_THE_DOCS:
         install_requires = ["matplotlib", "numpy", "obspy>=1.2", "pandas>=1",
-                            "pyproj", "scikit-fmm==2019.1.30", "scipy"]
+                            "pyproj>=2.5", "scikit-fmm==2019.1.30", "scipy"]
     else:
         install_requires = ["matplotlib", "mock", "numpy", "obspy>=1.2",
-                            "pandas>=1", "pyproj", "scikit-fmm==2019.1.30",
-                            "scipy"]
+                            "pandas>=1", "pyproj>=2.5",
+                            "scikit-fmm==2019.1.30", "scipy"]
 
     setup_args = {
         "name": "QMigrate",

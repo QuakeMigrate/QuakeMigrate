@@ -9,7 +9,7 @@ dependencies:
   - pandas >=1
   - pip
   - python
-  - pyproj
+  - pyproj >=2.5
   - pip:
     - scikit-fmm==2019.1.30
 

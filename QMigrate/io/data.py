@@ -78,7 +78,8 @@ class Archive:
         self.archive_path = pathlib.Path(archive_path)
         self.stations = stations["Name"]
         if archive_format:
-            self.path_structure(archive_format)
+            channels = kwargs.get("channels", "*")
+            self.path_structure(archive_format, channels)
         else:
             self.format = kwargs.get("format")
 
@@ -100,7 +101,7 @@ class Archive:
 
         return out
 
-    def path_structure(self, archive_format="YEAR/JD/STATION"):
+    def path_structure(self, archive_format="YEAR/JD/STATION", channels="*"):
         """
         Define the path structure of the data archive.
 
@@ -108,6 +109,8 @@ class Archive:
         ----------
         archive_format : str, optional
             Sets path type for different archive formats.
+        channels : str, optional
+            Channel codes to include. E.g. channels="[B,H]H*". (Default "*")
 
         Raises
         ------
@@ -117,19 +120,20 @@ class Archive:
         """
 
         if archive_format == "SeisComp3":
-            self.format = "{year}/*/{station}/BH*/*.{station}.*.*.D.{year}.{jday}"
+            self.format = ("{year}/*/{station}/"+channels+"/*.{station}.*.*.D."
+                           "{year}.{jday:03d}")
         elif archive_format == "YEAR/JD/*_STATION_*":
-            self.format = "{year}/{jday}/*_{station}_*"
+            self.format = "{year}/{jday:03d}/*_{station}_*"
         elif archive_format == "YEAR/JD/STATION":
-            self.format = "{year}/{jday}/{station}*"
+            self.format = "{year}/{jday:03d}/{station}*"
         elif archive_format == "STATION.YEAR.JULIANDAY":
-            self.format = "*{station}.*.{year}.{jday}"
+            self.format = "*{station}.*.{year}.{jday:03d}"
         elif archive_format == "/STATION/STATION.YearMonthDay":
             self.format = "{station}/{station}.{year}{month:02d}{day:02d}"
         elif archive_format == "YEAR_JD/STATION*":
-            self.format = "{year}_{jday}/{station}*"
+            self.format = "{year}_{jday:03d}/{station}*"
         elif archive_format == "YEAR_JD/STATION_*":
-            self.format = "{year}_{jday}/{station}_*"
+            self.format = "{year}_{jday:03d}/{station}_*"
         else:
             raise util.ArchivePathStructureError(archive_format)
 
@@ -292,18 +296,20 @@ class Archive:
             now = starttime + (dy * 86400)
             if self.read_all_stations is True:
                 file_format = self.format.format(year=now.year,
-                                                 month=f"{now.month:02d}",
-                                                 day=f"{now.day:02d}",
-                                                 jday=f"{now.julday:03d}",
-                                                 station="*")
+                                                 month=now.month,
+                                                 day=now.day,
+                                                 jday=now.julday,
+                                                 station="*",
+                                                 dtime=now)
                 files = chain(files, self.archive_path.glob(file_format))
             else:
                 for station in self.stations:
                     file_format = self.format.format(year=now.year,
-                                                     month=f"{now.month:02d}",
-                                                     day=f"{now.day:02d}",
-                                                     jday=f"{now.julday:03d}",
-                                                     station=station)
+                                                     month=now.month,
+                                                     day=now.day,
+                                                     jday=now.julday,
+                                                     station=station,
+                                                     dtime=now)
                     files = chain(files, self.archive_path.glob(file_format))
             dy += 1
 
@@ -314,7 +320,7 @@ class WaveformData:
     """
     The WaveformData class encapsulates the waveform data returned by an`
     Archive query.
-    
+
     This includes the waveform data which has been pre-processed to a unified
     sampling rate, and checked for gaps, ready for use to calculate onset
     functions.

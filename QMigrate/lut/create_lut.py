@@ -76,11 +76,12 @@ def read_nlloc(path, stations, fraction_tt=0.1):
                                      "TIME_S": sttimes}
 
     lut.station_data = stations
+    lut.phases = ["P", "S"]
 
     return lut
 
 
-def compute(lut, stations, method, **kwargs):
+def compute(lut, stations, method, phases=["P", "S"], **kwargs):
     """
     Top-level method for computing travel-time lookup tables.
 
@@ -101,6 +102,7 @@ def compute(lut, stations, method, **kwargs):
     """
 
     lut.station_data = stations
+    lut.phases = phases
 
     if method == "homogeneous":
         # Check the user has provided the suitable arguments

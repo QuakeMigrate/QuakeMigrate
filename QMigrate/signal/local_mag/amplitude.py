@@ -237,7 +237,7 @@ class Amplitude:
 
         # Get start of earliest possible noise window and end of latest
         # possible signal window
-        max_tt = lut.max_ttime
+        max_tt = lut.max_traveltime
         tr_start = event.otime - event.marginal_window - self.noise_window
         tr_end = event.otime + event.marginal_window + \
             (1. + lut.fraction_tt) * max_tt + self.signal_window

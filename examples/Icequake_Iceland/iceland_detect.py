@@ -4,8 +4,7 @@ Detect stage for the Iceland icequake example.
 
 """
 
-from QMigrate.io import Archive, read_stations
-from QMigrate.lut import LUT
+from QMigrate.io import Archive, read_lut, read_stations
 from QMigrate.signal import QuakeScan
 from QMigrate.signal.onset import STALTAOnset
 
@@ -28,7 +27,7 @@ archive = Archive(archive_path=data_in, stations=stations,
                   archive_format="YEAR/JD/*_STATION_*")
 
 # --- Load the LUT ---
-lut = LUT(lut_file=lut_out)
+lut = read_lut(lut_file=lut_out)
 
 # --- Create new Onset ---
 onset = STALTAOnset(position="classic")

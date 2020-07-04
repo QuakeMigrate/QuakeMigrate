@@ -485,10 +485,12 @@ class LUT(Grid3D):
 
         """
 
-        with open(filename, "rb") as f:
-            tmp_dict = pickle.load(f)
+        print("FutureWarning: This method of reading lookup tables has been"
+              "deprecated.\nTo remove this warning:\n"
+              "\tUse 'QMigrate.io.read_lut(lut_file=/path/to/file'")
 
-        self.__dict__.update(tmp_dict)
+        with open(filename, "rb") as f:
+            self.__dict__.update(pickle.load(f))
 
     def plot(self, fig, gs, slices=None, hypocentre=None, station_clr="k"):
         """

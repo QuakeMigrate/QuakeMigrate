@@ -4,7 +4,7 @@ Trigger stage for the Iceland icequake example.
 
 """
 
-from QMigrate.lut import LUT
+from QMigrate.io import read_lut
 from QMigrate.signal import Trigger
 
 # --- i/o paths ---
@@ -17,7 +17,7 @@ starttime = "2014-06-29T18:41:55.0"
 endtime = "2014-06-29T18:42:20.0"
 
 # --- Load the LUT ---
-lut = LUT(lut_file=lut_file)
+lut = read_lut(lut_file=lut_file)
 
 # --- Create new Trigger ---
 trig = Trigger(lut, run_path=run_path, run_name=run_name)

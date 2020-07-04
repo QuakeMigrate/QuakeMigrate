@@ -6,11 +6,37 @@ Module to handle input/output for QuakeMigrate.
 
 import logging
 import pathlib
+import pickle
 
 import pandas as pd
 from obspy import read_inventory
 
 import QMigrate.util as util
+from QMigrate.lut import LUT
+
+
+def read_lut(lut_file):
+    """
+    Read the contents of a pickle file and restore state of the lookup table
+    object.
+
+    Parameters
+    ----------
+    lut_file : str
+        Path to pickle file to load.
+
+    Returns
+    -------
+    lut : `QMigrate.lut.LUT` object
+        Lookup table populated with grid specification and traveltimes.
+
+    """
+
+    lut = LUT()
+    with open(lut_file, "rb") as f:
+        lut.__dict__.update(pickle.load(f))
+
+    return lut
 
 
 def stations(station_file, delimiter=","):
@@ -37,7 +63,7 @@ def read_stations(station_file, delimiter=","):
 
     Returns
     -------
-    stn_data : pandas DataFrame object
+    stn_data : `pandas.DataFrame` object
         Columns: "Latitude", "Longitude", "Elevation", "Name"
 
     Raises
@@ -120,7 +146,7 @@ def read_vmodel(vmodel_file, delimiter=","):
 
     Returns
     -------
-    vmodel_data : pandas DataFrame object
+    vmodel_data : `pandas.DataFrame` object
         Columns: "Depth", "Vp", "Vs"
 
     Raises

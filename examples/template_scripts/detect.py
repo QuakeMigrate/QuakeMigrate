@@ -6,8 +6,7 @@ For more details, please see the manual and read the docs.
 
 """
 
-from QMigrate.io import Archive, read_stations
-from QMigrate.lut import LUT
+from QMigrate.io import Archive, read_lut, read_stations
 from QMigrate.signal import QuakeScan
 from QMigrate.signal.onset import STALTAOnset
 
@@ -37,7 +36,7 @@ archive = Archive(archive_path=archive_path, stations=stations,
 # archive.upfactor = 2
 
 # --- Load the LUT ---
-lut = LUT(lut_file=lut_file)
+lut = read_lut(lut_file=lut_file)
 
 # --- Decimate the lookup table ---
 lut = lut.decimate([5, 5, 4])

@@ -100,3 +100,13 @@ Finally, you will need to save the lookup table to file. The default approach is
 ::
 
 	lut.save("/path/to/output/lut")
+
+Reading in a saved LUT
+----------------------
+When running the main stages of QuakeMigrate (`detect`, `trigger`, and `locate`)
+it is necessary to read in the saved LUT, which can be done as:
+
+::
+
+    from QMigrate.io import read_lut
+    lut = read_lut(lut_file="/path/to/lut_file")

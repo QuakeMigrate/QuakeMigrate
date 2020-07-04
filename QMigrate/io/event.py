@@ -59,9 +59,6 @@ class Event:
     coa_time : `obspy.UTCDateTime` object
         The peak coalescence time of the triggered event from the (decimated)
         coalescence output by detect.
-    eventfile_df : `pandas.DataFrame` object
-        Collects all the information together for an event to be written out to
-        a .event file.
     hypocentre : `numpy.ndarray` of floats
         Geographical coordinates of the instantaneous event hypocentre.
     locations : dict
@@ -145,7 +142,6 @@ class Event:
         self.coa_data = None
         self.map4d = None
         self.locations = {}
-        self.eventfile_df = None
         self.picks = {}
         self.localmag = {}
 
@@ -399,11 +395,11 @@ class Event:
         else:
             event_file_cols = EVENT_FILE_COLS
 
-        self.eventfile_df = pd.DataFrame([out])[event_file_cols]
+        eventfile_df = pd.DataFrame([out])[event_file_cols]
 
         fstem = f"{self.uid}"
         file = (fpath / fstem).with_suffix(".event")
-        self.eventfile_df.to_csv(file, index=False)
+        eventfile_df.to_csv(file, index=False)
 
     def get_hypocentre(self, method="spline"):
         """
@@ -428,7 +424,32 @@ class Event:
 
         return ev_loc
 
+    def get_loc_uncertainty(self, method="gaussian"):
+        """
+        Get an estimate of the hypocentre location uncertainty.
+
+        Parameters
+        ----------
+        method : {"gaussian", "covariance"}, optional
+            Which location result to return. (Default "gaussian")
+
+        Returns
+        -------
+        ev_loc_unc : ndarray of floats
+            [x_uncertainty, y_uncertainty, z_uncertainty] of event hypocentre,
+            in metres.
+
+        """
+
+        gau_loc = self.locations[method]
+
+        ev_loc_unc = np.array([gau_loc[k] for k in list(gau_loc.keys())[3:]])
+
+        return ev_loc_unc
+
     hypocentre = property(get_hypocentre)
+
+    loc_uncertainty = property(get_loc_uncertainty)
 
     @property
     def max_coalescence(self):

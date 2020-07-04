@@ -109,8 +109,8 @@ def event_summary(run, event, marginal_coalescence, lut):
         ax.axvline(otime.datetime, ls="--", lw=2, c="#F03B20")
 
     # --- Create and plot covariance and Gaussian uncertainty ellipses ---
-    cues = _make_ellipses(lut, event, "Covariance", "k")
-    gues = _make_ellipses(lut, event, "Gaussian", "b")
+    cues = _make_ellipses(lut, event, "covariance", "k")
+    gues = _make_ellipses(lut, event, "gaussian", "b")
     for ax, gue, cue in zip(axes[2:], gues, cues):
         ax.add_patch(gue)
         ax.add_patch(cue)
@@ -119,10 +119,10 @@ def event_summary(run, event, marginal_coalescence, lut):
     text = plt.subplot2grid((9, 15), (0, 0), colspan=8, rowspan=2, fig=fig)
     text.text(0.5, 0.8, f"Event: {event.uid}",
               ha="center", va="center", fontsize=20, fontweight="bold")
-    text.text(0.4, 0.65, f"Origin time:", ha="right", va="center", fontsize=20)
+    text.text(0.4, 0.65, "Origin time:", ha="right", va="center", fontsize=20)
     text.text(0.42, 0.65, f"{otime}", ha="left", va="center", fontsize=20)
-    text.text(0.4, 0.55, f"Hypocentre:", ha="right", va="top", fontsize=20)
-    gau_unc = event.eventfile_df.filter(regex="LocalGaussian_Err[XYZ]").values[0] / 1000
+    text.text(0.4, 0.55, "Hypocentre:", ha="right", va="top", fontsize=20)
+    gau_unc = event.loc_uncertainty / 1000
     hypo = (f"{event.hypocentre[1]:5.3f}\u00b0 N +/- {gau_unc[1]:5.3f} km\n"
             f"{event.hypocentre[0]:5.3f}\u00b0 E +/- {gau_unc[0]:5.3f} km\n"
             f"{event.hypocentre[2]/1000:5.3f} +/- {gau_unc[2]:5.3f} km")
@@ -159,9 +159,8 @@ def _make_ellipses(lut, event, uncertainty, clr):
                    "GlobalCovariance_ErrX", "GlobalCovariance_ErrY",
                    "GlobalCovariance_ErrZ", "ML", "ML_Err"]
         All X / Y as lon / lat; Z and X / Y / Z uncertainties in metres.
-    uncertainty : str
+    uncertainty : {"covariance", "gaussian"}
         Choice of uncertainty for which to generate ellipses.
-        Options are: "Covariance" or "Gaussian".
     clr : str
         Colour for the ellipses - see matplotlib documentation for more
         details.
@@ -173,14 +172,14 @@ def _make_ellipses(lut, event, uncertainty, clr):
 
     """
 
-    coord = event.eventfile_df.filter(regex=f"{uncertainty}_[XYZ]").values[0]
-    error = event.eventfile_df.filter(regex=f"{uncertainty}_Err[XYZ]").values[0]
+    coord = event.get_hypocentre(method=uncertainty)
+    error = event.get_loc_uncertainty(method=uncertainty)
     xyz = lut.coord2grid(coord)[0]
     d = abs(coord - lut.coord2grid(xyz + error, inverse=True))[0]
 
-    if uncertainty == "Covariance":
+    if uncertainty == "covariance":
         label = "Global covariance uncertainty ellipse"
-    elif uncertainty == "Gaussian":
+    elif uncertainty == "gaussian":
         label = "Local Gaussian uncertainty ellipse"
 
     xy = Ellipse((coord[0], coord[1]), 2*d[0], 2*d[1], lw=2, edgecolor=clr,

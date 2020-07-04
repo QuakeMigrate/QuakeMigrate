@@ -39,16 +39,16 @@ def read_lut(lut_file):
     return lut
 
 
-def stations(station_file, delimiter=","):
+def stations(station_file, **kwargs):
     """Alias for read_stations."""
     print("FutureWarning: function name has changed - continuing.")
     print("To remove this message, change:")
     print("\t'stations' -> 'read_stations'")
 
-    return read_stations(station_file, delimiter)
+    return read_stations(station_file, **kwargs)
 
 
-def read_stations(station_file, delimiter=","):
+def read_stations(station_file, **kwargs):
     """
     Reads station information from file.
 
@@ -58,8 +58,8 @@ def read_stations(station_file, delimiter=","):
         Path to station file.
         File format (header line is REQUIRED, case sensitive, any order):
             Latitude, Longitude, Elevation (units of metres), Name
-    delimiter : char, optional
-        Station file delimiter (default ",").
+    kwargs : dict
+        Passthrough for `pandas.read_csv` kwargs.
 
     Returns
     -------
@@ -73,7 +73,7 @@ def read_stations(station_file, delimiter=","):
 
     """
 
-    stn_data = pd.read_csv(station_file, delimiter=delimiter)
+    stn_data = pd.read_csv(station_file, **kwargs)
 
     if ("Latitude" or "Longitude" or "Elevation" or "Name") \
        not in stn_data.columns:
@@ -131,7 +131,7 @@ def read_response_inv(response_file, sac_pz_format=False):
     return response_inv
 
 
-def read_vmodel(vmodel_file, delimiter=","):
+def read_vmodel(vmodel_file, **kwargs):
     """
     Reads velocity model information from file.
 
@@ -141,8 +141,8 @@ def read_vmodel(vmodel_file, delimiter=","):
         Path to velocity model file.
         File format: (header line is REQUIRED, case sensitive, any order):
         Depth (units of metres), Vp, Vs (units of metres per second)
-    delimiter : char, optional
-        Velocity model file delimiter (default ",").
+    kwargs : dict
+        Passthrough for `pandas.read_csv` kwargs.
 
     Returns
     -------
@@ -156,7 +156,7 @@ def read_vmodel(vmodel_file, delimiter=","):
 
     """
 
-    vmodel_data = pd.read_csv(vmodel_file, delimiter=delimiter)
+    vmodel_data = pd.read_csv(vmodel_file, **kwargs)
 
     if ("Depth" or "Vp" or "Vs") not in vmodel_data.columns:
         raise util.VelocityModelFileHeaderException

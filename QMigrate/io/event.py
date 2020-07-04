@@ -276,11 +276,6 @@ class Event:
                 Picks will only be made if the onset function exceeds this
                 percentile of the noise level (average amplitude of onset
                 function outside pick windows).
-            fraction_tt : float
-                Defines width of time window around expected phase arrival time
-                in which to search for a phase pick as a function of the
-                traveltime from the event location to that station -- should be
-                an estimate of the uncertainty in the velocity model.
 
         """
 

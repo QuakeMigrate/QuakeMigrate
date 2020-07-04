@@ -145,8 +145,7 @@ class GaussianPicker(PhasePicker):
                                      pick_error, max_onset]
 
         event.add_picks(picks, gaussfits=gaussfits, pick_windows=pick_windows,
-                        pick_threshold=self.pick_threshold,
-                        fraction_tt=fraction_tt)
+                        pick_threshold=self.pick_threshold)
 
         self.write(run, event.uid, picks)
 

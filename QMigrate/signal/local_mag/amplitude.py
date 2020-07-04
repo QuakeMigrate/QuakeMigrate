@@ -240,7 +240,7 @@ class Amplitude:
         max_tt = lut.max_ttime
         tr_start = event.otime - event.marginal_window - self.noise_window
         tr_end = event.otime + event.marginal_window + \
-            (1. + event.picks["fraction_tt"]) * max_tt + self.signal_window
+            (1. + lut.fraction_tt) * max_tt + self.signal_window
 
         # Get traveltimes for all stations and phases: much quicker than
         # doing this multiple times in the loop
@@ -305,7 +305,8 @@ class Amplitude:
 
                 windows, picked = self._get_amplitude_windows(station, i,
                                                               event, p_ttimes,
-                                                              s_ttimes)
+                                                              s_ttimes,
+                                                              lut.fraction_tt)
 
                 amps, filter_gain = self._measure_signal_amps(amps, tr,
                                                               windows,
@@ -482,7 +483,8 @@ class Amplitude:
 
         return filter_sos
 
-    def _get_amplitude_windows(self, station, i, event, p_ttimes, s_ttimes):
+    def _get_amplitude_windows(self, station, i, event, p_ttimes, s_ttimes,
+                               fraction_tt):
         """
         Calculate the start and end time of the windows to measure the max P-
         and S- wave amplitudes in. This is done on the basis of the pick times,
@@ -497,7 +499,7 @@ class Amplitude:
                        traveltime_uncertainty
 
         traveltime_uncertainty = traveltime * fraction_tt
-            (where fraction_tt is as specified for the autopicker).
+            (where fraction_tt is as specified for the lookup table).
 
         Parameters
         ----------
@@ -512,6 +514,9 @@ class Amplitude:
             Array of interpolated P traveltimes to the requested grid position.
         s_ttimes : array-like
             Array of interpolated S traveltimes to the requested grid position.
+        fraction_tt : float
+            An estimate of the uncertainty in the velocity model as a function
+            of the traveltime.
 
         Returns
         -------
@@ -528,8 +533,6 @@ class Amplitude:
         """
 
         p_pick, s_pick, picked = self._get_picks(i, event)
-
-        fraction_tt = event.picks["fraction_tt"]
 
         # Check p_pick is before s_pick
         try:

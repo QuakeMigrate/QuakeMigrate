@@ -319,13 +319,11 @@ class StationFileHeaderException(Exception):
         super().__init__(msg)
 
 
-class VelocityModelFileHeaderException(Exception):
+class InvalidVelocityModelHeader(Exception):
     """Custom exception to handle incorrect header columns in station file"""
 
     def __init__(self):
-        msg = ("VelocityModelFileHeaderException: incorrect velocity model "
-               "file header - use:\nDepth, Vp, Vs")
-        super().__init__(msg)
+        super().__init__("Must include at least 'depth' in header.")
 
 
 class ArchiveFormatException(Exception):

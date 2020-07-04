@@ -17,7 +17,7 @@ import skfmm
 from .lut import LUT
 
 
-def read_nlloc(path, stations):
+def read_nlloc(path, stations, fraction_tt=0.1):
     """
     Read in a travel-time lookup table that is saved in the NonLinLoc format.
 
@@ -66,7 +66,8 @@ def read_nlloc(path, stations):
 
             # Need to initialise the grid
             lut = LUT(ll_corner=ll_corner, ur_corner=ur_corner,
-                      cell_size=cell_size, grid_proj=gproj, coord_proj=cproj)
+                      cell_size=cell_size, grid_proj=gproj, coord_proj=cproj,
+                      fraction_tt=fraction_tt)
         else:
             _, _, pttimes = _read_nlloc(p_file)
             _, _, sttimes = _read_nlloc(s_file)

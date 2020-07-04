@@ -50,20 +50,6 @@ class Grid3D(object):
         lower-left and upper-right corners. This value is rounded up if the
         number of cells returned is non-integer, to ensure the requested area
         is included in the grid.
-    maps : dict
-        A dictionary containing the travel-time lookup tables. The structure of
-        this dictionary is:
-            maps
-                - "<Station1-ID>"
-                    - "<PHASE>"
-                    - "<PHASE>"
-                - "<Station2-ID"
-                    - "<PHASE>"
-                    - "<PHASE>"
-                etc
-    velocity_model : pandas DataFrame object
-        Contains the input velocity model specification.
-        Columns: "Z" "Vs" "Vp"
     grid_corners : array-like, shape (8, 3)
         Positions of the corners of the grid in the grid coordinate space.
     grid_xyz : array-like, shape (3,)
@@ -90,45 +76,20 @@ class Grid3D(object):
 
     """
 
-    def __init__(self, ll_corner=None, ur_corner=None, cell_size=None,
-                 grid_proj=None, coord_proj=None, lut_file=None):
-        """
-        Class initialisation.
+    def __init__(self, ll_corner, ur_corner, cell_size, grid_proj, coord_proj):
+        """Instantiate the Grid3D object."""
 
-        Parameters
-        ----------
-        ll_corner : array-like, [float, float, float]
-            Location of the lower-left corner of the grid in the input
-            projection. Should also contain the minimum depth in the grid.
-        ur_corner : array-like ,[float, float, float]
-            Location of the upper-right corner of the grid in the input
-            projection. Should also contain the maximum depth in the grid.
-        cell_size : array-like, [float, float, float]
-            Size of a cell in each dimension of the grid.
-        grid_proj : pyproj Proj object
-            Grid space projection.
-        coord_proj : pyproj Proj object
-            Input coordinate space projection.
+        self.grid_proj = grid_proj
+        self.coord_proj = coord_proj
 
-        """
+        # Transform the geographical grid corners into grid coordinates
+        self.ll_corner = self.coord2grid(ll_corner)[0]
+        self.ur_corner = self.coord2grid(ur_corner)[0]
 
-        if lut_file is not None:
-            self.load(lut_file)
-        else:
-            self.grid_proj = grid_proj
-            self.coord_proj = coord_proj
-
-            # Transform the geographical grid corners into grid coordinates
-            self.ll_corner = self.coord2grid(ll_corner)[0]
-            self.ur_corner = self.coord2grid(ur_corner)[0]
-
-            # Calculate the grid dimensions and the number of cells required
-            grid_dims = self.ur_corner - self.ll_corner
-            self.cell_size = cell_size
-            self.cell_count = np.ceil(grid_dims / self.cell_size) + 1
-
-            self.maps = {}
-            self.velocity_model = ""
+        # Calculate the grid dimensions and the number of cells required
+        grid_dims = self.ur_corner - self.ll_corner
+        self.cell_size = cell_size
+        self.cell_count = np.ceil(grid_dims / self.cell_size) + 1
 
     def decimate(self, df, inplace=False):
         """
@@ -349,8 +310,27 @@ class LUT(Grid3D):
 
     Attributes
     ----------
+    fraction_tt : float
+        Defines width of time window around expected phase arrival time in
+        which to search for a phase pick as a function of the traveltime from
+        the event location to that station -- should be an estimate of the
+        uncertainty in the velocity model.
+    maps : dict
+        A dictionary containing the traveltime lookup tables. The structure of
+        this dictionary is:
+            maps
+                - "<Station1-ID>"
+                    - "<PHASE>"
+                    - "<PHASE>"
+                - "<Station2-ID"
+                    - "<PHASE>"
+                    - "<PHASE>"
+                etc
     max_ttime : float
         Returns the max travel time in the lookup table for each station.
+    velocity_model : `pandas.DataFrame` object
+        Contains the input velocity model specification.
+        Columns: "Z" "Vs" "Vp"
 
     Methods
     -------
@@ -368,6 +348,19 @@ class LUT(Grid3D):
         slices through a coalescence volume.
 
     """
+
+    def __init__(self, fraction_tt=0.1, lut_file=None, **grid_kwargs):
+        """Instantiate the LUT object."""
+
+        if grid_kwargs:
+            super().__init__(**grid_kwargs)
+            self.fraction_tt = fraction_tt
+            self.maps = {}
+            self.velocity_model = ""
+        else:
+            self.fraction_tt = fraction_tt
+            if lut_file is not None:
+                self.load(lut_file)
 
     def __str__(self):
         """Return short summary string of the lookup table object."""

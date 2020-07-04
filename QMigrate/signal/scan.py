@@ -531,11 +531,11 @@ class QuakeScan:
 
         if self.post_cut or self.mags is not None:
             if self.mags is not None and self.post_cut:
-                post_cut = max(((1 + self.picker.fraction_tt) *
+                post_cut = max(((1 + self.lut.fraction_tt) *
                                 self.lut.max_ttime + self.marginal_window +
                                 self.mags.amp.signal_window), self.post_cut)
             elif self.mags is not None:
-                post_cut = ((1 + self.picker.fraction_tt) *
+                post_cut = ((1 + self.lut.fraction_tt) *
                             self.lut.max_ttime + self.marginal_window +
                             self.mags.amp.signal_window)
             else:

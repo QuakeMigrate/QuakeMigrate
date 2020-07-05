@@ -39,9 +39,9 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
     Parameters
     ----------
     events : `pandas.DataFrame`
-        Triggered events information.
-        Columns: ["EventNum", "CoaTime", "COA_V", "COA_X", "COA_Y", "COA_Z",
-                  "MinTime", "MaxTime", "COA", "COA_NORM", "EventID"].
+        Triggered events information, columns ["EventNum", "CoaTime", "COA_V",
+        "COA_X", "COA_Y", "COA_Z", "MinTime", "MaxTime", "COA", "COA_NORM",
+        "EventID"].
     starttime : `obspy.UTCDateTime`
         Start time of trigger run.
     endtime : `obspy.UTCDateTime`
@@ -50,7 +50,7 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
         Light class encapsulating i/o path information for a given run.
     marginal_window : float
         Estimate of time error over which to marginalise the coalescence.
-    minimum_repeat : float, optional
+    minimum_repeat : float
         Minimum time interval between triggered events.
     detection_threshold : float
         Coalescence value above which to trigger events.
@@ -60,9 +60,9 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
         Contains the traveltime lookup tables for P- and S-phases, computed for
         some pre-defined velocity model.
     data : `pandas.DataFrame`
-        Data output by detect() -- decimated scan.
-        Columns: ["COA", "COA_N", "X", "Y", "Z"]
-    region : array
+        Data output by detect() -- decimated scan, columns ["COA", "COA_N",
+        "X", "Y", "Z"]
+    region : list
         Geographical region within which earthquakes have been triggered.
     savefig : bool
         Output the plot as a file. The plot is shown by default, and not saved.
@@ -105,7 +105,7 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
         axes[2].step(times, available, c="green", where="post")
         axes[2].set_ylim([0, max(available) + 1])
     except util.NoStationAvailabilityDataException as e:
-        logging.info(e.msg)
+        logging.info(e)
 
     if events is not None:
         for i, event in events.iterrows():
@@ -184,7 +184,7 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
     if savefig:
         fpath = run.path / "trigger" / run.subname / "summaries"
         fpath.mkdir(exist_ok=True, parents=True)
-        fstem = f"{run.name}_Trigger"
+        fstem = f"{run.name}_{starttime.year}_{starttime.julday:03d}_Trigger"
         file = (fpath / fstem).with_suffix(".pdf")
         plt.savefig(str(file))
     else:

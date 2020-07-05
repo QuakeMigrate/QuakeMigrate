@@ -6,8 +6,7 @@ For more details, please see the manual and read the docs.
 
 """
 
-from QMigrate.io import Archive, stations
-from QMigrate.lut import LUT
+from QMigrate.io import Archive, read_lut, read_stations
 from QMigrate.signal import QuakeScan
 from QMigrate.signal.onset import STALTAOnset
 
@@ -15,6 +14,7 @@ from QMigrate.signal.onset import STALTAOnset
 archive_path = "/path/to/archived/data"
 lut_file = "/path/to/lut_file"
 station_file = "/path/to/station_file"
+
 run_path = "/path/to/output"
 run_name = "name_of_run"
 
@@ -23,20 +23,20 @@ starttime = "2018-001T00:00:00.0"
 endtime = "2018-002T00:00:00.0"
 
 # --- Read in station file ---
-stations = stations(station_file)
+stations = read_stations(station_file)
 
 # --- Create new Archive and set path structure ---
-archive = Archive(stations=stations, archive_path=archive_path)
-archive.path_structure(archive_format="YEAR/JD/STATION")
+archive = Archive(archive_path=archive_path, stations=stations,
+                  archive_format="YEAR/JD/STATION")
 # For custom structures...
-# archive.format = "custom/archive_{year}_{month}_structure"
+# archive.format = "custom/archive_{year}_{jday}/{month:02d}-{day:02d}.{station}_structure"
 
 # --- Resample data with mismatched sampling rates ---
 # archive.resample = True
 # archive.upfactor = 2
 
 # --- Load the LUT ---
-lut = LUT(lut_file=lut_file)
+lut = read_lut(lut_file=lut_file)
 
 # --- Decimate the lookup table ---
 lut = lut.decimate([5, 5, 4])

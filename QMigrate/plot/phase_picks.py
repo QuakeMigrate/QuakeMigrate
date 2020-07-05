@@ -4,6 +4,14 @@ Module to produce a summary plot for the phase picking.
 
 """
 
+import os
+
+import matplotlib
+try:
+    os.environ["DISPLAY"]
+    matplotlib.use("Qt5Agg")
+except KeyError:
+    matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 from pandas.plotting import register_matplotlib_converters
@@ -12,7 +20,7 @@ from pandas.plotting import register_matplotlib_converters
 register_matplotlib_converters()
 
 
-def pick_summary(event, station_uid, signal, picks, onsets, ttimes, window):
+def pick_summary(event, station, signal, picks, onsets, ttimes, window):
     """
     Plot figure showing the filtered traces for each data component and the
     characteristic functions calculated from them (P and S) for each
@@ -25,26 +33,24 @@ def pick_summary(event, station_uid, signal, picks, onsets, ttimes, window):
     ----------
     event : str
         Unique identifier for the event.
-    station_uid : str
-        Unique identifer for the station.
-    signal : array of arrays
+    station : str
+        Station code.
+    signal : `numpy.ndarray` of int
         Seismic data for the Z N and E components.
     picks : pandas DataFrame object
-        Phase pick times with columns: ["Name", "Phase",
-                                        "ModelledTime",
-                                        "PickTime", "PickError",
-                                        "SNR"]
+        Phase pick times with columns ["Name", "Phase", "ModelledTime",
+        "PickTime", "PickError", "SNR"]
         Each row contains the phase pick from one station/phase.
-    onsets : array of arrays
-        P- and S-phase onset functions for the event-station pair.
-    ttimes : array, [int, int]
+    onsets : `numpy.ndarray` of float
+        Onset functions for each seismic phase, shape(nstations, nsamples).
+    ttimes : list, [int, int]
         Modelled phase travel times.
-    window : array, [int, int]
+    window : list, [int, int]
         Indices specifying the window within which the pick was made.
 
     Returns
     -------
-    fig : matplotlib Figure object
+    fig : `matplotlib.Figure` object
         Figure showing basic phase picking information.
 
     """
@@ -104,7 +110,7 @@ def pick_summary(event, station_uid, signal, picks, onsets, ttimes, window):
     # --- Plot labels and fix limits ---
     shift = (max_t - min_t) * 0.01  # Fractional shift for text label
     for comp, ax in zip(["Z", "N", "E"], axes[:3]):
-        ax.text((min_t+shift).datetime, 0.9, f"{station_uid}.BH{comp}",
+        ax.text((min_t+shift).datetime, 0.9, f"{station}.BH{comp}",
                 ha="left", va="center", zorder=2, fontsize=18)
         ax.set_ylim([-1.1, 1.1])
         ax.set_yticks(np.arange(-1, 1.5, 0.5))
@@ -122,7 +128,7 @@ def pick_summary(event, station_uid, signal, picks, onsets, ttimes, window):
 
     # --- Plot picks and summary information ---
     text = fig.add_subplot(3, 2, 1)
-    text.text(0.5, 0.8, f"Event: {event.uid}\nStation: {station_uid}",
+    text.text(0.5, 0.8, f"Event: {event.uid}\nStation: {station}",
               ha="center", va="center", fontsize=22, fontweight="bold")
     for i, pick in picks.iterrows():
         # Pick lines
@@ -138,10 +144,10 @@ def pick_summary(event, station_uid, signal, picks, onsets, ttimes, window):
         # Summary text
         text.text(0.1+i*0.5, 0.6, f"{pick.Phase} phase", ha="center",
                   va="center", fontsize=20, fontweight="bold")
-        pick_summary = (f"Pick time: {pick.PickTime}\n"
-                        f"Pick error: {pick.PickError:5.3f} s\n"
-                        f"Pick SNR: {pick.SNR:5.3f}")
-        text.text(0.05+i*0.5, 0.45, pick_summary, ha="left", va="center",
+        pick_info = (f"Pick time: {pick.PickTime}\n"
+                     f"Pick error: {pick.PickError:5.3f} s\n"
+                     f"Pick SNR: {pick.SNR:5.3f}")
+        text.text(0.05+i*0.5, 0.45, pick_info, ha="left", va="center",
                   fontsize=18)
     text.set_axis_off()
 

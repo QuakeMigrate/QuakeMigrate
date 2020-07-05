@@ -8,6 +8,7 @@ import logging
 
 import numpy as np
 from obspy import read, Stream, Trace, UTCDateTime
+from obspy.io.mseed import InternalMSEEDError
 import pandas as pd
 
 import QMigrate.util as util
@@ -175,7 +176,13 @@ class ScanmSEED:
         fstem = f"{starttime.year}_{starttime.julday:03d}"
         file = (fpath / fstem).with_suffix(".scanmseed")
 
-        st.write(str(file), format="MSEED", encoding="STEIM2")
+        try:
+            st.write(str(file), format="MSEED", encoding="STEIM2")
+        except InternalMSEEDError as e:
+            logging.debug(f"Cannot compress data: {e}\n"
+                          "Unable to compress data using STEIM2 - falling back"
+                          " on STEIM1.")
+            st.write(str(file), format="MSEED", encoding="STEIM1")
         self.written = True
 
     def _data2int(self, data, factor):
@@ -262,17 +269,15 @@ def read_scanmseed(run, starttime, endtime, pad):
 
     # Check if the data covers the entirety of the requested period
     if stats.starttime > starttime:
-        logging.info("\n\t    Warning! .scanmseed starttime > trigger() "
-                     "starttime!")
+        logging.info("\n\t    Warning! .scanmseed starttime is later than "
+                     "trigger() starttime!")
     elif stats.starttime > readstart:
         logging.info("\n\t    Warning! No .scanmseed data found for pre-pad!")
     if stats.endtime < endtime - stats.delta:
-        logging.info("\n\t    Warning! .scanmseed endtime < trigger() "
+        logging.info("\n\t    Warning! .scanmseed endtime is before trigger() "
                      "endtime!")
     elif stats.endtime < readend:
         logging.info("\n\t    Warning! No .scanmseed data found for post-pad!")
-    logging.info(f"\n\t\t...from {stats.starttime} - {stats.endtime}.")
-
-    logging.info("\n\t.scanmseed read complete.\n")
+    logging.info(f"\n\t...from {stats.starttime} - {stats.endtime}.\n")
 
     return data, stats

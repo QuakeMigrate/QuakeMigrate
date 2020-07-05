@@ -4,8 +4,7 @@ Locate stage for the Iceland icequake example.
 
 """
 
-from QMigrate.io import Archive, stations
-from QMigrate.lut import LUT
+from QMigrate.io import Archive, read_lut, read_stations
 from QMigrate.signal import QuakeScan
 from QMigrate.signal.onset import STALTAOnset
 from QMigrate.signal.pick import GaussianPicker
@@ -22,14 +21,14 @@ starttime = "2014-06-29T18:41:55.0"
 endtime = "2014-06-29T18:42:20.0"
 
 # --- Read in station file ---
-stations = stations(station_file)
+stations = read_stations(station_file)
 
 # --- Create new Archive and set path structure ---
-archive = Archive(stations=stations, archive_path=data_in)
-archive.path_structure(archive_format="YEAR/JD/*_STATION_*")
+archive = Archive(archive_path=data_in, stations=stations,
+                  archive_format="YEAR/JD/*_STATION_*")
 
 # --- Load the LUT ---
-lut = LUT(lut_file=lut_out)
+lut = read_lut(lut_file=lut_out)
 
 # --- Create new Onset ---
 onset = STALTAOnset(position="centred")

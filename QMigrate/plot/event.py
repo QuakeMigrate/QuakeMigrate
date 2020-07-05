@@ -38,8 +38,8 @@ def event_summary(run, event, marginal_coalescence, lut):
     event : `QMigrate.io.Event` object
         Light class encapsulating signal, onset, and location information
         for a given event.
-    marginal_coalescence : array-like
-        Marginalised 3-D coalescence map.
+    marginal_coalescence : `numpy.ndarray` of `numpy.double`
+        Marginalised 3-D coalescence map, shape(nx, ny, nz).
     lut : `QMigrate.lut.LUT` object
         Contains the traveltime lookup tables for seismic phases, computed for
         some pre-defined velocity model.
@@ -115,21 +115,6 @@ def event_summary(run, event, marginal_coalescence, lut):
         ax.add_patch(gue)
         ax.add_patch(cue)
 
-    # ax.scatter(coord[idx1], coord[idx2], 150, c="green", marker="*",
-    #            label="Maximum Coalescence Location")
-
-    # if eq is not None and ee is not None and gee is not None:
-    #     if dim == "YZ":
-    #         dim = dim[::-1]
-    #     ax.scatter(eq[f"LocalGaussian_{dim[0]}"],
-    #                eq[f"LocalGaussian_{dim[1]}"],
-    #                150, c="pink", marker="*",
-    #                label="Local Gaussian Location")
-    #     ax.scatter(eq[f"GlobalCovariance_{dim[0]}"],
-    #                eq[f"GlobalCovariance_{dim[1]}"],
-    #                150, c="blue", marker="*",
-    #                label="Global Covariance Location")
-
     # --- Write summary information ---
     text = plt.subplot2grid((9, 15), (0, 0), colspan=8, rowspan=2, fig=fig)
     text.text(0.5, 0.8, f"Event: {event.uid}",
@@ -137,7 +122,7 @@ def event_summary(run, event, marginal_coalescence, lut):
     text.text(0.4, 0.65, f"Origin time:", ha="right", va="center", fontsize=20)
     text.text(0.42, 0.65, f"{otime}", ha="left", va="center", fontsize=20)
     text.text(0.4, 0.55, f"Hypocentre:", ha="right", va="top", fontsize=20)
-    gau_unc = event.df.filter(regex="LocalGaussian_Err[XYZ]").values[0] / 1000
+    gau_unc = event.eventfile_df.filter(regex="LocalGaussian_Err[XYZ]").values[0] / 1000
     hypo = (f"{event.hypocentre[1]:5.3f}\u00b0 N +/- {gau_unc[1]:5.3f} km\n"
             f"{event.hypocentre[0]:5.3f}\u00b0 E +/- {gau_unc[0]:5.3f} km\n"
             f"{event.hypocentre[2]/1000:5.3f} +/- {gau_unc[2]:5.3f} km")
@@ -188,8 +173,8 @@ def _make_ellipses(lut, event, uncertainty, clr):
 
     """
 
-    coord = event.df.filter(regex=f"{uncertainty}_[XYZ]").values[0]
-    error = event.df.filter(regex=f"{uncertainty}_Err[XYZ]").values[0]
+    coord = event.eventfile_df.filter(regex=f"{uncertainty}_[XYZ]").values[0]
+    error = event.eventfile_df.filter(regex=f"{uncertainty}_Err[XYZ]").values[0]
     xyz = lut.coord2grid(coord)[0]
     d = abs(coord - lut.coord2grid(xyz + error, inverse=True))[0]
 
@@ -214,7 +199,7 @@ def _plot_map_slice(lut, ax, slice_, coord, dim, eq=None, ee=None, gee=None):
 
     Parameters
     ----------
-    ax : matplotlib Axes object
+    ax : `matplotlib.Axes` object
         Axes on which to plot the grid slice.
     slice_ : array-like
         2-D array of coalescence values for the slice through the 3-D grid.
@@ -232,11 +217,9 @@ def _plot_map_slice(lut, ax, slice_, coord, dim, eq=None, ee=None, gee=None):
                    "GlobalCovariance_ErrX", "GlobalCovariance_ErrY",
                    "GlobalCovariance_ErrZ", "ML", "ML_Err"]
         All X / Y as lon / lat; Z and X / Y / Z uncertainties in metres.
-
-    ee : matplotlib Ellipse (Patch) object.
+    ee : `matplotlib.Ellipse` (Patch) object.
         Uncertainty ellipse for the global covariance.
-
-    gee : matplotlib Ellipse (Patch) object.
+    gee : `matplotlib.Ellipse` (Patch) object.
         Uncertainty ellipse for the local Gaussian.
 
     """
@@ -307,7 +290,7 @@ def _plot_xy_files(xy_files, ax):
 
     Parameters
     ----------
-    ax : matplotlib Axes object
+    ax : `matplotlib.Axes` object
         Axes on which to plot the xy files.
 
     """

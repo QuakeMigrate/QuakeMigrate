@@ -6,13 +6,49 @@ Module to handle input/output for QuakeMigrate.
 
 import logging
 import pathlib
+import pickle
 
 import pandas as pd
+from obspy import read_inventory
 
 import QMigrate.util as util
+from QMigrate.lut import LUT
 
 
-def stations(station_file, delimiter=","):
+def read_lut(lut_file):
+    """
+    Read the contents of a pickle file and restore state of the lookup table
+    object.
+
+    Parameters
+    ----------
+    lut_file : str
+        Path to pickle file to load.
+
+    Returns
+    -------
+    lut : `QMigrate.lut.LUT` object
+        Lookup table populated with grid specification and traveltimes.
+
+    """
+
+    lut = LUT()
+    with open(lut_file, "rb") as f:
+        lut.__dict__.update(pickle.load(f))
+
+    return lut
+
+
+def stations(station_file, **kwargs):
+    """Alias for read_stations."""
+    print("FutureWarning: function name has changed - continuing.")
+    print("To remove this message, change:")
+    print("\t'stations' -> 'read_stations'")
+
+    return read_stations(station_file, **kwargs)
+
+
+def read_stations(station_file, **kwargs):
     """
     Reads station information from file.
 
@@ -22,12 +58,12 @@ def stations(station_file, delimiter=","):
         Path to station file.
         File format (header line is REQUIRED, case sensitive, any order):
             Latitude, Longitude, Elevation (units of metres), Name
-    delimiter : char, optional
-        Station file delimiter (default ",").
+    kwargs : dict
+        Passthrough for `pandas.read_csv` kwargs.
 
     Returns
     -------
-    stn_data : pandas DataFrame object
+    stn_data : `pandas.DataFrame` object
         Columns: "Latitude", "Longitude", "Elevation", "Name"
 
     Raises
@@ -37,7 +73,7 @@ def stations(station_file, delimiter=","):
 
     """
 
-    stn_data = pd.read_csv(station_file, delimiter=delimiter)
+    stn_data = pd.read_csv(station_file, **kwargs)
 
     if ("Latitude" or "Longitude" or "Elevation" or "Name") \
        not in stn_data.columns:
@@ -51,7 +87,51 @@ def stations(station_file, delimiter=","):
     return stn_data
 
 
-def read_vmodel(vmodel_file, delimiter=","):
+def read_response_inv(response_file, sac_pz_format=False):
+    """
+    Reads response information from file, returning it as a `obspy.Inventory`
+    object.
+
+    Parameters
+    ----------
+    response_file : str
+        Path to response file.
+        Please see the `obspy.read_inventory()` documentation for a full list
+        of supported file formats. This includes a dataless.seed volume, a
+        concatenated series of RESP files or a stationXML file.
+    sac_pz_format : bool, optional
+        Toggle to indicate that response information is being provided in SAC
+        Pole-Zero files. NOTE: not yet supported.
+
+    Returns
+    -------
+    response_inv : `obspy.Inventory` object
+        ObsPy response inventory.
+
+    Raises
+    ------
+    NotImplementedError
+        If the user selects sac_pz_format.
+    TypeError
+        If the user provides a response file that is not readable by ObsPy.
+
+    """
+
+    if sac_pz_format:
+        raise NotImplementedError("SAC_PZ is not yet supported. Please contact "
+                                  "the QuakeMigrate developers.")
+    else:
+        try:
+            response_inv = read_inventory(response_file)
+        except TypeError as e:
+            msg = (f"Response file not readable by ObsPy: {e}\n"
+                   "Please consult the ObsPy documentation.")
+            raise TypeError(msg)
+
+    return response_inv
+
+
+def read_vmodel(vmodel_file, **kwargs):
     """
     Reads velocity model information from file.
 
@@ -61,12 +141,12 @@ def read_vmodel(vmodel_file, delimiter=","):
         Path to velocity model file.
         File format: (header line is REQUIRED, case sensitive, any order):
         Depth (units of metres), Vp, Vs (units of metres per second)
-    delimiter : char, optional
-        Velocity model file delimiter (default ",").
+    kwargs : dict
+        Passthrough for `pandas.read_csv` kwargs.
 
     Returns
     -------
-    vmodel_data : pandas DataFrame object
+    vmodel_data : `pandas.DataFrame` object
         Columns: "Depth", "Vp", "Vs"
 
     Raises
@@ -76,10 +156,10 @@ def read_vmodel(vmodel_file, delimiter=","):
 
     """
 
-    vmodel_data = pd.read_csv(vmodel_file, delimiter=delimiter)
+    vmodel_data = pd.read_csv(vmodel_file, **kwargs)
 
-    if ("Depth" or "Vp" or "Vs") not in vmodel_data.columns:
-        raise util.VelocityModelFileHeaderException
+    if "Depth" not in vmodel_data.columns:
+        raise util.InvalidVelocityModelHeader("Depth")
 
     return vmodel_data
 
@@ -123,6 +203,13 @@ class Run:
 
     def __init__(self, path, name, subname="", stage=None):
         """Instantiate the Run object."""
+
+        if "." in name or "." in subname:
+            print("Warning: The character '.' is not allowed in run"
+                  "names/subnames - replacing with '_'.")
+            name = name.replace(".", "_")
+            subname = subname.replace(".", "_")
+
         self.path = pathlib.Path(path) / name
         self._name = name
         self.stage = stage
@@ -153,6 +240,7 @@ class Run:
 
     @property
     def name(self):
+        """Get the run name as a formatted string."""
         if self.subname == "":
             return self._name
         else:

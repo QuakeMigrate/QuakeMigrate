@@ -87,9 +87,9 @@ def compute(lut, stations, method, phases=["P", "S"], **kwargs):
 
     Parameters
     ----------
-    lut : QuakeMigrate lookup table object
+    lut : `QMigrate.lut.LUT` object
         Defines the grid on which the travel times are to be calculated.
-    stations : pandas DataFrame
+    stations : `pandas.DataFrame`
         DataFrame containing station information (lat/lon/elev).
     method : str
         Method to be used when computing the travel-time lookup tables.
@@ -105,15 +105,17 @@ def compute(lut, stations, method, phases=["P", "S"], **kwargs):
     lut.phases = phases
 
     if method == "homogeneous":
-        # Check the user has provided the suitable arguments
-        if "vp" not in kwargs:
-            print("Missing argument: 'vp'")
-            return
-        if "vs" not in kwargs:
-            print("Missing argument: 'vs'")
-            return
+        print("Computing homogeneous traveltime lookup tables for...")
+        lut.velocity_model = "Homogeneous velocity model:"
+        for phase in phases:
+            velocity = kwargs.get(f"v{phase.lower()}")
+            if velocity is None:
+                print(f"Missing argument: 'v{phase.lower()}'")
+                return
+            lut.velocity_model += f"\nV{phase.lower()} = {velocity:5.2f} m / s"
 
-        _compute_homogeneous(lut, kwargs["vp"], kwargs["vs"])
+            print(f"\t...phase: {phase}...")
+            _compute_homogeneous(lut, phase, velocity)
 
     if method == "1dfmm":
         # Check if the user has provided suitable arguments
@@ -139,38 +141,33 @@ def compute(lut, stations, method, phases=["P", "S"], **kwargs):
     return lut
 
 
-def _compute_homogeneous(lut, vp, vs):
+def _compute_homogeneous(lut, phase, velocity):
     """
     Calculate the travel-time lookup table for a station in a homogeneous
     velocity model.
 
     Parameters
     ----------
-    lut : QuakeMigrate lookup table object
+    lut : `QMigrate.lut.LUT` object
         Defines the grid on which the travel times are to be calculated.
-    vp : float
-        P-wave velocity (units: m / s).
-    vs : float
-        S-wave velocity (units: m / s).
+    phase : str
+        The seismic phase for which to calculate traveltimes.
+    velocity : float
+        Seismic phase velocity (units: m / s).
 
     """
-
-    lut.velocity_model = ("Homogeneous velocity model:\n"
-                          f"Vp = {vp:5.2f} m / s\n"
-                          f"Vs = {vs:5.2f} m / s")
 
     grid_xyz = lut.grid_xyz
     stations_xyz = lut.stations_xyz
 
-    for i, station in lut.station_data.iterrows():
-        print(f"Computing homogeneous traveltime lookup table for station "
-              f"{station['Name']} - {i+1} of {stations_xyz.shape[0]}")
+    for i, station in enumerate(lut.station_data["Name"].values):
+        print(f"\t\t...station: {station} - {i+1} of {stations_xyz.shape[0]}.")
 
         dx, dy, dz = [grid_xyz[j] - stations_xyz[i, j] for j in range(3)]
         dist = np.sqrt(dx**2 + dy**2 + dz**2)
 
-        lut.maps[station["Name"]] = {"TIME_P": dist / vp,
-                                     "TIME_S": dist / vs}
+        lut.maps.setdefault(station, {}).update(
+            {f"TIME_{phase}": dist / velocity})
 
 
 def _compute_1d_fmm(lut, vmod):

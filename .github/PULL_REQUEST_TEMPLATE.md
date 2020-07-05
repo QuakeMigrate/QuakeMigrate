@@ -14,7 +14,7 @@ Link any open Issues here.
 Please detail any tests that you have used to ensure your changes do not introduce bugs.
 
 - [ ] All examples run without any new warnings
-- [ ] test_examples.py reports all example outputs are unchanged
+- [ ] test_benchmarks.py reports all example tests pass
 
 ### System details
 Please state the systems on which you have tested this change.

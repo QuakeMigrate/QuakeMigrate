@@ -159,7 +159,7 @@ def read_vmodel(vmodel_file, **kwargs):
     vmodel_data = pd.read_csv(vmodel_file, **kwargs)
 
     if "Depth" not in vmodel_data.columns:
-        raise util.InvalidVelocityModelHeader
+        raise util.InvalidVelocityModelHeader("Depth")
 
     return vmodel_data
 

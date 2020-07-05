@@ -14,7 +14,7 @@ import pyproj
 from scipy.interpolate import RegularGridInterpolator
 
 
-class Grid3D(object):
+class Grid3D:
     """
     A grid object represents a collection of points in a 3-D Cartesian space
     that can be used to produce regularised traveltime lookup tables that

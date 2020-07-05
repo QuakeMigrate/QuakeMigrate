@@ -32,6 +32,20 @@ def write_amplitudes(run, amplitudes, event):
     fpath = run.path / "locate" / run.subname / "amplitudes"
     fpath.mkdir(exist_ok=True, parents=True)
 
+    # Work on a copy
+    amplitudes = amplitudes.copy()
+
+    # Set floating point precision for output file
+    for col in ["epi_dist", "z_dist", "P_amp", "S_amp", "Noise_amp"]:
+        amplitudes[col] = amplitudes[col].map(lambda x: f"{x:.5g}",
+                                              na_action="ignore")
+    for col in ["P_freq", "S_freq"]:
+        amplitudes[col] = amplitudes[col].map(lambda x: f"{x:.2g}",
+                                              na_action="ignore")
+    for col in ["ML", "ML_Err"]:
+        amplitudes[col] = amplitudes[col].map(lambda x: f"{x:.3g}",
+                                              na_action="ignore")
+
     fstem = f"{event.uid}"
     file = (fpath / fstem).with_suffix(".amps")
     amplitudes.to_csv(file, index=True)

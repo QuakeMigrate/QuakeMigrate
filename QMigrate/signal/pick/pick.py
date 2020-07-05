@@ -67,6 +67,14 @@ class PhasePicker(ABC):
         fpath = run.path / "locate" / run.subname / "picks"
         fpath.mkdir(exist_ok=True, parents=True)
 
+        # Work on a copy
+        phase_picks = phase_picks.copy()
+
+        # Set floating point precision for output file
+        for col in ["PickError", "SNR"]:
+            phase_picks[col] = phase_picks[col].map(lambda x: f"{x:.3g}",
+                                                    na_action="ignore")
+
         fstem = f"{event_uid}"
         fname = (fpath / fstem).with_suffix(".picks")
         phase_picks.to_csv(fname, index=False)

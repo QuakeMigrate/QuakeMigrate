@@ -294,6 +294,31 @@ class Grid3D:
         assert (np.all(value > 0)), "Cell size must be greater than [0]"
         self._cell_size = value
 
+    @property
+    def precision(self):
+        """
+        Get appropriate number of decimal places as a function of the
+        cell size and coordinate projection.
+
+        """
+
+        return [int(np.format_float_scientific(axis).split("e")[1]) for axis
+                in np.subtract(*self.index2coord([[0, 0, 0], [1, 1, 1]]))]
+
+    @property
+    def unit_conversion_factor(self):
+        """Expose unit_conversion_factor of the grid projection."""
+
+        return self.grid_proj.crs.axis_info[0].unit_conversion_factor
+
+    @property
+    def unit_name(self):
+        """Expose unit_name of the grid_projection and return shorthand."""
+
+        unit_name = self.grid_proj.crs.axis_info[0].unit_name
+
+        return "km" if unit_name == "kilometre" else "m"
+
 
 class LUT(Grid3D):
     """
@@ -572,11 +597,11 @@ class LUT(Grid3D):
         xz.yaxis.tick_right()
         xz.invert_yaxis()
         xz.set_xlabel("Longitude (deg)", fontsize=14)
-        xz.set_ylabel("Depth (m)", fontsize=14)
+        xz.set_ylabel(f"Depth ({self.unit_name})", fontsize=14)
         xz.yaxis.set_label_position("right")
 
         yz.yaxis.tick_right()
-        yz.set_xlabel("Depth (m)", fontsize=14)
+        yz.set_xlabel(f"Depth ({self.unit_name})", fontsize=14)
         yz.set_ylabel("Latitude (deg)", fontsize=14)
         yz.yaxis.set_label_position("right")
 

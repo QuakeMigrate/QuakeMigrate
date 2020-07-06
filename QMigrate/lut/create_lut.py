@@ -323,11 +323,11 @@ def _compute_1d_sweep(lut, phase, vmodel, kwargs):
                                     f"Vel2Grid not found in {nlloc_path}")
 
     # For NonLinLoc, distances/velocities must be in km - use conversion factor
-    cf = 1000 / lut.grid_proj.crs.axis_info[0].unit_conversion_factor
-    grid_xyz = [g / cf for g in lut.grid_xyz]
-    stations_xyz = lut.stations_xyz / cf
-    ll, *_, ur = lut.grid_corners / cf
-    vmodel = vmodel / cf
+    km_cf = 1000 / lut.unit_conversion_factor
+    grid_xyz = [g / km_cf for g in lut.grid_xyz]
+    stations_xyz = lut.stations_xyz / km_cf
+    ll, *_, ur = lut.grid_corners / km_cf
+    vmodel = vmodel / km_cf
 
     # Make folders in which to run NonLinLoc
     cwd = pathlib.Path.cwd()

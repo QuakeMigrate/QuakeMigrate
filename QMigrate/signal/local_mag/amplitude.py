@@ -258,7 +258,8 @@ class Amplitude:
         for i, station_data in lut.station_data.iterrows():
             station = station_data["Name"]
 
-            epi_dist, z_dist = self._get_distances(ev_loc, station_data, lut)
+            epi_dist, z_dist = self._get_distances(ev_loc, station_data,
+                                                   lut.unit_conversion_factor)
 
             # Columns: tr_id, epicentral distance, vertical distance, P_amp,
             #          P_freq, P_time, S_amp, S_freq, S_time, Noise_amp,
@@ -325,7 +326,7 @@ class Amplitude:
 
         return amplitudes
 
-    def _get_distances(self, ev_loc, station_data, lut):
+    def _get_distances(self, ev_loc, station_data, unit_conversion_factor):
         """
         Get epicentral and vertical distances between a station and an event
         hypocentre.
@@ -337,9 +338,9 @@ class Amplitude:
         station_data : `pandas.Series` object
             Station information - keys: ["Name", "Latitude", "Longitude",
             "Elevation"].
-        lut : `QMigrate.lut.LUT` object
-            Contains the traveltime lookup tables for seismic phases, computed
-            for some pre-defined velocity model.
+        unit_conversion_factor : float
+            A conversion factor based on the lookup table grid projection, used
+            to guarantee the distances returned have units of kilometres.
 
         Returns
         -------
@@ -358,9 +359,12 @@ class Amplitude:
         # Get event location
         evlo, evla, evdp = ev_loc
 
+        # For amplitudes and magnitude calculation, distances must be in km
+        km_cf = 1000 / unit_conversion_factor
+
         # Evaluate epicentral/vertical distances between station and event
-        epi_dist = gps2dist_azimuth(evla, evlo, stla, stlo)[0] / 1000.
-        z_dist = (evdp - stel) / 1000.
+        epi_dist = gps2dist_azimuth(evla, evlo, stla, stlo)[0] / km_cf
+        z_dist = (evdp - stel) / km_cf
 
         return epi_dist, z_dist
 

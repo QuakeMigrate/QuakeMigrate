@@ -302,7 +302,7 @@ class Grid3D:
 
         """
 
-        return [int(np.format_float_scientific(axis).split("e")[1]) for axis
+        return [-int(np.format_float_scientific(axis).split("e")[1]) for axis
                 in np.subtract(*self.index2coord([[0, 0, 0], [1, 1, 1]]))]
 
     @property

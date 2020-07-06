@@ -17,7 +17,7 @@ import QMigrate.util as util
 EVENT_FILE_COLS = ["EventID", "DT", "X", "Y", "Z", "COA", "COA_NORM",
                    "GAU_X", "GAU_Y", "GAU_Z",
                    "GAU_ErrX", "GAU_ErrY", "GAU_ErrZ",
-                   "COVARIANCE_ErrX", "COVARIANCE_ErrY", "COVARIANCE_ErrZ",
+                   "COV_ErrX", "COV_ErrY", "COV_ErrZ",
                    "TRIG_COA", "DEC_COA", "DEC_COA_NORM"]
 
 
@@ -389,7 +389,7 @@ class Event:
         loc = self.locations["spline"]
         gau = dict((f"GAU_{key}", value) \
             for (key, value) in self.locations["gaussian"].items())
-        cov = dict((f"COVARIANCE_{key}", value) \
+        cov = dict((f"COV_{key}", value) \
             for (key, value) in list(self.locations["covariance"].items())[3:])
         out = {**out, **loc, **gau, **cov}
 

@@ -17,7 +17,7 @@ import skfmm
 from .lut import LUT
 
 
-def read_nlloc(path, stations, fraction_tt=0.1):
+def read_nlloc(path, stations, phases=["P", "S"], fraction_tt=0.1):
     """
     Read in a traveltime lookup table that is saved in the NonLinLoc format.
 
@@ -25,58 +25,66 @@ def read_nlloc(path, stations, fraction_tt=0.1):
     ----------
     path : str
         Path to directory containing .buf and .hdr files.
-    stations : pandas DataFrame
+    stations : `pandas.DataFrame`
         DataFrame containing station information (lat/lon/elev).
+    phases : list of str, optional
+        List of seismic phases for which to calculate traveltimes.
+    fraction_tt : float, optional
+        An estimate of the uncertainty in the velocity model as a function of
+        a fraction of the traveltime.
 
     Returns
     -------
-    lut : QuakeMigrate lookup table object
+    lut : `QMigrate.lut.LUT` object
         Lookup table populated with traveltimes from the NonLinLoc files.
 
     """
 
     path = pathlib.Path(path)
 
-    for i, station in stations.iterrows():
-        name = station["Name"]
-        print(f"Loading P- and S- traveltime lookup tables for {name}")
+    print("Loading NonLinLoc traveltime lookup tables for...")
+    for i, phase in enumerate(phases):
+        print(f"\t...phase: {phase}...")
+        for j, station in enumerate(stations["Name"].values):
+            print(f"\t\t...station: {station}")
+            file = path / f"layer.{phase}.{station}.time"
 
-        p_file = path / f"layer.P.{name}.time"
-        s_file = path / f"layer.S.{name}.time"
+            if i == 0 and j == 0:
+                gridspec, transform, traveltimes = _read_nlloc(file)
+                cell_count = np.array(gridspec[0])
+                grid_origin = np.array(gridspec[1])
+                cell_size = np.array(gridspec[2])
 
-        if i == 0:
-            gridspec, transform, pttimes = _read_nlloc(p_file)
-            _, _, sttimes = _read_nlloc(s_file)
-            cell_count = np.array(gridspec[0])
-            grid_origin = np.array(gridspec[1]) * 1000
-            cell_size = np.array(gridspec[2]) * 1000
+                gproj, cproj = transform
+                if gproj is None:
+                    raise NotImplementedError
+                else:
+                    # Transform from grid projection origin to a coord origin
+                    ll_corner = pyproj.transform(gproj, cproj,
+                                                 grid_origin[0],
+                                                 grid_origin[1],
+                                                 grid_origin[2])
 
-            gproj, cproj = transform
-            if gproj is None:
-                raise NotImplementedError
+                    # Calculate the ur corner
+                    ur_corner = (np.array(grid_origin)
+                                 + (cell_count - 1)*cell_size)
+                    ur_corner = pyproj.transform(gproj, cproj,
+                                                 ur_corner[0],
+                                                 ur_corner[1],
+                                                 ur_corner[2])
+
+                # Need to initialise the grid
+                lut = LUT(ll_corner=ll_corner, ur_corner=ur_corner,
+                          cell_size=cell_size, grid_proj=gproj,
+                          coord_proj=cproj, fraction_tt=fraction_tt)
             else:
-                # Transform from input projection origin to a grid origin
-                ll_corner = pyproj.transform(gproj, cproj, grid_origin[0],
-                                             grid_origin[1], grid_origin[2])
+                _, _, traveltimes = _read_nlloc(file)
 
-                # Calculate the ur corner
-                ur_corner = np.array(grid_origin) + (cell_count - 1)*cell_size
-                ur_corner = pyproj.transform(gproj, cproj, ur_corner[0],
-                                             ur_corner[1], ur_corner[2])
-
-            # Need to initialise the grid
-            lut = LUT(ll_corner=ll_corner, ur_corner=ur_corner,
-                      cell_size=cell_size, grid_proj=gproj, coord_proj=cproj,
-                      fraction_tt=fraction_tt)
-        else:
-            _, _, pttimes = _read_nlloc(p_file)
-            _, _, sttimes = _read_nlloc(s_file)
-
-        lut.maps[station["Name"]] = {"TIME_P": pttimes,
-                                     "TIME_S": sttimes}
+            lut.maps.setdefault(station, {}).update(
+                {f"TIME_{phase}": traveltimes})
 
     lut.station_data = stations
-    lut.phases = ["P", "S"]
+    lut.phases = phases
 
     return lut
 
@@ -480,7 +488,8 @@ def _read_nlloc(fname, ignore_proj=False):
             orig_lon = float(line[5])
 
             # The simple projection is the Plate Carree/Equidistant Cylindrical
-            gproj = pyproj.Proj(proj="eqc", lat_0=orig_lat, lon_0=orig_lon)
+            gproj = pyproj.Proj(proj="eqc", lat_0=orig_lat, lon_0=orig_lon,
+                                units="km")
         elif line[1] == "LAMBERT":
             proj_ellipsoid = line[3]
             orig_lat = float(line[5])
@@ -522,13 +531,14 @@ def _read_nlloc(fname, ignore_proj=False):
                 proj_ellipsoid = "WGS84"
 
             gproj = pyproj.Proj(proj="lcc", lon_0=orig_lon, lat_0=orig_lat,
-                                lat_1=parallel_1, lat_2=parallel_2,
+                                lat_1=parallel_1, lat_2=parallel_2, units="km",
                                 ellps=proj_ellipsoid, datum="WGS84")
         elif line[1] == "TRANS_MERC":
             orig_lat = float(line[5])
             orig_lon = float(line[7])
 
-            gproj = pyproj.Proj(proj="tmerc", lon=orig_lon, lat=orig_lat)
+            gproj = pyproj.Proj(proj="tmerc", lon=orig_lon, lat=orig_lat,
+                                units="km")
 
         transform = [gproj, cproj]
 

@@ -311,10 +311,8 @@ class LUT(Grid3D):
     Attributes
     ----------
     fraction_tt : float
-        Defines width of time window around expected phase arrival time in
-        which to search for a phase pick as a function of the traveltime from
-        the event location to that station -- should be an estimate of the
-        uncertainty in the velocity model.
+        An estimate of the uncertainty in the velocity model as a function of
+        a fraction of the traveltime.
     maps : dict
         A dictionary containing the traveltime lookup tables. The structure of
         this dictionary is:

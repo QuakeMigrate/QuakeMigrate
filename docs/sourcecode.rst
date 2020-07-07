@@ -7,6 +7,7 @@ Explore the documentation and source code for the QuakeMigrate package.
    :maxdepth: 1
 
    submodules/QMigrate.core
+   submodules/QMigrate.export
    submodules/QMigrate.io
    submodules/QMigrate.lut
    submodules/QMigrate.plot

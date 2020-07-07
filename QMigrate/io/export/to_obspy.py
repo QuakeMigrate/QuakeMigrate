@@ -103,6 +103,7 @@ def _read_single_event(event_file, locate_dir, units, local_mag_ph):
 
     # Parse information from event file
     event_info = pd.read_csv(event_file).iloc[0]
+    event_uid = str(event_info["EventID"])
 
     # Set distance conversion factor (from units of QM LUT projection units).
     if units == "km":
@@ -128,7 +129,7 @@ def _read_single_event(event_file, locate_dir, units, local_mag_ph):
 
     # Determine location of cut waveform data - add to event object as a
     # custom extra attribute.
-    mseed = locate_dir / "cut_waveforms" / "{}".format(event_file.stem)
+    mseed = locate_dir / "cut_waveforms" / event_uid
     event.extra.cut_waveforms_file = str(mseed.with_suffix(".m"))
 
     # Create origin with spline location and set to preferred event origin.
@@ -176,7 +177,7 @@ def _read_single_event(event_file, locate_dir, units, local_mag_ph):
         origin.evaluation_mode = "automatic"
 
     # --- Handle picks file ---
-    pick_file = locate_dir / "picks" / "{}".format(event_file.stem)
+    pick_file = locate_dir / "picks" / event_uid
     if pick_file.with_suffix(".picks").is_file():
         picks = pd.read_csv(pick_file.with_suffix(".picks"))
     else:
@@ -204,7 +205,7 @@ def _read_single_event(event_file, locate_dir, units, local_mag_ph):
             event.picks.append(pick)
 
     # --- Handle amplitudes file ---
-    amps_file = locate_dir / "amplitudes" / "{}".format(event_file.stem)
+    amps_file = locate_dir / "amplitudes" / event_uid
     if amps_file.with_suffix(".amps").is_file():
         amps = pd.read_csv(amps_file.with_suffix(".amps"))
 

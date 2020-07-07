@@ -8,9 +8,9 @@ from QMigrate.io import read_lut
 from QMigrate.signal import Trigger
 
 # --- i/o paths ---
-lut_file = "./outputs/lut/icequake.LUT"
+lut_file = "./outputs/lut/example.LUT"
 run_path = "./outputs/runs"
-run_name = "icequake_example"
+run_name = "example_run"
 
 # --- Set time period over which to run trigger ---
 starttime = "2014-06-29T18:41:55.0"

@@ -12,9 +12,9 @@ from QMigrate.signal.pick import GaussianPicker
 # --- i/o paths ---
 station_file = "./inputs/iceland_stations.txt"
 data_in = "./inputs/mSEED"
-lut_out = "./outputs/lut/icequake.LUT"
+lut_out = "./outputs/lut/example.LUT"
 run_path = "./outputs/runs"
-run_name = "icequake_example"
+run_name = "example_run"
 
 # --- Set time period over which to run locate ---
 starttime = "2014-06-29T18:41:55.0"

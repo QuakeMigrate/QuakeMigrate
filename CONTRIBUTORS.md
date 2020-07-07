@@ -1,6 +1,6 @@
-* Julian Drew
-* Jonathan Smith
-* Tom Hudson
-* Tom Winder
-* Conor Bacon
-* Tim Greenfield
+* Bacon, Conor
+* Drew, Julian
+* Greenfield, Tim
+* Hudson, Tom
+* Smith, Jonathan
+* Winder, Tom

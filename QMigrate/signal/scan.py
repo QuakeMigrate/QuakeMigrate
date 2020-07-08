@@ -166,7 +166,7 @@ class QuakeScan:
 
         # --- Set up i/o ---
         self.run = Run(run_path, run_name, kwargs.get("run_subname", ""))
-        self.log = kwargs.get("log", True)
+        self.log = kwargs.get("log", False)
 
         picker = kwargs.get("picker")
         if picker is None:

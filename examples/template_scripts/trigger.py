@@ -22,7 +22,7 @@ endtime = "2018-002T00:00:00.00"
 lut = read_lut(lut_file=lut_file)
 
 # --- Create new Trigger ---
-trig = Trigger(lut, run_path=run_path, run_name=run_name)
+trig = Trigger(lut, run_path=run_path, run_name=run_name, log=True)
 
 # --- Set trigger parameters ---
 # For a complete list of parameters and guidance on how to choose them, please

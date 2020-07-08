@@ -161,7 +161,7 @@ class Trigger:
         # --- Organise i/o and logging ---
         self.run = Run(run_path, run_name, kwargs.get("trigger_name", ""),
                        "trigger")
-        self.run.logger(kwargs.get("log", True))
+        self.run.logger(kwargs.get("log", False))
 
         # --- Grab Trigger parameters or set defaults ---
         self.threshold_method = kwargs.get("threshold_method", "static")

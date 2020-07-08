@@ -359,11 +359,14 @@ class Amplitude:
         # Get event location
         evlo, evla, evdp = ev_loc
 
-        # For amplitudes and magnitude calculation, distances must be in km
-        km_cf = 1000 / unit_conversion_factor
+        # Evaluate epicentral distance between station and event.
+        # gps2dist_azimuth returns distances in metres -- magnitudes
+        # calculation requires distances in kilometres.
+        epi_dist = gps2dist_azimuth(evla, evlo, stla, stlo)[0] / 1000
 
-        # Evaluate epicentral/vertical distances between station and event
-        epi_dist = gps2dist_azimuth(evla, evlo, stla, stlo)[0] / km_cf
+        # Evaulate vertical distance between station and event. Convert to
+        # kilometres.
+        km_cf = 1000 / unit_conversion_factor
         z_dist = (evdp - stel) / km_cf
 
         return epi_dist, z_dist

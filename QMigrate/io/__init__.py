@@ -19,7 +19,7 @@ from .cut_waveforms import write_cut_waveforms  # NOQA
 from .data import Archive  # NOQA
 from .event import Event  # NOQA
 from .core import (read_lut, read_response_inv, read_stations,  # NOQA
-                   read_vmodel, Run)
+                   read_vmodel, stations, Run)
 from .scanmseed import ScanmSEED, read_scanmseed  # NOQA
 from .triggered_events import (read_triggered_events,  # NOQA
                                write_triggered_events)

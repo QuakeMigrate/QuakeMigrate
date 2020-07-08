@@ -226,7 +226,7 @@ def _compute_1d_fmm(lut, phase, vmodel):
         DataFrame containing the velocity model to be used to generate the LUT.
         Columns:
             "Depth" of each layer in model (positive down)
-            "V<phase>" velocity for each layer in model
+            "V<phase>" velocity for each layer in model (e.g. "Vp")
 
     """
 
@@ -307,6 +307,10 @@ def _compute_1d_sweep(lut, phase, vmodel, **kwargs):
     swept around the full range of azimuths, centred on the station location,
     to populate the 3-D traveltime grid.
 
+    .. warning:: Requires NonLinLoc to be installed, and `Vel2Grid` and
+    `Grid2Time` to be in the user's path. Alternatively, a custom path to
+    these executables can be specified with the kwarg `nlloc_path`.
+
     Parameters
     ----------
     lut : `QMigrate.lut.LUT` object
@@ -317,11 +321,11 @@ def _compute_1d_sweep(lut, phase, vmodel, **kwargs):
         DataFrame containing the velocity model to be used to generate the LUT.
         Columns:
             "Depth" of each layer in model (positive down)
-            "V<phase>" velocity for each layer in model
+            "V<phase>" velocity for each layer in model (e.g. "Vp")
     kwargs : dict
         Can contain:
         nlloc_dx : float, optional
-            NLLoc 2D grid spacing.
+            NLLoc 2D grid spacing (default: 0.1 km).
         nlloc_path : str, optional
             Path to NonLinLoc executables Vel2Grid and Grid2Time (default: "").
         block_model : bool, optional
@@ -362,8 +366,8 @@ def _compute_1d_sweep(lut, phase, vmodel, **kwargs):
     (cwd / "model").mkdir(exist_ok=True)
 
     for i, station in enumerate(lut.station_data["Name"].values):
-        logging.info(f"\t\t...running NonLinLoc - station: {station} - {i+1} "
-                     f"of {stations_xyz.shape[0]}")
+        logging.info(f"\t\t...running NonLinLoc - station: {station:5s} - "
+                     f"{i+1} of {stations_xyz.shape[0]}")
 
         dx, dy = [grid_xyz[j] - stations_xyz[i, j] for j in range(2)]
         distances = np.sqrt(dx**2 + dy**2).flatten()
@@ -423,22 +427,22 @@ def _write_control_file(station_xyz, station, max_dist, vmodel, depth_span,
     Parameters
     ----------
     station_xyz : array-like
-        Station location expressed in the coordinate space of the grid.
+        Station location expressed in the coordinate space of the grid, in km.
     station : str
         Station name.
     max_dist : float
-        Maximum distance between the station and any point in the grid.
+        Maximum distance between the station and any point in the grid, in km.
     vmodel : `pandas.DataFrame` object
         DataFrame containing the velocity model to be used to generate the LUT.
         Columns:
-            "Depth" of each layer in model (positive down)
-            "V<phase>" velocity for each layer in model
+            "Depth" of each layer in model (positive down), units of km.
+            "V<phase>" velocity for each layer in model (e.g. "Vp")
     depth_span : array-like
-        Minimum/maximum extent of the grid in the z-dimension.
+        Minimum/maximum extent of the grid in the z-dimension, in km.
     phase : str
         The seismic phase for which to calculate traveltimes.
     dx : float
-        NLLoc 2D grid spacing.
+        NLLoc 2D grid spacing, in km.
     block_model : bool
         Toggle to choose whether to interpret velocity model with constant
         velocity blocks or a linear gradient.
@@ -643,7 +647,7 @@ def _vmodel_string(vmodel, block_model, phase):
         DataFrame containing the velocity model to be used to generate the LUT.
         Columns:
             "Depth" of each layer in model (positive down)
-            "V<phase>" velocity for each layer in model
+            "V<phase>" velocity for each layer in model (e.g. "Vp")
     block_model : bool
         Toggle to choose whether to interpret velocity model with constant
         velocity blocks or a linear gradient.
@@ -691,7 +695,7 @@ def _velocity_gradient(i, vmodel, phase):
         DataFrame containing the velocity model to be used to generate the LUT.
         Columns:
             "Depth" of each layer in model (positive down)
-            "V<phase>" velocity for each layer in model
+            "V<phase>" velocity for each layer in model (e.g. "Vp")
     phase : str
         The seismic phase for which to calculate traveltimes.
 

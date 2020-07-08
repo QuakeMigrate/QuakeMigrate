@@ -366,7 +366,7 @@ class LUT(Grid3D):
 
     Methods
     -------
-    traveltimes(sampling_rate)
+    serve_traveltimes(sampling_rate)
         Serve up the traveltime lookup tables.
     traveltime_to(phase, ijk)
         Query traveltimes to a grid location (in terms of indices) for a

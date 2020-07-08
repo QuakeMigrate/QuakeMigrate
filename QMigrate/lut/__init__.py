@@ -9,7 +9,7 @@ from .create_lut import compute_traveltimes, read_nlloc  # NOQA
 from .lut import LUT  # NOQA
 
 
-def update_lut(old_lut_file, new_lut_file):
+def update_lut(old_lut_file, save_file):
     """
     Utility function to convert old-style LUTs to new-style LUTs.
 
@@ -17,7 +17,7 @@ def update_lut(old_lut_file, new_lut_file):
     ----------
     old_lut_file : str
         Path to lookup table file to update.
-    new_lut_file : str, optional
+    save_file : str, optional
         Output path for updated lookup table.
 
     """
@@ -35,4 +35,4 @@ def update_lut(old_lut_file, new_lut_file):
 
     del lut.maps
 
-    lut.save(new_lut_file)
+    lut.save(save_file)

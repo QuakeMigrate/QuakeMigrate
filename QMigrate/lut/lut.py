@@ -373,11 +373,11 @@ class LUT(Grid3D):
 
     """
 
-    def __init__(self, fraction_tt=0.1, lut_file=None, **grid_kwargs):
+    def __init__(self, fraction_tt=0.1, lut_file=None, **grid_spec):
         """Instantiate the LUT object."""
 
-        if grid_kwargs:
-            super().__init__(**grid_kwargs)
+        if grid_spec:
+            super().__init__(**grid_spec)
             self.fraction_tt = fraction_tt
             self.maps = {}
             self.phases = []
@@ -485,7 +485,7 @@ class LUT(Grid3D):
         Parameters
         ----------
         filename : str
-            Path to location to save pickle file.
+            Path to location to save pickled lookup table.
 
         """
 

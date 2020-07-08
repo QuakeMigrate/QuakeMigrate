@@ -64,20 +64,13 @@ def read_nlloc(path, stations, phases=["P", "S"], fraction_tt=0.1, log=False):
                 gproj, cproj = transform
                 if gproj is None:
                     raise NotImplementedError
-                else:
-                    # Transform from grid projection origin to a coord origin
-                    ll_corner = pyproj.transform(gproj, cproj,
-                                                 grid_origin[0],
-                                                 grid_origin[1],
-                                                 grid_origin[2])
 
-                    # Calculate the ur corner
-                    ur_corner = (np.array(grid_origin)
-                                 + (cell_count - 1)*cell_size)
-                    ur_corner = pyproj.transform(gproj, cproj,
-                                                 ur_corner[0],
-                                                 ur_corner[1],
-                                                 ur_corner[2])
+                # Transform from grid projection origin to a coord origin
+                ll_corner = pyproj.transform(gproj, cproj, *grid_origin)
+
+                # Calculate the ur corner
+                ur_corner = np.array(grid_origin) + (cell_count - 1)*cell_size
+                ur_corner = pyproj.transform(gproj, cproj, *ur_corner)
 
                 # Need to initialise the grid
                 lut = LUT(ll_corner=ll_corner, ur_corner=ur_corner,
@@ -95,14 +88,17 @@ def read_nlloc(path, stations, phases=["P", "S"], fraction_tt=0.1, log=False):
     return lut
 
 
-def compute(lut, stations, method, phases=["P", "S"], **kwargs):
+def compute_traveltimes(grid_spec, stations, method, phases=["P", "S"],
+                        fraction_tt=0.1, save_file=None, log=False, **kwargs):
     """
     Top-level method for computing traveltime lookup tables.
 
     Parameters
     ----------
-    lut : `QMigrate.lut.LUT` object
-        Defines the grid on which the traveltimes are to be calculated.
+    grid_spec : dict
+        Dictionary containing all of the defining parameters for the underlying
+        3-D grid on which the traveltimes are to be calculated. For expected
+        keys, see `QMigrate.lut.lut.Grid3D`.
     stations : `pandas.DataFrame`
         DataFrame containing station information (lat/lon/elev).
     method : str
@@ -111,14 +107,28 @@ def compute(lut, stations, method, phases=["P", "S"], **kwargs):
             "1dfmm" - 1-D fast-marching method using scikit-fmm
     phases : list of str, optional
         List of seismic phases for which to calculate traveltimes.
+    fraction_tt : float, optional
+        An estimate of the uncertainty in the velocity model as a function of
+        a fraction of the traveltime.
+    filename : str, optional
+        Path to location to save pickled lookup table.
+    log : bool, optional
+        Toggle for logging - default is to only print information to stdout.
+        If True, will also create a log file.
     kwargs : dict
         Dictionary of all keyword arguments passed to compute when called.
         For lists of valid arguments, please refer to the relevant method.
 
+    Returns
+    -------
+    lut : `QMigrate.lut.LUT` object
+        Lookup table populated with traveltimes from the NonLinLoc files.
+
     """
 
-    util.logger(pathlib.Path.cwd() / "logs" / "lut", kwargs.get("log", False))
+    util.logger(pathlib.Path.cwd() / "logs" / "lut", log)
 
+    lut = LUT(**grid_spec, fraction_tt=fraction_tt)
     lut.station_data = stations
     lut.phases = phases
 
@@ -158,8 +168,8 @@ def compute(lut, stations, method, phases=["P", "S"], **kwargs):
             logging.info(f"\t...phase: {phase}...")
             _compute_1d_sweep(lut, phase, vmodel, kwargs)
 
-    if kwargs.get("save_file") is not None:
-        lut.save(kwargs.get("save_file"))
+    if save_file is not None:
+        lut.save(save_file)
 
     return lut
 

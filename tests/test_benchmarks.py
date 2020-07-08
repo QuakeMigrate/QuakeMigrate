@@ -46,8 +46,8 @@ class TestExamples(unittest.TestCase):
             print("\t   ...passed!")
 
             print("\t2: Assert traveltime tables are identical...")
-            b_tt = b_lut.traveltimes(50)
-            t_tt = t_lut.traveltimes(50)
+            b_tt = b_lut.serve_traveltimes(50)
+            t_tt = t_lut.serve_traveltimes(50)
             self.assertTrue((b_tt == t_tt).all())
             print("\t   ...passed!")
 

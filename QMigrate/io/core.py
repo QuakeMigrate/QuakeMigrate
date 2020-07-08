@@ -36,6 +36,11 @@ def read_lut(lut_file):
     with open(lut_file, "rb") as f:
         lut.__dict__.update(pickle.load(f))
 
+    if hasattr(lut, "maps"):
+        print("FutureWarning: The internal data structure of LUT has changed."
+              "\nTo remove this warning you will need to convert your lookup "
+              "table to the new-style\nusing `QMigrate.lut.update_lut`.")
+
     return lut
 
 

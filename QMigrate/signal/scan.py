@@ -337,8 +337,12 @@ class QuakeScan:
         pre_pad, post_pad = self.onset.pad(self.timestep)
         self.pre_pad, self.post_pad = pre_pad, post_pad
         nsteps = int(np.ceil((endtime - starttime) / self.timestep))
-        availability = pd.DataFrame(index=np.arange(nsteps),
-                                    columns=self.lut.maps.keys())
+        try:
+            availability = pd.DataFrame(index=np.arange(nsteps),
+                                        columns=self.lut.traveltimes.keys())
+        except AttributeError:
+            availability = pd.DataFrame(index=np.arange(nsteps),
+                                        columns=self.lut.maps.keys())
 
         for i in range(nsteps):
             w_beg = starttime + self.timestep*i - self.pre_pad
@@ -472,7 +476,7 @@ class QuakeScan:
 
         # --- Calculate continuous coalescence within 3-D volume ---
         onsets = self.onset.calculate_onsets(data)
-        traveltimes = self.lut.traveltimes(self.sampling_rate)
+        traveltimes = self.lut.serve_traveltimes(self.sampling_rate)
         fsmp = util.time2sample(self.pre_pad, self.sampling_rate)
         lsmp = util.time2sample(self.post_pad, self.sampling_rate)
         avail = np.sum(data.availability)*2

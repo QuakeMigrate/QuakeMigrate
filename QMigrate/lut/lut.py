@@ -122,7 +122,7 @@ class Grid3D:
         grid.cell_count = new_cell_count
         grid.cell_size = self.cell_size * df
 
-        for station, map_ in grid.maps.items():
+        for station, map_ in grid.traveltimes.items():
             for phase, ttimes in map_.items():
                 grid[station][phase] = ttimes[c1[0]::df[0],
                                               c1[1]::df[1],
@@ -338,10 +338,14 @@ class LUT(Grid3D):
     fraction_tt : float
         An estimate of the uncertainty in the velocity model as a function of
         a fraction of the traveltime. (Default 0.1 == 10%)
-    maps : dict
+    max_traveltime : float
+        The maximum traveltime between any station and a point in the grid.
+    phases : list of str
+        Seismic phases for which there are traveltime lookup tables available.
+    traveltimes : dict
         A dictionary containing the traveltime lookup tables. The structure of
         this dictionary is:
-            maps
+            traveltimes
                 - "<Station1-ID>"
                     - "<PHASE>"
                     - "<PHASE>"
@@ -349,10 +353,6 @@ class LUT(Grid3D):
                     - "<PHASE>"
                     - "<PHASE>"
                 etc
-    max_traveltime : float
-        The maximum traveltime between any station and a point in the grid.
-    phases : list of str
-        Seismic phases for which there are traveltime lookup tables available.
     velocity_model : `pandas.DataFrame` object
         Contains the input velocity model specification.
 
@@ -379,7 +379,7 @@ class LUT(Grid3D):
         if grid_spec:
             super().__init__(**grid_spec)
             self.fraction_tt = fraction_tt
-            self.maps = {}
+            self.traveltimes = {}
             self.phases = []
             self.velocity_model = ""
         else:
@@ -411,7 +411,7 @@ class LUT(Grid3D):
 
         return out
 
-    def traveltimes(self, sampling_rate):
+    def serve_traveltimes(self, sampling_rate):
         """
         Serve up the traveltime lookup tables.
 
@@ -475,7 +475,10 @@ class LUT(Grid3D):
         traveltimes = []
         for phase in phases:
             for station in self.station_data["Name"].values:
-                traveltimes.append(self[station][f"TIME_{phase}"])
+                try:
+                    traveltimes.append(self[station][phase])
+                except KeyError:
+                    traveltimes.append(self[station][f"TIME_{phase}"])
         return np.stack(traveltimes, axis=-1)
 
     def save(self, filename):
@@ -513,6 +516,12 @@ class LUT(Grid3D):
 
         with open(filename, "rb") as f:
             self.__dict__.update(pickle.load(f))
+
+        if hasattr(self, "maps"):
+            print("FutureWarning: The internal data structure of LUT has "
+                  "changed.\nTo remove this warning you will need to convert "
+                  "your lookup table to the new-style\nusing `QMigrate.lut."
+                  "update_lut`.")
 
     def plot(self, fig, gs, slices=None, hypocentre=None, station_clr="k"):
         """
@@ -610,8 +619,9 @@ class LUT(Grid3D):
         Define behaviour for the rich addition operator, "+".
 
         Two lookup tables which have identical grid definitions (as per "==")
-        can be combined by adding the traveltime lookup tables from other.maps
-        for which the station key is not already in self.maps.
+        can be combined by adding the traveltime lookup tables from
+        other.traveltimes for which the station key is not already in
+        self.traveltimes.
 
         Parameters
         ----------
@@ -625,9 +635,7 @@ class LUT(Grid3D):
             return self
         else:
             if self == other:
-                for key, ttime in other.maps.items():
-                    if key not in self.maps.keys():
-                        self.maps[key] = ttime
+                self.traveltimes.update(other.traveltimes)
                 return self
             else:
                 print("Grid definitions do not match - cannot combine.")
@@ -665,8 +673,8 @@ class LUT(Grid3D):
 
     def __getitem__(self, key):
         """
-        Provide a method to directly access traveltime maps by station key
-        without having to go through the maps dictionary.
+        Provide a method to directly access traveltime tables by station key
+        without having to go through the traveltimes dictionary.
 
         Parameters
         ----------
@@ -681,6 +689,8 @@ class LUT(Grid3D):
         """
 
         try:
+            return self.traveltimes[key]
+        except AttributeError:
             return self.maps[key]
         except KeyError:
             print(f"No traveltime lookup table available for '{key}'.")

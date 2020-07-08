@@ -80,8 +80,8 @@ def read_nlloc(path, stations, phases=["P", "S"], fraction_tt=0.1, log=False):
             else:
                 _, _, traveltimes = _read_nlloc(file)
 
-            lut.maps.setdefault(station, {}).update(
-                {f"TIME_{phase}": traveltimes})
+            lut.traveltimes.setdefault(station, {}).update(
+                {phase: traveltimes})
 
     lut.station_data = stations
     lut.phases = phases
@@ -207,8 +207,8 @@ def _compute_homogeneous(lut, phase, velocity):
         dx, dy, dz = [grid_xyz[j] - stations_xyz[i, j] for j in range(3)]
         dist = np.sqrt(dx**2 + dy**2 + dz**2)
 
-        lut.maps.setdefault(station, {}).update(
-            {f"TIME_{phase}": dist / velocity})
+        lut.traveltimes.setdefault(station, {}).update(
+            {phase: dist / velocity})
 
 
 def _compute_1d_fmm(lut, phase, vmodel):
@@ -250,9 +250,9 @@ def _compute_1d_fmm(lut, phase, vmodel):
         logging.info(f"\t\t...station: {station} - {i+1} of "
                      f"{stations_xyz.shape[0]}")
 
-        lut.maps.setdefault(station, {}).update(
-            {f"TIME_{phase}": _eikonal_fmm(grid_xyz, lut.cell_size,
-                                           int_vmodel, stations_xyz[i])})
+        lut.traveltimes.setdefault(station, {}).update(
+            {phase: _eikonal_fmm(grid_xyz, lut.cell_size,
+                                 int_vmodel, stations_xyz[i])})
 
 
 def _eikonal_fmm(grid_xyz, cell_size, velocity_grid, station_xyz):
@@ -389,12 +389,12 @@ def _compute_1d_sweep(lut, phase, vmodel, **kwargs):
         to_read = cwd / "time" / f"layer.{phase}.{station}.time"
         gridspec, _, traveltimes = _read_nlloc(to_read, ignore_proj=True)
 
-        lut.maps.setdefault(station, {}).update(
-            {f"TIME_{phase}": _bilinear_interpolate(np.c_[distances, depths],
-                                                    gridspec[1, 1:],
-                                                    gridspec[2, 1:],
-                                                    traveltimes[0, :, :]
-                                                    ).reshape(lut.cell_count)})
+        lut.traveltimes.setdefault(station, {}).update(
+            {phase: _bilinear_interpolate(np.c_[distances, depths],
+                                          gridspec[1, 1:],
+                                          gridspec[2, 1:],
+                                          traveltimes[0, :, :]
+                                          ).reshape(lut.cell_count)})
 
         # Tidy up: remove control file and nll model and time files
         os.remove(cwd / "control.in")

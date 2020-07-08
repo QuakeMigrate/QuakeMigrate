@@ -27,7 +27,5 @@ lut = LUT(ll_corner=[-84.14853353566141, -78.18825429331356, -350.],
           cell_size=[100., 100., 100.], grid_proj=gproj, coord_proj=cproj)
 
 # --- Homogeneous LUT generation ---
-compute(lut, stations, method="homogeneous", vp=3841, vs=1970, log=True)
-
-# --- Save LUT ---
-lut.save(lut_out)
+compute(lut, stations, method="homogeneous", vp=3841, vs=1970, log=True,
+        save_file=lut_out)

@@ -158,6 +158,9 @@ def compute(lut, stations, method, phases=["P", "S"], **kwargs):
             logging.info(f"\t...phase: {phase}...")
             _compute_1d_sweep(lut, phase, vmodel, kwargs)
 
+    if kwargs.get("save_file") is not None:
+        lut.save(kwargs.get("save_file"))
+
     return lut
 
 

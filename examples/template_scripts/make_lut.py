@@ -34,16 +34,17 @@ lut = LUT(ll_corner=[116.075, 5.573, -1750],
           grid_proj=gproj, coord_proj=cproj)
 
 # --- Homogeneous LUT generation ---
-compute(lut, stations, method="homogeneous", vp=5000., vs=3000., log=True)
+lut = compute(lut, stations, method="homogeneous", vp=5000., vs=3000.,
+              log=True, save_file=lut_file)
 
 # --- skfmm LUT generation ---
-compute(lut, stations, method="1dfmm", vmod=vmod, log=True)
+lut = compute(lut, stations, method="1dfmm", vmod=vmod, log=True,
+              save_file=lut_file)
 
 # --- NLLoc sweep LUT generation ---
-compute(lut, stations, method="1dsweep", vmod=vmod, block_model=True, log=True)
+lut = compute(lut, stations, method="1dsweep", vmod=vmod, block_model=True,
+              log=True, save_file=lut_file)
 
 # --- Read NLLoc lookup tables ---
-lut = read_nlloc("/path/to/nlloc_files", stations, log=True)
-
-# --- Save LUT ---
-lut.save(lut_file)
+lut = read_nlloc("/path/to/nlloc_files", stations, log=True,
+                 save_file=lut_file)

@@ -32,47 +32,55 @@ class Grid3D:
 
     Attributes
     ----------
-    ll_corner : array-like, [float, float, float]
-        Location of the lower-left corner of the grid in the grid
-        projection. Should also contain the minimum depth in the grid.
-    ur_corner : array-like, [float, float, float]
-        Location of the upper-right corner of the grid in the grid
-        projection. Should also contain the maximum depth in the grid.
-    cell_size : array-like, [float, float, float]
-        Size of a cell in each dimension of the grid.
-    grid_proj : pyproj Proj object
-        Grid space projection.
-    coord_proj : pyproj Proj object
-        Input coordinate space projection.
     cell_count : array-like, [int, int, int]
         Number of cells in each dimension of the grid. This is calculated by
         finding the number of cells with cell_size will fit between the
         lower-left and upper-right corners. This value is rounded up if the
         number of cells returned is non-integer, to ensure the requested area
         is included in the grid.
+    cell_size : array-like, [float, float, float]
+        Size of a cell in each dimension of the grid.
+    coord_proj : `pyproj.Proj` object
+        Input coordinate space projection.
     grid_corners : array-like, shape (8, 3)
         Positions of the corners of the grid in the grid coordinate space.
+    grid_proj : `pyproj.Proj` object
+        Grid space projection.
     grid_xyz : array-like, shape (3,)
         Positions of the grid nodes in the grid coordinate space. The shape of
         each element of the list is defined by the number of cells in each
         dimension.
+    ll_corner : array-like, [float, float, float]
+        Location of the lower-left corner of the grid in the grid
+        projection. Should also contain the minimum depth in the grid.
+    precision : list of float
+        An appropriate number of decimal places for distances as a function of
+        the cell size and coordinate projection.
     stations_xyz : array-like, shape (n, 3)
         Positions of the stations in the grid coordinate space.
+    unit_conversion_factor : float
+        A conversion factor based on the grid projection, used to convert
+        between units of metres and kilometres.
+    unit_name : str
+        Shorthand string for the units of the grid projection.
+    ur_corner : array-like, [float, float, float]
+        Location of the upper-right corner of the grid in the grid
+        projection. Should also contain the maximum depth in the grid.
 
     Methods
     -------
-    decimate(df, inplace=False)
-        Downsamples the traveltime lookup tables by some decimation factor.
-    index2grid(value, inverse=False, unravel=False)
-        Provides a transformation between grid indices (can be a flattened
-        index or an [i, j, k] position) and the grid coordinate space.
     coord2grid(value, inverse=False, clip=False)
         Provides a transformation between the input projection and grid
         coordinate spaces.
+    decimate(df, inplace=False)
+        Downsamples the traveltime lookup tables by some decimation factor.
     index2coord(value, inverse=False, unravel=False, clip=False)
         Provides a transformation between grid dindices (can be a flattened
         index or an [i, j, k] position) and the input projection coordinate
         space.
+    index2grid(value, inverse=False, unravel=False)
+        Provides a transformation between grid indices (can be a flattened
+        index or an [i, j, k] position) and the grid coordinate space.
 
     """
 

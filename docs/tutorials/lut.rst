@@ -43,15 +43,17 @@ The final piece of information required to fully define the grid on which we wil
 
 Bundling the grid specification
 ###############################
-The grid specification needs to be bundled into a dictionary to be used as an input for the `compute_traveltimes` function.
+The grid specification needs to be bundled into a dictionary to be used as an input for the `compute_traveltimes` function. We use here the :class:`AttribDict` from ObsPy, which extends the standard Python `dict` data structure to also
+have `.`-style access.
 
 ::
 
-    grid_spec = {"ll_corner": ll_corner,
-    			 "ur_corner": ur_corner,
-    			 "cell_size": cell_size,
-    			 "coord_proj": cproj,
-    			 "grid_proj": gproj}
+    grid_spec = AttribDict()
+    grid_spec.ll_corner = ll_corner
+    grid_spec.ur_corner = ur_corner
+    grid_spec.cell_size = cell_size
+    grid_spec.grid_proj = gproj
+    grid_spec.coord_proj = cproj
 
 Computing traveltimes
 ---------------------

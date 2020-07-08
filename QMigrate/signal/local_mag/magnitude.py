@@ -382,7 +382,7 @@ class Magnitude:
             Light class encapsulating i/o path information for a given run.
         unit_conversion_factor : float
             A conversion factor based on the lookup table grid projection, used
-            to guarantee the distances returned have units of kilometres.
+            to ensure the location uncertainties have units of kilometres.
 
         """
 

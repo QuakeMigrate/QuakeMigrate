@@ -340,7 +340,7 @@ class Amplitude:
             "Elevation"].
         unit_conversion_factor : float
             A conversion factor based on the lookup table grid projection, used
-            to guarantee the distances returned have units of kilometres.
+            to ensure the distances returned have units of kilometres.
 
         Returns
         -------

@@ -84,8 +84,10 @@ class ScanmSEED:
             Location of maximum coalescence through time in input projection
             space.
         ucf : float
-            A conversion factor based on the lookup table grid projection, used
-            to guarantee the distances returned have units of kilometres.
+            A conversion factor based on the lookup table grid projection. Used
+            to ensure the same level of precision (millimetre) is retained
+            during compression, irrespective of the units of the grid
+            projection.
 
         """
 
@@ -225,8 +227,9 @@ def read_scanmseed(run, starttime, endtime, pad, ucf):
     pad : float
         Read in "pad" seconds of additional data on either end.
     ucf : float
-        A conversion factor based on the lookup table grid projection, used
-        to guarantee the distances returned have units of kilometres.
+        A conversion factor based on the lookup table grid projection. Used to
+        ensure the same level of precision (millimetre) is retained during
+        compression, irrespective of the units of the grid projection.
 
     Returns
     -------

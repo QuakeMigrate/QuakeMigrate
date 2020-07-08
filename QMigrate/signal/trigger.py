@@ -262,7 +262,8 @@ class Trigger:
         """
 
         logging.info("\tReading in .scanmseed...")
-        data, stats = read_scanmseed(self.run, batchstart, batchend, self.pad)
+        data, stats = read_scanmseed(self.run, batchstart, batchend, self.pad,
+                                     self.lut.unit_conversion_factor)
 
         logging.info("\tTriggering events...\n")
         trigger_on = "COA_N" if self.normalise_coalescence else "COA"

@@ -348,7 +348,8 @@ class QuakeScan:
             try:
                 data = self.archive.read_waveform_data(w_beg, w_end,
                                                        self.sampling_rate)
-                coalescence.append(*self._compute(data))
+                coalescence.append(*self._compute(data),
+                                   self.lut.unit_conversion_factor)
                 availability.loc[i] = data.availability
             except util.ArchiveEmptyException as e:
                 coalescence.empty(starttime, self.timestep, i, e.msg)

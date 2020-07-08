@@ -62,7 +62,9 @@ class GaussianPicker(PhasePicker):
 
         if "fraction_tt" in kwargs.keys():
             print("FutureWarning: Fraction of traveltime argument moved to "
-                  "lookup table.\n")
+                  "lookup tables.\nIt remains possible to override the "
+                  "fraction of traveltime here, if required, to further\ntune"
+                  "the phase picker.")
         self._fraction_tt = kwargs.get("fraction_tt")
 
     def __str__(self):

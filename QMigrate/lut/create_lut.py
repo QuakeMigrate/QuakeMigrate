@@ -33,7 +33,7 @@ def read_nlloc(path, stations, phases=["P", "S"], fraction_tt=0.1, log=False):
         List of seismic phases for which to calculate traveltimes.
     fraction_tt : float, optional
         An estimate of the uncertainty in the velocity model as a function of
-        a fraction of the traveltime.
+        a fraction of the traveltime. (Default 0.1 == 10%)
     log : bool, optional
         Toggle for logging - default is to only print information to stdout.
         If True, will also create a log file.
@@ -61,9 +61,10 @@ def read_nlloc(path, stations, phases=["P", "S"], fraction_tt=0.1, log=False):
                 grid_origin = np.array(gridspec[1])
                 cell_size = np.array(gridspec[2])
 
-                gproj, cproj = transform
+                gproj, cproj, gproj_string = transform
                 if gproj is None:
-                    raise NotImplementedError
+                    raise NotImplementedError(f"Projection type {gproj_string}"
+                                              " not supported.")
 
                 # Transform from grid projection origin to a coord origin
                 ll_corner = pyproj.transform(gproj, cproj, *grid_origin)
@@ -93,6 +94,10 @@ def compute_traveltimes(grid_spec, stations, method, phases=["P", "S"],
     """
     Top-level method for computing traveltime lookup tables.
 
+    This function takes a grid specification and is capable of computing
+    traveltimes for an arbitrary number of phases using a variety of
+    techniques.
+
     Parameters
     ----------
     grid_spec : dict
@@ -105,11 +110,13 @@ def compute_traveltimes(grid_spec, stations, method, phases=["P", "S"],
         Method to be used when computing the traveltime lookup tables.
             "homogeneous" - straight line velocities
             "1dfmm" - 1-D fast-marching method using scikit-fmm
+            "1dsweep" - a 2-D traveltime grid for a 1-D velocity model is swept
+                        over the 3-D grid using a bilinear interpolation scheme
     phases : list of str, optional
         List of seismic phases for which to calculate traveltimes.
     fraction_tt : float, optional
         An estimate of the uncertainty in the velocity model as a function of
-        a fraction of the traveltime.
+        a fraction of the traveltime. (Default 0.1 == 10%)
     filename : str, optional
         Path to location to save pickled lookup table.
     log : bool, optional
@@ -166,7 +173,7 @@ def compute_traveltimes(grid_spec, stations, method, phases=["P", "S"],
 
         for phase in phases:
             logging.info(f"\t...phase: {phase}...")
-            _compute_1d_sweep(lut, phase, vmodel, kwargs)
+            _compute_1d_sweep(lut, phase, vmodel, **kwargs)
 
     if save_file is not None:
         lut.save(save_file)
@@ -258,7 +265,7 @@ def _eikonal_fmm(grid_xyz, cell_size, velocity_grid, station_xyz):
     for large cell sizes this may cause a modest error in the calculated
     traveltimes.
 
-    Requires the scikit-fmm python package.
+    .. warning:: Requires the scikit-fmm python package.
 
     Parameters
     ----------
@@ -292,13 +299,13 @@ def _eikonal_fmm(grid_xyz, cell_size, velocity_grid, station_xyz):
     return skfmm.travel_time(phi, velocity_grid, dx=cell_size)
 
 
-def _compute_1d_sweep(lut, phase, vmodel, kwargs):
+def _compute_1d_sweep(lut, phase, vmodel, **kwargs):
     """
     Calculate 3-D traveltime lookup tables from a 1-D velocity model.
 
     NonLinLoc Grid2Time is used to generate a 2-D lookup table which is then
-    swept across a 3-D distance from station grid to populate a 3-D traveltime
-    grid.
+    swept around the full range of azimuths, centred on the station location,
+    to populate the 3-D traveltime grid.
 
     Parameters
     ----------
@@ -314,7 +321,7 @@ def _compute_1d_sweep(lut, phase, vmodel, kwargs):
     kwargs : dict
         Can contain:
         nlloc_dx : float, optional
-            NLLoc 2D grid spacing (default: 0.1 km).
+            NLLoc 2D grid spacing.
         nlloc_path : str, optional
             Path to NonLinLoc executables Vel2Grid and Grid2Time (default: "").
         block_model : bool, optional
@@ -346,6 +353,7 @@ def _compute_1d_sweep(lut, phase, vmodel, kwargs):
     grid_xyz = [g / km_cf for g in lut.grid_xyz]
     stations_xyz = lut.stations_xyz / km_cf
     ll, *_, ur = lut.grid_corners / km_cf
+    nlloc_dx /= km_cf
     vmodel = vmodel / km_cf
 
     # Make folders in which to run NonLinLoc
@@ -430,7 +438,7 @@ def _write_control_file(station_xyz, station, max_dist, vmodel, depth_span,
     phase : str
         The seismic phase for which to calculate traveltimes.
     dx : float
-        NLLoc 2D grid spacing (default: 0.1 km).
+        NLLoc 2D grid spacing.
     block_model : bool
         Toggle to choose whether to interpret velocity model with constant
         velocity blocks or a linear gradient.
@@ -464,7 +472,11 @@ def _write_control_file(station_xyz, station, max_dist, vmodel, depth_span,
 
 def _read_nlloc(fname, ignore_proj=False):
     """
-    Read the 2-D NonLinLoc traveltime grids.
+    Read traveltime lookup tables saved in the NonLinLoc format.
+
+    Parses in the header of a NonLinLoc file for the grid specification and the
+    coordinate transforms. Then unpacks the binary buffer file containing the
+    traveltimes.
 
     Parameters
     ----------
@@ -498,7 +510,8 @@ def _read_nlloc(fname, ignore_proj=False):
 
         # Read the transform definition line
         line = f.readline().split()
-        cproj = pyproj.Proj(proj="longlat", ellps="WGS84", datum="WGS84", no_defs=True)
+        cproj = pyproj.Proj(proj="longlat", ellps="WGS84", datum="WGS84",
+                            no_defs=True)
         gproj = None
         if line[1] == "NONE" and not ignore_proj:
             logging.info("\tNo projection selected.")
@@ -558,7 +571,7 @@ def _read_nlloc(fname, ignore_proj=False):
             gproj = pyproj.Proj(proj="tmerc", lon=orig_lon, lat=orig_lat,
                                 units="km")
 
-        transform = [gproj, cproj]
+        transform = [gproj, cproj, line[1]]
 
     with open(f"{fname}.buf", "rb") as f:
         npts = nx * ny * nz

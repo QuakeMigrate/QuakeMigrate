@@ -337,7 +337,7 @@ class LUT(Grid3D):
     ----------
     fraction_tt : float
         An estimate of the uncertainty in the velocity model as a function of
-        a fraction of the traveltime.
+        a fraction of the traveltime. (Default 0.1 == 10%)
     maps : dict
         A dictionary containing the traveltime lookup tables. The structure of
         this dictionary is:

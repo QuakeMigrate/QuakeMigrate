@@ -4,6 +4,7 @@ Module to produce traveltime lookup tables defined on a Cartesian grid.
 
 """
 
+import logging
 import os
 import pathlib
 import struct
@@ -14,10 +15,11 @@ import pyproj
 from scipy.interpolate import interp1d
 import skfmm
 
+import QMigrate.util as util
 from .lut import LUT
 
 
-def read_nlloc(path, stations, phases=["P", "S"], fraction_tt=0.1):
+def read_nlloc(path, stations, phases=["P", "S"], fraction_tt=0.1, log=False):
     """
     Read in a traveltime lookup table that is saved in the NonLinLoc format.
 
@@ -32,6 +34,9 @@ def read_nlloc(path, stations, phases=["P", "S"], fraction_tt=0.1):
     fraction_tt : float, optional
         An estimate of the uncertainty in the velocity model as a function of
         a fraction of the traveltime.
+    log : bool, optional
+        Toggle for logging - default is to only print information to stdout.
+        If True, will also create a log file.
 
     Returns
     -------
@@ -41,12 +46,13 @@ def read_nlloc(path, stations, phases=["P", "S"], fraction_tt=0.1):
     """
 
     path = pathlib.Path(path)
+    util.logger(pathlib.Path.cwd() / "logs" / "lut", log)
 
-    print("Loading NonLinLoc traveltime lookup tables for...")
+    logging.info("Loading NonLinLoc traveltime lookup tables for...")
     for i, phase in enumerate(phases):
-        print(f"\t...phase: {phase}...")
+        logging.info(f"\t...phase: {phase}...")
         for j, station in enumerate(stations["Name"].values):
-            print(f"\t\t...station: {station}")
+            logging.info(f"\t\t...station: {station}")
             file = path / f"layer.{phase}.{station}.time"
 
             if i == 0 and j == 0:
@@ -111,47 +117,45 @@ def compute(lut, stations, method, phases=["P", "S"], **kwargs):
 
     """
 
+    util.logger(pathlib.Path.cwd() / "logs" / "lut", kwargs.get("log", False))
+
     lut.station_data = stations
     lut.phases = phases
 
     if method == "homogeneous":
-        print("Computing homogeneous traveltime lookup tables for...")
+        logging.info("Computing homogeneous traveltimes for...")
         lut.velocity_model = "Homogeneous velocity model:"
         for phase in phases:
             velocity = kwargs.get(f"v{phase.lower()}")
             if velocity is None:
-                print(f"Missing argument: 'v{phase.lower()}'")
-                return
+                raise TypeError(f"Missing argument: 'v{phase.lower()}'")
             lut.velocity_model += f"\n\tV{phase.lower()} = {velocity:5.2f} m/s"
 
-            print(f"\t...phase: {phase}...")
+            logging.info(f"\t...phase: {phase}...")
             _compute_homogeneous(lut, phase, velocity)
 
     if method == "1dfmm":
-        print("Computing 1-D fast-marching traveltime lookup tables for...")
+        logging.info("Computing 1-D fast-marching traveltimes for...")
         lut.velocity_model = vmodel = kwargs.get("vmod")
         if vmodel is None:
-            print("Missing argument: 'vmod'")
-            return
+            raise TypeError("Missing argument: 'vmod'")
 
         for phase in phases:
-            print(f"\t...phase: {phase}...")
+            logging.info(f"\t...phase: {phase}...")
             _compute_1d_fmm(lut, phase, vmodel)
 
     if method == "3dfmm":
-
         raise NotImplementedError("Feature coming soon - please contact the "
                                   "QuakeMigrate developers")
 
     if method == "1dsweep":
-        print("Computing 1-D sweep traveltime lookup tables for...")
+        logging.info("Computing 1-D sweep traveltimes for...")
         lut.velocity_model = vmodel = kwargs.get("vmod")
         if vmodel is None:
-            print("Missing argument: 'vmod'")
-            return
+            raise TypeError("Missing argument: 'vmod'")
 
         for phase in phases:
-            print(f"\t...phase: {phase}...")
+            logging.info(f"\t...phase: {phase}...")
             _compute_1d_sweep(lut, phase, vmodel, kwargs)
 
     return lut
@@ -177,7 +181,8 @@ def _compute_homogeneous(lut, phase, velocity):
     stations_xyz = lut.stations_xyz
 
     for i, station in enumerate(lut.station_data["Name"].values):
-        print(f"\t\t...station: {station} - {i+1} of {stations_xyz.shape[0]}")
+        logging.info(f"\t\t...station: {station} - {i+1} of "
+                     f"{stations_xyz.shape[0]}")
 
         dx, dy, dz = [grid_xyz[j] - stations_xyz[i, j] for j in range(3)]
         dist = np.sqrt(dx**2 + dy**2 + dz**2)
@@ -222,7 +227,8 @@ def _compute_1d_fmm(lut, phase, vmodel):
     int_vmodel = f(grid_xyz[2])
 
     for i, station in enumerate(lut.station_data["Name"].values):
-        print(f"\t\t...station: {station} - {i+1} of {stations_xyz.shape[0]}")
+        logging.info(f"\t\t...station: {station} - {i+1} of "
+                     f"{stations_xyz.shape[0]}")
 
         lut.maps.setdefault(station, {}).update(
             {f"TIME_{phase}": _eikonal_fmm(grid_xyz, lut.cell_size,
@@ -335,8 +341,8 @@ def _compute_1d_sweep(lut, phase, vmodel, kwargs):
     (cwd / "model").mkdir(exist_ok=True)
 
     for i, station in enumerate(lut.station_data["Name"].values):
-        print(f"\t\t...running NonLinLoc - station: {station} - {i+1} of "
-              f"{stations_xyz.shape[0]}")
+        logging.info(f"\t\t...running NonLinLoc - station: {station} - {i+1} "
+                     f"of {stations_xyz.shape[0]}")
 
         dx, dy = [grid_xyz[j] - stations_xyz[i, j] for j in range(2)]
         distances = np.sqrt(dx**2 + dy**2).flatten()
@@ -384,8 +390,8 @@ def _compute_1d_sweep(lut, phase, vmodel, kwargs):
         if not os.listdir(cwd / "time"):
             rmtree(cwd / "time")
         else:
-            print("Warning!! time directory is not empty; does it contain "
-                  "traveltime grids from a previous run?\nNot removed.")
+            logging.info("Warning: time directory not empty; does it contain "
+                         "traveltime grids from a previous run?\nNot removed.")
 
 
 def _write_control_file(station_xyz, station, max_dist, vmodel, depth_span,
@@ -482,7 +488,7 @@ def _read_nlloc(fname, ignore_proj=False):
         cproj = pyproj.Proj(proj="longlat", ellps="WGS84", datum="WGS84", no_defs=True)
         gproj = None
         if line[1] == "NONE" and not ignore_proj:
-            print("\tNo projection selected.")
+            logging.info("\tNo projection selected.")
         elif line[1] == "SIMPLE":
             orig_lat = float(line[3])
             orig_lon = float(line[5])
@@ -524,10 +530,9 @@ def _read_nlloc(fname, ignore_proj=False):
             elif proj_ellipsoid == "Sphere":
                 proj_ellipsoid = "sphere"
             else:
-                msg = (f"Projection Ellipsoid {proj_ellipsoid} not supported!"
-                       "\n\tPlease notify the QuakeMigrate developers.\n"
-                       "\n\tWGS-84 used instead...\n")
-                print(msg)
+                logging.info(f"Projection Ellipsoid {proj_ellipsoid} not "
+                             "supported!\n\tPlease notify the QuakeMigrate "
+                             "developers.\n\n\tWGS-84 used instead...\n")
                 proj_ellipsoid = "WGS84"
 
             gproj = pyproj.Proj(proj="lcc", lon_0=orig_lon, lat_0=orig_lat,

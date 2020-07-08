@@ -10,10 +10,7 @@ from QMigrate.io import read_stations
 from QMigrate.lut import compute, LUT
 
 station_file = "./inputs/rutford_stations.txt"
-data_in = "./inputs/mSEED"
 lut_out = "./outputs/lut/icequake.LUT"
-out_path = "./outputs/runs"
-run_name = "icequake_example"
 
 # --- Read in the station information file ---
 stations = read_stations(station_file)
@@ -30,9 +27,7 @@ lut = LUT(ll_corner=[-84.14853353566141, -78.18825429331356, -350.],
           cell_size=[100., 100., 100.], grid_proj=gproj, coord_proj=cproj)
 
 # --- Homogeneous LUT generation ---
-vp = 3841
-vs = 1970
-compute(lut, stations, method="homogeneous", vp=vp, vs=vs)
+compute(lut, stations, method="homogeneous", vp=3841, vs=1970, log=True)
 
 # --- Save LUT ---
 lut.save(lut_out)

@@ -325,7 +325,7 @@ def _compute_1d_sweep(lut, phase, vmodel, **kwargs):
     kwargs : dict
         Can contain:
         nlloc_dx : float, optional
-            NLLoc 2D grid spacing (default: 0.1 km).
+            NLLoc 2D grid spacing (default: 0.1 km). Note: units must be km.
         nlloc_path : str, optional
             Path to NonLinLoc executables Vel2Grid and Grid2Time (default: "").
         block_model : bool, optional
@@ -357,7 +357,6 @@ def _compute_1d_sweep(lut, phase, vmodel, **kwargs):
     grid_xyz = [g / km_cf for g in lut.grid_xyz]
     stations_xyz = lut.stations_xyz / km_cf
     ll, *_, ur = lut.grid_corners / km_cf
-    nlloc_dx /= km_cf
     vmodel = vmodel / km_cf
 
     # Make folders in which to run NonLinLoc

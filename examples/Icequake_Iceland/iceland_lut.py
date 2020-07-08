@@ -16,15 +16,15 @@ lut_out = "./outputs/lut/example.LUT"
 stations = read_stations(station_file)
 
 # --- Define the grid specifications ---
-grid_spec = {"ll_corner": [-17.24363934275664, 64.31947715407385, -1390.],
-             "ur_corner": [-17.204348515198255, 64.3365202025144, 1390],
-             "cell_size": [100., 100., 20.],
+grid_spec = {"ll_corner": [-17.24363934275664, 64.31947715407385, -1.390],
+             "ur_corner": [-17.204348515198255, 64.3365202025144, 1.390],
+             "cell_size": [0.1, 0.1, 0.02],
              "grid_proj": Proj(proj="lcc", lon_0=-17.224, lat_0=64.328,
                                lat_1=64.32, lat_2=64.335, datum="WGS84",
-                               ellps="WGS84", units="m", no_defs=True),
+                               ellps="WGS84", units="km", no_defs=True),
              "coord_proj": Proj(proj="longlat", ellps="WGS84", datum="WGS84",
                                 no_defs=True)}
 
 # --- Homogeneous LUT generation ---
-lut = compute_traveltimes(grid_spec, stations, method="homogeneous", vp=3630,
-                          vs=1833, log=True, save_file=lut_out)
+lut = compute_traveltimes(grid_spec, stations, method="homogeneous", vp=3.630,
+                          vs=1.833, log=True, save_file=lut_out)

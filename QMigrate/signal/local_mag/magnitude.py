@@ -17,7 +17,6 @@ except KeyError:
     matplotlib.use("Agg")
 from matplotlib import pyplot as plt
 import numpy as np
-import pandas as pd
 
 from QMigrate.plot.amplitudes import amplitudes_summary
 
@@ -393,14 +392,11 @@ class Magnitude:
         # For amplitudes and magnitude calculation, distances must be in km
         km_cf = 1000 / unit_conversion_factor
 
-        # Calculate distance error (for errorbars)
-        gauss_loc = event.locations["gaussian"]
-        x_err = gauss_loc["LocalGaussian_ErrX"] / km_cf
-        y_err = gauss_loc["LocalGaussian_ErrY"] / km_cf
+        # Calculate distance error (for errorbars - using gaussian uncertainty)
+        x_err, y_err, z_err = event.get_loc_uncertainty("gaussian") / km_cf
         epi_err = np.sqrt(x_err**2 + y_err**2)
 
         if self.use_hyp_dist:
-            z_err = gauss_loc['LocalGaussian_ErrZ'] / km_cf
             dist_err = np.sqrt(epi_err**2 + z_err**2)
         else:
             dist_err = epi_err

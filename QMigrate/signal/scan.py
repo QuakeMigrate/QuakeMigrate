@@ -433,7 +433,7 @@ class QuakeScan:
                 logging.info("\tCalculating magnitude...")
                 event, _ = self.mags.calc_magnitude(event, self.lut, self.run)
 
-            event.write(self.run)
+            event.write(self.run, self.lut)
 
             if self.plot_event_summary:
                 event_summary(self.run, event, marginalised_coalescence,

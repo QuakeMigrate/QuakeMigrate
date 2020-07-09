@@ -14,14 +14,11 @@ import pandas as pd
 import QMigrate.util as util
 
 
-EVENT_FILE_COLS = ["EventID", "DT", "COA", "COA_NORM", "X", "Y", "Z",
-                   "LocalGaussian_X", "LocalGaussian_Y", "LocalGaussian_Z",
-                   "LocalGaussian_ErrX", "LocalGaussian_ErrY",
-                   "LocalGaussian_ErrZ", "GlobalCovariance_X",
-                   "GlobalCovariance_Y", "GlobalCovariance_Z",
-                   "GlobalCovariance_ErrX", "GlobalCovariance_ErrY",
-                   "GlobalCovariance_ErrZ", "TRIG_COA", "DEC_COA",
-                   "DEC_COA_NORM"]
+EVENT_FILE_COLS = ["EventID", "DT", "X", "Y", "Z", "COA", "COA_NORM",
+                   "GAU_X", "GAU_Y", "GAU_Z",
+                   "GAU_ErrX", "GAU_ErrY", "GAU_ErrZ",
+                   "COV_ErrX", "COV_ErrY", "COV_ErrZ",
+                   "TRIG_COA", "DEC_COA", "DEC_COA_NORM"]
 
 
 class Event:
@@ -59,9 +56,6 @@ class Event:
     coa_time : `obspy.UTCDateTime` object
         The peak coalescence time of the triggered event from the (decimated)
         coalescence output by detect.
-    eventfile_df : `pandas.DataFrame` object
-        Collects all the information together for an event to be written out to
-        a .event file.
     hypocentre : `numpy.ndarray` of floats
         Geographical coordinates of the instantaneous event hypocentre.
     locations : dict
@@ -145,7 +139,6 @@ class Event:
         self.coa_data = None
         self.map4d = None
         self.locations = {}
-        self.eventfile_df = None
         self.picks = {}
         self.localmag = {}
 
@@ -207,12 +200,12 @@ class Event:
 
         """
 
-        self.locations["covariance"] = {"GlobalCovariance_X": xyz[0],
-                                        "GlobalCovariance_Y": xyz[1],
-                                        "GlobalCovariance_Z": xyz[2],
-                                        "GlobalCovariance_ErrX": xyz_unc[0],
-                                        "GlobalCovariance_ErrY": xyz_unc[1],
-                                        "GlobalCovariance_ErrZ": xyz_unc[2]}
+        self.locations["covariance"] = {"X": xyz[0],
+                                        "Y": xyz[1],
+                                        "Z": xyz[2],
+                                        "ErrX": xyz_unc[0],
+                                        "ErrY": xyz_unc[1],
+                                        "ErrZ": xyz_unc[2]}
 
     def add_gaussian_location(self, xyz, xyz_unc):
         """
@@ -228,12 +221,12 @@ class Event:
 
         """
 
-        self.locations["gaussian"] = {"LocalGaussian_X": xyz[0],
-                                      "LocalGaussian_Y": xyz[1],
-                                      "LocalGaussian_Z": xyz[2],
-                                      "LocalGaussian_ErrX": xyz_unc[0],
-                                      "LocalGaussian_ErrY": xyz_unc[1],
-                                      "LocalGaussian_ErrZ": xyz_unc[2]}
+        self.locations["gaussian"] = {"X": xyz[0],
+                                      "Y": xyz[1],
+                                      "Z": xyz[2],
+                                      "ErrX": xyz_unc[0],
+                                      "ErrY": xyz_unc[1],
+                                      "ErrZ": xyz_unc[2]}
 
     def add_spline_location(self, xyz):
         """
@@ -370,7 +363,7 @@ class Event:
                                 self.coa_data.index[0]:self.coa_data.index[-1]]
         self.coa_data.reset_index(drop=True, inplace=True)
 
-    def write(self, run):
+    def write(self, run, lut):
         """
         Write event. to a .event file.
 
@@ -386,19 +379,57 @@ class Event:
 
         out = {"EventID": self.uid, **self.trigger_info, **self.localmag}
         out = {**out, **self.max_coalescence}
-        for _, location in self.locations.items():
-            out = {**out, **location}
+
+        # Rename keys for locations; do not output covariance loc (just err)
+        loc = self.locations["spline"]
+        gau = dict((f"GAU_{key}", value) \
+            for (key, value) in self.locations["gaussian"].items())
+        cov = dict((f"COV_{key}", value) \
+            for (key, value) in list(self.locations["covariance"].items())[3:])
+        out = {**out, **loc, **gau, **cov}
 
         if self.localmag.get("ML") is not None:
             event_file_cols = EVENT_FILE_COLS + ["ML", "ML_Err", "ML_r2"]
         else:
             event_file_cols = EVENT_FILE_COLS
 
-        self.eventfile_df = pd.DataFrame([out])[event_file_cols]
+        event_df = pd.DataFrame([out])[event_file_cols]
+
+        # Set floating point precision for COA values
+        for col in event_df.filter(like="COA").columns:
+            event_df[col] = event_df[col].map(lambda x: f"{x:.4g}",
+                                              na_action="ignores")
+
+        # Set floating point precision for locations & loc uncertainties
+        ll_corner = lut.coord2grid(lut.ll_corner, inverse=True)
+        for i, axis in enumerate(["X", "Y", "Z"]):
+            # Calculate appropriate number of decimal places based on LUT cell
+            # size and coordinate projection
+            index = np.zeros(3, dtype=int)
+            index[i] = 1
+            diff = (ll_corner - lut.index2coord(index))[0][i]
+            dec_pos = int(np.format_float_scientific(diff).split("e")[1])
+            # Sort out which columns to format
+            cols = [axis, f"GAU_{axis}"]
+            if axis == "Z":
+                decimals = max((dec_pos * -1 + 2), 0)
+                cols.extend(event_df.filter(regex="Err[X,Y,Z]"))
+            else:
+                decimals = max((dec_pos * -1 + 2), 6)
+            for col in cols:
+                event_df[col] = event_df.loc[:, col].round(decimals=decimals)
+                if decimals <= 0:
+                    event_df[col] = event_df.loc[:, col].astype(int)
+
+        # Set floating point precision for mags (if applicable)
+        if self.localmag.get("ML") is not None:
+            for col in ["ML", "ML_Err", "ML_r2"]:
+                event_df[col] = event_df[col].map(lambda x: f"{x:.3g}",
+                                                  na_action="ignores")
 
         fstem = f"{self.uid}"
         file = (fpath / fstem).with_suffix(".event")
-        self.eventfile_df.to_csv(file, index=False)
+        event_df.to_csv(file, index=False)
 
     def get_hypocentre(self, method="spline"):
         """
@@ -419,11 +450,36 @@ class Event:
 
         hypocentre = self.locations[method]
 
-        ev_loc = np.array([hypocentre[k] for k in list(hypocentre.keys())[:3]])
+        ev_loc = np.array([hypocentre[k] for k in ["X", "Y", "Z"]])
 
         return ev_loc
 
+    def get_loc_uncertainty(self, method="gaussian"):
+        """
+        Get an estimate of the hypocentre location uncertainty.
+
+        Parameters
+        ----------
+        method : {"gaussian", "covariance"}, optional
+            Which location result to return. (Default "gaussian")
+
+        Returns
+        -------
+        ev_loc_unc : ndarray of floats
+            [x_uncertainty, y_uncertainty, z_uncertainty] of event hypocentre,
+            in metres.
+
+        """
+
+        loc = self.locations[method]
+
+        ev_loc_unc = np.array([loc[k] for k in ["ErrX", "ErrY", "ErrZ"]])
+
+        return ev_loc_unc
+
     hypocentre = property(get_hypocentre)
+
+    loc_uncertainty = property(get_loc_uncertainty)
 
     @property
     def max_coalescence(self):

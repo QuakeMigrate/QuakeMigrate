@@ -434,8 +434,8 @@ def _write_control_file(station_xyz, station, max_dist, vmodel, depth_span,
     vmodel : `pandas.DataFrame` object
         DataFrame containing the velocity model to be used to generate the LUT.
         Columns:
-            "Depth" of each layer in model (positive down), units of km.
-            "V<phase>" velocity for each layer in model (e.g. "Vp")
+            "Depth" of each layer in model (positive down), in km.
+            "V<phase>" velocity for each layer in model (e.g. "Vp"), in km / s.
     depth_span : array-like
         Minimum/maximum extent of the grid in the z-dimension, in km.
     phase : str
@@ -645,8 +645,8 @@ def _vmodel_string(vmodel, block_model, phase):
     vmodel : `pandas.DataFrame` object
         DataFrame containing the velocity model to be used to generate the LUT.
         Columns:
-            "Depth" of each layer in model (positive down)
-            "V<phase>" velocity for each layer in model (e.g. "Vp")
+            "Depth" of each layer in model (positive down), in km.
+            "V<phase>" velocity for each layer in model (e.g. "Vp"), in km / s.
     block_model : bool
         Toggle to choose whether to interpret velocity model with constant
         velocity blocks or a linear gradient.
@@ -693,8 +693,8 @@ def _velocity_gradient(i, vmodel, phase):
     vmodel : `pandas.DataFrame` object
         DataFrame containing the velocity model to be used to generate the LUT.
         Columns:
-            "Depth" of each layer in model (positive down)
-            "V<phase>" velocity for each layer in model (e.g. "Vp")
+            "Depth" of each layer in model (positive down), in km.
+            "V<phase>" velocity for each layer in model (e.g. "Vp"), in km / s.
     phase : str
         The seismic phase for which to calculate traveltimes.
 
@@ -718,9 +718,9 @@ def _grid_string(max_dist, depth_limits, dx):
     Parameters
     ----------
     max_dist : float
-        Maximum distance between the station and any point in the grid.
+        Maximum distance between the station and any point in the grid, in km.
     depth_limits : array-like
-        Minimum/maximum extent of the grid in the z-dimension.
+        Minimum/maximum extent of the grid in the z-dimension, in km.
     dx : float
         NLLoc 2D grid spacing (default: 0.1 km).
 

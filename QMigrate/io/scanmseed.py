@@ -63,7 +63,7 @@ class ScanmSEED:
         self.written = False
         self.stream = Stream()
 
-    def append(self, starttime, max_coa, max_coa_n, coord):
+    def append(self, starttime, max_coa, max_coa_n, coord, ucf):
         """
         Append latest timestep of detect() output to `obspy.Stream` object.
         Multiply channels ["COA", "COA_N", "X", "Y", "Z"] by factors of
@@ -83,6 +83,11 @@ class ScanmSEED:
         coord : `numpy.ndarray` of floats, shape(nsamples)
             Location of maximum coalescence through time in input projection
             space.
+        ucf : float
+            A conversion factor based on the lookup table grid projection. Used
+            to ensure the same level of precision (millimetre) is retained
+            during compression, irrespective of the units of the grid
+            projection.
 
         """
 
@@ -103,7 +108,7 @@ class ScanmSEED:
                              header={**{"station": "X"}, **meta})
         self.stream += Trace(data=self._data2int(coord[:-1, 1], 1e6),
                              header={**{"station": "Y"}, **meta})
-        self.stream += Trace(data=self._data2int(coord[:-1, 2], 1e3),
+        self.stream += Trace(data=self._data2int(coord[:-1, 2], 1e3*ucf),
                              header={**{"station": "Z"}, **meta})
         self.stream.merge(method=-1)
 
@@ -206,7 +211,7 @@ class ScanmSEED:
         return np.round(data*factor).astype(np.int32)
 
 
-def read_scanmseed(run, starttime, endtime, pad):
+def read_scanmseed(run, starttime, endtime, pad, ucf):
     """
     Read .scanmseed files between two time stamps. Files are labelled by year
     and Julian day.
@@ -221,6 +226,10 @@ def read_scanmseed(run, starttime, endtime, pad):
         Timestamp up to which to read the coalescence stream.
     pad : float
         Read in "pad" seconds of additional data on either end.
+    ucf : float
+        A conversion factor based on the lookup table grid projection. Used to
+        ensure the same level of precision (millimetre) is retained during
+        compression, irrespective of the units of the grid projection.
 
     Returns
     -------
@@ -265,7 +274,7 @@ def read_scanmseed(run, starttime, endtime, pad):
     data["COA_N"] = scanmseed.select(station="COA_N")[0].data / 1e5
     data["X"] = scanmseed.select(station="X")[0].data / 1e6
     data["Y"] = scanmseed.select(station="Y")[0].data / 1e6
-    data["Z"] = scanmseed.select(station="Z")[0].data / 1e3
+    data["Z"] = scanmseed.select(station="Z")[0].data / (1e3*ucf)
 
     # Check if the data covers the entirety of the requested period
     if stats.starttime > starttime:

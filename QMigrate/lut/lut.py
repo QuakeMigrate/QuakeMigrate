@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Module to produce travel-time lookup tables defined on a Cartesian grid.
+Module to produce traveltime lookup tables defined on a Cartesian grid.
 
 """
 
@@ -14,11 +14,11 @@ import pyproj
 from scipy.interpolate import RegularGridInterpolator
 
 
-class Grid3D(object):
+class Grid3D:
     """
     A grid object represents a collection of points in a 3-D Cartesian space
-    that can be used to produce regularised travel-time lookup tables that
-    sample the continuous travel-time space for each station in a seismic
+    that can be used to produce regularised traveltime lookup tables that
+    sample the continuous traveltime space for each station in a seismic
     network.
 
     This class also provides the series of transformations required to move
@@ -32,107 +32,76 @@ class Grid3D(object):
 
     Attributes
     ----------
-    ll_corner : array-like, [float, float, float]
-        Location of the lower-left corner of the grid in the grid
-        projection. Should also contain the minimum depth in the grid.
-    ur_corner : array-like, [float, float, float]
-        Location of the upper-right corner of the grid in the grid
-        projection. Should also contain the maximum depth in the grid.
-    cell_size : array-like, [float, float, float]
-        Size of a cell in each dimension of the grid.
-    grid_proj : pyproj Proj object
-        Grid space projection.
-    coord_proj : pyproj Proj object
-        Input coordinate space projection.
     cell_count : array-like, [int, int, int]
         Number of cells in each dimension of the grid. This is calculated by
         finding the number of cells with cell_size will fit between the
         lower-left and upper-right corners. This value is rounded up if the
         number of cells returned is non-integer, to ensure the requested area
         is included in the grid.
-    maps : dict
-        A dictionary containing the travel-time lookup tables. The structure of
-        this dictionary is:
-            maps
-                - "<Station1-ID>"
-                    - "<PHASE>"
-                    - "<PHASE>"
-                - "<Station2-ID"
-                    - "<PHASE>"
-                    - "<PHASE>"
-                etc
-    velocity_model : pandas DataFrame object
-        Contains the input velocity model specification.
-        Columns: "Z" "Vs" "Vp"
+    cell_size : array-like, [float, float, float]
+        Size of a cell in each dimension of the grid.
+    coord_proj : `pyproj.Proj` object
+        Input coordinate space projection.
     grid_corners : array-like, shape (8, 3)
         Positions of the corners of the grid in the grid coordinate space.
+    grid_proj : `pyproj.Proj` object
+        Grid space projection.
     grid_xyz : array-like, shape (3,)
         Positions of the grid nodes in the grid coordinate space. The shape of
         each element of the list is defined by the number of cells in each
         dimension.
+    ll_corner : array-like, [float, float, float]
+        Location of the lower-left corner of the grid in the grid
+        projection. Should also contain the minimum depth in the grid.
+    precision : list of float
+        An appropriate number of decimal places for distances as a function of
+        the cell size and coordinate projection.
     stations_xyz : array-like, shape (n, 3)
         Positions of the stations in the grid coordinate space.
+    unit_conversion_factor : float
+        A conversion factor based on the grid projection, used to convert
+        between units of metres and kilometres.
+    unit_name : str
+        Shorthand string for the units of the grid projection.
+    ur_corner : array-like, [float, float, float]
+        Location of the upper-right corner of the grid in the grid
+        projection. Should also contain the maximum depth in the grid.
 
     Methods
     -------
-    decimate(df, inplace=False)
-        Downsamples the travel-time lookup tables by some decimation factor.
-    index2grid(value, inverse=False, unravel=False)
-        Provides a transformation between grid indices (can be a flattened
-        index or an [i, j, k] position) and the grid coordinate space.
     coord2grid(value, inverse=False, clip=False)
         Provides a transformation between the input projection and grid
         coordinate spaces.
+    decimate(df, inplace=False)
+        Downsamples the traveltime lookup tables by some decimation factor.
     index2coord(value, inverse=False, unravel=False, clip=False)
         Provides a transformation between grid dindices (can be a flattened
         index or an [i, j, k] position) and the input projection coordinate
         space.
+    index2grid(value, inverse=False, unravel=False)
+        Provides a transformation between grid indices (can be a flattened
+        index or an [i, j, k] position) and the grid coordinate space.
 
     """
 
-    def __init__(self, ll_corner=None, ur_corner=None, cell_size=None,
-                 grid_proj=None, coord_proj=None, lut_file=None):
-        """
-        Class initialisation.
+    def __init__(self, ll_corner, ur_corner, cell_size, grid_proj, coord_proj):
+        """Instantiate the Grid3D object."""
 
-        Parameters
-        ----------
-        ll_corner : array-like, [float, float, float]
-            Location of the lower-left corner of the grid in the input
-            projection. Should also contain the minimum depth in the grid.
-        ur_corner : array-like ,[float, float, float]
-            Location of the upper-right corner of the grid in the input
-            projection. Should also contain the maximum depth in the grid.
-        cell_size : array-like, [float, float, float]
-            Size of a cell in each dimension of the grid.
-        grid_proj : pyproj Proj object
-            Grid space projection.
-        coord_proj : pyproj Proj object
-            Input coordinate space projection.
+        self.grid_proj = grid_proj
+        self.coord_proj = coord_proj
 
-        """
+        # Transform the geographical grid corners into grid coordinates
+        self.ll_corner = self.coord2grid(ll_corner)[0]
+        self.ur_corner = self.coord2grid(ur_corner)[0]
 
-        if lut_file is not None:
-            self.load(lut_file)
-        else:
-            self.grid_proj = grid_proj
-            self.coord_proj = coord_proj
-
-            # Transform the geographical grid corners into grid coordinates
-            self.ll_corner = self.coord2grid(ll_corner)[0]
-            self.ur_corner = self.coord2grid(ur_corner)[0]
-
-            # Calculate the grid dimensions and the number of cells required
-            grid_dims = self.ur_corner - self.ll_corner
-            self.cell_size = cell_size
-            self.cell_count = np.ceil(grid_dims / self.cell_size) + 1
-
-            self.maps = {}
-            self.velocity_model = ""
+        # Calculate the grid dimensions and the number of cells required
+        grid_dims = self.ur_corner - self.ll_corner
+        self.cell_size = cell_size
+        self.cell_count = np.ceil(grid_dims / self.cell_size) + 1
 
     def decimate(self, df, inplace=False):
         """
-        Resample the travel-time lookup tables by decimation by some factor.
+        Resample the traveltime lookup tables by decimation by some factor.
 
         Parameters
         ----------
@@ -144,7 +113,7 @@ class Grid3D(object):
         Returns
         -------
         grid : Grid3D object (optional)
-            Returns a Grid3D object with decimated travel-time lookup tables.
+            Returns a Grid3D object with decimated traveltime lookup tables.
 
         """
 
@@ -161,7 +130,7 @@ class Grid3D(object):
         grid.cell_count = new_cell_count
         grid.cell_size = self.cell_size * df
 
-        for station, map_ in grid.maps.items():
+        for station, map_ in grid.traveltimes.items():
             for phase, ttimes in map_.items():
                 grid[station][phase] = ttimes[c1[0]::df[0],
                                               c1[1]::df[1],
@@ -333,13 +302,38 @@ class Grid3D(object):
         assert (np.all(value > 0)), "Cell size must be greater than [0]"
         self._cell_size = value
 
+    @property
+    def precision(self):
+        """
+        Get appropriate number of decimal places as a function of the
+        cell size and coordinate projection.
+
+        """
+
+        return [-int(np.format_float_scientific(axis).split("e")[1]) for axis
+                in np.subtract(*self.index2coord([[0, 0, 0], [1, 1, 1]]))]
+
+    @property
+    def unit_conversion_factor(self):
+        """Expose unit_conversion_factor of the grid projection."""
+
+        return self.grid_proj.crs.axis_info[0].unit_conversion_factor
+
+    @property
+    def unit_name(self):
+        """Expose unit_name of the grid_projection and return shorthand."""
+
+        unit_name = self.grid_proj.crs.axis_info[0].unit_name
+
+        return "km" if unit_name == "kilometre" else "m"
+
 
 class LUT(Grid3D):
     """
-    A lookup table object is a simple data structure that is used to store a
-    series of regularised tables that, for each seismic station in a network,
-    store the travel times to every point in the 3-D volume. These lookup
-    tables are pre-computed to reduce the computational cost of the
+    A lookup table (LUT) object is a simple data structure that is used to
+    store a series of regularised tables that, for each seismic station in a
+    network, store the traveltimes to every point in the 3-D volume. These
+    lookup tables are pre-computed to reduce the computational cost of the
     back-projection method.
 
     This class provides utility functions that can be used to serve up or query
@@ -349,15 +343,33 @@ class LUT(Grid3D):
 
     Attributes
     ----------
-    max_ttime : float
-        Returns the max travel time in the lookup table for each station.
+    fraction_tt : float
+        An estimate of the uncertainty in the velocity model as a function of
+        a fraction of the traveltime. (Default 0.1 == 10%)
+    max_traveltime : float
+        The maximum traveltime between any station and a point in the grid.
+    phases : list of str
+        Seismic phases for which there are traveltime lookup tables available.
+    traveltimes : dict
+        A dictionary containing the traveltime lookup tables. The structure of
+        this dictionary is:
+            traveltimes
+                - "<Station1-ID>"
+                    - "<PHASE>"
+                    - "<PHASE>"
+                - "<Station2-ID"
+                    - "<PHASE>"
+                    - "<PHASE>"
+                etc
+    velocity_model : `pandas.DataFrame` object
+        Contains the input velocity model specification.
 
     Methods
     -------
-    ttimes(sampling_rate)
-        Serve up the travel-time lookup tables.
+    serve_traveltimes(sampling_rate)
+        Serve up the traveltime lookup tables.
     traveltime_to(phase, ijk)
-        Query travel times to a grid location (in terms of indices) for a
+        Query traveltimes to a grid location (in terms of indices) for a
         particular phase.
     save(filename)
         Dumps the current state of the lookup table object to a pickle file.
@@ -368,6 +380,21 @@ class LUT(Grid3D):
         slices through a coalescence volume.
 
     """
+
+    def __init__(self, fraction_tt=0.1, lut_file=None, **grid_spec):
+        """Instantiate the LUT object."""
+
+        if grid_spec:
+            super().__init__(**grid_spec)
+            self.fraction_tt = fraction_tt
+            self.traveltimes = {}
+            self.phases = []
+            self.velocity_model = ""
+        else:
+            self.fraction_tt = fraction_tt
+            self.phases = ["P", "S"]  # Handle old lookup tables
+            if lut_file is not None:
+                self.load(lut_file)
 
     def __str__(self):
         """Return short summary string of the lookup table object."""
@@ -392,11 +419,11 @@ class LUT(Grid3D):
 
         return out
 
-    def ttimes(self, sampling_rate):
+    def serve_traveltimes(self, sampling_rate):
         """
-        Serve up the travel-time lookup tables.
+        Serve up the traveltime lookup tables.
 
-        The travel times are multiplied by the scan sampling rate and converted
+        The traveltimes are multiplied by the scan sampling rate and converted
         to integers.
 
         Parameters
@@ -406,62 +433,61 @@ class LUT(Grid3D):
 
         Returns
         -------
-        ttimes : array-like
-            Stacked travel-time lookup tables for P and S phases, concatenated
-            along the station axis.
+        traveltimes : `numpy.ndarray` of `numpy.int`
+            Stacked traveltime lookup tables for all seismic phases, stacked
+            along the station axis, with shape(nx, ny, nz, nstations)
 
         """
 
-        pttimes = np.zeros(tuple(self.cell_count) + (len(self.station_data),))
-        sttimes = np.zeros(tuple(self.cell_count) + (len(self.station_data),))
+        traveltimes = self._serve_traveltimes(self.phases)
 
-        for i, station in self.station_data.iterrows():
-            pttimes[..., i] = self[station["Name"]]["TIME_P"]
-            sttimes[..., i] = self[station["Name"]]["TIME_S"]
-
-        pttimes = np.rint(pttimes * sampling_rate).astype(np.int32)
-        sttimes = np.rint(sttimes * sampling_rate).astype(np.int32)
-
-        return np.c_[pttimes, sttimes]
+        return np.rint(traveltimes * sampling_rate).astype(np.int32)
 
     def traveltime_to(self, phase, ijk):
         """
-        Serve up the travel times to a grid location for a particular phase.
+        Serve up the traveltimes to a grid location for a particular phase.
 
         Parameters
         ----------
         phase : str
             The seismic phase to lookup.
         ijk : array-like
-            Grid indices for which to serve travel time.
+            Grid indices for which to serve traveltime.
 
         Returns
         -------
-        travel_times : array-like
-            Array of interpolated travel times to the requested grid position.
+        traveltimes : array-like
+            Array of interpolated traveltimes to the requested grid position.
 
         """
 
         grid = tuple([np.arange(cc) for cc in self.cell_count])
 
-        maps = np.zeros(tuple(self.cell_count) + (len(self.station_data),))
-        for i, station in self.station_data.iterrows():
-            maps[..., i] = self[station["Name"]]["TIME_{}".format(phase)]
+        traveltimes = self._serve_traveltimes([phase])
 
-        interpolator = RegularGridInterpolator(grid, maps, bounds_error=False,
+        interpolator = RegularGridInterpolator(grid, traveltimes,
+                                               bounds_error=False,
                                                fill_value=None)
+
         return interpolator(ijk)[0]
 
     @property
-    def max_ttime(self):
-        """Get the maximum travel time from any station across the grid."""
+    def max_traveltime(self):
+        """Get the maximum traveltime from any station across the grid."""
 
-        # Get all S maps
-        ttimes = np.zeros(tuple(self.cell_count) + (len(self.station_data),))
-        for i, station in self.station_data.iterrows():
-            ttimes[..., i] = self[station["Name"]]["TIME_S"]
+        return np.max(self._serve_traveltimes(self.phases))
 
-        return np.max(ttimes)
+    def _serve_traveltimes(self, phases):
+        """Utility function to serve up traveltimes for a list of phases."""
+
+        traveltimes = []
+        for phase in phases:
+            for station in self.station_data["Name"].values:
+                try:
+                    traveltimes.append(self[station][phase])
+                except KeyError:
+                    traveltimes.append(self[station][f"TIME_{phase}"])
+        return np.stack(traveltimes, axis=-1)
 
     def save(self, filename):
         """
@@ -470,7 +496,7 @@ class LUT(Grid3D):
         Parameters
         ----------
         filename : str
-            Path to location to save pickle file.
+            Path to location to save pickled lookup table.
 
         """
 
@@ -492,10 +518,18 @@ class LUT(Grid3D):
 
         """
 
-        with open(filename, "rb") as f:
-            tmp_dict = pickle.load(f)
+        print("FutureWarning: This method of reading lookup tables has been"
+              "deprecated.\nTo remove this warning:\n"
+              "\tUse 'QMigrate.io.read_lut(lut_file=/path/to/file'")
 
-        self.__dict__.update(tmp_dict)
+        with open(filename, "rb") as f:
+            self.__dict__.update(pickle.load(f))
+
+        if hasattr(self, "maps"):
+            print("FutureWarning: The internal data structure of LUT has "
+                  "changed.\nTo remove this warning you will need to convert "
+                  "your lookup table to the new-style\nusing `QMigrate.lut."
+                  "update_lut`.")
 
     def plot(self, fig, gs, slices=None, hypocentre=None, station_clr="k"):
         """
@@ -580,11 +614,11 @@ class LUT(Grid3D):
         xz.yaxis.tick_right()
         xz.invert_yaxis()
         xz.set_xlabel("Longitude (deg)", fontsize=14)
-        xz.set_ylabel("Depth (m)", fontsize=14)
+        xz.set_ylabel(f"Depth ({self.unit_name})", fontsize=14)
         xz.yaxis.set_label_position("right")
 
         yz.yaxis.tick_right()
-        yz.set_xlabel("Depth (m)", fontsize=14)
+        yz.set_xlabel(f"Depth ({self.unit_name})", fontsize=14)
         yz.set_ylabel("Latitude (deg)", fontsize=14)
         yz.yaxis.set_label_position("right")
 
@@ -593,13 +627,14 @@ class LUT(Grid3D):
         Define behaviour for the rich addition operator, "+".
 
         Two lookup tables which have identical grid definitions (as per "==")
-        can be combined by adding the travel-time lookup tables from other.maps
-        for which the station key is not already in self.maps.
+        can be combined by adding the traveltime lookup tables from
+        other.traveltimes for which the station key is not already in
+        self.traveltimes.
 
         Parameters
         ----------
-        other : QuakeMigrate LUT object
-            LUT with travel-time lookup tables to add to self.
+        other : `QMigrate.lut.LUT` object
+            LUT with traveltime lookup tables to add to self.
 
         """
 
@@ -608,9 +643,7 @@ class LUT(Grid3D):
             return self
         else:
             if self == other:
-                for key, ttime in other.maps.items():
-                    if key not in self.maps.keys():
-                        self.maps[key] = ttime
+                self.traveltimes.update(other.traveltimes)
                 return self
             else:
                 print("Grid definitions do not match - cannot combine.")
@@ -648,8 +681,8 @@ class LUT(Grid3D):
 
     def __getitem__(self, key):
         """
-        Provide a method to directly access travel-time maps by station key
-        without having to go through the maps dictionary.
+        Provide a method to directly access traveltime tables by station key
+        without having to go through the traveltimes dictionary.
 
         Parameters
         ----------
@@ -658,12 +691,14 @@ class LUT(Grid3D):
 
         Returns
         -------
-        ttimes : array-like
-            Travel-time lookup table for key, if key exists.
+        station_traveltimes : dict
+            Traveltime lookup table for key (station), if key exists.
 
         """
 
         try:
+            return self.traveltimes[key]
+        except AttributeError:
             return self.maps[key]
         except KeyError:
-            print(f"No travel-time lookup table available for '{key}'.")
+            print(f"No traveltime lookup table available for '{key}'.")

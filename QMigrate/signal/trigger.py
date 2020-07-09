@@ -161,7 +161,7 @@ class Trigger:
         # --- Organise i/o and logging ---
         self.run = Run(run_path, run_name, kwargs.get("trigger_name", ""),
                        "trigger")
-        self.run.logger(kwargs.get("log", True))
+        self.run.logger(kwargs.get("log", False))
 
         # --- Grab Trigger parameters or set defaults ---
         self.threshold_method = kwargs.get("threshold_method", "static")
@@ -262,7 +262,8 @@ class Trigger:
         """
 
         logging.info("\tReading in .scanmseed...")
-        data, stats = read_scanmseed(self.run, batchstart, batchend, self.pad)
+        data, stats = read_scanmseed(self.run, batchstart, batchend, self.pad,
+                                     self.lut.unit_conversion_factor)
 
         logging.info("\tTriggering events...\n")
         trigger_on = "COA_N" if self.normalise_coalescence else "COA"

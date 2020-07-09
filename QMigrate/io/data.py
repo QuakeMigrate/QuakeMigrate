@@ -667,8 +667,8 @@ class WaveformData:
 
         """
 
-        samples = int(round((self.endtime - self.starttime) \
-            * self.sampling_rate + 1))
+        samples = util.time2sample(self.endtime - self.starttime,
+                                   self.sampling_rate) + 1
 
         availability = np.zeros(len(self.stations)).astype(int)
         signal = np.zeros((3, len(self.stations), int(samples)))

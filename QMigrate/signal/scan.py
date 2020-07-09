@@ -159,14 +159,14 @@ class QuakeScan:
             self.onset = onset
         else:
             raise util.OnsetTypeError
-        self.onset.post_pad = lut.max_ttime
+        self.onset.post_pad = lut.max_traveltime
 
         self.pre_pad = 0.
         self.post_pad = 0.
 
         # --- Set up i/o ---
         self.run = Run(run_path, run_name, kwargs.get("run_subname", ""))
-        self.log = kwargs.get("log", True)
+        self.log = kwargs.get("log", False)
 
         picker = kwargs.get("picker")
         if picker is None:
@@ -337,8 +337,12 @@ class QuakeScan:
         pre_pad, post_pad = self.onset.pad(self.timestep)
         self.pre_pad, self.post_pad = pre_pad, post_pad
         nsteps = int(np.ceil((endtime - starttime) / self.timestep))
-        availability = pd.DataFrame(index=np.arange(nsteps),
-                                    columns=self.lut.maps.keys())
+        try:
+            availability = pd.DataFrame(index=np.arange(nsteps),
+                                        columns=self.lut.traveltimes.keys())
+        except AttributeError:
+            availability = pd.DataFrame(index=np.arange(nsteps),
+                                        columns=self.lut.maps.keys())
 
         for i in range(nsteps):
             w_beg = starttime + self.timestep*i - self.pre_pad
@@ -348,7 +352,8 @@ class QuakeScan:
             try:
                 data = self.archive.read_waveform_data(w_beg, w_end,
                                                        self.sampling_rate)
-                coalescence.append(*self._compute(data))
+                coalescence.append(*self._compute(data),
+                                   self.lut.unit_conversion_factor)
                 availability.loc[i] = data.availability
             except util.ArchiveEmptyException as e:
                 coalescence.empty(starttime, self.timestep, i, e.msg)
@@ -471,11 +476,11 @@ class QuakeScan:
 
         # --- Calculate continuous coalescence within 3-D volume ---
         onsets = self.onset.calculate_onsets(data)
-        ttimes = self.lut.ttimes(self.sampling_rate)
+        traveltimes = self.lut.serve_traveltimes(self.sampling_rate)
         fsmp = util.time2sample(self.pre_pad, self.sampling_rate)
         lsmp = util.time2sample(self.post_pad, self.sampling_rate)
         avail = np.sum(data.availability)*2
-        map4d = migrate(onsets, ttimes, fsmp, lsmp, avail, self.threads)
+        map4d = migrate(onsets, traveltimes, fsmp, lsmp, avail, self.threads)
 
         # --- Find continuous peak coalescence in 3-D volume ---
         max_coa, max_coa_n, max_idx = find_max_coa(map4d, self.threads)
@@ -531,12 +536,12 @@ class QuakeScan:
 
         if self.post_cut or self.mags is not None:
             if self.mags is not None and self.post_cut:
-                post_cut = max(((1 + self.picker.fraction_tt) *
-                                self.lut.max_ttime + self.marginal_window +
-                                self.mags.amp.signal_window), self.post_cut)
+                post_cut = max(((1 + self.lut.fraction_tt) *
+                                self.lut.max_traveltime + self.marginal_window
+                                + self.mags.amp.signal_window), self.post_cut)
             elif self.mags is not None:
-                post_cut = ((1 + self.picker.fraction_tt) *
-                            self.lut.max_ttime + self.marginal_window +
+                post_cut = ((1 + self.lut.fraction_tt) *
+                            self.lut.max_traveltime + self.marginal_window +
                             self.mags.amp.signal_window)
             else:
                 post_cut = self.post_cut

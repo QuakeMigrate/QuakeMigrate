@@ -4,11 +4,11 @@ Module that supplies various utility functions and classes.
 
 """
 
-import sys
-
-from functools import wraps
 import logging
+import sys
 import time
+from datetime import datetime
+from functools import wraps
 
 import numpy as np
 from obspy import Trace
@@ -120,8 +120,10 @@ def logger(logstem, log):
     """
 
     if log:
-        logstem.parent.mkdir(exist_ok=True, parents=True)
-        handlers = [logging.FileHandler(str(logstem.with_suffix(".log"))),
+        now = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        logfile = logstem.parent / f"{logstem.name}_{now}"
+        logfile.parent.mkdir(exist_ok=True, parents=True)
+        handlers = [logging.FileHandler(str(logfile.with_suffix(".log"))),
                     logging.StreamHandler(sys.stdout)]
     else:
         handlers = [logging.StreamHandler(sys.stdout)]
@@ -319,13 +321,11 @@ class StationFileHeaderException(Exception):
         super().__init__(msg)
 
 
-class VelocityModelFileHeaderException(Exception):
+class InvalidVelocityModelHeader(Exception):
     """Custom exception to handle incorrect header columns in station file"""
 
-    def __init__(self):
-        msg = ("VelocityModelFileHeaderException: incorrect velocity model "
-               "file header - use:\nDepth, Vp, Vs")
-        super().__init__(msg)
+    def __init__(self, key):
+        super().__init__(f"Must include at least '{key}' in header.")
 
 
 class ArchiveFormatException(Exception):

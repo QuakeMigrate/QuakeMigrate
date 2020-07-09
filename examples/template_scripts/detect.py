@@ -6,8 +6,7 @@ For more details, please see the manual and read the docs.
 
 """
 
-from QMigrate.io import Archive, read_stations
-from QMigrate.lut import LUT
+from QMigrate.io import Archive, read_lut, read_stations
 from QMigrate.signal import QuakeScan
 from QMigrate.signal.onset import STALTAOnset
 
@@ -37,7 +36,7 @@ archive = Archive(archive_path=archive_path, stations=stations,
 # archive.upfactor = 2
 
 # --- Load the LUT ---
-lut = LUT(lut_file=lut_file)
+lut = read_lut(lut_file=lut_file)
 
 # --- Decimate the lookup table ---
 lut = lut.decimate([5, 5, 4])
@@ -51,7 +50,7 @@ onset.s_onset_win = [0.2, 1.5]
 
 # --- Create new QuakeScan ---
 scan = QuakeScan(archive, lut, onset=onset, run_path=run_path,
-                 run_name=run_name, log=False)
+                 run_name=run_name, log=True)
 
 # --- Set detect parameters ---
 # For a complete list of parameters and guidance on how to choose them, please

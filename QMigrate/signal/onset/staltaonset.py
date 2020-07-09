@@ -38,9 +38,6 @@ def sta_lta_centred(a, nsta, nlta):
 
     """
 
-    nsta = int(round(nsta))
-    nlta = int(round(nlta))
-
     # Cumulative sum to calculate moving average
     sta = np.cumsum(a ** 2)
     sta = np.require(sta, dtype=np.float)
@@ -102,9 +99,6 @@ def sta_lta_onset(fsig, stw, ltw, position, log):
         infinity.
 
     """
-
-    stw = int(round(stw))
-    ltw = int(round(ltw))
 
     n_channels, _ = fsig.shape
     onset = np.copy(fsig)
@@ -309,8 +303,8 @@ class STALTAOnset(Onset):
         """
 
         stw, ltw = self.p_onset_win
-        stw = int(stw * self.sampling_rate) + 1
-        ltw = int(ltw * self.sampling_rate) + 1
+        stw = util.time2sample(stw, self.sampling_rate) + 1
+        ltw = util.time2sample(ltw, self.sampling_rate) + 1
 
         lc, hc, ord_ = self.p_bp_filter
         filt_sigz = pre_process(sigz, self.sampling_rate, lc, hc, ord_)
@@ -348,8 +342,8 @@ class STALTAOnset(Onset):
         """
 
         stw, ltw = self.s_onset_win
-        stw = int(stw * self.sampling_rate) + 1
-        ltw = int(ltw * self.sampling_rate) + 1
+        stw = util.time2sample(stw, self.sampling_rate) + 1
+        ltw = util.time2sample(ltw, self.sampling_rate) + 1
 
         lc, hc, ord_ = self.s_bp_filter
         filt_sige = pre_process(sige, self.sampling_rate, lc, hc, ord_)

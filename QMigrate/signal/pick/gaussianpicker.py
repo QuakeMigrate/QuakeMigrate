@@ -23,11 +23,6 @@ class GaussianPicker(PhasePicker):
 
     Attributes
     ----------
-    fraction_tt : float
-        Defines width of time window around expected phase arrival time in
-        which to search for a phase pick as a function of the traveltime from
-        the event location to that station -- should be an estimate of the
-        uncertainty in the velocity model.
     phase_picks : dict
             "GAU_P" : array-like
                 Numpy array stack of Gaussian pick info (each as a dict)
@@ -61,18 +56,28 @@ class GaussianPicker(PhasePicker):
 
         self.onset = onset
         self.pick_threshold = kwargs.get("pick_threshold", 1.0)
-        self.fraction_tt = kwargs.get("fraction_tt", 0.1)
         self.marginal_window = kwargs.get("marginal_window", 1.0)
         self.sampling_rate = None
         self.plot_picks = kwargs.get("plot_picks", False)
 
+        if "fraction_tt" in kwargs.keys():
+            print("FutureWarning: Fraction of traveltime argument moved to "
+                  "lookup tables.\nIt remains possible to override the "
+                  "fraction of traveltime here, if required, to further\ntune"
+                  "the phase picker.")
+        self._fraction_tt = kwargs.get("fraction_tt")
+
     def __str__(self):
         """Returns a short summary string of the GaussianPicker."""
-        return ("\tPhase picking by fitting a 1-D Gaussian to onsets\n"
+
+        str_ = ("\tPhase picking by fitting a 1-D Gaussian to onsets\n"
                 f"\t\tPick threshold  = {self.pick_threshold}\n"
-                f"\t\tMarginal window = {self.marginal_window} s\n"
-                f"\t\tSearch window   = {self.fraction_tt*100}% of travel-time"
-                "\n")
+                f"\t\tMarginal window = {self.marginal_window} s\n")
+        if self._fraction_tt is not None:
+            str_ += (f"\t\tSearch window   = {self._fraction_tt*100}% of "
+                     "traveltime\n")
+
+        return str_
 
     @util.timeit
     def pick_phases(self, event, lut, run):
@@ -104,6 +109,11 @@ class GaussianPicker(PhasePicker):
         # Onsets are recalculated without logging
         _ = self.onset.calculate_onsets(event.data, log=False)
 
+        if self._fraction_tt is None:
+            fraction_tt = lut.fraction_tt
+        else:
+            fraction_tt = self._fraction_tt
+
         e_ijk = lut.index2coord(event.hypocentre, inverse=True)[0]
         ptt = lut.traveltime_to("P", e_ijk)
         stt = lut.traveltime_to("S", e_ijk)
@@ -128,7 +138,7 @@ class GaussianPicker(PhasePicker):
 
                 gau, max_onset, pick, pick_error, window = self._fit_gaussian(
                     onset, phase, event.data.starttime, event.otime,
-                    ptt[i], stt[i])
+                    ptt[i], stt[i], fraction_tt)
 
                 gaussfits[station["Name"]][phase] = gau
                 pick_windows[station["Name"]][phase] = window
@@ -137,8 +147,7 @@ class GaussianPicker(PhasePicker):
                                      pick_error, max_onset]
 
         event.add_picks(picks, gaussfits=gaussfits, pick_windows=pick_windows,
-                        pick_threshold=self.pick_threshold,
-                        fraction_tt=self.fraction_tt)
+                        pick_threshold=self.pick_threshold)
 
         self.write(run, event.uid, picks)
 
@@ -147,7 +156,8 @@ class GaussianPicker(PhasePicker):
 
         return event, picks
 
-    def _fit_gaussian(self, onset, phase, starttime, otime, ptt, stt):
+    def _fit_gaussian(self, onset, phase, starttime, otime, ptt, stt,
+                      fraction_tt):
         """
         Fit a Gaussian to the onset function in order to make a time pick with
         an associated uncertainty. Uses the same STA/LTA onset (characteristic)
@@ -174,6 +184,11 @@ class GaussianPicker(PhasePicker):
             Traveltime of P phase.
         stt : UTCDateTime object
             Traveltime of S phase.
+        fraction_tt : float
+            Defines width of time window around expected phase arrival time in
+            which to search for a phase pick as a function of the traveltime
+            from the event location to that station -- should be an estimate of
+            the uncertainty in the velocity model.
 
         Returns
         -------
@@ -219,8 +234,8 @@ class GaussianPicker(PhasePicker):
         # set percentage of total travel time, plus marginal window
 
         # window based on self.fraction_tt of P/S travel time
-        ptt *= self.fraction_tt
-        stt *= self.fraction_tt
+        ptt *= fraction_tt
+        stt *= fraction_tt
 
         # Add length of marginal window to this. Convert to index.
         P_idxmin_new = int(pt_idx - int((self.marginal_window + ptt)
@@ -440,3 +455,14 @@ class GaussianPicker(PhasePicker):
             file = (fpath / fstem).with_suffix(".pdf")
             plt.savefig(file)
             plt.close(fig)
+
+    @property
+    def fraction_tt(self):
+        """Handler for deprecated attribute 'fraction_tt'"""
+        return self._fraction_tt
+
+    @fraction_tt.setter
+    def fraction_tt(self, value):
+        print("FutureWarning: Fraction of traveltime attribute has moved to "
+              "lookup table.\n Overriding...")
+        self._fraction_tt = value

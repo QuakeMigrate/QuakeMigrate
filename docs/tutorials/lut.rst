@@ -19,11 +19,11 @@ We use here the WGS84 reference ellipsoid (used as standard by the Global Positi
 
 ::
 
-	from pyproj import Proj
+    from pyproj import Proj
 
-	cproj = Proj(proj="longlat", ellps="WGS84", datum"=WGS84", no_defs=True)
-	gproj = Proj(proj="lcc", lon_0=116.75, lat_0=6.25, lat_1=4.0, lat_2=7.5,
-	         datum="WGS84", ellps="WGS84", units="km", no_defs=True)
+    cproj = Proj(proj="longlat", ellps="WGS84", datum"=WGS84", no_defs=True)
+    gproj = Proj(proj="lcc", lon_0=116.75, lat_0=6.25, lat_1=4.0, lat_2=7.5,
+             datum="WGS84", ellps="WGS84", units="km", no_defs=True)
 
 Geographical location and spatial extent
 ########################################
@@ -37,9 +37,9 @@ The final piece of information required to fully define the grid on which we wil
 
 ::
 
-	ll_corner = [116.075, 5.573, -1.750]
-	ur_corner = [117.426, 6.925, 27.750]
-	cell_size = [0.5, 0.5, 0.5]
+    ll_corner = [116.075, 5.573, -1.750]
+    ur_corner = [117.426, 6.925, 27.750]
+    cell_size = [0.5, 0.5, 0.5]
 
 Bundling the grid specification
 ###############################
@@ -70,7 +70,7 @@ In addition to the grid specification, we need to provide a list of stations for
 The `read_stations` function is a passthrough for `pandas.read_csv`, so we can handle any delimiting characters (e.g. by specifying `read_stations("station_file", delimiter=",")`). There are four required (case-sensitive) column
 headers - "Name", "Longitude", "Latitude", "Elevation".
 
-.. warning:: Note: station elevations are in the positive-up/right-handed coordinate frame. An elevation of 2 would correspond to 2 (km) above sea level.
+.. note:: Station elevations are in the positive-up/right-handed coordinate frame. An elevation of 2 would correspond to 2 (km) above sea level.
 
 The `compute_traveltimes` function used in the following sections returns a lookup table (a fully-populated instance of the LUT class) which can be used for `detect`, `trigger`, and `locate`.
 
@@ -82,11 +82,19 @@ Simply calculates the straight line traveltimes between stations and points in t
 
     from QMigrate.lut import compute_traveltimes
 
-	compute_traveltimes(grid_spec, stations, method="homogeneous", vp=5., vs=3.,
-	                    log=True, save_file=/path/to/save_file)
+    compute_traveltimes(grid_spec, stations, method="homogeneous", vp=5., vs=3.,
+                        log=True, save_file=/path/to/save_file)
 
-Fast-marching method
-####################
+1-D velocity models
+###################
+1-D velocity models are read in from an (arbitrarily delimited) textfile using `QMigrate.io.read_vmodel`. There is only 1 required (case-sensitive) column header - "Depth", which corresponds to the depths for each block in the velocity model. Each additional column should contain a velocity model that corresponds to a particular seismic phase, with a (case-sensitive) header, e.g. `Vp` (Note: Uppercase `V`, lowercase phase code).
+
+.. note:: The units for velocities should correspond to the units used in specifying the grid projection. km -> km / s; m -> m / s.
+
+.. note:: Depths are in the positive-down/left-handed coordinate frame. A depth of 5 would correspond to 5 (km) below sea level.
+
+1-D fast-marching method
+************************
 The fast-marching method implicitly tracks the evolution of the wavefront. Our current backend is the `scikit-fmm` package. It is possible to use this package to compute traveltimes to 1-D, 2-D, or 3-D velocity models. Currently we provide a utility function that computes traveltime tables for 1-D velocity models. The format of this velocity model file is specified below. See the `scikit-fmm` documentation and Rawlinson & Sambridge (2005) for more details.
 
 .. note:: Traveltime calculation can only be performed between grid nodes: the station location is therefore taken as the closest grid node. Note that for large cell sizes this may cause a modest error in the calculated traveltimes.
@@ -95,27 +103,27 @@ The fast-marching method implicitly tracks the evolution of the wavefront. Our c
 
 ::
 
-	from QMigrate.lut import compute_traveltimes
-	from QMigrate.io import read_vmodel
+    from QMigrate.lut import compute_traveltimes
+    from QMigrate.io import read_vmodel
 
-	vmod = read_vmodel("/path/to/vmodel_file")
-	compute_traveltimes(grid_spec, stations, method="1dfmm", vmod=vmod,
-	                    log=True, save_file=/path/to/save_file)
+    vmod = read_vmodel("/path/to/vmodel_file")
+    compute_traveltimes(grid_spec, stations, method="1dfmm", vmod=vmod,
+                        log=True, save_file=/path/to/save_file)
 
-NonLinLoc style 2-D sweep
-#########################
+1-D NonLinLoc-style sweep
+*************************
 Uses the Eikonal solver from NonLinLoc under the hood to generate a traveltime grid for a 2-D slice that passes through the station and the point in the grid furthest away from that station. This slice is then "swept" using a bilinear interpolation scheme to produce a 3-D traveltime grid. The format of the input velocity model file is specified below. This also has the benefit of being able to include stations outside of the volume of interest, without having to increase the size of the grid.
 
 .. note:: Requires the user to install the NonLinLoc software package (available from http://alomax.free.fr/nlloc/)
 
 ::
 
-	from QMigrate.lut import compute_traveltimes
-	from QMigrate.io import read_vmodel
+    from QMigrate.lut import compute_traveltimes
+    from QMigrate.io import read_vmodel
 
-	vmod = read_vmodel("/path/to/vmodel_file")
-	compute_traveltimes(grid_spec, stations, method="1dsweep", vmod=vmod,
-						block_model=True, log=True, save_file=/path/to/save_file)
+    vmod = read_vmodel("/path/to/vmodel_file")
+    compute_traveltimes(grid_spec, stations, method="1dsweep", vmod=vmod,
+                        block_model=True, log=True, save_file=/path/to/save_file)
 
 Other formats
 #############
@@ -128,19 +136,13 @@ It is also easy to import traveltime lookup tables generated by other means. We 
 
 where `STATION` and `PHASE` are station name and seismic phase strings, respectively.
 
-Velocity model format
----------------------
-1-D velocity models are read in from an (arbitrarily delimited) textfile using `QMigrate.io.read_vmodel`. There is only 1 required (case-sensitive) column header - "Depth", which corresponds to the depths for each block in the velocity model. Each additional column should contain a velocity model that corresponds to a particular seismic phase, with a (case-sensitive) header, e.g. `Vp` (Note: Uppercase `V`, lowercase phase code).
-
-.. warning:: Note: depths are in the positive-down/left-handed coordinate frame. A depth of 5 would correspond to 5 (km) below sea level.
-
 Saving your LUT
 ---------------
 If you provided a ``save_file`` argument to the ``compute_traveltimes`` function, the LUT will already be saved. In any case, the lookup table object is returned by the `compute_traveltimes` function if you wish to explore the object further. We use the `pickle` library (a Python standard library) to serialise the LUT, which essentially freezes the state of the LUT. If you have added 3rd-party traveltime lookup tables to the LUT, you will need to save using:
 
 ::
 
-	lut.save("/path/to/output/lut")
+    lut.save("/path/to/output/lut")
 
 Reading in a saved LUT
 ----------------------

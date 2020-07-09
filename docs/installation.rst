@@ -18,7 +18,7 @@ If you are using conda to manage your Python environments, you can use our Quake
 Compiling C extensions
 **********************
 
-You will need a C compiler to build the C extensions. We recommend doing this `through conda <https://docs.conda.io/projects/conda-build/en/latest/resources/compiler-tools.html>`_.
+You will need a C compiler to build the C extensions. We recommend doing this `through conda <https://docs.conda.io/projects/conda-build/en/latest/resources/compiler-tools.html>`_, though the install will fall back on your system compiler (if available).
 
 Linux
 #####
@@ -45,7 +45,7 @@ There are a few ways to get a copy of QuakeMigrate:
 
 From source
 ***********
-Download the package (either by `cloning the repository <https://help.github.com/en/github/creating-cloning-and-archiving-repositories/cloning-a-repository>`_ or downloading the source code) from |github|, navigate to the QuakeMigrate directory and run (ensuring your environment is activated):
+`Clone the repository <https://help.github.com/en/github/creating-cloning-and-archiving-repositories/cloning-a-repository>`_ from |github|, navigate to the new QuakeMigrate directory and run (ensuring your environment is activated):
 
 .. code-block:: bash
 
@@ -55,7 +55,7 @@ Download the package (either by `cloning the repository <https://help.github.com
 
 .. |github| raw:: html
 
-    <a href="https://github.com/QuakeMigrate/QuakeMigrate" target="_blank">github</a>
+    <a href="https://github.com/QuakeMigrate/QuakeMigrate" target="_blank">GitHub</a>
 
 pip install
 ***********
@@ -68,3 +68,22 @@ We will be linking the package to PyPi soon, after which you can use the followi
 conda install
 *************
 We hope to link the package with the conda forge soon.
+
+Testing your installation
+-------------------------
+In order to test your installation, you will need to have cloned the GitHub repository. This will ensure you have all of the required benchmarked data (which is not included in pip/conda installs). Then, navigate to `QuakeMigrate/examples/Icequake_Iceland` and run the example scripts in the following order:
+
+.. code-block:: bash
+
+    python iceland_lut.py
+    python iceland_detect.py
+    python iceland_trigger.py
+    python iceland_locate.py
+
+Once these have all run successfully, navigate to `QuakeMigrate/tests` and run:
+
+.. code-block:: bash
+
+    python test_benchmarks.py
+
+This should execute with no failed tests.

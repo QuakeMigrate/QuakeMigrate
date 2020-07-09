@@ -6,7 +6,7 @@ For more details, please see the manual and read the docs.
 
 """
 
-from QMigrate.lut import LUT
+from QMigrate.io import read_lut
 from QMigrate.signal import Trigger
 
 # --- i/o paths ---
@@ -19,10 +19,10 @@ starttime = "2018-001T00:00:00.0"
 endtime = "2018-002T00:00:00.00"
 
 # --- Load the LUT ---
-lut = LUT(lut_file=lut_file)
+lut = read_lut(lut_file=lut_file)
 
 # --- Create new Trigger ---
-trig = Trigger(lut, run_path=run_path, run_name=run_name)
+trig = Trigger(lut, run_path=run_path, run_name=run_name, log=True)
 
 # --- Set trigger parameters ---
 # For a complete list of parameters and guidance on how to choose them, please

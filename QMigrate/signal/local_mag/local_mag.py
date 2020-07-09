@@ -205,6 +205,8 @@ class LocalMag:
         event.add_local_magnitude(mag, mag_err, mag_r2)
 
         if self.plot and mag is not np.nan:
-            self.mag.plot_amplitudes(mags, event, run, self.amp.noise_measure)
+            self.mag.plot_amplitudes(mags, event, run,
+                                     lut.unit_conversion_factor,
+                                     self.amp.noise_measure)
 
         return event, mag

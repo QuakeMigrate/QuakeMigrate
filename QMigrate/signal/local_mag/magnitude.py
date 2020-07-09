@@ -350,7 +350,8 @@ class Magnitude:
 
         return mean_mag, mean_mag_err, mag_r_squared, all_mags
 
-    def plot_amplitudes(self, magnitudes, event, run, noise_measure="RMS"):
+    def plot_amplitudes(self, magnitudes, event, run, unit_conversion_factor,
+                        noise_measure="RMS"):
         """
         Plot a figure showing the measured amplitude with distance vs.
         predicted amplitude with distance derived from mean_mag and the chosen
@@ -378,6 +379,9 @@ class Magnitude:
             local magnitude information for a given event.
         run : `QMigrate.io.Run` object
             Light class encapsulating i/o path information for a given run.
+        unit_conversion_factor : float
+            A conversion factor based on the lookup table grid projection, used
+            to ensure the location uncertainties have units of kilometres.
 
         """
 
@@ -385,8 +389,11 @@ class Magnitude:
         mag_err = event.localmag["ML_Err"]
         mag_r2 = event.localmag["ML_r2"]
 
+        # For amplitudes and magnitude calculation, distances must be in km
+        km_cf = 1000 / unit_conversion_factor
+
         # Calculate distance error (for errorbars - using gaussian uncertainty)
-        x_err, y_err, z_err = event.get_loc_uncertainty("gaussian") / 1000
+        x_err, y_err, z_err = event.get_loc_uncertainty("gaussian") / km_cf
         epi_err = np.sqrt(x_err**2 + y_err**2)
 
         if self.use_hyp_dist:

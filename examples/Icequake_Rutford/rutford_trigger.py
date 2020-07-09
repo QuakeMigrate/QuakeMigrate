@@ -4,7 +4,7 @@ Trigger stage for the Rutford icequake example.
 
 """
 
-from QMigrate.lut import LUT
+from QMigrate.io import read_lut
 from QMigrate.signal import Trigger
 
 # --- i/o paths ---
@@ -17,10 +17,10 @@ starttime = "2009-01-21T04:00:05.0"
 endtime = "2009-01-21T04:00:15.0"
 
 # --- Load the LUT ---
-lut = LUT(lut_file=lut_file)
+lut = read_lut(lut_file=lut_file)
 
 # --- Create new Trigger ---
-trig = Trigger(lut, run_path=run_path, run_name=run_name)
+trig = Trigger(lut, run_path=run_path, run_name=run_name, log=True)
 
 # --- Set trigger parameters ---
 # For a complete list of parameters and guidance on how to choose them, please

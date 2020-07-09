@@ -237,10 +237,10 @@ class Amplitude:
 
         # Get start of earliest possible noise window and end of latest
         # possible signal window
-        max_tt = lut.max_ttime
+        max_tt = lut.max_traveltime
         tr_start = event.otime - event.marginal_window - self.noise_window
         tr_end = event.otime + event.marginal_window + \
-            (1. + event.picks["fraction_tt"]) * max_tt + self.signal_window
+            (1. + lut.fraction_tt) * max_tt + self.signal_window
 
         # Get traveltimes for all stations and phases: much quicker than
         # doing this multiple times in the loop
@@ -258,7 +258,8 @@ class Amplitude:
         for i, station_data in lut.station_data.iterrows():
             station = station_data["Name"]
 
-            epi_dist, z_dist = self._get_distances(ev_loc, station_data, lut)
+            epi_dist, z_dist = self._get_distances(ev_loc, station_data,
+                                                   lut.unit_conversion_factor)
 
             # Columns: tr_id, epicentral distance, vertical distance, P_amp,
             #          P_freq, P_time, S_amp, S_freq, S_time, Noise_amp,
@@ -305,7 +306,8 @@ class Amplitude:
 
                 windows, picked = self._get_amplitude_windows(station, i,
                                                               event, p_ttimes,
-                                                              s_ttimes)
+                                                              s_ttimes,
+                                                              lut.fraction_tt)
 
                 amps, filter_gain = self._measure_signal_amps(amps, tr,
                                                               windows,
@@ -324,7 +326,7 @@ class Amplitude:
 
         return amplitudes
 
-    def _get_distances(self, ev_loc, station_data, lut):
+    def _get_distances(self, ev_loc, station_data, unit_conversion_factor):
         """
         Get epicentral and vertical distances between a station and an event
         hypocentre.
@@ -336,9 +338,9 @@ class Amplitude:
         station_data : `pandas.Series` object
             Station information - keys: ["Name", "Latitude", "Longitude",
             "Elevation"].
-        lut : `QMigrate.lut.LUT` object
-            Contains the traveltime lookup tables for seismic phases, computed
-            for some pre-defined velocity model.
+        unit_conversion_factor : float
+            A conversion factor based on the lookup table grid projection, used
+            to ensure the distances returned have units of kilometres.
 
         Returns
         -------
@@ -357,9 +359,15 @@ class Amplitude:
         # Get event location
         evlo, evla, evdp = ev_loc
 
-        # Evaluate epicentral/vertical distances between station and event
-        epi_dist = gps2dist_azimuth(evla, evlo, stla, stlo)[0] / 1000.
-        z_dist = (evdp - stel) / 1000.
+        # Evaluate epicentral distance between station and event.
+        # gps2dist_azimuth returns distances in metres -- magnitudes
+        # calculation requires distances in kilometres.
+        epi_dist = gps2dist_azimuth(evla, evlo, stla, stlo)[0] / 1000
+
+        # Evaulate vertical distance between station and event. Convert to
+        # kilometres.
+        km_cf = 1000 / unit_conversion_factor
+        z_dist = (evdp - stel) / km_cf
 
         return epi_dist, z_dist
 
@@ -482,7 +490,8 @@ class Amplitude:
 
         return filter_sos
 
-    def _get_amplitude_windows(self, station, i, event, p_ttimes, s_ttimes):
+    def _get_amplitude_windows(self, station, i, event, p_ttimes, s_ttimes,
+                               fraction_tt):
         """
         Calculate the start and end time of the windows to measure the max P-
         and S- wave amplitudes in. This is done on the basis of the pick times,
@@ -497,7 +506,7 @@ class Amplitude:
                        traveltime_uncertainty
 
         traveltime_uncertainty = traveltime * fraction_tt
-            (where fraction_tt is as specified for the autopicker).
+            (where fraction_tt is as specified for the lookup table).
 
         Parameters
         ----------
@@ -512,6 +521,9 @@ class Amplitude:
             Array of interpolated P traveltimes to the requested grid position.
         s_ttimes : array-like
             Array of interpolated S traveltimes to the requested grid position.
+        fraction_tt : float
+            An estimate of the uncertainty in the velocity model as a function
+            of the traveltime.
 
         Returns
         -------
@@ -528,8 +540,6 @@ class Amplitude:
         """
 
         p_pick, s_pick, picked = self._get_picks(i, event)
-
-        fraction_tt = event.picks["fraction_tt"]
 
         # Check p_pick is before s_pick
         try:

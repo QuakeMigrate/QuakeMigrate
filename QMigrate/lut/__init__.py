@@ -32,6 +32,8 @@ def update_lut(old_lut_file, save_file):
             phase_code = phase.split("_")[1]
             lut.traveltimes.setdefault(station, {}).update(
                 {phase_code: ttimes})
+    lut.phases = ["P", "S"]
+    lut.fraction_tt = 0.1
 
     del lut.maps
 

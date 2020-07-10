@@ -101,6 +101,9 @@ class Trigger:
         log : bool, optional
             Toggle for logging. If True, will output to stdout and generate a
             log file. Default is to only output to stdout.
+        loglevel : {"info", "debug"}, optional
+            Toggle to set the logging level: "debug" will print out additional
+            diagnostic information to the log and stdout. (Default "info")
         trigger_name : str
             Optional name of a sub-run - useful when testing different trigger
             parameters, for example.
@@ -160,7 +163,7 @@ class Trigger:
 
         # --- Organise i/o and logging ---
         self.run = Run(run_path, run_name, kwargs.get("trigger_name", ""),
-                       "trigger")
+                       "trigger", loglevel=kwargs.get("loglevel", "info"))
         self.run.logger(kwargs.get("log", False))
 
         # --- Grab Trigger parameters or set defaults ---
@@ -265,7 +268,7 @@ class Trigger:
         data, stats = read_scanmseed(self.run, batchstart, batchend, self.pad,
                                      self.lut.unit_conversion_factor)
 
-        logging.info("\tTriggering events...\n")
+        logging.info("\n\tTriggering events...")
         trigger_on = "COA_N" if self.normalise_coalescence else "COA"
         threshold = self._get_threshold(data[trigger_on], stats.sampling_rate)
         candidate_events = self._identify_candidates(data, trigger_on,
@@ -279,8 +282,9 @@ class Trigger:
             refined_events = self._refine_candidates(candidate_events)
             events = self._filter_events(refined_events, batchstart, batchend,
                                          region)
-            logging.info((f"\n\t\t{len(events)} triggered within the specified "
-                          f"region between {batchstart} and {batchend}"))
+            logging.info((f"\n\t\t{len(events)} event(s) triggered within the "
+                          f"specified region between {batchstart} \n\t\tand "
+                          f"{batchend}"))
             logging.info("\n\tWriting triggered events to file...")
             write_triggered_events(self.run, events, batchstart)
 
@@ -290,6 +294,7 @@ class Trigger:
                         threshold, self.normalise_coalescence, self.lut,
                         data, region=region, savefig=savefig)
 
+    @util.timeit()
     def _get_threshold(self, scandata, sampling_rate):
         """
         Determine the threshold to use when triggering candidate events.
@@ -333,6 +338,7 @@ class Trigger:
 
         return threshold
 
+    @util.timeit()
     def _identify_candidates(self, scandata, trigger_on, threshold):
         """
         Identify distinct periods of time for which the maximum (normalised)
@@ -391,6 +397,7 @@ class Trigger:
 
         return triggers
 
+    @util.timeit()
     def _refine_candidates(self, candidate_events):
         """
         Merge candidate events for which the marginal windows overlap with the
@@ -430,8 +437,8 @@ class Trigger:
         # Update the min/max window times and build final event DataFrame
         refined_events = pd.DataFrame(columns=TRIGGER_FILE_COLS)
         for i, candidate in enumerate(merged_candidates):
-            logging.info(f"\t    Triggered event {i+1} of "
-                         f"{len(merged_candidates)}")
+            logging.debug(f"\t    Triggered event {i+1} of "
+                          f"{len(merged_candidates)}")
             event = candidate.loc[candidate["COA_V"].idxmax()].copy()
             event["MinTime"] = candidate["MinTime"].min()
             event["MaxTime"] = candidate["MaxTime"].max()
@@ -439,6 +446,7 @@ class Trigger:
 
         return refined_events
 
+    @util.timeit()
     def _filter_events(self, events, starttime, endtime, region):
         """
         Remove events within the padding time and/or within a specific

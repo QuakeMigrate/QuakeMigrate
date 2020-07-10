@@ -27,6 +27,7 @@ import QMigrate.util as util
 register_matplotlib_converters()
 
 
+@util.timeit("info")
 def trigger_summary(events, starttime, endtime, run, marginal_window,
                     minimum_repeat, detection_threshold, normalise_coalescence,
                     lut, data, region, savefig):
@@ -92,7 +93,6 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
                  zorder=10)
 
     try:
-        logging.info("\n\t    Reading in .StationAvailability...")
         availability = read_availability(run, starttime, endtime)
         available = availability.sum(axis=1).astype(int)
         times = list(pd.to_datetime(available.index))

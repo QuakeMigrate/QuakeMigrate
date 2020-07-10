@@ -401,7 +401,6 @@ class Event:
                                               na_action="ignores")
 
         # Set floating point precision for locations & loc uncertainties
-        ll_corner = lut.coord2grid(lut.ll_corner, inverse=True)
         for axis_precision, axis in zip(lut.precision, ["X", "Y", "Z"]):
             # Sort out which columns to format
             cols = [axis, f"GAU_{axis}"]

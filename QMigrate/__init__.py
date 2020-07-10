@@ -1,8 +1,14 @@
 # -*- coding: utf-8 -*-
 
+import matplotlib
+import logging
+
 from QMigrate.io.data import Archive  # NOQA
 from QMigrate.lut import create_lut, read_nlloc, LUT  # NOQA
 from QMigrate.signal import QuakeScan, Trigger  # NOQA
+
+
+logging.getLogger("matplotlib").setLevel(logging.INFO)
 
 
 name = "QuakeMigrate"

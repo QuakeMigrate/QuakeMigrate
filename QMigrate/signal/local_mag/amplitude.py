@@ -180,7 +180,7 @@ class Amplitude:
 
         return out
 
-    @util.timeit
+    @util.timeit()
     def get_amplitudes(self, event, lut):
         """
         Measure phase amplitudes for an event.

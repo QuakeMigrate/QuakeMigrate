@@ -22,7 +22,7 @@ import pandas as pd
 import QMigrate.util as util
 
 
-@util.timeit
+@util.timeit("info")
 def event_summary(run, event, marginal_coalescence, lut):
     """
     Plots an event summary illustrating the locate results: slices through the

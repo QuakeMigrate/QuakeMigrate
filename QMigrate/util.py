@@ -105,7 +105,7 @@ def gaussian_3d(nx, ny, nz, sgm):
     return f
 
 
-def logger(logstem, log):
+def logger(logstem, log, loglevel="info"):
     """
     Simple logger that will output to both a log file and stdout.
 
@@ -116,8 +116,13 @@ def logger(logstem, log):
     log : bool
         Toggle for logging - default is to only print information to stdout.
         If True, will also create a log file.
+    loglevel : str, optional
+        Toggle for logging level - default is to print only "info" messages to
+        log. To print more detailed "debug" messages, set to "debug".
 
     """
+
+    level = logging.DEBUG if loglevel == "debug" else logging.INFO
 
     if log:
         now = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -128,7 +133,7 @@ def logger(logstem, log):
     else:
         handlers = [logging.StreamHandler(sys.stdout)]
 
-    logging.basicConfig(level=logging.INFO,
+    logging.basicConfig(level=level,
                         format="%(message)s",
                         handlers=handlers)
                         # format="%(asctime)s [%(levelname)s] %(message)s",
@@ -301,15 +306,22 @@ def upsample(trace, upfactor):
     return out
 
 
-def timeit(f):
+def timeit(*args_, **kwargs_):
     """Function wrapper that measures the time elapsed during its execution."""
-    @wraps(f)
-    def wrap(*args, **kw):
-        ts = time.time()
-        result = f(*args, **kw)
-        logging.info(" "*21 + f"Elapsed time: {time.time() - ts:6f} seconds.")
-        return result
-    return wrap
+    def inner_function(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            ts = time.time()
+            result = func(*args, **kwargs)
+            msg = " "*21 + f"Elapsed time: {time.time() - ts:6f} seconds."
+            try:
+                if args_[0] == "info":
+                    logging.info(msg)
+            except IndexError:
+                logging.debug(msg)
+            return result
+        return wrapper
+    return inner_function
 
 
 class StationFileHeaderException(Exception):

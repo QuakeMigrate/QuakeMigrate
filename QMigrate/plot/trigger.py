@@ -28,8 +28,8 @@ register_matplotlib_converters()
 
 
 def trigger_summary(events, starttime, endtime, run, marginal_window,
-                    minimum_repeat, detection_threshold, normalise_coalescence,
-                    lut, data, region, savefig):
+                    min_event_interval, detection_threshold,
+                    normalise_coalescence, lut, data, region, savefig):
     """
     Plots the data from a .scanmseed file with annotations illustrating the
     trigger results: event triggers and marginal windows on the coalescence
@@ -50,7 +50,7 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
         Light class encapsulating i/o path information for a given run.
     marginal_window : float
         Estimate of time error over which to marginalise the coalescence.
-    minimum_repeat : float
+    min_event_interval : float
         Minimum time interval between triggered events.
     detection_threshold : float
         Coalescence value above which to trigger events.
@@ -109,7 +109,7 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
 
     if events is not None:
         for i, event in events.iterrows():
-            lab1 = "Minimum repeat window" if i == 0 else ""
+            lab1 = "Minimum event interval" if i == 0 else ""
             lab2 = "Marginal window" if i == 0 else ""
             lab3 = "Triggered event" if i == 0 else ""
 
@@ -168,7 +168,7 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
               va="center", fontsize=22)
     text.text(0.5, 0.6, f"Marginal window: {marginal_window} s", ha="center",
               va="center", fontsize=22)
-    text.text(0.5, 0.45, f"Minimum repeat time: {minimum_repeat} s",
+    text.text(0.5, 0.45, f"Minimum event interval: {min_event_interval} s",
               ha="center", va="center", fontsize=22)
     trig = "normalised coalescence" if normalise_coalescence else "coalescence"
     count = len(events) if events is not None else 0

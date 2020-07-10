@@ -120,7 +120,7 @@ class Trigger:
         a function of the spatial dimensions. This should be an estimate of the
         time error, as derived from an estimate of the spatial error and error
         in the velocity model. Default: 2 seconds.
-    minimum_repeat : float, optional
+    min_event_interval : float, optional
         Minimum time interval between triggered events. Must be at least twice
         the marginal window. Default: 4 seconds.
     normalise_coalescence : bool, optional
@@ -144,8 +144,8 @@ class Trigger:
 
     Raises
     ------
-    Exception
-        If `minimum_repeat` < 2 * `marginal_window`.
+    ValueError
+        If `min_event_interval` < 2 * `marginal_window`.
     InvalidThresholdMethodException
         If an invalid threshold method is passed in by the user.
     TimeSpanException
@@ -173,7 +173,7 @@ class Trigger:
         else:
             raise util.InvalidThresholdMethodException
         self.marginal_window = kwargs.get("marginal_window", 2.)
-        self.minimum_repeat = kwargs.get("minimum_repeat", 4.)
+        self.min_event_interval = kwargs.get("min_event_interval", 4.)
         self.normalise_coalescence = kwargs.get("normalise_coalescence", False)
         self.pad = kwargs.get("pad", 120.)
 
@@ -183,7 +183,7 @@ class Trigger:
         out = ("\tTrigger parameters:\n"
                f"\t\tPre/post pad = {self.pad} s\n"
                f"\t\tMarginal window = {self.marginal_window} s\n"
-               f"\t\tMinimum repeat  = {self.minimum_repeat} s\n\n"
+               f"\t\tMinimum event interval  = {self.min_event_interval} s\n\n"
                f"\t\tTriggering from the ")
         out += "normalised " if self.normalise_coalescence else ""
         out += "maximum coalescence trace.\n\n"
@@ -279,14 +279,14 @@ class Trigger:
             refined_events = self._refine_candidates(candidate_events)
             events = self._filter_events(refined_events, batchstart, batchend,
                                          region)
-            logging.info((f"\n\t\t{len(events)} triggered within the specified "
-                          f"region between {batchstart} and {batchend}"))
+            logging.info((f"\n\t\t{len(events)} triggered within the specified"
+                          f" region between {batchstart} and {batchend}"))
             logging.info("\n\tWriting triggered events to file...")
             write_triggered_events(self.run, events, batchstart)
 
         logging.info("\n\tPlotting trigger summary...")
         trigger_summary(events, batchstart, batchend, self.run,
-                        self.marginal_window, self.minimum_repeat,
+                        self.marginal_window, self.min_event_interval,
                         threshold, self.normalise_coalescence, self.lut,
                         data, region=region, savefig=savefig)
 
@@ -355,10 +355,10 @@ class Trigger:
 
         """
 
-        # Switch between user-facing minimum repeat definition (minimum repeat
+        # Switch between user-facing minimum event interval definition (minimum
         # interval between event triggers) and internal definition (extra
         # buffer on top of marginal window within which events cannot overlap)
-        minimum_repeat = self.minimum_repeat - self.marginal_window
+        min_event_interval = self.min_event_interval - self.marginal_window
 
         thresholded = scandata[scandata[trigger_on] >= threshold]
         r = np.arange(len(thresholded))
@@ -370,17 +370,17 @@ class Trigger:
 
             # If first sample above threshold is within the marginal window
             if (peak["DT"] - candidate["DT"].iloc[0]) < self.marginal_window:
-                min_dt = peak["DT"] - self.minimum_repeat
-            # Otherwise just subtract the minimum repeat
+                min_dt = peak["DT"] - self.min_event_interval
+            # Otherwise just subtract the minimum event interval
             else:
-                min_dt = candidate["DT"].iloc[0] - minimum_repeat
+                min_dt = candidate["DT"].iloc[0] - min_event_interval
 
             # If last sample above threshold is within the marginal window
             if (candidate["DT"].iloc[-1] - peak["DT"]) < self.marginal_window:
-                max_dt = peak["DT"] + self.minimum_repeat
-            # Otherwise just add the minimum repeat
+                max_dt = peak["DT"] + self.min_event_interval
+            # Otherwise just add the minimum event interval
             else:
-                max_dt = candidate["DT"].iloc[-1] + minimum_repeat
+                max_dt = candidate["DT"].iloc[-1] + min_event_interval
 
             trigger = pd.Series([i, peak["DT"], peak[trigger_on],
                                  peak["X"], peak["Y"], peak["Z"],
@@ -419,8 +419,10 @@ class Trigger:
             if i + 1 == len(candidate_events):
                 continue
             event2 = candidate_events.iloc[i+1]
-            if all([event1["MaxTime"] < event2["CoaTime"] - self.marginal_window,
-                    event2["MinTime"] > event1["CoaTime"] + self.marginal_window]):
+            if all([event1["MaxTime"] < \
+                        event2["CoaTime"] - self.marginal_window,
+                    event2["MinTime"] > \
+                        event1["CoaTime"] + self.marginal_window]):
                 event_count += 1
 
         # Split into DataFrames by event number
@@ -489,15 +491,32 @@ class Trigger:
         return events
 
     @property
-    def minimum_repeat(self):
-        """Get and set the minimum repeat time."""
+    def min_event_interval(self):
+        """Get and set the minimum event interval."""
 
-        return self._minimum_repeat
+        return self._min_event_interval
+
+    @min_event_interval.setter
+    def min_event_interval(self, value):
+        if value < 2 * self.marginal_window:
+            msg = "\tMinimum event interval must be >= 2 * marginal window."
+            raise ValueError(msg)
+        else:
+            self._min_event_interval = value
+
+    # --- Deprecation/Future handling ---
+    @property
+    def minimum_repeat(self):
+        """Handler for deprecated attribute name 'minimum_repeat'."""
+
+        return self._min_event_interval
 
     @minimum_repeat.setter
     def minimum_repeat(self, value):
         if value < 2 * self.marginal_window:
             msg = "\tMinimum repeat must be >= 2 * marginal window."
-            raise Exception(msg)
-        else:
-            self._minimum_repeat = value
+            raise ValueError(msg)
+        print("FutureWarning: Parameter name has changed - continuing.")
+        print("To remove this message, change:")
+        print("\t'minimum_repeat' -> 'min_event_interval'")
+        self._min_event_interval = value

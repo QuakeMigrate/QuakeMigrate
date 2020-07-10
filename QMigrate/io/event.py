@@ -126,14 +126,20 @@ class Event:
         self.marginal_window = marginal_window
 
         try:
-            self.trigger_info = {"TRIG_COA": triggered_event["COA_V"],
+            self.trigger_info = {"TRIG_COA": triggered_event["TRIG_COA"],
                                  "DEC_COA": triggered_event["COA"],
                                  "DEC_COA_NORM": triggered_event["COA_NORM"]}
         except KeyError:
             # --- Backwards compatibility ---
-            self.trigger_info = {"TRIG_COA": triggered_event["COA_V"],
-                                 "DEC_COA": np.nan,
-                                 "DEC_COA_NORM": np.nan}
+            try:
+                self.trigger_info = {"TRIG_COA": triggered_event["COA_V"],
+                                     "DEC_COA": triggered_event["COA"],
+                                     "DEC_COA_NORM": \
+                                         triggered_event["COA_NORM"]}
+            except KeyError:
+                self.trigger_info = {"TRIG_COA": triggered_event["COA_V"],
+                                     "DEC_COA": np.nan,
+                                     "DEC_COA_NORM": np.nan}
 
         self.data = None
         self.coa_data = None

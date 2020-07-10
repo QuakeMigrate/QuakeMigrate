@@ -371,7 +371,7 @@ class Trigger:
 
         triggers = pd.DataFrame(columns=CANDIDATES_COLS)
         for i, candidate in enumerate(candidates):
-            peak = candidate.loc[candidate["COA"].idxmax()]
+            peak = candidate.loc[candidate[trigger_on].idxmax()]
 
             # If first sample above threshold is within the marginal window
             if (peak["DT"] - candidate["DT"].iloc[0]) < self.marginal_window:

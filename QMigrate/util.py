@@ -10,6 +10,7 @@ import time
 from datetime import datetime
 from functools import wraps
 
+import matplotlib.ticker as ticker
 import numpy as np
 from obspy import Trace
 
@@ -156,6 +157,44 @@ def time2sample(time, sampling_rate):
     """
 
     return int(round(time*int(sampling_rate)))
+
+
+class DateFormatter(ticker.Formatter):
+    """
+    Extend the `matplotlib.ticker.Formatter` class to allow for millisecond
+    precision when formatting a tick (in days since the epoch) with a
+    `~datetime.datetime.strftime` format string.
+
+    """
+
+    def __init__(self, fmt, precision=3):
+        """
+        Parameters
+        ----------
+        fmt : str
+            `~datetime.datetime.strftime` format string.
+        precision : int
+            Degree of precision to which to report sub-second time intervals.
+
+        """
+
+        from matplotlib.dates import num2date
+
+        self.num2date = num2date
+        self.fmt = fmt
+        self.precision = precision
+
+    def __call__(self, x, pos=0):
+        if x == 0:
+            raise ValueError("DateFormatter found a value of x=0, which is "
+                             "an illegal date; this usually occurs because "
+                             "you have not informed the axis that it is "
+                             "plotting dates, e.g., with ax.xaxis_date()")
+
+        dt = self.num2date(x)
+        ms = dt.strftime("%f")[:self.precision]
+
+        return dt.strftime(self.fmt).format(ms=ms)
 
 
 def trim2sample(time, sampling_rate):

@@ -122,10 +122,14 @@ def event_summary(run, event, marginal_coalescence, lut):
     text.text(0.4, 0.65, "Origin time:", ha="right", va="center", fontsize=20)
     text.text(0.42, 0.65, f"{otime}", ha="left", va="center", fontsize=20)
     text.text(0.4, 0.55, "Hypocentre:", ha="right", va="top", fontsize=20)
-    gau_unc = event.loc_uncertainty / 1000
+
+    # Grab a conversion factor based on the grid projection to convert the
+    # hypocentre depth + uncertainties to the correct units
+    km_cf = 1000 / lut.unit_conversion_factor
+    gau_unc = event.loc_uncertainty / km_cf
     hypo = (f"{event.hypocentre[1]:5.3f}\u00b0 N +/- {gau_unc[1]:5.3f} km\n"
             f"{event.hypocentre[0]:5.3f}\u00b0 E +/- {gau_unc[0]:5.3f} km\n"
-            f"{event.hypocentre[2]/1000:5.3f} +/- {gau_unc[2]:5.3f} km")
+            f"{event.hypocentre[2]/km_cf:5.3f} +/- {gau_unc[2]:5.3f} km")
     text.text(0.42, 0.55, hypo, ha="left", va="top", fontsize=20)
 
     text.set_axis_off()

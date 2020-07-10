@@ -401,21 +401,15 @@ class Event:
                                               na_action="ignores")
 
         # Set floating point precision for locations & loc uncertainties
-        ll_corner = lut.coord2grid(lut.ll_corner, inverse=True)
-        for i, axis in enumerate(["X", "Y", "Z"]):
-            # Calculate appropriate number of decimal places based on LUT cell
-            # size and coordinate projection
-            index = np.zeros(3, dtype=int)
-            index[i] = 1
-            diff = (ll_corner - lut.index2coord(index))[0][i]
-            dec_pos = int(np.format_float_scientific(diff).split("e")[1])
+        for axis_precision, axis in zip(lut.precision, ["X", "Y", "Z"]):
             # Sort out which columns to format
             cols = [axis, f"GAU_{axis}"]
             if axis == "Z":
-                decimals = max((dec_pos * -1 + 2), 0)
+                unit_correction = 3 if lut.unit_name == "km" else 0
+                decimals = max((axis_precision + 2), 0 + unit_correction)
                 cols.extend(event_df.filter(regex="Err[X,Y,Z]"))
             else:
-                decimals = max((dec_pos * -1 + 2), 6)
+                decimals = max((axis_precision + 2), 6)
             for col in cols:
                 event_df[col] = event_df.loc[:, col].round(decimals=decimals)
                 if decimals <= 0:

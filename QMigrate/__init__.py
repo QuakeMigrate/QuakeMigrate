@@ -1,15 +1,20 @@
 # -*- coding: utf-8 -*-
 
 import matplotlib
+import os
 import logging
 
 from QMigrate.io.data import Archive  # NOQA
 from QMigrate.lut import create_lut, read_nlloc, LUT  # NOQA
 from QMigrate.signal import QuakeScan, Trigger  # NOQA
 
-
+# Set matplotlib logging level and backend
 logging.getLogger("matplotlib").setLevel(logging.INFO)
-
+try:
+    os.environ["DISPLAY"]
+    matplotlib.use("Qt5Agg")
+except KeyError:
+    matplotlib.use("Agg")
 
 name = "QuakeMigrate"
 __version__ = "1.0.0"

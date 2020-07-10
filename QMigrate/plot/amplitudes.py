@@ -5,14 +5,6 @@ Wood-Anderson corrected displacement amplitude measurements.
 
 """
 
-import os
-
-import matplotlib
-try:
-    os.environ["DISPLAY"]
-    matplotlib.use("Qt5Agg")
-except KeyError:
-    matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 

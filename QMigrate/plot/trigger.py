@@ -7,12 +7,6 @@ Module to plot the triggered events on a decimated grid.
 import logging
 import os
 
-import matplotlib
-try:
-    os.environ["DISPLAY"]
-    matplotlib.use("Qt5Agg")
-except KeyError:
-    matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 import numpy as np

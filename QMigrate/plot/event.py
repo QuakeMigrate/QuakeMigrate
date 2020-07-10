@@ -5,14 +5,7 @@ Module containing methods to generate event summaries and videos.
 """
 
 import logging
-import os
 
-import matplotlib
-try:
-    os.environ["DISPLAY"]
-    matplotlib.use("Qt5Agg")
-except KeyError:
-    matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
 from matplotlib.gridspec import GridSpec

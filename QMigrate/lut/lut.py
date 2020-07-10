@@ -56,8 +56,6 @@ class Grid3D:
     precision : list of float
         An appropriate number of decimal places for distances as a function of
         the cell size and coordinate projection.
-    stations_xyz : array-like, shape (n, 3)
-        Positions of the stations in the grid coordinate space.
     unit_conversion_factor : float
         A conversion factor based on the grid projection, used to convert
         between units of metres and kilometres.
@@ -246,35 +244,6 @@ class Grid3D:
         return out
 
     @property
-    def grid_corners(self):
-        """Get the xyz positions of the cells on the edge of the grid."""
-
-        c = self.cell_count - 1
-        i, j, k = np.meshgrid([0, c[0]], [0, c[1]], [0, c[2]], indexing="ij")
-
-        return self.index2grid(np.c_[i.flatten(), j.flatten(), k.flatten()])
-
-    @property
-    def grid_xyz(self):
-        """Get the xyz positions of all of the cells in the grid."""
-
-        cc = self.cell_count
-        i, j, k = np.meshgrid(np.arange(cc[0]), np.arange(cc[1]),
-                              np.arange(cc[2]), indexing="ij")
-        xyz = self.index2grid(np.c_[i.flatten(), j.flatten(), k.flatten()])
-        x, y, z = [xyz[:, dim].reshape(cc) for dim in range(3)]
-
-        return x, y, z
-
-    @property
-    def stations_xyz(self):
-        """Get station locations in the grid space [X, Y, Z]."""
-
-        return self.coord2grid(self.station_data[["Longitude",
-                                                  "Latitude",
-                                                  "Elevation"]].values)
-
-    @property
     def cell_count(self):
         """Get and set the number of cells in each dimension of the grid."""
 
@@ -301,6 +270,35 @@ class Grid3D:
             assert (value.shape == (3,)), "Cell size must be an n by 3 array."
         assert (np.all(value > 0)), "Cell size must be greater than [0]"
         self._cell_size = value
+
+    @property
+    def grid_corners(self):
+        """Get the xyz positions of the cells on the edge of the grid."""
+
+        c = self.cell_count - 1
+        i, j, k = np.meshgrid([0, c[0]], [0, c[1]], [0, c[2]], indexing="ij")
+
+        return self.index2grid(np.c_[i.flatten(), j.flatten(), k.flatten()])
+
+    @property
+    def grid_extent(self):
+        """Get the minimum/maximum extent of each dimension of the grid."""
+
+        corners = self.coord2grid(self.grid_corners, inverse=True)
+
+        return [[f(dim) for dim in corners.T] for f in (min, max)]
+
+    @property
+    def grid_xyz(self):
+        """Get the xyz positions of all of the cells in the grid."""
+
+        cc = self.cell_count
+        i, j, k = np.meshgrid(np.arange(cc[0]), np.arange(cc[1]),
+                              np.arange(cc[2]), indexing="ij")
+        xyz = self.index2grid(np.c_[i.flatten(), j.flatten(), k.flatten()])
+        x, y, z = [xyz[:, dim].reshape(cc) for dim in range(3)]
+
+        return x, y, z
 
     @property
     def precision(self):
@@ -350,6 +348,8 @@ class LUT(Grid3D):
         The maximum traveltime between any station and a point in the grid.
     phases : list of str
         Seismic phases for which there are traveltime lookup tables available.
+    stations_xyz : array-like, shape (n, 3)
+        Positions of the stations in the grid coordinate space.
     traveltimes : dict
         A dictionary containing the traveltime lookup tables. The structure of
         this dictionary is:
@@ -471,12 +471,6 @@ class LUT(Grid3D):
 
         return interpolator(ijk)[0]
 
-    @property
-    def max_traveltime(self):
-        """Get the maximum traveltime from any station across the grid."""
-
-        return np.max(self._serve_traveltimes(self.phases))
-
     def _serve_traveltimes(self, phases):
         """Utility function to serve up traveltimes for a list of phases."""
 
@@ -557,53 +551,44 @@ class LUT(Grid3D):
         xz.get_shared_x_axes().join(xy, xz)
         yz.get_shared_y_axes().join(xy, yz)
 
-        # --- Set bounds ---
-        corners = self.coord2grid(self.grid_corners, inverse=True)
-        mins = [np.min(dim) for dim in corners.T]
-        maxs = [np.max(dim) for dim in corners.T]
-        sizes = (np.array(maxs) - np.array(mins)) / self.cell_count
-        stack = np.c_[mins, maxs, sizes]
+        bounds = np.stack(self.grid_extent, axis=-1)
+        for i, j, ax in [(0, 1, xy), (0, 2, xz), (2, 1, yz)]:
+            gminx, gmaxx = bounds[i]
+            gminy, gmaxy = bounds[j]
 
-        for idx1, idx2, ax in [(0, 1, xy), (0, 2, xz), (2, 1, yz)]:
-            min1, max1, size1 = stack[idx1]
-            min2, max2, size2 = stack[idx2]
-
-            ax.set_xlim([min1, max1])
-            ax.set_ylim([min2, max2])
-
-            # --- Plot slices through coalescence volume ---
-            if slices is not None:
-                idx = (idx1 + idx2) - 1
-                slice_ = slices[idx]
-                grid1, grid2 = np.mgrid[min1:max1 + size1:size1,
-                                        min2:max2 + size2:size2]
-                grid1 = grid1[:slice_.shape[0]+1, :slice_.shape[1]+1]
-                grid2 = grid2[:slice_.shape[0]+1, :slice_.shape[1]+1]
-                sc = ax.pcolormesh(grid1, grid2, slice_, cmap="viridis",
-                                   edgecolors="face")
-
-                if idx == 0:
-                    # --- Add colourbar ---
-                    cax = plt.subplot2grid(gs, (2, 7), colspan=1, rowspan=5,
-                                           fig=fig)
-                    cax.set_axis_off()
-                    cbar = fig.colorbar(sc, ax=cax, orientation="vertical",
-                                        fraction=0.4)
-                    cbar.ax.set_ylabel("Coalescence value", rotation=90,
-                                       fontsize=14)
+            ax.set_xlim([gminx, gmaxx])
+            ax.set_ylim([gminy, gmaxy])
 
             # --- Plot crosshair for event hypocentre ---
             if hypocentre is not None:
-                ax.axvline(x=hypocentre[idx1], ls="--", lw=1.5, c="white")
-                ax.axhline(y=hypocentre[idx2], ls="--", lw=1.5, c="white")
+                ax.axvline(x=hypocentre[i], ls="--", lw=1.5, c="white")
+                ax.axhline(y=hypocentre[j], ls="--", lw=1.5, c="white")
+
+            # --- Plot slices through coalescence volume ---
+            if slices is None:
+                continue
+
+            slice_ = slices[i + j - 1]
+            nx, ny = [dim + 1 for dim in slice_.shape]
+            grid1, grid2 = np.mgrid[gminx:gmaxx:nx*1j, gminy:gmaxy:ny*1j]
+            sc = ax.pcolormesh(grid1, grid2, slice_, edgecolors="face")
+
+            if i + j - 1 != 0:
+                continue
+
+            # --- Add colourbar ---
+            cax = plt.subplot2grid(gs, (7, 5), colspan=1, rowspan=2, fig=fig)
+            cax.set_axis_off()
+            cb = fig.colorbar(sc, ax=cax, orientation="vertical", fraction=0.4)
+            cb.ax.set_ylabel("Coalescence value", rotation=90, fontsize=14)
 
         # --- Plot stations ---
         xy.scatter(self.station_data.Longitude, self.station_data.Latitude,
-                   s=15, marker="v", zorder=20, c=station_clr)
+                   s=15, marker="^", zorder=20, c=station_clr)
         xz.scatter(self.station_data.Longitude, self.station_data.Elevation,
-                   s=15, marker="v", zorder=20, c=station_clr)
+                   s=15, marker="^", zorder=20, c=station_clr)
         yz.scatter(self.station_data.Elevation, self.station_data.Latitude,
-                   s=15, marker=">", zorder=20, c=station_clr)
+                   s=15, marker="<", zorder=20, c=station_clr)
         for i, row in self.station_data.iterrows():
             xy.annotate(row["Name"], [row.Longitude, row.Latitude], zorder=20,
                         c=station_clr)
@@ -611,16 +596,56 @@ class LUT(Grid3D):
         # --- Axes labelling ---
         xy.xaxis.tick_top()
 
-        xz.yaxis.tick_right()
+        xz.yaxis.tick_left()
         xz.invert_yaxis()
         xz.set_xlabel("Longitude (deg)", fontsize=14)
         xz.set_ylabel(f"Depth ({self.unit_name})", fontsize=14)
-        xz.yaxis.set_label_position("right")
+        xz.yaxis.set_label_position("left")
 
+        yz.xaxis.tick_top()
         yz.yaxis.tick_right()
         yz.set_xlabel(f"Depth ({self.unit_name})", fontsize=14)
         yz.set_ylabel("Latitude (deg)", fontsize=14)
+        yz.xaxis.set_label_position("top")
         yz.yaxis.set_label_position("right")
+
+    @property
+    def max_extent(self):
+        """Get the minimum/maximum geographical extent of the stations/grid."""
+
+        stat_min, stat_max = self.station_extent
+        grid_min, grid_max = self.grid_extent
+
+        min_extent = [min(a, b) for a, b in zip(stat_min, grid_min)]
+        max_extent = [max(a, b) for a, b in zip(stat_max, grid_max)]
+        diff = abs(np.subtract(max_extent, min_extent))
+
+        min_extent = np.subtract(min_extent, 0.05*diff)
+        max_extent = np.add(max_extent, 0.05 * diff)
+
+        return self.coord2grid([min_extent, max_extent], inverse=True)
+
+    @property
+    def max_traveltime(self):
+        """Get the maximum traveltime from any station across the grid."""
+
+        return np.max(self._serve_traveltimes(self.phases))
+
+    @property
+    def station_extent(self):
+        """Get the minimum/maximum extent of the seismic network."""
+
+        coordinates = self.station_data[["Longitude", "Latitude", "Elevation"]]
+
+        return [[f(dim) for dim in coordinates.values.T] for f in (min, max)]
+
+    @property
+    def stations_xyz(self):
+        """Get station locations in the grid space [X, Y, Z]."""
+
+        coordinates = self.station_data[["Longitude", "Latitude", "Elevation"]]
+
+        return self.coord2grid(coordinates.values)
 
     def __add__(self, other):
         """

@@ -44,7 +44,8 @@ picker.plot_picks = True
 
 # --- Create new QuakeScan ---
 scan = QuakeScan(archive, lut, onset=onset, picker=picker,
-                 run_path=run_path, run_name=run_name, log=True)
+                 run_path=run_path, run_name=run_name, log=True,
+                 loglevel="info")
 
 # --- Set locate parameters ---
 # For a complete list of parameters and guidance on how to choose them, please

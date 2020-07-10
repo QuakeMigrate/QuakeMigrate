@@ -28,9 +28,8 @@ def read_triggered_events(run, **kwargs):
     Returns
     -------
     events : `pandas.DataFrame` object
-        Triggered events information.
-        Columns: ["EventNum", "CoaTime", "COA_V", "COA_X", "COA_Y", "COA_Z",
-                  "MinTime", "MaxTime", "COA", "COA_NORM", "EventID"].
+        Triggered events information. Columns: ["EventID", "CoaTime",
+        "TRIG_COA", "COA_X", "COA_Y", "COA_Z", "COA", "COA_NORM"].
 
     """
 
@@ -57,8 +56,6 @@ def read_triggered_events(run, **kwargs):
                            ignore_index=True)
 
     events["CoaTime"] = events["CoaTime"].apply(UTCDateTime)
-    events["MinTime"] = events["MinTime"].apply(UTCDateTime)
-    events["MaxTime"] = events["MaxTime"].apply(UTCDateTime)
 
     if starttime is not None and endtime is not None:
         events = events[(events["CoaTime"] >= starttime) &
@@ -76,9 +73,8 @@ def write_triggered_events(run, events, starttime):
     run : `QMigrate.io.Run` object
         Light class encapsulating i/o path information for a given run.
     events : `pandas.DataFrame` object
-        Triggered events information.
-        Columns: ["EventNum", "CoaTime", "COA_V", "COA_X", "COA_Y", "COA_Z",
-                  "MinTime", "MaxTime", "COA", "COA_NORM", "EventID"].
+        Triggered events information. Columns: ["EventID", "CoaTime",
+        "TRIG_COA", "COA_X", "COA_Y", "COA_Z", "COA", "COA_NORM"].
     starttime : `obspy.UTCDateTime` object
         Timestamp from which events have been triggered.
 
@@ -86,6 +82,11 @@ def write_triggered_events(run, events, starttime):
 
     fpath = run.path / "trigger" / run.subname / "events"
     fpath.mkdir(exist_ok=True, parents=True)
+
+    # Work on a copy
+    events = events.copy()
+    events = events.loc[:, ["EventID", "CoaTime", "TRIG_COA", "COA_X", "COA_Y",
+                            "COA_Z", "COA", "COA_NORM"]]
 
     fstem = f"{run.name}_{starttime.year}_{starttime.julday:03d}"
     file = (fpath / f"{fstem}_TriggeredEvents").with_suffix(".csv")

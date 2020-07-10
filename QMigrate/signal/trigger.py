@@ -75,8 +75,11 @@ def chunks2trace(a, new_shape):
     return b
 
 
-TRIGGER_FILE_COLS = ["EventNum", "CoaTime", "COA_V", "COA_X", "COA_Y", "COA_Z",
-                     "MinTime", "MaxTime", "COA", "COA_NORM"]
+CANDIDATES_COLS = ["EventNum", "CoaTime", "TRIG_COA", "COA_X", "COA_Y",
+                   "COA_Z", "MinTime", "MaxTime", "COA", "COA_NORM"]
+
+REFINED_EVENTS_COLS = ["EventID", "CoaTime", "TRIG_COA", "COA_X", "COA_Y",
+                       "COA_Z", "MinTime", "MaxTime", "COA", "COA_NORM"]
 
 
 class Trigger:
@@ -351,7 +354,9 @@ class Trigger:
         Returns
         -------
         triggers : `pandas.DataFrame` object
-            Candidate events exceeding some threshold.
+            Candidate events exceeding some threshold. Columns: ["EventNum",
+            "CoaTime", "TRIG_COA", "COA_X", "COA_Y", "COA_Z", "MinTime",
+            "MaxTime", "COA", "COA_NORM"]
 
         """
 
@@ -364,7 +369,7 @@ class Trigger:
         r = np.arange(len(thresholded))
         candidates = [d for _, d in thresholded.groupby(thresholded.index - r)]
 
-        triggers = pd.DataFrame(columns=TRIGGER_FILE_COLS)
+        triggers = pd.DataFrame(columns=CANDIDATES_COLS)
         for i, candidate in enumerate(candidates):
             peak = candidate.loc[candidate["COA"].idxmax()]
 
@@ -385,7 +390,7 @@ class Trigger:
             trigger = pd.Series([i, peak["DT"], peak[trigger_on],
                                  peak["X"], peak["Y"], peak["Z"],
                                  min_dt, max_dt, peak["COA"], peak["COA_N"]],
-                                index=TRIGGER_FILE_COLS)
+                                index=CANDIDATES_COLS)
 
             triggers = triggers.append(trigger, ignore_index=True)
 
@@ -398,14 +403,18 @@ class Trigger:
 
         Parameters
         ----------
-        candidate_events : `pandas.DataFrame` objecy
+        candidate_events : `pandas.DataFrame` object
             Candidate events corresponding to periods of time in which the
-            coalescence signal exceeds some threshold.
+            coalescence signal exceeds some threshold. Columns: ["EventNum",
+            "CoaTime", "TRIG_COA", "COA_X", "COA_Y", "COA_Z", "MinTime",
+            "MaxTime", "COA", "COA_NORM"]
 
         Returns
         -------
         events : `pandas.DataFrame` object
             Merged events with some minimum inter-event spacing in time.
+            Columns: ["EventID", "CoaTime", "TRIG_COA", "COA_X", "COA_Y",
+                       "COA_Z", "MinTime", "MaxTime", "COA", "COA_NORM"].
 
         """
 
@@ -430,13 +439,21 @@ class Trigger:
             candidate_events["EventNum"])]
 
         # Update the min/max window times and build final event DataFrame
-        refined_events = pd.DataFrame(columns=TRIGGER_FILE_COLS)
+        refined_events = pd.DataFrame(columns=REFINED_EVENTS_COLS)
         for i, candidate in enumerate(merged_candidates):
             logging.info(f"\t    Triggered event {i+1} of "
                          f"{len(merged_candidates)}")
-            event = candidate.loc[candidate["COA_V"].idxmax()].copy()
+            event = candidate.loc[candidate["TRIG_COA"].idxmax()].copy()
             event["MinTime"] = candidate["MinTime"].min()
             event["MaxTime"] = candidate["MaxTime"].max()
+
+            # Add unique identifier
+            event_uid = str(event["CoaTime"])
+            for char_ in ["-", ":", ".", " ", "Z", "T"]:
+                event_uid = event_uid.replace(char_, "")
+            event_uid = event_uid[:17].ljust(17, "0")
+            event["EventID"] = event_uid
+
             refined_events = refined_events.append(event, ignore_index=True)
 
         return refined_events
@@ -450,7 +467,9 @@ class Trigger:
         Parameters
         ----------
         events : `pandas.DataFrame` object
-            Refined set of events to be filtered.
+            Refined set of events to be filtered. Columns: ["EventID",
+            "CoaTime", "TRIG_COA", "COA_X", "COA_Y", "COA_Z", "MinTime",
+            "MaxTime", "COA", "COA_NORM"].
         starttime : `obspy.UTCDateTime` object
             Timestamp from which to trigger.
         endtime : `obspy.UTCDateTime` object
@@ -464,7 +483,9 @@ class Trigger:
         Returns
         -------
         events : `pandas.DataFrame` object
-            Final set of triggered events.
+            Final set of triggered events. Columns: ["EventID", "CoaTime",
+            "TRIG_COA", "COA_X", "COA_Y", "COA_Z", "MinTime", "MaxTime", "COA",
+            "COA_NORM"].
 
         """
 
@@ -479,14 +500,6 @@ class Trigger:
                                 (events["COA_X"] <= region[3]) &
                                 (events["COA_Y"] <= region[4]) &
                                 (events["COA_Z"] <= region[5]), :].copy()
-
-        # Reset EventNum column and add a unique identifier
-        events.loc[:, "EventNum"] = np.arange(len(events)) + 1
-        event_uid = events["CoaTime"].astype(str)
-        for char_ in ["-", ":", ".", " ", "Z", "T"]:
-            event_uid = event_uid.str.replace(char_, "")
-        event_uid = event_uid.apply(lambda x: x[:17].ljust(17, "0"))
-        events["EventID"] = event_uid
 
         return events
 

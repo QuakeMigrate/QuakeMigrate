@@ -39,9 +39,9 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
     Parameters
     ----------
     events : `pandas.DataFrame`
-        Triggered events information, columns ["EventNum", "CoaTime", "COA_V",
-        "COA_X", "COA_Y", "COA_Z", "MinTime", "MaxTime", "COA", "COA_NORM",
-        "EventID"].
+        Triggered events information, columns: ["EventID", "CoaTime",
+        "TRIG_COA", "COA_X", "COA_Y", "COA_Z", "MinTime", "MaxTime", "COA",
+        "COA_NORM"].
     starttime : `obspy.UTCDateTime`
         Start time of trigger run.
     endtime : `obspy.UTCDateTime`
@@ -141,11 +141,11 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
                         label="Detection threshold")
 
         # Get bounds for cmap
-        vmin, vmax = events["COA_V"].min(), events["COA_V"].max()
+        vmin, vmax = events["TRIG_COA"].min(), events["TRIG_COA"].max()
 
         # Plotting the scatter of the earthquake locations
         x, y, z = events["COA_X"], events["COA_Y"], events["COA_Z"]
-        c = events["COA_V"]
+        c = events["TRIG_COA"]
         sc = axes[3].scatter(x, y, s=50, c=c, cmap="viridis", vmin=vmin,
                              vmax=vmax)
         axes[4].scatter(x, z, s=50, c=c, cmap="viridis", vmin=vmin, vmax=vmax)

@@ -6,6 +6,8 @@ For more details, please see the manual and read the docs.
 
 """
 
+from obspy.core import AttribDict
+
 from QMigrate.io import Archive, read_lut, read_response_inv, read_stations
 from QMigrate.signal import QuakeScan
 from QMigrate.signal.onset import STALTAOnset
@@ -68,24 +70,26 @@ picker.plot_picks = True
 
 # --- Create new LocalMag object ---
 # All parameters are optional: see the documentation for a complete guide.
-amp_params = {"water_level": 60,
-              "signal_window": 5.,
-              "bandpass_filter": True,
-              "bandpass_lowcut": 2.,
-              "bandpass_highcut": 20.,
-              "remove_full_response": False}
+amp_params = AttribDict()
+amp_params.water_level = 60
+amp_params.signal_window = 5.
+amp_params.bandpass_filter = True
+amp_params.bandpass_lowcut = 2.
+amp_params.bandpass_highcut = 20.
+amp_params.remove_full_response = False
 
 # A0 attenuation function is required: see the documentation for several
 # built-in options, or specify your own function. All other parameters are
 # optional - see the documentation for a complete guide.
-mag_params = {"A0": "Hutton-Boore",
-              "use_hyp_dist": False,
-              "amp_feature": "S_amp",
-              "station_corrections": {},
-              "trace_filter": ".[BH]H[NE]$",
-              "noise_filter": 1.,
-              "station_filter": ["KVE", "LIND"],
-              "dist_filter": False}
+mag_params = AttribDict()
+mag_params.A0 = "Hutton-Boore" # NOTE: REQUIRED PARAMETER!
+mag_params.use_hyp_dist = False
+mag_params.amp_feature = "S_amp"
+mag_params.station_corrections = {}
+mag_params.trace_filter = ".[BH]H[NE]$"
+mag_params.noise_filter = 1.
+mag_params.station_filter = ["KVE", "LIND"]
+mag_params.dist_filter = False
 
 mags = LocalMag(amp_params=amp_params, mag_params=mag_params)
 mags.plot_amplitudes = True

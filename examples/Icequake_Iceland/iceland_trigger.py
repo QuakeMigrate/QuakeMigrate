@@ -27,7 +27,7 @@ trig = Trigger(lut, run_path=run_path, run_name=run_name, log=True,
 # For a complete list of parameters and guidance on how to choose them, please
 # see the manual and read the docs.
 trig.marginal_window = 1.
-trig.minimum_repeat = 6.
+trig.min_event_interval = 6.
 trig.normalise_coalescence = True
 
 # --- Static threshold ---

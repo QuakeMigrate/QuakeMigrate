@@ -75,8 +75,11 @@ def chunks2trace(a, new_shape):
     return b
 
 
-TRIGGER_FILE_COLS = ["EventNum", "CoaTime", "COA_V", "COA_X", "COA_Y", "COA_Z",
-                     "MinTime", "MaxTime", "COA", "COA_NORM"]
+CANDIDATES_COLS = ["EventNum", "CoaTime", "TRIG_COA", "COA_X", "COA_Y",
+                   "COA_Z", "MinTime", "MaxTime", "COA", "COA_NORM"]
+
+REFINED_EVENTS_COLS = ["EventID", "CoaTime", "TRIG_COA", "COA_X", "COA_Y",
+                       "COA_Z", "MinTime", "MaxTime", "COA", "COA_NORM"]
 
 
 class Trigger:
@@ -123,7 +126,7 @@ class Trigger:
         a function of the spatial dimensions. This should be an estimate of the
         time error, as derived from an estimate of the spatial error and error
         in the velocity model. Default: 2 seconds.
-    minimum_repeat : float, optional
+    min_event_interval : float, optional
         Minimum time interval between triggered events. Must be at least twice
         the marginal window. Default: 4 seconds.
     normalise_coalescence : bool, optional
@@ -147,8 +150,8 @@ class Trigger:
 
     Raises
     ------
-    Exception
-        If `minimum_repeat` < 2 * `marginal_window`.
+    ValueError
+        If `min_event_interval` < 2 * `marginal_window`.
     InvalidThresholdMethodException
         If an invalid threshold method is passed in by the user.
     TimeSpanException
@@ -176,6 +179,7 @@ class Trigger:
         else:
             raise util.InvalidThresholdMethodException
         self.marginal_window = kwargs.get("marginal_window", 2.)
+        self.min_event_interval = kwargs.get("min_event_interval", 4.)
         self.minimum_repeat = kwargs.get("minimum_repeat", 4.)
         self.normalise_coalescence = kwargs.get("normalise_coalescence", False)
         self.pad = kwargs.get("pad", 120.)
@@ -186,7 +190,7 @@ class Trigger:
         out = ("\tTrigger parameters:\n"
                f"\t\tPre/post pad = {self.pad} s\n"
                f"\t\tMarginal window = {self.marginal_window} s\n"
-               f"\t\tMinimum repeat  = {self.minimum_repeat} s\n\n"
+               f"\t\tMinimum event interval  = {self.min_event_interval} s\n\n"
                f"\t\tTriggering from the ")
         out += "normalised " if self.normalise_coalescence else ""
         out += "maximum coalescence trace.\n\n"
@@ -282,15 +286,15 @@ class Trigger:
             refined_events = self._refine_candidates(candidate_events)
             events = self._filter_events(refined_events, batchstart, batchend,
                                          region)
-            logging.info((f"\n\t\t{len(events)} event(s) triggered within the "
-                          f"specified region between {batchstart} \n\t\tand "
-                          f"{batchend}"))
+            logging.info(f"\n\t\t{len(events)} event(s) triggered within the "
+                         f"specified region between {batchstart} \n\t\tand "
+                         f"{batchend}")
             logging.info("\n\tWriting triggered events to file...")
             write_triggered_events(self.run, events, batchstart)
 
         logging.info("\n\tPlotting trigger summary...")
         trigger_summary(events, batchstart, batchend, self.run,
-                        self.marginal_window, self.minimum_repeat,
+                        self.marginal_window, self.min_event_interval,
                         threshold, self.normalise_coalescence, self.lut,
                         data, region=region, savefig=savefig)
 
@@ -357,41 +361,43 @@ class Trigger:
         Returns
         -------
         triggers : `pandas.DataFrame` object
-            Candidate events exceeding some threshold.
+            Candidate events exceeding some threshold. Columns: ["EventNum",
+            "CoaTime", "TRIG_COA", "COA_X", "COA_Y", "COA_Z", "MinTime",
+            "MaxTime", "COA", "COA_NORM"]
 
         """
 
-        # Switch between user-facing minimum repeat definition (minimum repeat
+        # Switch between user-facing minimum event interval definition (minimum
         # interval between event triggers) and internal definition (extra
         # buffer on top of marginal window within which events cannot overlap)
-        minimum_repeat = self.minimum_repeat - self.marginal_window
+        min_event_interval = self.min_event_interval - self.marginal_window
 
         thresholded = scandata[scandata[trigger_on] >= threshold]
         r = np.arange(len(thresholded))
         candidates = [d for _, d in thresholded.groupby(thresholded.index - r)]
 
-        triggers = pd.DataFrame(columns=TRIGGER_FILE_COLS)
+        triggers = pd.DataFrame(columns=CANDIDATES_COLS)
         for i, candidate in enumerate(candidates):
-            peak = candidate.loc[candidate["COA"].idxmax()]
+            peak = candidate.loc[candidate[trigger_on].idxmax()]
 
             # If first sample above threshold is within the marginal window
             if (peak["DT"] - candidate["DT"].iloc[0]) < self.marginal_window:
-                min_dt = peak["DT"] - self.minimum_repeat
-            # Otherwise just subtract the minimum repeat
+                min_dt = peak["DT"] - self.min_event_interval
+            # Otherwise just subtract the minimum event interval
             else:
-                min_dt = candidate["DT"].iloc[0] - minimum_repeat
+                min_dt = candidate["DT"].iloc[0] - min_event_interval
 
             # If last sample above threshold is within the marginal window
             if (candidate["DT"].iloc[-1] - peak["DT"]) < self.marginal_window:
-                max_dt = peak["DT"] + self.minimum_repeat
-            # Otherwise just add the minimum repeat
+                max_dt = peak["DT"] + self.min_event_interval
+            # Otherwise just add the minimum event interval
             else:
-                max_dt = candidate["DT"].iloc[-1] + minimum_repeat
+                max_dt = candidate["DT"].iloc[-1] + min_event_interval
 
             trigger = pd.Series([i, peak["DT"], peak[trigger_on],
                                  peak["X"], peak["Y"], peak["Z"],
                                  min_dt, max_dt, peak["COA"], peak["COA_N"]],
-                                index=TRIGGER_FILE_COLS)
+                                index=CANDIDATES_COLS)
 
             triggers = triggers.append(trigger, ignore_index=True)
 
@@ -405,14 +411,18 @@ class Trigger:
 
         Parameters
         ----------
-        candidate_events : `pandas.DataFrame` objecy
+        candidate_events : `pandas.DataFrame` object
             Candidate events corresponding to periods of time in which the
-            coalescence signal exceeds some threshold.
+            coalescence signal exceeds some threshold. Columns: ["EventNum",
+            "CoaTime", "TRIG_COA", "COA_X", "COA_Y", "COA_Z", "MinTime",
+            "MaxTime", "COA", "COA_NORM"]
 
         Returns
         -------
         events : `pandas.DataFrame` object
             Merged events with some minimum inter-event spacing in time.
+            Columns: ["EventID", "CoaTime", "TRIG_COA", "COA_X", "COA_Y",
+                       "COA_Z", "MinTime", "MaxTime", "COA", "COA_NORM"].
 
         """
 
@@ -426,8 +436,10 @@ class Trigger:
             if i + 1 == len(candidate_events):
                 continue
             event2 = candidate_events.iloc[i+1]
-            if all([event1["MaxTime"] < event2["CoaTime"] - self.marginal_window,
-                    event2["MinTime"] > event1["CoaTime"] + self.marginal_window]):
+            if all([event1["MaxTime"] < \
+                        event2["CoaTime"] - self.marginal_window,
+                    event2["MinTime"] > \
+                        event1["CoaTime"] + self.marginal_window]):
                 event_count += 1
 
         # Split into DataFrames by event number
@@ -435,13 +447,21 @@ class Trigger:
             candidate_events["EventNum"])]
 
         # Update the min/max window times and build final event DataFrame
-        refined_events = pd.DataFrame(columns=TRIGGER_FILE_COLS)
+        refined_events = pd.DataFrame(columns=REFINED_EVENTS_COLS)
         for i, candidate in enumerate(merged_candidates):
             logging.debug(f"\t    Triggered event {i+1} of "
                           f"{len(merged_candidates)}")
-            event = candidate.loc[candidate["COA_V"].idxmax()].copy()
+            event = candidate.loc[candidate["TRIG_COA"].idxmax()].copy()
             event["MinTime"] = candidate["MinTime"].min()
             event["MaxTime"] = candidate["MaxTime"].max()
+
+            # Add unique identifier
+            event_uid = str(event["CoaTime"])
+            for char_ in ["-", ":", ".", " ", "Z", "T"]:
+                event_uid = event_uid.replace(char_, "")
+            event_uid = event_uid[:17].ljust(17, "0")
+            event["EventID"] = event_uid
+
             refined_events = refined_events.append(event, ignore_index=True)
 
         return refined_events
@@ -456,7 +476,9 @@ class Trigger:
         Parameters
         ----------
         events : `pandas.DataFrame` object
-            Refined set of events to be filtered.
+            Refined set of events to be filtered. Columns: ["EventID",
+            "CoaTime", "TRIG_COA", "COA_X", "COA_Y", "COA_Z", "MinTime",
+            "MaxTime", "COA", "COA_NORM"].
         starttime : `obspy.UTCDateTime` object
             Timestamp from which to trigger.
         endtime : `obspy.UTCDateTime` object
@@ -470,7 +492,9 @@ class Trigger:
         Returns
         -------
         events : `pandas.DataFrame` object
-            Final set of triggered events.
+            Final set of triggered events. Columns: ["EventID", "CoaTime",
+            "TRIG_COA", "COA_X", "COA_Y", "COA_Z", "MinTime", "MaxTime", "COA",
+            "COA_NORM"].
 
         """
 
@@ -486,26 +510,35 @@ class Trigger:
                                 (events["COA_Y"] <= region[4]) &
                                 (events["COA_Z"] <= region[5]), :].copy()
 
-        # Reset EventNum column and add a unique identifier
-        events.loc[:, "EventNum"] = np.arange(len(events)) + 1
-        event_uid = events["CoaTime"].astype(str)
-        for char_ in ["-", ":", ".", " ", "Z", "T"]:
-            event_uid = event_uid.str.replace(char_, "")
-        event_uid = event_uid.apply(lambda x: x[:17].ljust(17, "0"))
-        events["EventID"] = event_uid
-
         return events
 
     @property
-    def minimum_repeat(self):
-        """Get and set the minimum repeat time."""
+    def min_event_interval(self):
+        """Get and set the minimum event interval."""
 
-        return self._minimum_repeat
+        return self._min_event_interval
+
+    @min_event_interval.setter
+    def min_event_interval(self, value):
+        if value < 2 * self.marginal_window:
+            msg = "\tMinimum event interval must be >= 2 * marginal window."
+            raise ValueError(msg)
+        else:
+            self._min_event_interval = value
+
+    # --- Deprecation/Future handling ---
+    @property
+    def minimum_repeat(self):
+        """Handler for deprecated attribute name 'minimum_repeat'."""
+
+        return self._min_event_interval
 
     @minimum_repeat.setter
     def minimum_repeat(self, value):
         if value < 2 * self.marginal_window:
             msg = "\tMinimum repeat must be >= 2 * marginal window."
-            raise Exception(msg)
-        else:
-            self._minimum_repeat = value
+            raise ValueError(msg)
+        print("FutureWarning: Parameter name has changed - continuing.")
+        print("To remove this message, change:")
+        print("\t'minimum_repeat' -> 'min_event_interval'")
+        self._min_event_interval = value

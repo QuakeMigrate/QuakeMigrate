@@ -28,8 +28,8 @@ register_matplotlib_converters()
 
 
 def trigger_summary(events, starttime, endtime, run, marginal_window,
-                    minimum_repeat, detection_threshold, normalise_coalescence,
-                    lut, data, region, savefig):
+                    min_event_interval, detection_threshold,
+                    normalise_coalescence, lut, data, region, savefig):
     """
     Plots the data from a .scanmseed file with annotations illustrating the
     trigger results: event triggers and marginal windows on the coalescence
@@ -39,9 +39,9 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
     Parameters
     ----------
     events : `pandas.DataFrame`
-        Triggered events information, columns ["EventNum", "CoaTime", "COA_V",
-        "COA_X", "COA_Y", "COA_Z", "MinTime", "MaxTime", "COA", "COA_NORM",
-        "EventID"].
+        Triggered events information, columns: ["EventID", "CoaTime",
+        "TRIG_COA", "COA_X", "COA_Y", "COA_Z", "MinTime", "MaxTime", "COA",
+        "COA_NORM"].
     starttime : `obspy.UTCDateTime`
         Start time of trigger run.
     endtime : `obspy.UTCDateTime`
@@ -50,7 +50,7 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
         Light class encapsulating i/o path information for a given run.
     marginal_window : float
         Estimate of time error over which to marginalise the coalescence.
-    minimum_repeat : float
+    min_event_interval : float
         Minimum time interval between triggered events.
     detection_threshold : array-like
         Coalescence value above which to trigger events.
@@ -111,7 +111,7 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
     text.text(0.42, 0.8, f"{st}  -  {et}", fontsize=20, fontweight="bold",
               ha="center")
     _plot_text_summary(text, events, detection_threshold, marginal_window,
-                       minimum_repeat, normalise_coalescence)
+                       min_event_interval, normalise_coalescence)
 
     fig.axes[0].legend(loc=1, fontsize=14)
     fig.tight_layout(pad=1, h_pad=0)
@@ -268,8 +268,8 @@ def _plot_event_windows(axes, events, marginal_window):
                        alpha=0.4)
 
 
-def _plot_text_summary(ax, events, threshold, marginal_window, minimum_repeat,
-                       normalise_coalescence):
+def _plot_text_summary(ax, events, threshold, marginal_window,
+                       min_event_interval, normalise_coalescence):
     """
     Utility function to plot the event summary information.
 
@@ -283,7 +283,7 @@ def _plot_text_summary(ax, events, threshold, marginal_window, minimum_repeat,
         Coalescence value above which to trigger events.
     marginal_window : float
         Estimate of time error over which to marginalise the coalescence.
-    minimum_repeat : float
+    min_event_interval : float
         Minimum time interval between triggered events.
     normalise_coalescence : bool
         If True, use coalescence normalised by the average background noise.
@@ -306,7 +306,7 @@ def _plot_text_summary(ax, events, threshold, marginal_window, minimum_repeat,
         ax.text(0.45, 0.5, "Marginal window:", ha="right", va="center")
         ax.text(0.47, 0.5, f"{marginal_window} s", ha="left", va="center")
         ax.text(0.45, 0.35, "Minimum repeat time:", ha="right", va="center")
-        ax.text(0.47, 0.35, f"{minimum_repeat} s", ha="left", va="center")
+        ax.text(0.47, 0.35, f"{min_event_interval} s", ha="left", va="center")
         ax.text(0.42, 0.15, f"Triggered {count} event(s) on the {trig} trace.",
                 ha="center", va="center")
     ax.set_axis_off()

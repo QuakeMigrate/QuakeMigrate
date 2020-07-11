@@ -352,8 +352,8 @@ class QuakeScan:
             w_beg = starttime + self.timestep*i - self.pre_pad
             w_end = starttime + self.timestep*(i + 1) + self.post_pad
             logging.debug("~"*20 + f" Processing : {w_beg}-{w_end} " + "~"*20)
-            logging.info("~"*20 + f" Processing : {w_beg + self.pre_pad}-" + \
-                         f"{w_end - self.post_pad} " + "~"*20)
+            logging.info("~"*20 + f" Processing : {w_beg + self.pre_pad}-"
+                         + f"{w_end - self.post_pad} " + "~"*20)
 
             try:
                 data = self.archive.read_waveform_data(w_beg, w_end,

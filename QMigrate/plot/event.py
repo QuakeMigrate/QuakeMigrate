@@ -72,7 +72,8 @@ def event_summary(run, event, marginal_coalescence, lut):
 
     # --- Add event origin time to signal and coalescence plots ---
     for ax in fig.axes[:2]:
-        ax.axvline(event.otime.datetime, ls="--", lw=2, c="#F03B20")
+        ax.axvline(otime.datetime, label="Origin time", ls="--", lw=2,
+                   c="#F03B20")
 
     # --- Create and plot covariance and Gaussian uncertainty ellipses ---
     gues = _make_ellipses(lut, event, "gaussian", "k")
@@ -83,7 +84,8 @@ def event_summary(run, event, marginal_coalescence, lut):
     text = plt.subplot2grid((9, 15), (0, 0), colspan=8, rowspan=2, fig=fig)
     _plot_text_summary(text, lut, event)
 
-    fig.axes[0].legend(fontsize=14, loc=1)
+    fig.axes[0].legend(fontsize=14, loc=1, framealpha=1, markerscale=0.5)
+    fig.axes[1].legend(fontsize=14, loc=1, framealpha=1)
     fig.axes[2].legend(fontsize=14)
     fig.tight_layout(pad=1, h_pad=0)
     plt.subplots_adjust(wspace=0.3, hspace=0.3)
@@ -128,8 +130,9 @@ def _plot_waveform_gather(ax, lut, event, idx):
     range_order = abs(np.argsort(np.argsort(ttp)) - len(ttp)) * 2
     s = (ax.get_window_extent().height / (max(range_order)+1) * 1.2) ** 2
     max_tts = max(ttsf)
-    for tt, c in zip([ttp, tts], PICK_COLOURS):
-        ax.scatter(tt, range_order, s=s, c=c, marker="|", zorder=5, lw=1.5)
+    for tt, c, phase in zip([ttp, tts], PICK_COLOURS, "PS"):
+        ax.scatter(tt, range_order, s=s, c=c, marker="|", zorder=5, lw=1.5,
+                   label=f"{phase}-phase picks")
 
     # --- Waveforms ---
     times_utc = event.data.times(type="UTCDateTime")
@@ -156,9 +159,6 @@ def _plot_waveform_gather(ax, lut, event, idx):
     ax.xaxis.set_major_formatter(util.DateFormatter("%H:%M:%S.{ms}", 2))
     ax.yaxis.set_ticks(range_order)
     ax.yaxis.set_ticklabels(event.data.stations, fontsize=14)
-    ax.text(0.01, 0.975, "Range-ordered waveform gather", ha="left",
-            va="center", transform=ax.transAxes, fontsize=14,
-            bbox=dict(boxstyle='round', fc='w', alpha=0.8))
 
 
 def _plot_coalescence_trace(ax, event):
@@ -177,14 +177,12 @@ def _plot_coalescence_trace(ax, event):
     """
 
     times = [x.datetime for x in event.coa_data["DT"]]
-    ax.plot(times, event.coa_data["COA"], c="k", lw=0.5, zorder=10)
-    ax.set_ylabel("Coalescence value", fontsize=14)
+    ax.plot(times, event.coa_data["COA"], c="k", lw=0.5, zorder=10,
+            label="Maximum coalescence")
+    ax.set_ylabel("Maximum coalescence", fontsize=14)
     ax.set_xlabel("DateTime", fontsize=14)
     ax.set_xlim([times[0], times[-1]])
     ax.xaxis.set_major_formatter(util.DateFormatter("%H:%M:%S.{ms}", 2))
-    ax.text(0.01, 0.925, "Maximum coalescence", ha="left", va="center",
-            transform=ax.transAxes, fontsize=14,
-            bbox=dict(boxstyle='round', fc='w', alpha=0.8))
 
 
 def _plot_text_summary(ax, lut, event):
@@ -205,28 +203,37 @@ def _plot_text_summary(ax, lut, event):
     """
 
     # Grab a conversion factor based on the grid projection to convert the
-    # hypocentre depth + uncertainties to the correct units
+    # hypocentre depth + uncertainties to the correct units and evaluate the
+    # suitable precision to which to report results from the LUT.
     km_cf = 1000 / lut.unit_conversion_factor
-    gau_unc = event.loc_uncertainty / km_cf
-    hypo = (f"{event.hypocentre[1]:6.3f}\u00b0N \u00B1 {gau_unc[1]:5.3f} km\n"
-            f"{event.hypocentre[0]:6.3f}\u00b0E \u00B1 {gau_unc[0]:5.3f} km\n"
-            f"{event.hypocentre[2]/km_cf:6.3f} \u00B1 {gau_unc[2]:5.3f} km")
+    precision = [max((prec + 2), 6) for prec in lut.precision[:2]]
+    unit_correction = 3 if lut.unit_name == "km" else 0
+    precision.append(max((lut.precision[2] + 2), 0 + unit_correction))
+
+    hypocentre = [round(dimh, dimp) for dimh, dimp
+                  in zip(event.hypocentre, precision)]
+    gau_unc = [round(dim, precision[2]) for dim in event.loc_uncertainty/km_cf]
+    hypo = (f"{hypocentre[1]}\u00b0N \u00B1 {gau_unc[1]} km\n"
+            f"{hypocentre[0]}\u00b0E \u00B1 {gau_unc[0]} km\n"
+            f"{hypocentre[2]/km_cf} \u00B1 {gau_unc[2]} km")
 
     # Grab the magnitude information
     mag_info = event.local_magnitude
 
     ax.text(0.25, 0.8, f"Event: {event.uid}", fontsize=20, fontweight="bold")
+    ot_text = event.otime.strftime("%Y-%m-%d %H:%M:%S.")
+    ot_text += event.otime.strftime("%f")[3:]
     with plt.rc_context({"font.size": 16}):
         ax.text(0.35, 0.65, "Origin time:", ha="right", va="center")
-        ax.text(0.37, 0.65, f"{event.otime}", ha="left", va="center")
+        ax.text(0.37, 0.65, f"{ot_text}", ha="left", va="center")
         ax.text(0.35, 0.55, "Hypocentre:", ha="right", va="top")
         ax.text(0.37, 0.55, hypo, ha="left", va="top")
         if mag_info is not None:
             mag, mag_err, mag_r2 = mag_info
-            ax.text(0.35, 0.22, "Magnitude:", ha="right")
-            ax.text(0.37, 0.22, f"{mag} \u00B1 {mag_err} Ml", ha="left")
-            ax.text(0.35, 0.12, "Magnitude r^2:", ha="right")
-            ax.text(0.37, 0.12, f"{mag_r2}", ha="left")
+            ax.text(0.35, 0.19, "Local magnitude:", ha="right")
+            ax.text(0.37, 0.19, f"{mag:.3g} \u00B1 {mag_err:.3g}", ha="left")
+            ax.text(0.35, 0.09, "Local magnitude r\u00B2:", ha="right")
+            ax.text(0.37, 0.09, f"{mag_r2:.3g}", ha="left")
     ax.set_axis_off()
 
 

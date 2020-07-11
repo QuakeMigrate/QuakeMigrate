@@ -219,11 +219,11 @@ def _plot_event_scatter(fig, events):
     """
 
     # Get bounds for cmap
-    vmin, vmax = events["COA_V"].min(), events["COA_V"].max()
+    vmin, vmax = events["TRIG_COA"].min(), events["TRIG_COA"].max()
 
     # Plotting the scatter of the earthquake locations
     x, y, z = events["COA_X"], events["COA_Y"], events["COA_Z"]
-    c = events["COA_V"]
+    c = events["TRIG_COA"]
     sc = fig.axes[3].scatter(x, y, s=50, c=c, vmin=vmin, vmax=vmax)
     fig.axes[4].scatter(x, z, s=50, c=c, vmin=vmin, vmax=vmax)
     fig.axes[5].scatter(z, y, s=50, c=c, vmin=vmin, vmax=vmax)
@@ -252,7 +252,7 @@ def _plot_event_windows(axes, events, marginal_window):
     """
 
     for i, event in events.iterrows():
-        lab1 = "Minimum repeat window" if i == 0 else ""
+        lab1 = "Minimum event interval" if i == 0 else ""
         lab2 = "Marginal window" if i == 0 else ""
         lab3 = "Triggered event" if i == 0 else ""
 
@@ -305,7 +305,7 @@ def _plot_text_summary(ax, events, threshold, marginal_window,
         ax.text(0.47, 0.65, f"{threshold}", ha="left", va="center")
         ax.text(0.45, 0.5, "Marginal window:", ha="right", va="center")
         ax.text(0.47, 0.5, f"{marginal_window} s", ha="left", va="center")
-        ax.text(0.45, 0.35, "Minimum repeat time:", ha="right", va="center")
+        ax.text(0.45, 0.35, "Minimum event interval:", ha="right", va="center")
         ax.text(0.47, 0.35, f"{min_event_interval} s", ha="left", va="center")
         ax.text(0.42, 0.15, f"Triggered {count} event(s) on the {trig} trace.",
                 ha="center", va="center")

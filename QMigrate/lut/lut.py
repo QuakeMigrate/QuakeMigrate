@@ -591,7 +591,7 @@ class LUT(Grid3D):
                    s=15, marker="<", zorder=20, c=station_clr)
         for i, row in self.station_data.iterrows():
             xy.annotate(row["Name"], [row.Longitude, row.Latitude], zorder=20,
-                        c=station_clr)
+                        c=station_clr, clip_on=True)
 
         # --- Axes labelling ---
         xy.xaxis.tick_top()

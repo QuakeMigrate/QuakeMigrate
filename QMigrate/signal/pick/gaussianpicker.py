@@ -257,11 +257,9 @@ class GaussianPicker(PhasePicker):
 
         # Setting parameters depending on the phase
         if phase == "P":
-            sta_winlen = self.onset.p_onset_win[0]
             win_min = P_idxmin
             win_max = P_idxmax
         if phase == "S":
-            sta_winlen = self.onset.s_onset_win[0]
             win_min = S_idxmin
             win_max = S_idxmax
 
@@ -319,7 +317,7 @@ class GaussianPicker(PhasePicker):
 
             # Initial guess for gaussian half-width based on onset function
             # STA window length
-            data_half_range = int(sta_winlen * self.sampling_rate / 2)
+            data_half_range = self.onset.gaussian_halfwidth(phase)
 
             # Select data to fit the gaussian to
             x_data = np.arange(gau_idxmin, gau_idxmax, dtype=float)

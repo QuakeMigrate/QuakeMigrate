@@ -61,6 +61,7 @@ def event_summary(run, event, marginal_coalescence, lut):
     # Create plot axes, ordering: [SIGNAL, COA, XY, XZ, YZ]
     sig_spec = GridSpec(9, 15).new_subplotspec((0, 8), colspan=7, rowspan=7)
     fig.add_subplot(sig_spec)
+    fig.canvas.draw()
     coa_spec = GridSpec(9, 15).new_subplotspec((7, 8), colspan=7, rowspan=2)
     fig.add_subplot(coa_spec)
 
@@ -125,9 +126,10 @@ def _plot_waveform_gather(ax, lut, event, idx):
     ttp = [(event.otime + tt).datetime for tt in ttpf]
     tts = [(event.otime + tt).datetime for tt in ttsf]
     range_order = abs(np.argsort(np.argsort(ttp)) - len(ttp)) * 2
+    s = (ax.get_window_extent().height / (max(range_order)+1) * 1.2) ** 2
     max_tts = max(ttsf)
     for tt, c in zip([ttp, tts], PICK_COLOURS):
-        ax.scatter(tt, range_order, s=2500, c=c, marker="|", zorder=5, lw=1.5)
+        ax.scatter(tt, range_order, s=s, c=c, marker="|", zorder=5, lw=1.5)
 
     # --- Waveforms ---
     times_utc = event.data.times(type="UTCDateTime")

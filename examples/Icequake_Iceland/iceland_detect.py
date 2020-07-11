@@ -38,7 +38,7 @@ onset.s_onset_win = [0.05, 0.5]
 
 # --- Create new QuakeScan ---
 scan = QuakeScan(archive, lut, onset=onset, run_path=run_path,
-                 run_name=run_name, log=True)
+                 run_name=run_name, log=True, loglevel="info")
 
 # --- Set detect parameters ---
 scan.sampling_rate = 500

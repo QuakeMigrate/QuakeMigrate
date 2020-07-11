@@ -5,6 +5,8 @@ onset functions.
 
 """
 
+import logging
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -79,7 +81,7 @@ class GaussianPicker(PhasePicker):
 
         return str_
 
-    @util.timeit
+    @util.timeit("info")
     def pick_phases(self, event, lut, run):
         """
         Picks phase arrival times for located earthquakes.
@@ -152,6 +154,7 @@ class GaussianPicker(PhasePicker):
         self.write(run, event.uid, picks)
 
         if self.plot_picks:
+            logging.info("\t\tPlotting picks...")
             self.plot(event, lut, picks, list(zip(ptt, stt)), run)
 
         return event, picks
@@ -383,6 +386,7 @@ class GaussianPicker(PhasePicker):
 
         return gaussian_fit, max_onset, mean, sigma, [win_min, win_max]
 
+    @util.timeit()
     def plot(self, event, lut, picks, ttimes, run):
         """
         Plot figure showing the filtered traces for each data component and the

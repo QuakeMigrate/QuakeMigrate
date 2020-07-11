@@ -198,6 +198,10 @@ class Run:
     subname : str
         Optional name of a sub-run - useful when testing different trigger
         parameters, for example.
+    stage : {"detect", "trigger", "locate"}, optional
+        Track which stage of QuakeMigrate is being run.
+    loglevel : {"info", "debug"}, optional
+        Set the logging level. (Default "info")
 
     Methods
     -------
@@ -206,7 +210,7 @@ class Run:
 
     """
 
-    def __init__(self, path, name, subname="", stage=None):
+    def __init__(self, path, name, subname="", stage=None, loglevel="info"):
         """Instantiate the Run object."""
 
         if "." in name or "." in subname:
@@ -219,6 +223,7 @@ class Run:
         self._name = name
         self.stage = stage
         self.subname = subname
+        self.loglevel = loglevel
 
     def __str__(self):
         """Return short summary string of the Run object."""
@@ -240,7 +245,7 @@ class Run:
         """
 
         logstem = self.path / self.stage / self.subname / "logs" / self.name
-        util.logger(logstem, log)
+        util.logger(logstem, log, loglevel=self.loglevel)
         logging.info(self)
 
     @property

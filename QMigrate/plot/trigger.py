@@ -7,12 +7,6 @@ Module to plot the triggered events on a decimated grid.
 import logging
 import os
 
-import matplotlib
-try:
-    os.environ["DISPLAY"]
-    matplotlib.use("Qt5Agg")
-except KeyError:
-    matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 import numpy as np
@@ -27,6 +21,7 @@ import QMigrate.util as util
 register_matplotlib_converters()
 
 
+@util.timeit("info")
 def trigger_summary(events, starttime, endtime, run, marginal_window,
                     min_event_interval, detection_threshold,
                     normalise_coalescence, lut, data, region, savefig):
@@ -92,7 +87,6 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
                  zorder=10)
 
     try:
-        logging.info("\n\t    Reading in .StationAvailability...")
         availability = read_availability(run, starttime, endtime)
         available = availability.sum(axis=1).astype(int)
         times = list(pd.to_datetime(available.index))

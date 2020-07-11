@@ -4,14 +4,6 @@ Module to produce a summary plot for the phase picking.
 
 """
 
-import os
-
-import matplotlib
-try:
-    os.environ["DISPLAY"]
-    matplotlib.use("Qt5Agg")
-except KeyError:
-    matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 from pandas.plotting import register_matplotlib_converters

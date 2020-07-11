@@ -64,6 +64,9 @@ class QuakeScan:
     log : bool, optional
         Toggle for logging. If True, will output to stdout and generate a
         log file. Default is to only output to stdout.
+    loglevel : {"info", "debug"}, optional
+        Toggle to set the logging level: "debug" will print out additional
+        diagnostic information to the log and stdout. (Default "info")
     mags : `QMigrate.signal.local_mag.LocalMag` object, optional
         Provides methods for calculating local magnitudes, performed during
         locate.
@@ -165,7 +168,8 @@ class QuakeScan:
         self.post_pad = 0.
 
         # --- Set up i/o ---
-        self.run = Run(run_path, run_name, kwargs.get("run_subname", ""))
+        self.run = Run(run_path, run_name, kwargs.get("run_subname", ""),
+                       loglevel=kwargs.get("loglevel", "info"))
         self.log = kwargs.get("log", False)
 
         picker = kwargs.get("picker")
@@ -347,7 +351,9 @@ class QuakeScan:
         for i in range(nsteps):
             w_beg = starttime + self.timestep*i - self.pre_pad
             w_end = starttime + self.timestep*(i + 1) + self.post_pad
-            logging.info("~"*20 + f" Processing : {w_beg}-{w_end} " + "~"*20)
+            logging.debug("~"*20 + f" Processing : {w_beg}-{w_end} " + "~"*20)
+            logging.info("~"*20 + f" Processing : {w_beg + self.pre_pad}-"
+                         + f"{w_end - self.post_pad} " + "~"*20)
 
             try:
                 data = self.archive.read_waveform_data(w_beg, w_end,
@@ -401,7 +407,6 @@ class QuakeScan:
             logging.info(util.log_spacer)
             logging.info(f"\tEVENT - {i+1} of {n_events} - {event.uid}")
             logging.info(util.log_spacer)
-            logging.info("\tDetermining event location...")
 
             try:
                 logging.info("\tReading waveform data...")
@@ -448,7 +453,7 @@ class QuakeScan:
             del event, marginalised_coalescence
             logging.info(util.log_spacer)
 
-    @util.timeit
+    @util.timeit("info")
     def _compute(self, data, event=None):
         """
         Compute 3-D coalescence between two time stamps.
@@ -494,7 +499,7 @@ class QuakeScan:
             times = event.mw_times(self.sampling_rate)
             return times, max_coa, max_coa_n, coord, map4d
 
-    @util.timeit
+    @util.timeit("info")
     def _read_event_waveform_data(self, w_beg, w_end):
         """
         Read waveform data for a triggered event.
@@ -559,7 +564,7 @@ class QuakeScan:
                                                self.sampling_rate, pre_pad,
                                                post_pad)
 
-    @util.timeit
+    @util.timeit("info")
     def _calculate_location(self, event):
         """
         Marginalise the 4-D coalescence grid and calculate a set of locations
@@ -599,7 +604,7 @@ class QuakeScan:
 
         return coa_map
 
-    @util.timeit
+    @util.timeit()
     def _splineloc(self, coa_map, win=5, upscale=10):
         """
         Fit a 3-D spline function to a region around the maximum coalescence
@@ -671,14 +676,14 @@ class QuakeScan:
             mxi = mxi/upscale + x1
             myi = myi/upscale + y1
             mzi = mzi/upscale + z1
-            logging.info(f"\t\tGridded loc: {mx}   {my}   {mz}")
-            logging.info(f"\t\tSpline  loc: {mxi} {myi} {mzi}")
+            logging.debug(f"\t\tGridded loc: {mx}   {my}   {mz}")
+            logging.debug(f"\t\tSpline  loc: {mxi} {myi} {mzi}")
 
             # Run check that spline location is within grid-cell
             if (abs(mx - mxi) > 1) or (abs(my - myi) > 1) or \
                (abs(mz - mzi) > 1):
-                logging.info("\tSpline warning: spline location outside grid "
-                             "cell with maximum coalescence value")
+                logging.debug("\tSpline warning: spline location outside grid "
+                              "cell with maximum coalescence value")
 
             location = self.lut.index2coord([[mxi, myi, mzi]])[0]
 
@@ -699,7 +704,7 @@ class QuakeScan:
 
         return location
 
-    @util.timeit
+    @util.timeit()
     def _gaufit3d(self, coa_map, thresh=0., win=7):
         """
         Fit a 3-D Gaussian function to a region around the maximum coalescence
@@ -791,7 +796,7 @@ class QuakeScan:
 
         return location, uncertainty
 
-    @util.timeit
+    @util.timeit()
     def _covfit3d(self, coa_map, thresh=0.90, win=None):
         """
         Calculate the 3-D covariance of the marginalised coalescence map,
@@ -864,7 +869,7 @@ class QuakeScan:
 
         return location, uncertainty
 
-    @util.timeit
+    @util.timeit()
     def _gaufilt3d(self, map3d, sgm=0.8, shp=None):
         """
         Smooth the 3-D marginalised coalescence map using a 3-D Gaussian

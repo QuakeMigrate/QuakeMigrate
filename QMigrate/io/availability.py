@@ -40,6 +40,7 @@ def read_availability(run, starttime, endtime):
     dy = 0
     availability = None
     # Loop through days trying to read .StationAvailability files
+    logging.debug("\t    Reading in .StationAvailability...")
     while startday + (dy * 86400) <= endtime:
         now = starttime + (dy * 86400)
         fstem = f"{now.year}_{now.julday:03d}_StationAvailability"
@@ -59,9 +60,8 @@ def read_availability(run, starttime, endtime):
         raise util.NoStationAvailabilityDataException
 
     starttime, endtime = availability.index[0], availability.index[-1]
-    logging.info(f"\n\t\t...from {starttime} - {endtime}")
+    logging.debug(f"\t\t...from {starttime} - {endtime}")
 
-    logging.info("\n\t    .StationAvailability read complete.\n")
 
     return availability
 

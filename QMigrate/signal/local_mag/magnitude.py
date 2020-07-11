@@ -7,14 +7,7 @@ attenuation curve for the region of interest.
 """
 
 import logging
-import os
 
-import matplotlib
-try:
-    os.environ["DISPLAY"]
-    matplotlib.use("Qt5Agg")
-except KeyError:
-    matplotlib.use("Agg")
 from matplotlib import pyplot as plt
 import numpy as np
 

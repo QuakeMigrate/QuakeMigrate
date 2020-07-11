@@ -577,10 +577,12 @@ class LUT(Grid3D):
                 continue
 
             # --- Add colourbar ---
-            cax = plt.subplot2grid(gs, (7, 5), colspan=1, rowspan=2, fig=fig)
+            cax = plt.subplot2grid(gs, (7, 5), colspan=2, rowspan=2, fig=fig)
             cax.set_axis_off()
-            cb = fig.colorbar(sc, ax=cax, orientation="vertical", fraction=0.4)
-            cb.ax.set_ylabel("Coalescence value", rotation=90, fontsize=14)
+            cb = fig.colorbar(sc, ax=cax, orientation="horizontal",
+                              fraction=0.8, aspect=8)
+            cb.ax.set_xlabel("Normalised coalescence\nvalue", rotation=0,
+                             fontsize=14)
 
         # --- Plot stations ---
         xy.scatter(self.station_data.Longitude, self.station_data.Latitude,
@@ -594,20 +596,25 @@ class LUT(Grid3D):
                         c=station_clr, clip_on=True)
 
         # --- Axes labelling ---
-        xy.xaxis.tick_top()
+        xy.tick_params(which="both", left=True, right=True, top=True,
+                       bottom=True, labelleft=True, labeltop=True,
+                       labelright=False, labelbottom=False)
+        xy.set_ylabel("Latitude (deg)", fontsize=14)
+        xy.yaxis.set_label_position("left")
 
-        xz.yaxis.tick_left()
         xz.invert_yaxis()
+        xz.tick_params(which="both", left=True, right=True, top=True,
+                       bottom=True, labelleft=True, labeltop=False,
+                       labelright=False, labelbottom=True)
         xz.set_xlabel("Longitude (deg)", fontsize=14)
         xz.set_ylabel(f"Depth ({self.unit_name})", fontsize=14)
         xz.yaxis.set_label_position("left")
 
-        yz.xaxis.tick_top()
-        yz.yaxis.tick_right()
+        yz.tick_params(which="both", left=True, right=True, top=True,
+                       bottom=True, labelleft=False, labeltop=True,
+                       labelright=True, labelbottom=True)
         yz.set_xlabel(f"Depth ({self.unit_name})", fontsize=14)
-        yz.set_ylabel("Latitude (deg)", fontsize=14)
-        yz.xaxis.set_label_position("top")
-        yz.yaxis.set_label_position("right")
+        yz.xaxis.set_label_position("bottom")
 
     @property
     def max_extent(self):

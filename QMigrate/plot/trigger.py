@@ -229,10 +229,11 @@ def _plot_event_scatter(fig, events):
     fig.axes[5].scatter(z, y, s=50, c=c, vmin=vmin, vmax=vmax)
 
     # --- Add colourbar ---
-    cax = plt.subplot2grid((9, 18), (7, 5), colspan=1, rowspan=2, fig=fig)
+    cax = plt.subplot2grid((9, 18), (7, 5), colspan=2, rowspan=2, fig=fig)
     cax.set_axis_off()
-    cb = fig.colorbar(sc, ax=cax, orientation="vertical", fraction=0.4)
-    cb.ax.set_ylabel("Peak coalescence value", rotation=90, fontsize=14)
+    cb = fig.colorbar(sc, ax=cax, orientation="horizontal", fraction=0.8,
+                      aspect=8)
+    cb.ax.set_xlabel("Peak coalescence value", rotation=0, fontsize=14)
 
 
 def _plot_event_windows(axes, events, marginal_window):

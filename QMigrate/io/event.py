@@ -477,6 +477,15 @@ class Event:
     loc_uncertainty = property(get_loc_uncertainty)
 
     @property
+    def local_magnitude(self):
+        """Get the local magnitude, if it exists."""
+
+        if len(self.localmag) == 0:
+            return None
+        else:
+            return (value for _, value in self.localmag.items())
+
+    @property
     def max_coalescence(self):
         """Get information related to the maximum coalescence."""
         idxmax = self.coa_data["COA"].astype("float").idxmax()

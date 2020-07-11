@@ -132,7 +132,7 @@ def _plot_waveform_gather(ax, lut, event, idx):
     max_tts = max(ttsf)
     for tt, c, phase in zip([ttp, tts], PICK_COLOURS, "PS"):
         ax.scatter(tt, range_order, s=s, c=c, marker="|", zorder=5, lw=1.5,
-                   label=f"{phase}-phase picks")
+                   label=f"Modelled {phase}")
 
     # --- Waveforms ---
     times_utc = event.data.times(type="UTCDateTime")
@@ -222,7 +222,7 @@ def _plot_text_summary(ax, lut, event):
 
     ax.text(0.25, 0.8, f"Event: {event.uid}", fontsize=20, fontweight="bold")
     ot_text = event.otime.strftime("%Y-%m-%d %H:%M:%S.")
-    ot_text += event.otime.strftime("%f")[3:]
+    ot_text += event.otime.strftime("%f")[:3]
     with plt.rc_context({"font.size": 16}):
         ax.text(0.35, 0.65, "Origin time:", ha="right", va="center")
         ax.text(0.37, 0.65, f"{ot_text}", ha="left", va="center")

@@ -27,7 +27,6 @@ def update_lut(old_lut_file, save_file):
     lut = read_lut(old_lut_file)
 
     try:
-
         traveltimes = {}
         for station, phases in lut.maps.items():
             for phase, ttimes in phases.items():

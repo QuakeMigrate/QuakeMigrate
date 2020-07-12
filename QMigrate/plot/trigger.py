@@ -115,7 +115,7 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
         # Add trigger threshold to the correct coalescence trace
         ax_i = 1 if normalise_coalescence else 0
         axes[ax_i].step(dt, detection_threshold, where="mid", c="g",
-                        label="Trigger threshold")
+                        label="Detection threshold")
 
     # --- Write summary information ---
     text = plt.subplot2grid(gs, (0, 0), colspan=8, rowspan=2, fig=fig)

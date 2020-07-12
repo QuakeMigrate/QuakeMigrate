@@ -287,7 +287,7 @@ class Grid3D:
 
     @property
     def grid_corners(self):
-        """Get the xyz positions of the nodes on the edge of the grid."""
+        """Get the xyz positions of the nodes on the corners of the grid."""
 
         c = self.node_count - 1
         i, j, k = np.meshgrid([0, c[0]], [0, c[1]], [0, c[2]], indexing="ij")
@@ -468,15 +468,16 @@ class LUT(Grid3D):
 
         out = ("QuakeMigrate traveltime lookup table\nGrid parameters"
                "\n\tLower-left corner  : {lat1:10.5f}\u00b0N "
-               "{lon1:10.5f}\u00b0E {dep1:10.3f} m"
+               "{lon1:10.5f}\u00b0E {dep1:10.3f} {unit_name:s}"
                "\n\tUpper-right corner : {lat2:10.5f}\u00b0N "
-               "{lon2:10.5f}\u00b0E {dep2:10.3f} m"
+               "{lon2:10.5f}\u00b0E {dep2:10.3f} {unit_name:s}"
                f"\n\tNumber of nodes    : {self.node_count}"
                f"\n\tNode spacing       : {self.node_spacing} {self.unit_name}"
                "\n\n")
 
         out = out.format(lat1=ll[0], lon1=ll[1], dep1=ll[2],
-                         lat2=ur[0], lon2=ur[1], dep2=ur[2])
+                         lat2=ur[0], lon2=ur[1], dep2=ur[2],
+                         unit_name=self.unit_name)
 
         out += ("\tVelocity model:\n"
                 "\t{}".format(str(self.velocity_model).replace("\n", "\n\t")))
@@ -620,6 +621,8 @@ class LUT(Grid3D):
         # height is aspect times the width.
         cells_extent = self.get_grid_extent(cells=True)
         extent = abs(cells_extent[1] - cells_extent[0])
+        # NOTE: no fenceposts here, because we want the size of the grid as
+        # cells
         grid_size = self.node_spacing * self.node_count
         aspect = (extent[0] * grid_size[1]) / (extent[1] * grid_size[0])
         xy.set_aspect(aspect=aspect)
@@ -713,7 +716,7 @@ class LUT(Grid3D):
         min_extent = np.subtract(min_extent, 0.05*diff)
         max_extent = np.add(max_extent, 0.05 * diff)
 
-        return self.coord2grid([min_extent, max_extent], inverse=True)
+        return np.array([min_extent, max_extent])
 
     @property
     def max_traveltime(self):

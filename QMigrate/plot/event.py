@@ -129,8 +129,8 @@ def event_summary(run, event, marginal_coalescence, lut, xy_files=None):
     plt.close("all")
 
 
-WAVEFORM_COLOURS1 = ["#1b9e77", "#7570b3", "#FB9A99"]
-WAVEFORM_COLOURS2 = ["#1f78b4", "#b2df8a", "#33a02c"]
+WAVEFORM_COLOURS1 = ["#FB9A99", "#7570b3", "#1b9e77"]
+WAVEFORM_COLOURS2 = ["#33a02c", "#b2df8a", "#1f78b4"]
 PICK_COLOURS = ["#F03B20", "#3182BD"]
 
 
@@ -171,8 +171,8 @@ def _plot_waveform_gather(ax, lut, event, idx):
     mint_i, maxt_i = [np.argmin(abs(times_utc - t)) for t in (mint, maxt)]
     times_plot = event.data.times(type="matplotlib")[mint_i:maxt_i]
     for i, signal in enumerate(np.rollaxis(event.data.filtered_signal, 1)):
-        for data, c, comp in zip(signal[::-1], WAVEFORM_COLOURS1[::-1],
-                                 "ENZ"[::-1]):
+        for data, c, comp in zip(signal[::-1], WAVEFORM_COLOURS1,
+                                 "ZNE"):
             if not data.any():
                 continue
             data[mint_i:]

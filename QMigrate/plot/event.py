@@ -140,7 +140,8 @@ def _plot_waveform_gather(ax, lut, event, idx):
     mint_i, maxt_i = [np.argmin(abs(times_utc - t)) for t in (mint, maxt)]
     times_plot = event.data.times(type="matplotlib")[mint_i:maxt_i]
     for i, signal in enumerate(np.rollaxis(event.data.filtered_signal, 1)):
-        for data, c, comp in zip(signal, WAVEFORM_COLOURS1, "ENZ"):
+        for data, c, comp in zip(signal[::-1], WAVEFORM_COLOURS1[::-1],
+                                 "ENZ"[::-1]):
             if not data.any():
                 continue
             data[mint_i:]

@@ -281,13 +281,37 @@ class Grid3D:
 
         return self.index2grid(np.c_[i.flatten(), j.flatten(), k.flatten()])
 
-    @property
-    def grid_extent(self):
-        """Get the minimum/maximum extent of each dimension of the grid."""
+    def get_grid_extent(self, cells=False):
+        """
+        Get the minimum/maximum extent of each dimension of the grid.
 
-        corners = self.coord2grid(self.grid_corners, inverse=True)
+        The default returns the grid extent as the convex hull of the grid
+        nodes. It is useful, for visualisation purposes, to also be able to
+        determine the grid extent as the convex hull of a grid of cells centred
+        on the grid nodes.
 
-        return np.array([[f(dim) for dim in corners.T] for f in (min, max)])
+        Parameters
+        ----------
+        cells : bool, optional
+            Specifies the grid mode (nodes / cells) for which to calculate the
+            extent.
+
+        Returns
+        -------
+        extent : array-like
+            Pair of arrays representing two corners for the grid.
+
+        """
+
+        ll, ur = self.grid_corners[0], self.grid_corners[-1]
+
+        if cells is True:
+            ll -= self.cell_size / 2
+            ur += self.cell_size / 2
+
+        return self.coord2grid([ll, ur], inverse=True)
+
+    grid_extent = property(get_grid_extent)
 
     @property
     def grid_xyz(self):
@@ -555,12 +579,13 @@ class LUT(Grid3D):
         # --- Set aspect ratio ---
         # Aspect is defined such that a circle will be stretched so that its
         # height is aspect times the width.
-        extent = abs(self.grid_extent[1] - self.grid_extent[0])
-        grid_size = self.cell_size * (self.cell_count - 1)
+        cells_extent = self.get_grid_extent(cells=True)
+        extent = abs(cells_extent[1] - cells_extent[0])
+        grid_size = self.cell_size * (self.cell_count)
         aspect = (extent[0] * grid_size[1]) / (extent[1] * grid_size[0])
         xy.set_aspect(aspect=aspect)
 
-        bounds = np.stack(self.grid_extent, axis=-1)
+        bounds = np.stack(cells_extent, axis=-1)
         for i, j, ax in [(0, 1, xy), (0, 2, xz), (2, 1, yz)]:
             gminx, gmaxx = bounds[i]
             gminy, gmaxy = bounds[j]
@@ -640,7 +665,7 @@ class LUT(Grid3D):
         """Get the minimum/maximum geographical extent of the stations/grid."""
 
         stat_min, stat_max = self.station_extent
-        grid_min, grid_max = self.grid_extent
+        grid_min, grid_max = self.get_grid_extent(cells=True)
 
         min_extent = [min(a, b) for a, b in zip(stat_min, grid_min)]
         max_extent = [max(a, b) for a, b in zip(stat_max, grid_max)]

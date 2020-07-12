@@ -23,7 +23,7 @@ import QMigrate.util as util
 
 
 @util.timeit
-def event_summary(run, event, marginal_coalescence, lut):
+def event_summary(run, event, marginal_coalescence, lut, xy_files=None):
     """
     Plots an event summary illustrating the locate results: slices through the
     marginalised coalescence with the location estimates (best-fitting spline
@@ -43,6 +43,15 @@ def event_summary(run, event, marginal_coalescence, lut):
     lut : :class:`~QMigrate.lut.LUT` object
         Contains the traveltime lookup tables for seismic phases, computed for
         some pre-defined velocity model.
+    xy_files : str, optional
+        Path to comma-separated value file (.csv) containing a series of
+        coordinate files to plot. Columns: ["File", "Color", "Linewidth",
+        "Linestyle"], where "File" is the absolute path to the file containing
+        the coordinates to be plotted. E.g:
+        "/home/user/volcano_outlines.csv,black,0.5,-". Each .csv coordinate
+        file should contain coordinates only, with columns: ["Longitude",
+        "Latitude"]. E.g.: "-17.5,64.8".
+        .. note:: Do not include a header line in either file.
 
     """
 
@@ -69,6 +78,9 @@ def event_summary(run, event, marginal_coalescence, lut):
     lut.plot(fig, (9, 15), slices, event.hypocentre, "white")
     _plot_waveform_gather(fig.axes[0], lut, event, idx_max)
     _plot_coalescence_trace(fig.axes[1], event)
+
+    # --- Plot xy files on map ---
+    _plot_xy_files(xy_files, fig.axes[2])
 
     # --- Add event origin time to signal and coalescence plots ---
     for ax in fig.axes[:2]:
@@ -301,15 +313,21 @@ def _plot_xy_files(xy_files, ax):
     """
     Plot xy files supplied by user.
 
-    The user can specify a list of xy files which are assigned to the
-    xy_files variable. They are stored in a pandas DataFrame with
-    columns:
-        ["File", "Color", "Linewidth", "Linestyle"]
-    File is the path to the xy file. Each file should have the format:
-        ["Longitude", "Latitude"]
+    The user can specify a list of xy files to plot by supplying a csv file
+    with columns: ["File", "Color", "Linewidth", "Linestyle"], where "File" is
+    the absolute path to the file containing the coordinates to be plotted.
+    E.g: "/home/user/volcano_outlines.csv,black,0.5,-"
+
+    Each specified xy file should contain coordinates only, with columns:
+    ["Longitude", "Latitude"]. E.g.: "-17.5,64.8".
+
+    .. note:: Do not include a header line in either file.
 
     Parameters
     ----------
+    xy_files : str
+        Path to .csv file containing a list of coordinates files to plot, and
+        the linecolor and style to plot them with.
     ax : `~matplotlib.Axes` object
         Axes on which to plot the xy files.
 
@@ -325,5 +343,5 @@ def _plot_xy_files(xy_files, ax):
                                                     "Latitude"],
                                   header=None)
             ax.plot(xy_file["Longitude"], xy_file["Latitude"],
-                    ls=xy_file["Linestyle"], lw=xy_file["Linewidth"],
-                    c=xy_file["Color"])
+                    ls=f["Linestyle"], lw=f["Linewidth"],
+                    c=f["Color"])

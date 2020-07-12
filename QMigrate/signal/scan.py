@@ -105,12 +105,15 @@ class QuakeScan:
         Write raw cut waveforms for all data found in the archive for each
         event located by locate(). Default: False.
         Note: this data has not been processed or quality-checked!
-    xy_files : list, string, optional
-        List of file strings:
-        With columns ["File", "Color", "Linewidth", "Linestyle"]
-        Where File is the file path to the xy file to be plotted on the
-        map. File should contain two columns ["Longitude", "Latitude"].
-        ** NOTE ** - do not include a header line in either file.
+    xy_files : str, optional
+        Path to comma-separated value file (.csv) containing a series of
+        coordinate files to plot. Columns: ["File", "Color", "Linewidth",
+        "Linestyle"], where "File" is the absolute path to the file containing
+        the coordinates to be plotted. E.g:
+        "/home/user/volcano_outlines.csv,black,0.5,-". Each .csv coordinate
+        file should contain coordinates only, with columns: ["Longitude",
+        "Latitude"]. E.g.: "-17.5,64.8".
+        .. note:: Do not include a header line in either file.
 
     +++ TO BE REMOVED TO ARCHIVE CLASS +++
     pre_cut : float, optional
@@ -437,7 +440,7 @@ class QuakeScan:
 
             if self.plot_event_summary:
                 event_summary(self.run, event, marginalised_coalescence,
-                              self.lut)
+                              self.lut, xy_files=self.xy_files)
 
             if self.plot_event_video:
                 logging.info("Support for event videos coming soon.")

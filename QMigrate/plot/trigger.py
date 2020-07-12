@@ -29,7 +29,8 @@ register_matplotlib_converters()
 
 def trigger_summary(events, starttime, endtime, run, marginal_window,
                     min_event_interval, detection_threshold,
-                    normalise_coalescence, lut, data, region, savefig):
+                    normalise_coalescence, lut, data, region, savefig,
+                    xy_files=None):
     """
     Plots the data from a .scanmseed file with annotations illustrating the
     trigger results: event triggers and marginal windows on the coalescence
@@ -66,6 +67,15 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
         Geographical region within which earthquakes have been triggered.
     savefig : bool
         Output the plot as a file. The plot is shown by default, and not saved.
+    xy_files : str, optional
+        Path to comma-separated value file (.csv) containing a series of
+        coordinate files to plot. Columns: ["File", "Color", "Linewidth",
+        "Linestyle"], where "File" is the absolute path to the file containing
+        the coordinates to be plotted. E.g:
+        "/home/user/volcano_outlines.csv,black,0.5,-". Each .csv coordinate
+        file should contain coordinates only, with columns: ["Longitude",
+        "Latitude"]. E.g.: "-17.5,64.8".
+        .. note:: Do not include a header line in either file.
 
     """
 
@@ -94,6 +104,9 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
         _plot_station_availability(axes[2], availability, endtime)
     except util.NoStationAvailabilityDataException as e:
         logging.info(e)
+
+    # --- Plot xy files on map ---
+    _plot_xy_files(xy_files, fig.axes[3])
 
     # --- Plot event scatter on LUT and windows on coalescence traces ---
     if events is not None:
@@ -330,3 +343,40 @@ def _plot_text_summary(ax, events, threshold, marginal_window,
         ax.text(0.42, 0.15, f"Triggered {count} event(s) on the {trig} trace.",
                 ha="center", va="center")
     ax.set_axis_off()
+
+def _plot_xy_files(xy_files, ax):
+    """
+    Plot xy files supplied by user.
+
+    The user can specify a list of xy files to plot by supplying a csv file
+    with columns: ["File", "Color", "Linewidth", "Linestyle"], where "File" is
+    the absolute path to the file containing the coordinates to be plotted.
+    E.g: "/home/user/volcano_outlines.csv,black,0.5,-"
+
+    Each specified xy file should contain coordinates only, with columns:
+    ["Longitude", "Latitude"]. E.g.: "-17.5,64.8".
+
+    .. note:: Do not include a header line in either file.
+
+    Parameters
+    ----------
+    xy_files : str
+        Path to .csv file containing a list of coordinates files to plot, and
+        the linecolor and style to plot them with.
+    ax : `~matplotlib.Axes` object
+        Axes on which to plot the xy files.
+
+    """
+
+    if xy_files is not None:
+        xy_files = pd.read_csv(xy_files,
+                               names=["File", "Color",
+                                      "Linewidth", "Linestyle"],
+                               header=None)
+        for _, f in xy_files.iterrows():
+            xy_file = pd.read_csv(f["File"], names=["Longitude",
+                                                    "Latitude"],
+                                  header=None)
+            ax.plot(xy_file["Longitude"], xy_file["Latitude"],
+                    ls=f["Linestyle"], lw=f["Linewidth"],
+                    c=f["Color"])

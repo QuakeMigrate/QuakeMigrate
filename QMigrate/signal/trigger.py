@@ -139,6 +139,15 @@ class Trigger:
     threshold_method : str, optional
         Toggle between a "static" threshold and a "dynamic" threshold, based on
         the Median Average Deviation. Default: "static".
+    xy_files : str, optional
+        Path to comma-separated value file (.csv) containing a series of
+        coordinate files to plot. Columns: ["File", "Color", "Linewidth",
+        "Linestyle"], where "File" is the absolute path to the file containing
+        the coordinates to be plotted. E.g:
+        "/home/user/volcano_outlines.csv,black,0.5,-". Each .csv coordinate
+        file should contain coordinates only, with columns: ["Longitude",
+        "Latitude"]. E.g.: "-17.5,64.8".
+        .. note:: Do not include a header line in either file.
 
     Methods
     -------
@@ -180,6 +189,9 @@ class Trigger:
         self.minimum_repeat = kwargs.get("minimum_repeat", 4.)
         self.normalise_coalescence = kwargs.get("normalise_coalescence", False)
         self.pad = kwargs.get("pad", 120.)
+
+        # --- Plotting parameters ---
+        self.xy_files = kwargs.get("xy_files")
 
     def __str__(self):
         """Return short summary string of the Trigger object."""
@@ -292,7 +304,8 @@ class Trigger:
         trigger_summary(events, batchstart, batchend, self.run,
                         self.marginal_window, self.min_event_interval,
                         threshold, self.normalise_coalescence, self.lut,
-                        data, region=region, savefig=savefig)
+                        data, region=region, savefig=savefig,
+                        xy_files=self.xy_files)
 
     def _get_threshold(self, scandata, sampling_rate):
         """

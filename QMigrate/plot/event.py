@@ -90,6 +90,25 @@ def event_summary(run, event, marginal_coalescence, lut):
     fig.tight_layout(pad=1, h_pad=0)
     plt.subplots_adjust(wspace=0.3, hspace=0.3)
 
+    # --- Adjust cross sections to match map aspect ratio ---
+    # Get left, bottom, width, height of each subplot bounding box
+    xy_left, xy_bottom, xy_width, xy_height = fig.axes[2].get_position().bounds
+    xz_l, xz_b, xz_w, xz_h = fig.axes[3].get_position().bounds
+    yz_l, yz_b, _, _ = fig.axes[4].get_position().bounds
+    # Find height and width spacing of subplots in figure coordinates
+    hdiff = yz_b - (xz_b + xz_h)
+    wdiff = yz_l - (xz_l + xz_w)
+    # Adjust bottom of xz cross section (if bottom of map has moved up)
+    new_xz_bottom = xy_bottom - hdiff - xz_h
+    fig.axes[3].set_position([xy_left, new_xz_bottom, xy_width, xz_h])
+    # Adjust left of yz cross section (if right side of map has moved left)
+    new_yz_left = xy_left + xy_width + wdiff
+    # Take this opportunity to ensure the height of both cross sections is
+    # equal by adjusting yz width (almost there from gridspec maths already)
+    new_yz_width = xz_h * (fig.get_size_inches()[1]
+                           / fig.get_size_inches()[0])
+    fig.axes[4].set_position([new_yz_left, xy_bottom, new_yz_width, xy_height])
+
     fpath = run.path / "locate" / run.subname / "summaries"
     fpath.mkdir(exist_ok=True, parents=True)
     fstem = f"{run.name}_{event.uid}_EventSummary"

@@ -286,7 +286,7 @@ class Grid3D:
 
         corners = self.coord2grid(self.grid_corners, inverse=True)
 
-        return [[f(dim) for dim in corners.T] for f in (min, max)]
+        return np.array([[f(dim) for dim in corners.T] for f in (min, max)])
 
     @property
     def grid_xyz(self):
@@ -550,6 +550,14 @@ class LUT(Grid3D):
 
         xz.get_shared_x_axes().join(xy, xz)
         yz.get_shared_y_axes().join(xy, yz)
+
+        # --- Set aspect ratio ---
+        # Aspect is defined such that a circle will be stretched so that its
+        # height is aspect times the width.
+        extent = abs(self.grid_extent[1] - self.grid_extent[0])
+        grid_size = self.cell_size * (self.cell_count - 1)
+        aspect = (extent[0] * grid_size[1]) / (extent[1] * grid_size[0])
+        xy.set_aspect(aspect=aspect)
 
         bounds = np.stack(self.grid_extent, axis=-1)
         for i, j, ax in [(0, 1, xy), (0, 2, xz), (2, 1, yz)]:

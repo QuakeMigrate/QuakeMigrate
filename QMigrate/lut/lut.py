@@ -11,6 +11,7 @@ import pickle
 import matplotlib.pyplot as plt
 import numpy as np
 import pyproj
+from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 from scipy.interpolate import RegularGridInterpolator
 
 
@@ -602,6 +603,16 @@ class LUT(Grid3D):
         for i, row in self.station_data.iterrows():
             xy.annotate(row["Name"], [row.Longitude, row.Latitude], zorder=20,
                         c=station_clr, clip_on=True)
+
+        # --- Add scalebar ---
+        num_cells = np.ceil(self.cell_count[0] / 10)
+        length = num_cells * self.cell_size[0]
+        size = extent[0] * length / grid_size[0]
+        scalebar = AnchoredSizeBar(xy.transData, size=size,
+                                   label=f"{length} {self.unit_name}",
+                                   loc="lower right", pad=0.5, sep=5,
+                                   frameon=False, color=station_clr)
+        xy.add_artist(scalebar)
 
         # --- Axes labelling ---
         xy.tick_params(which="both", left=True, right=True, top=True,

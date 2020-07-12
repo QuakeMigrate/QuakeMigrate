@@ -8,7 +8,7 @@ in QuakeMigrate, including:
 
 """
 
-import matplotlib.pyplot as plt
+import matplotlib as mpl
 
 from .event import event_summary  # NOQA
 from .phase_picks import pick_summary  # NOQA
@@ -16,4 +16,5 @@ from .trigger import trigger_summary  # NOQA
 from .amplitudes import amplitudes_summary  # NOQA
 
 
-plt.viridis()
+# Set the default colourmap
+mpl.rc("image", cmap="viridis")

@@ -3,7 +3,7 @@ The traveltime lookup table
 This tutorial will cover the basic ideas and definitions underpinning the traveltime lookup table, as well as showing how they can be created.
 
 In order to reduce computational costs during runtime, we pre-compute traveltime
-lookup tables (LUTs) for each seismic phase and each station in the network to every point in a 3-D grid. This grid spans the volume of interest, herein termed the coalescence volume, within which QuakeMigrate will search for events.
+lookup tables (LUTs) for each seismic phase and each station in the network to every node in a regularised 3-D grid. This grid spans the volume of interest, herein termed the coalescence volume, within which QuakeMigrate will search for events.
 
 Defining the underlying 3-D grid
 --------------------------------
@@ -27,19 +27,21 @@ We use here the WGS84 reference ellipsoid (used as standard by the Global Positi
 
 Geographical location and spatial extent
 ########################################
-In order to geographically situate our lookup table, we choose two reference points in the input coordinate space, herein called the lower-left and upper-right corners (``ll_corner`` and ``ur_corner``, respectively). By default, we work in a depth-positive frame (i.e. positive-down or left-handed coordinate system) and use units of kilometres. It is possible to run QuakeMigrate with distances measured in metres, as long as the user specifies this requirement when defining the grid projection and all inputs (station elevations, grid specification, etc) are in metres.
+In order to geographically situate our lookup table, we choose two reference points in the input coordinate space, herein called the lower-left and upper-right corners (``ll_corner`` and ``ur_corner``, respectively). By default, we work in a depth-positive frame (i.e. positive-down or left-handed coordinate system) and use units of kilometres. It is possible to run QuakeMigrate with distances measured in metres, as long as the user specifies this requirement when defining the grid projection and all inputs (station elevations, grid specification, velocities, etc) are in metres.
 
 This schematic shows the relative positioning of the two corners:
 
 .. image:: img/LUT_definition.png
 
-The final piece of information required to fully define the grid on which we will compute traveltimes is the size (in each dimension, `x`, `y`, `z`) of a cell (``cell_size``). The LUT class will automatically find the number of cells required in each dimension to span the specified geographical region. If a cell dimension doesn't fit into the corresponding grid dimension an integer number of times, the location of the upper-right corner is shifted to accommodate an additional cell.
+The final piece of information required to fully define the grid on which we will compute traveltimes is the spacing (in each dimension, `x`, `y`, `z`) between each node in the grid (``node_spacing``). The LUT class will automatically find the number of nodes required in each dimension to span the specified geographical region. If the node spacing doesn't fit into the corresponding grid dimension an integer number of times, the location of the upper-right corner is shifted to accommodate an additional node.
+
+.. note:: The corners (``ll_corner`` and ``ur_corner``) are nodes - hence a grid that is 20 x 20 x 20 km, with 2 km node spacing in each dimension, will have 11 nodes in x, y, and z.
 
 ::
 
     ll_corner = [116.075, 5.573, -1.750]
     ur_corner = [117.426, 6.925, 27.750]
-    cell_size = [0.5, 0.5, 0.5]
+    node_spacing = [0.5, 0.5, 0.5]
 
 Bundling the grid specification
 ###############################
@@ -51,7 +53,7 @@ have `.`-style access.
     grid_spec = AttribDict()
     grid_spec.ll_corner = ll_corner
     grid_spec.ur_corner = ur_corner
-    grid_spec.cell_size = cell_size
+    grid_spec.node_spacing = node_spacing
     grid_spec.grid_proj = gproj
     grid_spec.coord_proj = cproj
 
@@ -76,7 +78,7 @@ The `compute_traveltimes` function used in the following sections returns a look
 
 Homogeneous velocity model
 ##########################
-Simply calculates the straight line traveltimes between stations and points in the grid. It is possible to use stations that are outside the specified span of the grid if desired. For example, if you have a good prior constraint on the possible location of the seismicity you are hoping to detect; for basal icequakes you may limit the LUT grid to span a small range of depths around the ice-bed interface. Any reduction in grid size can greatly reduce the computational cost of running QuakeMigrate, as runtime scales with the number of cells - so `n^3` for an equidimensional lookup table grid of side-length `n`.
+Simply calculates the straight line traveltimes between stations and points in the grid. It is possible to use stations that are outside the specified span of the grid if desired. For example, if you have a good prior constraint on the possible location of the seismicity you are hoping to detect; for basal icequakes you may limit the LUT grid to span a small range of depths around the ice-bed interface. Any reduction in grid size can greatly reduce the computational cost of running QuakeMigrate, as runtime scales with the number of nodes - so `n^3` for an equidimensional lookup table grid of side-length `n`.
 
 ::
 
@@ -97,7 +99,7 @@ Simply calculates the straight line traveltimes between stations and points in t
 ************************
 The fast-marching method implicitly tracks the evolution of the wavefront. Our current backend is the `scikit-fmm` package. It is possible to use this package to compute traveltimes to 1-D, 2-D, or 3-D velocity models. Currently we provide a utility function that computes traveltime tables for 1-D velocity models. The format of this velocity model file is specified below. See the `scikit-fmm` documentation and Rawlinson & Sambridge (2005) for more details.
 
-.. note:: Traveltime calculation can only be performed between grid nodes: the station location is therefore taken as the closest grid node. Note that for large cell sizes this may cause a modest error in the calculated traveltimes.
+.. note:: Traveltime calculation can only be performed between grid nodes: the station location is therefore taken as the closest grid node. Note that for large node spacings this may cause a modest error in the calculated traveltimes.
 
 .. note:: All stations must be situated within the grid on which traveltimes are to be computed.
 

@@ -34,16 +34,16 @@ grid_spec.grid_proj = gproj
 grid_spec.coord_proj = cproj
 
 # --- Homogeneous LUT generation ---
-lut = compute(grid_spec, stations, method="homogeneous", vp=5.0, vs=3.0,
-              log=True, save_file=lut_file)
+lut = compute_traveltimes(grid_spec, stations, method="homogeneous", vp=5.0,
+                          vs=3.0, log=True, save_file=lut_file)
 
 # --- skfmm LUT generation ---
-lut = compute(grid_spec, stations, method="1dfmm", vmod=vmod, log=True,
-              save_file=lut_file)
+lut = compute_traveltimes(grid_spec, stations, method="1dfmm", vmod=vmod,
+                          log=True, save_file=lut_file)
 
 # --- NLLoc sweep LUT generation ---
-lut = compute(grid_spec, stations, method="1dsweep", vmod=vmod,
-              block_model=True, log=True, save_file=lut_file)
+lut = compute_traveltimes(grid_spec, stations, method="1dsweep", vmod=vmod,
+                          block_model=True, log=True, save_file=lut_file)
 
 # --- Read NLLoc lookup tables ---
 lut = read_nlloc("/path/to/nlloc_files", stations, log=True,

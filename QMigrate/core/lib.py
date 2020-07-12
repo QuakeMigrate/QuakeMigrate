@@ -24,7 +24,7 @@ qmlib.migrate.argtypes = [c_dPt, c_i32Pt, c_dPt, c_int32, c_int32, c_int32,
                           c_int32, c_int32, c_int64, c_int64]
 
 
-@util.timeit
+@util.timeit()
 def migrate(onsets, traveltimes, first_idx, last_idx, available, threads):
     """
     Computes 4-D coalescence map by migrating seismic phase onset functions.
@@ -84,7 +84,7 @@ qmlib.find_max_coa.argtypes = [c_dPt, c_dPt, c_dPt, c_i64Pt, c_int32, c_int64,
                                c_int64]
 
 
-@util.timeit
+@util.timeit()
 def find_max_coa(map4d, threads):
     """
     Finds time series of the maximum coalescence/normalised coalescence in the

@@ -144,7 +144,7 @@ class LocalMag:
 
         return out
 
-    @util.timeit
+    @util.timeit("info")
     def calc_magnitude(self, event, lut, run):
         """
         Wrapper function to calculate the local magnitude of an event by first

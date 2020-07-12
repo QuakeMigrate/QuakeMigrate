@@ -9,6 +9,8 @@ import logging
 from obspy import UTCDateTime
 import pandas as pd
 
+import QMigrate.util as util
+
 
 def read_triggered_events(run, **kwargs):
     """
@@ -64,6 +66,7 @@ def read_triggered_events(run, **kwargs):
     return events.reset_index()
 
 
+@util.timeit("info")
 def write_triggered_events(run, events, starttime):
     """
     Write triggered events to a .csv file.

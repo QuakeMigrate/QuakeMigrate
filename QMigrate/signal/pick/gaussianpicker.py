@@ -5,6 +5,8 @@ onset functions.
 
 """
 
+import logging
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -79,7 +81,7 @@ class GaussianPicker(PhasePicker):
 
         return str_
 
-    @util.timeit
+    @util.timeit("info")
     def pick_phases(self, event, lut, run):
         """
         Picks phase arrival times for located earthquakes.
@@ -152,6 +154,7 @@ class GaussianPicker(PhasePicker):
         self.write(run, event.uid, picks)
 
         if self.plot_picks:
+            logging.info("\t\tPlotting picks...")
             self.plot(event, lut, picks, list(zip(ptt, stt)), run)
 
         return event, picks
@@ -257,11 +260,9 @@ class GaussianPicker(PhasePicker):
 
         # Setting parameters depending on the phase
         if phase == "P":
-            sta_winlen = self.onset.p_onset_win[0]
             win_min = P_idxmin
             win_max = P_idxmax
         if phase == "S":
-            sta_winlen = self.onset.s_onset_win[0]
             win_min = S_idxmin
             win_max = S_idxmax
 
@@ -319,7 +320,7 @@ class GaussianPicker(PhasePicker):
 
             # Initial guess for gaussian half-width based on onset function
             # STA window length
-            data_half_range = int(sta_winlen * self.sampling_rate / 2)
+            data_half_range = self.onset.gaussian_halfwidth(phase)
 
             # Select data to fit the gaussian to
             x_data = np.arange(gau_idxmin, gau_idxmax, dtype=float)
@@ -385,6 +386,7 @@ class GaussianPicker(PhasePicker):
 
         return gaussian_fit, max_onset, mean, sigma, [win_min, win_max]
 
+    @util.timeit()
     def plot(self, event, lut, picks, ttimes, run):
         """
         Plot figure showing the filtered traces for each data component and the

@@ -358,6 +358,25 @@ class STALTAOnset(Onset):
 
         return s_onset, filt_sige, filt_sign
 
+    def gaussian_halfwidth(self, phase):
+        """
+        Return the phase-appropriate Gaussian half-width estimate based on the
+        short-term average window length.
+
+        Parameters
+        ----------
+        phase : {'P', 'S'}
+            Seismic phase for which to serve the estimate.
+
+        """
+
+        if phase == "P":
+            sta_window = self.p_onset_win[0]
+        elif phase == "S":
+            sta_window = self.s_onset_win[0]
+
+        return (sta_window * self.sampling_rate / 2)
+
     @property
     def pre_pad(self):
         """Pre-pad is determined as a function of the onset windows"""

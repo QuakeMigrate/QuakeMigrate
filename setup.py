@@ -197,9 +197,9 @@ def setup_package():
         "extras_require": get_extras_require(),
         "zip_safe": False,
         "packages": ["QMigrate", "QMigrate.core", "QMigrate.io",
-                     "QMigrate.io.export", "QMigrate.lut", "QMigrate.plot",
+                     "QMigrate.export", "QMigrate.lut", "QMigrate.plot",
                      "QMigrate.signal", "QMigrate.signal.onset",
-                     "QMigrate.signal.pick"],
+                     "QMigrate.signal.pick", "QMigrate.signal.local_mag"],
         "ext_modules": get_extensions(),
         "package_data": get_package_data(),
         "package_dir": get_package_dir()

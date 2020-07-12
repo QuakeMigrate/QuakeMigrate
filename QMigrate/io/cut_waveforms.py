@@ -22,7 +22,7 @@ warnings.filterwarnings("ignore", message=("File will be written with more tha"
                                            "ams."))
 
 
-@util.timeit
+@util.timeit("info")
 def write_cut_waveforms(run, event, file_format, pre_cut=0., post_cut=0.):
     """
     Output raw cut waveform data as a waveform file -- defaults to mSEED.

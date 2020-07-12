@@ -211,6 +211,7 @@ class ScanmSEED:
         return np.round(data*factor).astype(np.int32)
 
 
+@util.timeit()
 def read_scanmseed(run, starttime, endtime, pad, ucf):
     """
     Read .scanmseed files between two time stamps. Files are labelled by year
@@ -281,12 +282,12 @@ def read_scanmseed(run, starttime, endtime, pad, ucf):
         logging.info("\n\t    Warning! .scanmseed starttime is later than "
                      "trigger() starttime!")
     elif stats.starttime > readstart:
-        logging.info("\n\t    Warning! No .scanmseed data found for pre-pad!")
+        logging.info("\t    Warning! No .scanmseed data found for pre-pad!")
     if stats.endtime < endtime - stats.delta:
         logging.info("\n\t    Warning! .scanmseed endtime is before trigger() "
                      "endtime!")
     elif stats.endtime < readend:
-        logging.info("\n\t    Warning! No .scanmseed data found for post-pad!")
-    logging.info(f"\n\t...from {stats.starttime} - {stats.endtime}.\n")
+        logging.info("\t    Warning! No .scanmseed data found for post-pad!")
+    logging.info(f"\t    ...from {stats.starttime} - {stats.endtime}.")
 
     return data, stats

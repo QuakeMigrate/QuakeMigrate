@@ -78,6 +78,14 @@ class Onset(ABC):
 
         return pre_pad, post_pad
 
+    def gaussian_halfwidth(self, phase):
+        """Method stub for Gaussian half-width estimate."""
+
+        msg = ("In order to use the GaussianPicker module with a custom Onset,"
+               " you need to provide a 'gaussian_halfwidth' method.")
+
+        raise AttributeError(msg)
+
     @abstractmethod
     def calculate_onsets(self):
         """Method stub for calculation of onset functions."""

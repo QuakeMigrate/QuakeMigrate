@@ -611,7 +611,7 @@ class QuakeScan:
         coa_map : array-like
             Marginalised 3-D coalescence map.
         win : int
-            Window of grid cells (+/-(win-1)//2 in x, y and z) around max
+            Window of grid nodes (+/-(win-1)//2 in x, y and z) around max
             value in coa_map to perform the fit over.
         upscale : int
             Upscaling factor to interpolate the fitted 3-D spline function by.
@@ -714,7 +714,7 @@ class QuakeScan:
             Cut-off threshold (percentile) to trim coa_map: only data above
             this percentile will be retained.
         win : int, optional
-            Window of grid cells (+/-(win-1)//2 in x, y and z) around max
+            Window of grid nodes (+/-(win-1)//2 in x, y and z) around max
             value in coa_map to perform the fit over.
 
         Returns
@@ -731,7 +731,7 @@ class QuakeScan:
         shape = coa_map.shape
         ijk = np.unravel_index(np.nanargmax(coa_map), shape)
 
-        # Only use grid cells above threshold value, and within the specified
+        # Only use grid nodes above threshold value, and within the specified
         # window around the coalescence peak
         flag = np.logical_and(coa_map > thresh, self._mask3d(shape, ijk, win))
         ix, iy, iz = np.where(flag)
@@ -741,9 +741,6 @@ class QuakeScan:
         # at infinity)
         coa_map = coa_map - np.nanmean(coa_map)
 
-        # Fit 3-D Gaussian function
-        ncell = len(ix)
-
         ls = [np.arange(n) for n in shape]
 
         # Get ijk indices for points in the sub-grid
@@ -751,7 +748,7 @@ class QuakeScan:
 
         X = np.c_[x * x, y * y, z * z,
                   x * y, x * z, y * z,
-                  x, y, z, np.ones(ncell)].T
+                  x, y, z, np.ones(len(ix))].T
         Y = -np.log(np.clip(coa_map.astype(np.float64)[ix, iy, iz],
                             1e-300, np.inf))
 
@@ -787,7 +784,7 @@ class QuakeScan:
         location = [[gau_3d[0][0], gau_3d[0][1], gau_3d[0][2]]]
         location = self.lut.index2coord(location)[0]
 
-        uncertainty = sgm * self.lut.cell_size
+        uncertainty = sgm * self.lut.node_spacing
 
         return location, uncertainty
 
@@ -807,7 +804,7 @@ class QuakeScan:
             Cut-off threshold (fractional percentile) to trim coa_map; only
             data above this percentile will be retained.
         win : int, optional
-            Window of grid cells (+/-(win-1)//2 in x, y and z) around max
+            Window of grid nodes (+/-(win-1)//2 in x, y and z) around max
             value in coa_map to perform the fit over.
 
         Returns
@@ -837,11 +834,10 @@ class QuakeScan:
         ssw = np.nansum(sw)
 
         # Get the x, y and z samples on which to perform the fit
-        cc = self.lut.cell_count
-        cs = self.lut.cell_size
-        grid = np.meshgrid(np.arange(cc[0]), np.arange(cc[1]),
-                           np.arange(cc[2]), indexing="ij")
-        xs, ys, zs = [g.flatten() * size for g, size in zip(grid, cs)]
+        nc = self.lut.node_count
+        ns = self.lut.node_spacing
+        grid = np.meshgrid(*[np.arange(n) for n in nc], indexing="ij")
+        xs, ys, zs = [g.flatten() * size for g, size in zip(grid, ns)]
 
         # Expectation values:
         xe, ye, ze = [np.nansum(sw * s) / ssw for s in [xs, ys, zs]]
@@ -875,7 +871,7 @@ class QuakeScan:
         map3d : array-like
             Marginalised 3-D coalescence map.
         sgm : float
-            Sigma value (in grid cells) for the 3-D Gaussian filter function;
+            Sigma value (in grid nodes) for the 3-D Gaussian filter function;
             bigger sigma leads to more aggressive (long wavelength) smoothing.
         shp : array-like, optional
             Shape of volume.
@@ -911,9 +907,9 @@ class QuakeScan:
         n : array-like, int
             Shape of grid.
         i : array-like, int
-            Location of cell around which to mask.
+            Location of node around which to mask.
         window : int
-            Size of window around cell to mask - window of grid cells is
+            Size of window around node to mask - window of grid nodes is
             +/-(win-1)//2 in x, y and z.
 
         Returns

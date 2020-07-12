@@ -26,15 +26,25 @@ def update_lut(old_lut_file, save_file):
 
     lut = read_lut(old_lut_file)
 
-    lut.traveltimes = {}
-    for station, phases in lut.maps.items():
-        for phase, ttimes in phases.items():
-            phase_code = phase.split("_")[1]
-            lut.traveltimes.setdefault(station, {}).update(
-                {phase_code: ttimes})
+    try:
+
+        traveltimes = {}
+        for station, phases in lut.maps.items():
+            for phase, ttimes in phases.items():
+                phase_code = phase.split("_")[1]
+                traveltimes.setdefault(station, {}).update(
+                    {phase_code: ttimes})
+        lut.traveltimes = traveltimes
+        del lut.maps
+    except AttributeError:
+        pass
     lut.phases = ["P", "S"]
     lut.fraction_tt = 0.1
-
-    del lut.maps
+    try:
+        lut.node_spacing = lut.cell_size
+        lut.node_count = lut.cell_count
+        del lut._cell_size, lut._cell_count
+    except AttributeError:
+        pass
 
     lut.save(save_file)

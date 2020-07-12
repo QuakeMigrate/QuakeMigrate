@@ -28,35 +28,35 @@ class Grid3D:
 
     The size and shape specifications of the grid are defined by providing the
     (input projection) coordinates for the lower-left and upper-right corners,
-    a cell size and the projections (defined using pyproj) of the input and
+    a node spacing and the projections (defined using pyproj) of the input and
     grid spaces.
 
     Attributes
     ----------
-    cell_count : array-like, [int, int, int]
-        Number of cells in each dimension of the grid. This is calculated by
-        finding the number of cells with cell_size will fit between the
-        lower-left and upper-right corners. This value is rounded up if the
-        number of cells returned is non-integer, to ensure the requested area
-        is included in the grid.
-    cell_size : array-like, [float, float, float]
-        Size of a cell in each dimension of the grid.
     coord_proj : `pyproj.Proj` object
         Input coordinate space projection.
     grid_corners : array-like, shape (8, 3)
         Positions of the corners of the grid in the grid coordinate space.
     grid_proj : `pyproj.Proj` object
         Grid space projection.
-    grid_xyz : array-like, shape (3,)
+    grid_xyz : array-like, shape (3, nx, ny, nz)
         Positions of the grid nodes in the grid coordinate space. The shape of
-        each element of the list is defined by the number of cells in each
+        each element of the list is defined by the number of nodes in each
         dimension.
     ll_corner : array-like, [float, float, float]
         Location of the lower-left corner of the grid in the grid
         projection. Should also contain the minimum depth in the grid.
+    node_count : array-like, [int, int, int]
+        Number of nodes in each dimension of the grid. This is calculated by
+        finding the number of nodes with a given node spacing that fit between
+        the lower-left and upper-right corners. This value is rounded up if the
+        number of nodes returned is non-integer, to ensure the requested area
+        is included in the grid.
+    node_spacing : array-like, [float, float, float]
+        Distance between nodes in each dimension of the grid.
     precision : list of float
         An appropriate number of decimal places for distances as a function of
-        the cell size and coordinate projection.
+        the node spacing and coordinate projection.
     unit_conversion_factor : float
         A conversion factor based on the grid projection, used to convert
         between units of metres and kilometres.
@@ -74,7 +74,7 @@ class Grid3D:
     decimate(df, inplace=False)
         Downsamples the traveltime lookup tables by some decimation factor.
     index2coord(value, inverse=False, unravel=False, clip=False)
-        Provides a transformation between grid dindices (can be a flattened
+        Provides a transformation between grid indices (can be a flattened
         index or an [i, j, k] position) and the input projection coordinate
         space.
     index2grid(value, inverse=False, unravel=False)
@@ -83,7 +83,8 @@ class Grid3D:
 
     """
 
-    def __init__(self, ll_corner, ur_corner, cell_size, grid_proj, coord_proj):
+    def __init__(self, ll_corner, ur_corner, node_spacing, grid_proj,
+                 coord_proj):
         """Instantiate the Grid3D object."""
 
         self.grid_proj = grid_proj
@@ -93,10 +94,10 @@ class Grid3D:
         self.ll_corner = self.coord2grid(ll_corner)[0]
         self.ur_corner = self.coord2grid(ur_corner)[0]
 
-        # Calculate the grid dimensions and the number of cells required
+        # Calculate the grid dimensions and the number of nodes required
         grid_dims = self.ur_corner - self.ll_corner
-        self.cell_size = cell_size
-        self.cell_count = np.ceil(grid_dims / self.cell_size) + 1
+        self.node_spacing = node_spacing
+        self.node_count = np.ceil(grid_dims / self.node_spacing) + 1
 
     def decimate(self, df, inplace=False):
         """
@@ -118,16 +119,16 @@ class Grid3D:
 
         df = np.array(df, dtype=np.int)
 
-        new_cell_count = 1 + (self.cell_count - 1) // df
-        c1 = (self.cell_count - df * (new_cell_count - 1) - 1) // 2
+        new_node_count = 1 + (self.node_count - 1) // df
+        c1 = (self.node_count - df * (new_node_count - 1) - 1) // 2
 
         if inplace:
             grid = self
         else:
             grid = copy.deepcopy(self)
 
-        grid.cell_count = new_cell_count
-        grid.cell_size = self.cell_size * df
+        grid.node_count = new_node_count
+        grid.node_spacing = self.node_spacing * df
 
         for station, map_ in grid.traveltimes.items():
             for phase, ttimes in map_.items():
@@ -162,15 +163,15 @@ class Grid3D:
         """
 
         if unravel:
-            value = np.column_stack(np.unravel_index(value, self.cell_count))
+            value = np.column_stack(np.unravel_index(value, self.node_count))
         else:
             value = np.array(value)
 
         if inverse:
-            out = np.rint((value - self.ll_corner) / self.cell_size)
+            out = np.rint((value - self.ll_corner) / self.node_spacing)
             out = np.vstack(out.astype(int))
         else:
-            out = np.vstack(self.ll_corner + (value * self.cell_size))
+            out = np.vstack(self.ll_corner + (value * self.node_spacing))
 
         # Handle cases where only a single ijk index is requested
         if out.shape[1] == 1:
@@ -178,7 +179,7 @@ class Grid3D:
 
         return out
 
-    def coord2grid(self, value, inverse=False, clip=False):
+    def coord2grid(self, value, inverse=False):
         """
         Convert between input coordinate space and grid coordinate space.
 
@@ -191,7 +192,6 @@ class Grid3D:
         inverse : bool, optional
             Reverses the direction of the transform.
             Default input coordinates -> grid coordinates
-        clip : bool, optional
 
         Returns
         -------
@@ -209,7 +209,7 @@ class Grid3D:
 
         return np.column_stack(pyproj.transform(inproj, outproj, v1, v2, v3))
 
-    def index2coord(self, value, inverse=False, unravel=False, clip=False):
+    def index2coord(self, value, inverse=False, unravel=False):
         """
         Convert between grid indices and input coordinate space.
 
@@ -226,7 +226,6 @@ class Grid3D:
         unravel : bool, optional
             Convert a flat index or array of flat indices into a tuple of
             coordinate arrays.
-        clip : bool, optional
 
         Returns
         -------
@@ -236,47 +235,61 @@ class Grid3D:
         """
 
         if inverse:
-            value = self.coord2grid(value, clip=clip)
+            value = self.coord2grid(value)
             out = self.index2grid(value, inverse=True)
         else:
             value = self.index2grid(value, unravel=unravel)
-            out = self.coord2grid(value, inverse=True, clip=clip)
+            out = self.coord2grid(value, inverse=True)
 
         return out
 
     @property
-    def cell_count(self):
-        """Get and set the number of cells in each dimension of the grid."""
+    def node_count(self):
+        """Get and set the number of nodes in each dimension of the grid."""
 
-        return self._cell_count
+        try:
+            return self._node_count
+        except AttributeError:
+            print("FutureWarning: The internal data structure of LUT has "
+                  "changed.\nTo remove this warning you will need to convert "
+                  "your lookup table to the new-style\nusing `QMigrate.lut."
+                  "update_lut`.")
+            return self._cell_count
 
-    @cell_count.setter
-    def cell_count(self, value):
+    @node_count.setter
+    def node_count(self, value):
         value = np.array(value, dtype="int32")
-        assert (np.all(value > 0)), "Cell count must be greater than [0]"
-        self._cell_count = value
+        assert (np.all(value > 0)), "Node count must be greater than [0]"
+        self._node_count = value
 
     @property
-    def cell_size(self):
-        """Get and set the size of a cell in each dimension of the grid."""
+    def node_spacing(self):
+        """Get and set the spacing of nodes in each dimension of the grid."""
 
-        return self._cell_size
+        try:
+            return self._node_spacing
+        except AttributeError:
+            print("FutureWarning: The internal data structure of LUT has "
+                  "changed.\nTo remove this warning you will need to convert "
+                  "your lookup table to the new-style\nusing `QMigrate.lut."
+                  "update_lut`.")
+            return self._cell_size
 
-    @cell_size.setter
-    def cell_size(self, value):
+    @node_spacing.setter
+    def node_spacing(self, value):
         value = np.array(value, dtype="float64")
         if value.size == 1:
             value = np.repeat(value, 3)
         else:
-            assert (value.shape == (3,)), "Cell size must be an n by 3 array."
-        assert (np.all(value > 0)), "Cell size must be greater than [0]"
-        self._cell_size = value
+            assert (value.shape == (3,)), "Node spacing must be an nx3 array."
+        assert (np.all(value > 0)), "Node spacing must be greater than [0]"
+        self._node_spacing = value
 
     @property
     def grid_corners(self):
-        """Get the xyz positions of the cells on the edge of the grid."""
+        """Get the xyz positions of the nodes on the edge of the grid."""
 
-        c = self.cell_count - 1
+        c = self.node_count - 1
         i, j, k = np.meshgrid([0, c[0]], [0, c[1]], [0, c[2]], indexing="ij")
 
         return self.index2grid(np.c_[i.flatten(), j.flatten(), k.flatten()])
@@ -306,8 +319,8 @@ class Grid3D:
         ll, ur = self.grid_corners[0], self.grid_corners[-1]
 
         if cells is True:
-            ll -= self.cell_size / 2
-            ur += self.cell_size / 2
+            ll -= self.node_spacing / 2
+            ur += self.node_spacing / 2
 
         return self.coord2grid([ll, ur], inverse=True)
 
@@ -315,21 +328,19 @@ class Grid3D:
 
     @property
     def grid_xyz(self):
-        """Get the xyz positions of all of the cells in the grid."""
+        """Get the xyz positions of all of the nodes in the grid."""
 
-        cc = self.cell_count
-        i, j, k = np.meshgrid(np.arange(cc[0]), np.arange(cc[1]),
-                              np.arange(cc[2]), indexing="ij")
-        xyz = self.index2grid(np.c_[i.flatten(), j.flatten(), k.flatten()])
-        x, y, z = [xyz[:, dim].reshape(cc) for dim in range(3)]
+        nc = self.node_count
+        ijk = np.meshgrid(*[np.arange(n) for n in nc], indexing="ij")
+        xyz = self.index2grid(np.column_stack([dim.flatten() for dim in ijk]))
 
-        return x, y, z
+        return [xyz[:, dim].reshape(nc) for dim in range(3)]
 
     @property
     def precision(self):
         """
         Get appropriate number of decimal places as a function of the
-        cell size and coordinate projection.
+        node spacing and coordinate projection.
 
         """
 
@@ -349,6 +360,35 @@ class Grid3D:
         unit_name = self.grid_proj.crs.axis_info[0].unit_name
 
         return "km" if unit_name == "kilometre" else "m"
+
+    # --- Deprecation handling ---
+    @property
+    def cell_count(self):
+        """Handler for deprecated attribute name 'cell_count'"""
+        return self.node_count
+
+    @cell_count.setter
+    def cell_count(self, value):
+        if value is None:
+            return
+        print("FutureWarning: Parameter name has changed - continuing.")
+        print("To remove this message, change:")
+        print("\t'cell_count' -> 'node_count'")
+        self.node_count = value
+
+    @property
+    def cell_size(self):
+        """Handler for deprecated attribute name 'cell_size'"""
+        return self.node_spacing
+
+    @cell_size.setter
+    def cell_size(self, value):
+        if value is None:
+            return
+        print("FutureWarning: Parameter name has changed - continuing.")
+        print("To remove this message, change:")
+        print("\t'cell_size' -> 'node_spacing'")
+        self.node_spacing = value
 
 
 class LUT(Grid3D):
@@ -386,7 +426,7 @@ class LUT(Grid3D):
                     - "<PHASE>"
                     - "<PHASE>"
                 etc
-    velocity_model : `pandas.DataFrame` object
+    velocity_model : `~pandas.DataFrame` object
         Contains the input velocity model specification.
 
     Methods
@@ -425,16 +465,15 @@ class LUT(Grid3D):
         """Return short summary string of the lookup table object."""
 
         ll, *_, ur = self.coord2grid(self.grid_corners, inverse=True)
-        cc = self.cell_count
-        cs = self.cell_size
 
         out = ("QuakeMigrate traveltime lookup table\nGrid parameters"
                "\n\tLower-left corner  : {lat1:10.5f}\u00b0N "
                "{lon1:10.5f}\u00b0E {dep1:10.3f} m"
                "\n\tUpper-right corner : {lat2:10.5f}\u00b0N "
                "{lon2:10.5f}\u00b0E {dep2:10.3f} m"
-               f"\n\tNumber of cells    : {cc}"
-               f"\n\tCell dimensions    : {cs} m\n\n")
+               f"\n\tNumber of nodes    : {self.node_count}"
+               f"\n\tNode spacing       : {self.node_spacing} {self.unit_name}"
+               "\n\n")
 
         out = out.format(lat1=ll[0], lon1=ll[1], dep1=ll[2],
                          lat2=ur[0], lon2=ur[1], dep2=ur[2])
@@ -486,7 +525,7 @@ class LUT(Grid3D):
 
         """
 
-        grid = tuple([np.arange(cc) for cc in self.cell_count])
+        grid = tuple([np.arange(nc) for nc in self.node_count])
 
         traveltimes = self._serve_traveltimes([phase])
 
@@ -556,7 +595,7 @@ class LUT(Grid3D):
 
         Parameters
         ----------
-        fig : `matplotlib.Figure` object
+        fig : `~matplotlib.Figure` object
             Canvas on which LUT is plotted.
         gs : tuple(int, int)
             Grid specification for the plot.
@@ -581,7 +620,7 @@ class LUT(Grid3D):
         # height is aspect times the width.
         cells_extent = self.get_grid_extent(cells=True)
         extent = abs(cells_extent[1] - cells_extent[0])
-        grid_size = self.cell_size * (self.cell_count)
+        grid_size = self.node_spacing * self.node_count
         aspect = (extent[0] * grid_size[1]) / (extent[1] * grid_size[0])
         xy.set_aspect(aspect=aspect)
 
@@ -630,8 +669,8 @@ class LUT(Grid3D):
                         c=station_clr, clip_on=True)
 
         # --- Add scalebar ---
-        num_cells = np.ceil(self.cell_count[0] / 10)
-        length = num_cells * self.cell_size[0]
+        num_cells = np.ceil(self.node_count[0] / 10)
+        length = num_cells * self.node_spacing[0]
         size = extent[0] * length / grid_size[0]
         scalebar = AnchoredSizeBar(xy.transData, size=size,
                                    label=f"{length} {self.unit_name}",
@@ -729,11 +768,11 @@ class LUT(Grid3D):
         Define behaviour for the rich equality operator, "==".
 
         Two lookup tables are defined to be equal if their grid definitions are
-        identical - corners, cell size, projections.
+        identical - corners, node spacing, projections.
 
         Parameters
         ----------
-        other : QuakeMigrate LUT object
+        other : :class:`~QMigrate.lut.LUT` object
             LUT with which to test equality with self.
 
         """
@@ -746,8 +785,8 @@ class LUT(Grid3D):
             # Test equality of grid corners
             eq_corners = (self.grid_corners == other.grid_corners).all()
 
-            # Test equality of cell sizes
-            eq_sizes = (self.cell_size == other.cell_size).all()
+            # Test equality of node spacings
+            eq_sizes = (self.node_spacing == other.node_spacing).all()
 
             # Test equality of projections
             eq_projections = (self.grid_proj == other.grid_proj

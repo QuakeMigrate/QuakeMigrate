@@ -14,7 +14,6 @@ try:
 except KeyError:
     matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from matplotlib.gridspec import GridSpec
 import numpy as np
 import pandas as pd
 from pandas.plotting import register_matplotlib_converters
@@ -116,7 +115,7 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
         # Add trigger threshold to the correct coalescence trace
         ax_i = 1 if normalise_coalescence else 0
         axes[ax_i].step(dt, detection_threshold, where="mid", c="g",
-                        label="Detection threshold")
+                        label="Trigger threshold")
 
     # --- Write summary information ---
     text = plt.subplot2grid(gs, (0, 0), colspan=8, rowspan=2, fig=fig)
@@ -126,7 +125,7 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
     _plot_text_summary(text, events, detection_threshold, marginal_window,
                        min_event_interval, normalise_coalescence)
 
-    fig.axes[0].legend(loc=1, fontsize=14)
+    fig.axes[ax_i].legend(loc=1, fontsize=14, framealpha=0.85).set_zorder(20)
     fig.tight_layout(pad=1, h_pad=0)
     plt.subplots_adjust(wspace=0.3, hspace=0.3)
 
@@ -210,10 +209,8 @@ def _plot_coalescence(ax, dt, data, label):
 
     """
 
-    if label == "Maximum coalescence":
-        ax.plot(dt, data, c="k", lw=0.01, label=label, alpha=0.8, zorder=10)
-    else:
-        ax.plot(dt, data, c="k", lw=0.01, alpha=0.8, zorder=10)
+    ax.plot(dt, data, c="k", lw=0.01, label="Coalesence value", alpha=0.8,
+            zorder=10)
     _add_plot_tag(ax, label)
     ax.set_ylabel(label, fontsize=14)
     ax.xaxis.set_major_formatter(util.DateFormatter("%H:%M:%S.{ms}", 2))
@@ -233,7 +230,8 @@ def _add_plot_tag(ax, tag):
     """
 
     ax.text(0.01, 0.925, tag, ha="left", va="center", transform=ax.transAxes,
-            bbox=dict(boxstyle="round", fc="w", alpha=0.8), fontsize=18)
+            bbox=dict(boxstyle="round", fc="w", alpha=0.8), fontsize=18,
+            zorder=20)
 
 
 def _plot_event_scatter(fig, events):
@@ -250,8 +248,10 @@ def _plot_event_scatter(fig, events):
 
     """
 
-    # Get bounds for cmap
-    vmin, vmax = events["TRIG_COA"].min(), events["TRIG_COA"].max()
+    # Get bounds for cmap - hack to prevent inconsistent color being assigned
+    # when only a single event has been triggered.
+    vmin, vmax = (events["TRIG_COA"].min() * 0.999,
+                  events["TRIG_COA"].max() * 1.001)
 
     # Plotting the scatter of the earthquake locations
     x, y, z = events["COA_X"], events["COA_Y"], events["COA_Z"]

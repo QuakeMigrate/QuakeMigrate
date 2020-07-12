@@ -57,9 +57,9 @@ def read_nlloc(path, stations, phases=["P", "S"], fraction_tt=0.1, log=False):
 
             if i == 0 and j == 0:
                 gridspec, transform, traveltimes = _read_nlloc(file)
-                cell_count = np.array(gridspec[0])
+                node_count = np.array(gridspec[0])
                 grid_origin = np.array(gridspec[1])
-                cell_size = np.array(gridspec[2])
+                node_spacing = np.array(gridspec[2])
 
                 gproj, cproj, gproj_string = transform
                 if gproj is None:
@@ -70,12 +70,13 @@ def read_nlloc(path, stations, phases=["P", "S"], fraction_tt=0.1, log=False):
                 ll_corner = pyproj.transform(gproj, cproj, *grid_origin)
 
                 # Calculate the ur corner
-                ur_corner = np.array(grid_origin) + (cell_count - 1)*cell_size
+                ur_corner = (np.array(grid_origin)
+                             + (node_count - 1) * node_spacing)
                 ur_corner = pyproj.transform(gproj, cproj, *ur_corner)
 
                 # Need to initialise the grid
                 lut = LUT(ll_corner=ll_corner, ur_corner=ur_corner,
-                          cell_size=cell_size, grid_proj=gproj,
+                          node_spacing=node_spacing, grid_proj=gproj,
                           coord_proj=cproj, fraction_tt=fraction_tt)
             else:
                 _, _, traveltimes = _read_nlloc(file)
@@ -251,18 +252,18 @@ def _compute_1d_fmm(lut, phase, vmodel):
                      f"{stations_xyz.shape[0]}")
 
         lut.traveltimes.setdefault(station, {}).update(
-            {phase: _eikonal_fmm(grid_xyz, lut.cell_size,
+            {phase: _eikonal_fmm(grid_xyz, lut.node_spacing,
                                  int_vmodel, stations_xyz[i])})
 
 
-def _eikonal_fmm(grid_xyz, cell_size, velocity_grid, station_xyz):
+def _eikonal_fmm(grid_xyz, node_spacing, velocity_grid, station_xyz):
     """
     Calculates the traveltime lookup tables by solving the eikonal equation
     using an implementation of the fast-marching algorithm.
 
     Traveltime calculation can only be performed between grid nodes: the
     station location is therefore taken as the closest grid node. Note that
-    for large cell sizes this may cause a modest error in the calculated
+    for large node spacings this may cause a modest error in the calculated
     traveltimes.
 
     .. warning:: Requires the scikit-fmm python package.
@@ -270,9 +271,9 @@ def _eikonal_fmm(grid_xyz, cell_size, velocity_grid, station_xyz):
     Parameters
     ----------
     grid_xyz : array-like
-        [X, Y, Z] coordinates of each cell.
-    cell_size : array-like
-        [X, Y, Z] dimensions of each cell.
+        [X, Y, Z] coordinates of each node.
+    node_spacing : array-like
+        [X, Y, Z] distances between each node.
     velocity_grid : array-like
         Contains the speed of interface propagation at each point in the
         domain.
@@ -296,7 +297,7 @@ def _eikonal_fmm(grid_xyz, cell_size, velocity_grid, station_xyz):
                      + abs(grid_xyz[2] - station_xyz[2]))
     phi[np.unravel_index(indx, grid_xyz[0].shape)] = 1.0
 
-    return skfmm.travel_time(phi, velocity_grid, dx=cell_size)
+    return skfmm.travel_time(phi, velocity_grid, dx=node_spacing)
 
 
 def _compute_1d_sweep(lut, phase, vmodel, **kwargs):
@@ -397,7 +398,7 @@ def _compute_1d_sweep(lut, phase, vmodel, **kwargs):
                                           gridspec[1, 1:],
                                           gridspec[2, 1:],
                                           traveltimes[0, :, :]
-                                          ).reshape(lut.cell_count)})
+                                          ).reshape(lut.node_count)})
 
         # Tidy up: remove control file and nll model and time files
         os.remove(cwd / "control.in")
@@ -497,7 +498,7 @@ def _read_nlloc(fname, ignore_proj=False):
         Array containing the grid and coordinate projections, respectively.
     gridspec : array-like
         Details on the NonLinLoc grid specification. Contains the number of
-        cells, the grid origin and the cell dimensions.
+        nodes, the grid origin and the node spacings.
 
     """
 
@@ -604,7 +605,7 @@ def _bilinear_interpolate(xz, xz_origin, xz_dimensions, traveltimes):
     xz_origin : array-like
         The x (actually y) and z values of the grid origin.
     xz_dimensions : array-like
-        The x (actually y) and z values of the cell dimensions.
+        The x (actually y) and z values of the node spacing.
     traveltimes : array-like
         A slice through the traveltime grid at x = 0, on which to perform the
         interpolation.

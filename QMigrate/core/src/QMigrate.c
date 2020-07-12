@@ -45,7 +45,7 @@
 EXPORT void
 migrate(double *sigPt, int32_t *indPt, double *mapPt, int32_t fSamp,
         int32_t lSamp, int32_t nSamps, int32_t nStations, int32_t avail,
-        int64_t nCells, int64_t threads)
+        int64_t nNodes, int64_t threads)
 {
     /*
     Purpose: compute time series of the coalescence function in a 3-D volume
@@ -61,20 +61,20 @@ migrate(double *sigPt, int32_t *indPt, double *mapPt, int32_t fSamp,
       nSamps: Total number of samples over which to scan.
       nStations: Number of stations available.
       avail: Number of onset functions available.
-      nCells: Total number of cells in the 3-D grid.
+      nNodes: Total number of nodes in the 3-D grid.
       threads: Number of threads with which to scan.
     */
     double  *stnPt, *stkPt, *eStkPt;
     int32_t station, t, *ttpPt, ttp;
-    int64_t cell;
+    int64_t node;
 
     #pragma omp parallel for \
     private(eStkPt, station, stkPt, stnPt, t, ttp, ttpPt) \
     num_threads(threads)
-    for (cell=0; cell<nCells; cell++) {
-        stkPt = &mapPt[cell * (int64_t) nSamps];
-        eStkPt = &mapPt[cell * (int64_t) nSamps];
-        ttpPt = &indPt[cell * (int64_t) nStations];
+    for (node=0; node<nNodes; node++) {
+        stkPt = &mapPt[node * (int64_t) nSamps];
+        eStkPt = &mapPt[node * (int64_t) nSamps];
+        ttpPt = &indPt[node * (int64_t) nStations];
         for(station=0; station<nStations; station++) {
             ttp = MAX(0, ttpPt[station]);
             stnPt = &sigPt[station*(fSamp + lSamp + nSamps) + ttp + fSamp];
@@ -91,7 +91,7 @@ migrate(double *sigPt, int32_t *indPt, double *mapPt, int32_t fSamp,
 
 EXPORT void
 find_max_coa(double *mapPt, double *snrPt, double *nsnrPt, int64_t *indPt,
-             int32_t nSamps, int64_t nCells, int64_t threads)
+             int32_t nSamps, int64_t nNodes, int64_t threads)
 {
     /*
     Purpose: find the time series of maximum coalescence, normalised maximum
@@ -106,30 +106,30 @@ find_max_coa(double *mapPt, double *snrPt, double *nsnrPt, int64_t *indPt,
       indPt: Pointer to array in which to output the corresponding indices for
              the maximum coalescence time series
       nSamps: Total number of samples over which to scan.
-      nCells: Total number of cells in the 3-D grid.
+      nNodes: Total number of nodes in the 3-D grid.
       threads: Number of threads with which to scan.
     */
     double  curVal, maxVal, sumVal;
     int32_t t;
-    int64_t cell, idx;
+    int64_t node, idx;
 
     #pragma omp parallel for \
-    private(cell, curVal, idx, maxVal, sumVal) \
+    private(node, curVal, idx, maxVal, sumVal) \
     num_threads(threads)
     for (t=0; t<nSamps; t++) {
         maxVal = mapPt[t];
         idx = 0;
         sumVal = mapPt[t];
-        for (cell=1; cell<nCells; cell++) {
-            curVal = mapPt[cell * (int64_t) nSamps + (int64_t) t];
+        for (node=1; node<nNodes; node++) {
+            curVal = mapPt[node * (int64_t) nSamps + (int64_t) t];
             sumVal += curVal;
             if (curVal > maxVal) {
                 maxVal = curVal;
-                idx = cell;
+                idx = node;
             }
         }
         snrPt[t] = maxVal;
-        nsnrPt[t] = maxVal * nCells / sumVal;
+        nsnrPt[t] = maxVal * nNodes / sumVal;
         indPt[t] = idx;
     }
 }

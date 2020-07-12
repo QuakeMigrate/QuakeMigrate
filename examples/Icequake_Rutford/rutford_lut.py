@@ -26,7 +26,7 @@ cproj = Proj(proj="longlat", datum="WGS84", ellps="WGS84", no_defs=True)
 grid_spec = AttribDict()
 grid_spec.ll_corner = [-84.14853353566141, -78.18825429331356, -0.350]
 grid_spec.ur_corner = [-83.71921885073093, -78.10003166259442, 3.550]
-grid_spec.cell_size = [0.1, 0.1, 0.1]
+grid_spec.node_spacing = [0.1, 0.1, 0.1]
 grid_spec.grid_proj = gproj
 grid_spec.coord_proj = cproj
 

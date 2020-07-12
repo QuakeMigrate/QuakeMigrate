@@ -65,7 +65,7 @@ def migrate(onsets, traveltimes, first_idx, last_idx, available, threads):
     n_onsets, t_samples = onsets.shape
     n_samples = t_samples - first_idx - last_idx
     map4d = np.zeros(tuple(grid_dimensions) + (n_samples,), dtype=np.float64)
-    n_cells = np.prod(grid_dimensions)
+    n_nodes = np.prod(grid_dimensions)
 
     if not n_luts == n_onsets:
         raise ValueError("Mismatch between number of stations for data and "
@@ -75,7 +75,7 @@ def migrate(onsets, traveltimes, first_idx, last_idx, available, threads):
 
     qmlib.migrate(onsets, traveltimes, map4d, c_int32(first_idx),
                   c_int32(last_idx), c_int32(n_samples), c_int32(n_onsets),
-                  c_int32(available), c_int64(n_cells), c_int64(threads))
+                  c_int32(available), c_int64(n_nodes), c_int64(threads))
 
     return map4d
 
@@ -111,12 +111,12 @@ def find_max_coa(map4d, threads):
     """
 
     *grid_dimensions, n_samples = map4d.shape
-    n_cells = np.prod(grid_dimensions)
+    n_nodes = np.prod(grid_dimensions)
     max_coa = np.zeros(n_samples, dtype=np.double)
     max_norm_coa = np.zeros(n_samples, dtype=np.double)
     max_coa_idx = np.zeros(n_samples, dtype=np.int64)
 
     qmlib.find_max_coa(map4d, max_coa, max_norm_coa, max_coa_idx,
-                       c_int32(n_samples), c_int64(n_cells), c_int64(threads))
+                       c_int32(n_samples), c_int64(n_nodes), c_int64(threads))
 
     return max_coa, max_norm_coa, max_coa_idx

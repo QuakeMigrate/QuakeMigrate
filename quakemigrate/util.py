@@ -399,9 +399,10 @@ class ArchivePathStructureError(Exception):
     def __init__(self, archive_format):
         msg = ("ArchivePathStructureError: The archive path structure you have"
                f" selected: '{archive_format}' is not a valid option! See the "
-               "documentation for QMigrate.data.Archive.path_structure for a "
-               "complete list, or specify a custom format with Archive.format "
-               "= custom/archive_{year}_{jday}/{day:02d}.{station}_structure")
+               "documentation for quakemigrate.data.Archive.path_structure for"
+               " a complete list, or specify a custom format with Archive.form"
+               "at = custom/archive_{year}_{jday}/{day:02d}.{station}_structur"
+               "e")
         super().__init__(msg)
 
 
@@ -537,8 +538,8 @@ class MagsTypeError(Exception):
 
     def __init__(self):
         msg = ("MagsTypeError: The Mags object you have specified is not "
-               "supported: currently only `QMigrate.signal.local_mag.LocalMag`"
-               " - see manual.")
+               "supported: currently only "
+               "`quakemigrate.signal.local_mag.LocalMag` - see manual.")
         super().__init__(msg)
 
 

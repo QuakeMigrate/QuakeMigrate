@@ -11,7 +11,7 @@ from obspy import read, Stream, Trace, UTCDateTime
 from obspy.io.mseed import InternalMSEEDError
 import pandas as pd
 
-import QMigrate.util as util
+import quakemigrate.util as util
 
 
 class ScanmSEED:
@@ -22,7 +22,7 @@ class ScanmSEED:
 
     Parameters
     ----------
-    run : `QMigrate.io.Run` object
+    run : :class:`~quakemigrate.io.Run` object
         Light class encapsulating i/o path information for a given run.
     continuous_write : bool
         Option to continuously write the .scanmseed file output by detect() at
@@ -219,7 +219,7 @@ def read_scanmseed(run, starttime, endtime, pad, ucf):
 
     Parameters
     ----------
-    run : `QMigrate.io.Run` object
+    run : :class:`~quakemigrate.io.Run` object
         Light class encapsulating i/o path information for a given run.
     starttime : `obspy.UTCDateTime` object
         Timestamp from which to read the coalescence stream.

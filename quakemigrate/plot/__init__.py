@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-The :mod:`QMigrate.plot` module provides methods for the generation of figures
-in QuakeMigrate, including:
+The :mod:`quakemigrate.plot` module provides methods for the generation of
+figures in QuakeMigrate, including:
     * Event summaries
     * Phase pick summaries
     * Triggered event summaries

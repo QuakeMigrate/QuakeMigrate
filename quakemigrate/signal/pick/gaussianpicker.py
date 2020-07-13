@@ -12,8 +12,8 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import curve_fit
 
-from QMigrate.plot.phase_picks import pick_summary
-import QMigrate.util as util
+from quakemigrate.plot.phase_picks import pick_summary
+import quakemigrate.util as util
 from .pick import PhasePicker
 
 
@@ -88,18 +88,18 @@ class GaussianPicker(PhasePicker):
 
         Parameters
         ----------
-        event : `QMigrate.io.event.Event` object
+        event : :class:`~quakemigrate.io.event.Event` object
             Contains pre-processed waveform data on which to perform picking,
             the event location, and a unique identifier.
-        lut : `QMigrate.lut.LUT` object
+        lut : :class:`~quakemigrate.lut.LUT` object
             Contains the traveltime lookup tables for seismic phases, computed
             for some pre-defined velocity model.
-        run : `QMigrate.io.Run` object
+        run : :class:`~quakemigrate.io.Run` object
             Light class encapsulating i/o path information for a given run.
 
         Returns
         -------
-        event : `QMigrate.io.event.Event` object
+        event : :class:`~quakemigrate.io.event.Event` object
             Event object provided to pick_phases(), but now with phase picks!
         picks : `pandas.DataFrame`
             DataFrame that contains the measured picks with columns:

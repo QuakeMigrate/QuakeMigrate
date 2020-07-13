@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-The :mod:`QMigrate.lut` module handles the definition and generation of the
+The :mod:`quakemigrate.lut` module handles the definition and generation of the
 traveltime lookup tables used in QuakeMigrate.
 
 """
@@ -22,7 +22,7 @@ def update_lut(old_lut_file, save_file):
 
     """
 
-    from QMigrate.io import read_lut
+    from quakemigrate.io import read_lut
 
     lut = read_lut(old_lut_file)
 

@@ -13,7 +13,7 @@ from obspy.geodetics.base import gps2dist_azimuth
 import pandas as pd
 from scipy.signal import find_peaks, iirfilter, sosfreqz
 
-import QMigrate.util as util
+import quakemigrate.util as util
 
 
 class Amplitude:
@@ -187,10 +187,10 @@ class Amplitude:
 
         Parameters
         ----------
-        event : `QMigrate.io.Event` object
+        event : :class:`~quakemigrate.io.Event` object
             Light class encapsulating waveform data, onset, pick and location
             information for a given event.
-        lut : `QMigrate.lut.LUT` object
+        lut : :class:`~quakemigrate.lut.LUT` object
             Contains the traveltime lookup tables for seismic phases, computed
             for some pre-defined velocity model.
 
@@ -514,7 +514,7 @@ class Amplitude:
             Station name.
         i : int
             Iterator variable.
-        event : `QMigrate.io.Event` object
+        event : :class:`~quakemigrate.io.Event` object
             Light class encapsulating signal, onset, pick and location
             information for a given event.
         p_ttimes : array-like
@@ -578,7 +578,7 @@ class Amplitude:
         ----------
         i : int
             Iterator variable.
-        event : `QMigrate.io.Event` object
+        event : :class:`~quakemigrate.io.Event` object
             Light class encapsulating signal, onset, pick and location
             information for a given event.
 

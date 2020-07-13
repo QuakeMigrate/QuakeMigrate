@@ -11,7 +11,7 @@ import numpy as np
 from obspy import Trace
 import pandas as pd
 
-import QMigrate.util as util
+import quakemigrate.util as util
 
 
 EVENT_FILE_COLS = ["EventID", "DT", "X", "Y", "Z", "COA", "COA_NORM",
@@ -154,7 +154,7 @@ class Event:
 
         Parameters
         ----------
-        data : `QMigrate.io.data.WaveformData` object
+        data : :class:`~quakemigrate.io.data.WaveformData` object
             Contains raw cut waveforms, signal data (at a unified sample rate,
             prepared for use in scan), station availability info, onset
             functions calculated from the signal data, pre_processed filtered
@@ -375,7 +375,7 @@ class Event:
 
         Parameters
         ----------
-        run : `QMigrate.io.Run` object
+        run : :class:`~quakemigrate.io.Run` object
             Light class encapsulating i/o path information for a given run.
 
         """

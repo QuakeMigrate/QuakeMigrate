@@ -7,7 +7,7 @@ Module to handle input/output of cut waveforms.
 import logging
 import warnings
 
-import QMigrate.util as util
+import quakemigrate.util as util
 
 
 warnings.filterwarnings("ignore", message=("File will be written with more tha"
@@ -29,9 +29,9 @@ def write_cut_waveforms(run, event, file_format, pre_cut=0., post_cut=0.):
 
     Parameters
     ----------
-    run : `QMigrate.io.Run` object
+    run : :class:`~quakemigrate.io.Run` object
         Light class encapsulating i/o path information for a given run.
-    event : `QMigrate.io.Event` object
+    event : :class:`~quakemigrate.io.Event` object
         Light class encapsulating signal, onset, and location information for a
         given event.
     file_format : str, optional

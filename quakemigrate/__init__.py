@@ -4,9 +4,9 @@ import matplotlib
 import os
 import logging
 
-from QMigrate.io.data import Archive  # NOQA
-from QMigrate.lut import create_lut, read_nlloc, LUT  # NOQA
-from QMigrate.signal import QuakeScan, Trigger  # NOQA
+from quakemigrate.io.data import Archive  # NOQA
+from quakemigrate.lut import create_lut, read_nlloc, LUT  # NOQA
+from quakemigrate.signal import QuakeScan, Trigger  # NOQA
 
 # Set matplotlib logging level and backend
 logging.getLogger("matplotlib").setLevel(logging.INFO)

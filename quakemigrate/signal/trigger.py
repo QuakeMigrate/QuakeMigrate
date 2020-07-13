@@ -10,9 +10,9 @@ import numpy as np
 from obspy import UTCDateTime
 import pandas as pd
 
-from QMigrate.io import Run, read_scanmseed, write_triggered_events
-from QMigrate.plot import trigger_summary
-import QMigrate.util as util
+from quakemigrate.io import Run, read_scanmseed, write_triggered_events
+from quakemigrate.plot import trigger_summary
+import quakemigrate.util as util
 
 
 def calculate_mad(x, scale=1.4826):
@@ -91,7 +91,7 @@ class Trigger:
 
     Parameters
     ----------
-    lut : `QMigrate.lut.LUT` object
+    lut : :class:`~quakemigrate.lut.LUT` object
         Contains the traveltime lookup tables for P- and S-phases, computed for
         some pre-defined velocity model.
     run_path : str
@@ -135,7 +135,7 @@ class Trigger:
     pad : float, optional
         Additional time padding to ensure events close to the starttime/endtime
         are not cut off and missed. Default: 120 seconds.
-    run : `QMigrate.io.Run` object
+    run : :class:`~quakemigrate.io.Run` object
         Light class encapsulating i/o path information for a given run.
     static_threshold : float, optional
         Static threshold value above which to trigger candidate events.

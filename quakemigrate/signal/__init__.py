@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-The :mod:`QMigrate.signal` module handles the core of the QuakeMigrate methods.
-This includes:
+The :mod:`quakemigrate.signal` module handles the core of the QuakeMigrate
+methods. This includes:
 
     * Generation of onset functions from raw data.
     * Picking of waveforms from onset functions.

@@ -252,8 +252,8 @@ class Grid3D:
         except AttributeError:
             print("FutureWarning: The internal data structure of LUT has "
                   "changed.\nTo remove this warning you will need to convert "
-                  "your lookup table to the new-style\nusing `QMigrate.lut."
-                  "update_lut`.")
+                  "your lookup table to the new-style\nusing "
+                  "`quakemigrate.lut.update_lut`.")
             return self._cell_count
 
     @node_count.setter
@@ -271,8 +271,8 @@ class Grid3D:
         except AttributeError:
             print("FutureWarning: The internal data structure of LUT has "
                   "changed.\nTo remove this warning you will need to convert "
-                  "your lookup table to the new-style\nusing `QMigrate.lut."
-                  "update_lut`.")
+                  "your lookup table to the new-style\nusing "
+                  "`quakemigrate.lut.update_lut`.")
             return self._cell_size
 
     @node_spacing.setter
@@ -579,7 +579,7 @@ class LUT(Grid3D):
 
         print("FutureWarning: This method of reading lookup tables has been"
               "deprecated.\nTo remove this warning:\n"
-              "\tUse 'QMigrate.io.read_lut(lut_file=/path/to/file'")
+              "\tUse 'quakemigrate.io.read_lut(lut_file=/path/to/file'")
 
         with open(filename, "rb") as f:
             self.__dict__.update(pickle.load(f))
@@ -587,8 +587,8 @@ class LUT(Grid3D):
         if hasattr(self, "maps"):
             print("FutureWarning: The internal data structure of LUT has "
                   "changed.\nTo remove this warning you will need to convert "
-                  "your lookup table to the new-style\nusing `QMigrate.lut."
-                  "update_lut`.")
+                  "your lookup table to the new-style\nusing "
+                  "`quakemigrate.lut.update_lut`.")
 
     def plot(self, fig, gs, slices=None, hypocentre=None, station_clr="k"):
         """
@@ -751,7 +751,7 @@ class LUT(Grid3D):
 
         Parameters
         ----------
-        other : `QMigrate.lut.LUT` object
+        other : :class:`~quakemigrate.lut.LUT` object
             LUT with traveltime lookup tables to add to self.
 
         """
@@ -775,7 +775,7 @@ class LUT(Grid3D):
 
         Parameters
         ----------
-        other : :class:`~QMigrate.lut.LUT` object
+        other : :class:`~quakemigrate.lut.LUT` object
             LUT with which to test equality with self.
 
         """

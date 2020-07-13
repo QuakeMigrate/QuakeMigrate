@@ -13,8 +13,8 @@ import pandas as pd
 from pandas.plotting import register_matplotlib_converters
 
 
-from QMigrate.io import read_availability
-import QMigrate.util as util
+from quakemigrate.io import read_availability
+import quakemigrate.util as util
 
 
 register_matplotlib_converters()
@@ -41,7 +41,7 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
         Start time of trigger run.
     endtime : `obspy.UTCDateTime`
         End time of trigger run.
-    run : `QMigrate.io.Run` object
+    run : :class:`~quakemigrate.io.Run` object
         Light class encapsulating i/o path information for a given run.
     marginal_window : float
         Estimate of time error over which to marginalise the coalescence.
@@ -51,7 +51,7 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
         Coalescence value above which to trigger events.
     normalise_coalescence : bool
         If True, use coalescence normalised by the average background noise.
-    lut : `QMigrate.lut.LUT` object
+    lut : :class:`~quakemigrate.lut.LUT` object
         Contains the traveltime lookup tables for P- and S-phases, computed for
         some pre-defined velocity model.
     data : `pandas.DataFrame`

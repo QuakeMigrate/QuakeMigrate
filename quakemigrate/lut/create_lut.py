@@ -15,7 +15,7 @@ import pyproj
 from scipy.interpolate import interp1d
 import skfmm
 
-import QMigrate.util as util
+import quakemigrate.util as util
 from .lut import LUT
 
 
@@ -40,7 +40,7 @@ def read_nlloc(path, stations, phases=["P", "S"], fraction_tt=0.1, log=False):
 
     Returns
     -------
-    lut : `QMigrate.lut.LUT` object
+    lut : :class:`~quakemigrate.lut.LUT` object
         Lookup table populated with traveltimes from the NonLinLoc files.
 
     """
@@ -104,7 +104,7 @@ def compute_traveltimes(grid_spec, stations, method, phases=["P", "S"],
     grid_spec : dict
         Dictionary containing all of the defining parameters for the underlying
         3-D grid on which the traveltimes are to be calculated. For expected
-        keys, see `QMigrate.lut.lut.Grid3D`.
+        keys, see :class:`~quakemigrate.lut.lut.Grid3D`.
     stations : `pandas.DataFrame`
         DataFrame containing station information (lat/lon/elev).
     method : str
@@ -129,7 +129,7 @@ def compute_traveltimes(grid_spec, stations, method, phases=["P", "S"],
 
     Returns
     -------
-    lut : `QMigrate.lut.LUT` object
+    lut : :class:`~quakemigrate.lut.LUT` object
         Lookup table populated with traveltimes from the NonLinLoc files.
 
     """
@@ -189,7 +189,7 @@ def _compute_homogeneous(lut, phase, velocity):
 
     Parameters
     ----------
-    lut : `QMigrate.lut.LUT` object
+    lut : :class:`~quakemigrate.lut.LUT` object
         Defines the grid on which the traveltimes are to be calculated.
     phase : str
         The seismic phase for which to calculate traveltimes.
@@ -219,7 +219,7 @@ def _compute_1d_fmm(lut, phase, vmodel):
 
     Parameters
     ----------
-    lut : `QMigrate.lut.LUT` object
+    lut : :class:`~quakemigrate.lut.LUT` object
         Defines the grid on which the traveltimes are to be calculated.
     phase : str
         The seismic phase for which to calculate traveltimes.
@@ -314,7 +314,7 @@ def _compute_1d_sweep(lut, phase, vmodel, **kwargs):
 
     Parameters
     ----------
-    lut : `QMigrate.lut.LUT` object
+    lut : :class:`~quakemigrate.lut.LUT` object
         Defines the grid on which the traveltimes are to be calculated.
     phase : str
         The seismic phase for which to calculate traveltimes.

@@ -8,8 +8,8 @@ by `QuakeMigrate`.
 import logging
 import numpy as np
 
-import QMigrate.util as util
-from QMigrate.io import write_amplitudes
+import quakemigrate.util as util
+from quakemigrate.io import write_amplitudes
 from .amplitude import Amplitude
 from .magnitude import Magnitude
 
@@ -112,11 +112,11 @@ class LocalMag:
 
     Attributes
     ----------
-    amp : `QMigrate.signal.local_mag.Amplitude` object
+    amp : :class:`~quakemigrate.signal.local_mag.Amplitude` object
         The Amplitude object for this instance of LocalMag. Contains functions
         to measure Wood-Anderson corrected displacement amplitudes for an
         event.
-    mag : `QMigrate.signal.local_mag.Magnitude` object
+    mag : :class:`~quakemigrate.signal.local_mag.Magnitude` object
         The Magnitude object for this instance of LocalMag. Contains functions
         to calculate magnitudes from Wood-Anderson corrected displacement
         amplitudes, and to combine them into a single magnitude estimate for
@@ -159,18 +159,18 @@ class LocalMag:
 
         Parameters
         ----------
-        event : `QMigrate.io.Event` object
+        event : :class:`~quakemigrate.io.Event` object
             Light class encapsulating waveform data, onset, pick and location
             information for a given event.
-        lut : `QMigrate.lut.LUT` object
+        lut : :class:`~quakemigrate.lut.LUT` object
             Contains the traveltime lookup tables for seismic phases, computed
             for some pre-defined velocity model.
-        run : `QMigrate.io.Run` object
+        run : :class:`~quakemigrate.io.Run` object
             Light class encapsulating i/o path information for a given run.
 
         Returns
         -------
-        event : `QMigrate.io.Event` object
+        event : :class:`~quakemigrate.io.Event` object
             Light class encapsulating waveform data, onset, pick and location
             information for a given event. Now also contains local magnitude
             information.

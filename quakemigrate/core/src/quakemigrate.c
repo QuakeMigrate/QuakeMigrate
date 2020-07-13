@@ -1,7 +1,7 @@
 /*
  * =============================================================================
  *
- *       Filename:  QMigrate.c
+ *       Filename:  quakemigrate.c
  *
  *        Purpose:  Routines for computing the 4-D coalescence function and
  *                  determining the maximum values.

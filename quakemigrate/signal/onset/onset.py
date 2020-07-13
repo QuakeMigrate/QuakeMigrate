@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 
-import QMigrate.util as util
+import quakemigrate.util as util
 
 
 class Onset(ABC):

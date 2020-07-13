@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-The :mod:`QMigrate.core` module provides Python bindings for the library of
+The :mod:`quakemigrate.core` module provides Python bindings for the library of
 compiled C routines that form the core of QuakeMigrate:
 
     * Migrate onsets - This routine performs the continuous migration through \

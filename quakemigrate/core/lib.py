@@ -7,8 +7,8 @@ Bindings for the C library functions, migrate and find_max_coa.
 import numpy as np
 import numpy.ctypeslib as clib
 
-from QMigrate.core.libnames import _load_cdll
-import QMigrate.util as util
+from quakemigrate.core.libnames import _load_cdll
+import quakemigrate.util as util
 
 
 qmlib = _load_cdll("qmlib")

@@ -13,7 +13,7 @@ def write_amplitudes(run, amplitudes, event):
 
     Parameters
     ----------
-    run : `QMigrate.io.Run` object
+    run : :class:`~quakemigrate.io.Run` object
         Light class encapsulating i/o path information for a given run.
     amplitudes : `pandas.DataFrame` object
         P- and S-wave amplitude measurements for each component of each
@@ -23,7 +23,7 @@ def write_amplitudes(run, amplitudes, event):
                    "S_amp", "S_freq", "S_time", "Noise_amp", "is_picked", "ML",
                    "ML_Err"]
         Index = Trace ID (see `obspy.Trace` object property 'id')
-    event : `QMigrate.io.Event` object
+    event : :class:`~quakemigrate.io.Event` object
         Light class encapsulating signal, onset, and location information for a
         given event.
 

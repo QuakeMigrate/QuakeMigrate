@@ -10,7 +10,7 @@ from obspy.signal.invsim import cosine_taper
 from obspy.signal.trigger import classic_sta_lta
 from scipy.signal import butter, lfilter, detrend
 
-import QMigrate.util as util
+import quakemigrate.util as util
 from .onset import Onset
 
 
@@ -252,7 +252,7 @@ class STALTAOnset(Onset):
 
         Parameters
         ----------
-        data :`QMigrate.io.data.SignalData` object
+        data : :class:`~quakemigrate.io.data.SignalData` object
             Light class encapsulating data returned by an archive query.
         log : bool
             Calculate log(onset) if True, otherwise calculate the raw onset.

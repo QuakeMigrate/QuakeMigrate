@@ -18,7 +18,7 @@ from obspy.core.event import (Event, Origin, OriginUncertainty,
                               Amplitude, StationMagnitude, Magnitude)
 from obspy.geodetics import kilometer2degrees
 
-import QMigrate
+import quakemigrate
 
 
 def read_quakemigrate(run_dir, units, run_subname="", local_mag_ph="S"):
@@ -96,8 +96,8 @@ def _read_single_event(event_file, locate_dir, units, local_mag_ph):
     -------
     event : `obspy.Event` object
         Event object populated with all available information output by
-        `QMigrate.signal.scan.locate()`, including event locations and
-        uncertainties, picks, and amplitudes and magnitudes if available.
+        :class:`~quakemigrate.signal.scan.locate()`, including event locations
+        and uncertainties, picks, and amplitudes and magnitudes if available.
 
     """
 
@@ -118,7 +118,7 @@ def _read_single_event(event_file, locate_dir, units, local_mag_ph):
     event.extra = AttribDict()
     event.resource_id = str(event_info["EventID"])
     event.creation_info = CreationInfo(author="QuakeMigrate",
-                                       version=QMigrate.__version__)
+                                       version=quakemigrate.__version__)
 
     # Add COA info to extra
     event.extra.coa = event_info["COA"]

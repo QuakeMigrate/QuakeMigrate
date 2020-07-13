@@ -12,7 +12,7 @@ from matplotlib.gridspec import GridSpec
 import numpy as np
 import pandas as pd
 
-import QMigrate.util as util
+import quakemigrate.util as util
 
 
 @util.timeit("info")
@@ -26,14 +26,14 @@ def event_summary(run, event, marginal_coalescence, lut, xy_files=None):
 
     Parameters
     ----------
-    run : :class:`~QMigrate.io.Run` object
+    run : :class:`~quakemigrate.io.Run` object
         Light class encapsulating i/o path information for a given run.
-    event : :class:`~QMigrate.io.Event` object
+    event : :class:`~quakemigrate.io.Event` object
         Light class encapsulating signal, onset, and location information
         for a given event.
     marginal_coalescence : `~numpy.ndarray` of `~numpy.double`
         Marginalised 3-D coalescence map, shape(nx, ny, nz).
-    lut : :class:`~QMigrate.lut.LUT` object
+    lut : :class:`~quakemigrate.lut.LUT` object
         Contains the traveltime lookup tables for seismic phases, computed for
         some pre-defined velocity model.
     xy_files : str, optional
@@ -136,10 +136,10 @@ def _plot_waveform_gather(ax, lut, event, idx):
     ----------
     ax : `~matplotlib.Axes` object
         Axes on which to plot the waveform gather.
-    lut : :class:`~QMigrate.lut.LUT` object
+    lut : :class:`~quakemigrate.lut.LUT` object
         Contains the traveltime lookup tables for seismic phases, computed for
         some pre-defined velocity model.
-    event : :class:`~QMigrate.io.Event` object
+    event : :class:`~quakemigrate.io.Event` object
         Light class encapsulating signal, onset, and location information
         for a given event.
     idx : `~numpy.ndarray` of `numpy.double`
@@ -195,7 +195,7 @@ def _plot_coalescence_trace(ax, event):
     ----------
     ax : `~matplotlib.Axes` object
         Axes on which to plot the coalescence trace.
-    event : :class:`~QMigrate.io.Event` object
+    event : :class:`~quakemigrate.io.Event` object
         Light class encapsulating signal, onset, and location information
         for a given event.
 
@@ -218,10 +218,10 @@ def _plot_text_summary(ax, lut, event):
     ----------
     ax : `~matplotlib.Axes` object
         Axes on which to plot the text summary.
-    lut : :class:`~QMigrate.lut.LUT` object
+    lut : :class:`~quakemigrate.lut.LUT` object
         Contains the traveltime lookup tables for seismic phases, computed for
         some pre-defined velocity model.
-    event : :class:`~QMigrate.io.Event` object
+    event : :class:`~quakemigrate.io.Event` object
         Light class encapsulating signal, onset, and location information
         for a given event.
 
@@ -268,10 +268,10 @@ def _make_ellipses(lut, event, uncertainty, clr):
 
     Parameters
     ----------
-    lut : :class:`~QMigrate.lut.LUT` object
+    lut : :class:`~quakemigrate.lut.LUT` object
         Contains the traveltime lookup tables for seismic phases, computed for
         some pre-defined velocity model.
-    event : :class:`~QMigrate.io.Event` object
+    event : :class:`~quakemigrate.io.Event` object
         Light class encapsulating signal, onset, and location information
         for a given event.
     uncertainty : {"covariance", "gaussian"}

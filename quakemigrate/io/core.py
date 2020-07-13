@@ -11,8 +11,8 @@ import pickle
 import pandas as pd
 from obspy import read_inventory
 
-import QMigrate.util as util
-from QMigrate.lut import LUT
+import quakemigrate.util as util
+from quakemigrate.lut import LUT
 
 
 def read_lut(lut_file):
@@ -27,7 +27,7 @@ def read_lut(lut_file):
 
     Returns
     -------
-    lut : `QMigrate.lut.LUT` object
+    lut : :class:`~quakemigrate.lut.LUT` object
         Lookup table populated with grid specification and traveltimes.
 
     """
@@ -39,7 +39,7 @@ def read_lut(lut_file):
     if hasattr(lut, "maps"):
         print("FutureWarning: The internal data structure of LUT has changed."
               "\nTo remove this warning you will need to convert your lookup "
-              "table to the new-style\nusing `QMigrate.lut.update_lut`.")
+              "table to the new-style\nusing `quakemigrate.lut.update_lut`.")
 
     return lut
 

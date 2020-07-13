@@ -9,7 +9,7 @@ import logging
 from obspy import UTCDateTime
 import pandas as pd
 
-import QMigrate.util as util
+import quakemigrate.util as util
 
 
 def read_triggered_events(run, **kwargs):
@@ -18,7 +18,7 @@ def read_triggered_events(run, **kwargs):
 
     Parameters
     ----------
-    run : `QMigrate.io.Run` object
+    run : :class:`~quakemigrate.io.Run` object
         Light class encapsulating i/o path information for a given run.
     starttime : `obspy.UTCDateTime` object, optional
         Timestamp from which to include events in the locate scan.
@@ -73,7 +73,7 @@ def write_triggered_events(run, events, starttime):
 
     Parameters
     ----------
-    run : `QMigrate.io.Run` object
+    run : :class:`~quakemigrate.io.Run` object
         Light class encapsulating i/o path information for a given run.
     events : `pandas.DataFrame` object
         Triggered events information. Columns: ["EventID", "CoaTime",

@@ -11,7 +11,7 @@ import pathlib
 import numpy as np
 from obspy import read, Stream, Trace, UTCDateTime
 
-import QMigrate.util as util
+import quakemigrate.util as util
 
 
 class Archive:
@@ -19,8 +19,8 @@ class Archive:
     The Archive class handles the reading of archived waveform data.
 
     It is capable of handling any regular archive structure. Requests to read
-    waveform data are served up as a `QMigrate.data.WaveformData` object. Data
-    will be checked for availability within the requested time period, and
+    waveform data are served up as a `quakemigrate.data.WaveformData` object.
+    Data will be checked for availability within the requested time period, and
     optionally resampled to meet a unified sampling rate. The raw data read
     from the archive will also be retained.
 
@@ -189,7 +189,7 @@ class Archive:
 
         Returns
         -------
-        data : `QMigrate.io.data.WaveformData` object
+        data : :class:`~quakemigrate.io.data.WaveformData` object
             Object containing the archived data that satisfies the query.
 
         """

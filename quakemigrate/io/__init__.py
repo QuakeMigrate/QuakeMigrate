@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-The :mod:`QMigrate.io` module handles the various input/output operations
+The :mod:`quakemigrate.io` module handles the various input/output operations
 performed by QuakeMigrate. This includes:
 
     * Reading waveform data - The submodule data.py can handle any waveform \

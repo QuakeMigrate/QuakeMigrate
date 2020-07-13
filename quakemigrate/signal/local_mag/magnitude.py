@@ -11,7 +11,7 @@ import logging
 from matplotlib import pyplot as plt
 import numpy as np
 
-from QMigrate.plot.amplitudes import amplitudes_summary
+from quakemigrate.plot.amplitudes import amplitudes_summary
 
 
 class Magnitude:
@@ -367,10 +367,10 @@ class Magnitude:
                        "S_amp", "S_freq", "S_time", "Noise_amp", "is_picked",
                        "ML", "ML_Err", "Noise_Filter", "Trace_Filter",
                        "Station_Filter", "Dist_Filter", "Dist", "Used"]
-        event : `QMigrate.io.Event` object
+        event : :class:`~quakemigrate.io.Event` object
             Light class encapsulating waveform data, onset, pick, location and
             local magnitude information for a given event.
-        run : `QMigrate.io.Run` object
+        run : :class:`~quakemigrate.io.Run` object
             Light class encapsulating i/o path information for a given run.
         unit_conversion_factor : float
             A conversion factor based on the lookup table grid projection, used

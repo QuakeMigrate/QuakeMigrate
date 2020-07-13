@@ -13,11 +13,11 @@ import pandas as pd
 from scipy.interpolate import Rbf
 from scipy.signal import fftconvolve
 
-import QMigrate.util as util
-from QMigrate.core import find_max_coa, migrate
-from QMigrate.io import (Event, Run, ScanmSEED, read_triggered_events,
-                         write_availability, write_cut_waveforms)
-from QMigrate.plot.event import event_summary
+import quakemigrate.util as util
+from quakemigrate.core import find_max_coa, migrate
+from quakemigrate.io import (Event, Run, ScanmSEED, read_triggered_events,
+                             write_availability, write_cut_waveforms)
+from quakemigrate.plot.event import event_summary
 from .onset import Onset
 from .pick import GaussianPicker, PhasePicker
 from .local_mag import LocalMag
@@ -36,13 +36,13 @@ class QuakeScan:
 
     Parameters
     ----------
-    archive : `QMigrate.io.Archive` object
+    archive : :class:`~quakemigrate.io.Archive` object
         Details the structure and location of a data archive and provides
         methods for reading data from file.
-    lut : `QMigrate.lut.LUT` object
+    lut : :class:`~quakemigrate.lut.LUT` object
         Contains the traveltime lookup tables for seismic phases, computed for
         some pre-defined velocity model.
-    onset : `QMigrate.signal.onset.Onset` object
+    onset : :class:`~quakemigrate.signal.onset.Onset` object
         Provides callback methods for calculation of onset functions.
     run_path : str
         Points to the top level directory containing all input files, under
@@ -67,7 +67,7 @@ class QuakeScan:
     loglevel : {"info", "debug"}, optional
         Toggle to set the logging level: "debug" will print out additional
         diagnostic information to the log and stdout. (Default "info")
-    mags : `QMigrate.signal.local_mag.LocalMag` object, optional
+    mags : :class:`~quakemigrate.signal.local_mag.LocalMag` object, optional
         Provides methods for calculating local magnitudes, performed during
         locate.
     marginal_window : float, optional
@@ -78,10 +78,10 @@ class QuakeScan:
         uncertainty in the earthquake origin time, which itself is some
         combination of the expected spatial uncertainty and uncertainty in the
         seismic velocity model used. Default: 2 seconds.
-    picker : `QMigrate.signal.pick.PhasePicker` object, optional
+    picker : :class:`~quakemigrate.signal.pick.PhasePicker` object, optional
         Provides callback methods for phase picking, performed during locate.
     plot_event_summary : bool, optional
-        Plot event summary figure - see `QMigrate.plot` for more details.
+        Plot event summary figure - see `quakemigrate.plot` for more details.
         Default: True.
     plot_event_video : bool, optional
         Plot coalescence video for each located earthquake. Default: False.
@@ -91,7 +91,7 @@ class QuakeScan:
     pre_pad : float
         Additional amount of data to read in before the timestep, used to
         ensure the correct coalescence is calculated at every sample.
-    run : `QMigrate.io.Run` object
+    run : :class:`~quakemigrate.io.Run` object
         Light class encapsulating i/o path information for a given run.
     sampling_rate : int, optional
         Desired sampling rate of input data; sampling rate at which to compute
@@ -142,17 +142,18 @@ class QuakeScan:
     ------
     OnsetTypeError
         If an object is passed in through the `onset` argument that does not
-        derive from the `QMigrate.signal.onset.Onset` base class.
+        derive from the :class:`~quakemigrate.signal.onset.Onset` base class.
     PickerTypeError
         If an object is passed in through the `picker` argument that does not
-        derive from the `QMigrate.signal.pick.PhasePicker` base class.
+        derive from the :class:`~quakemigrate.signal.pick.PhasePicker` base
+        class.
     RuntimeError
         If the user does not supply the locate function with valid arguments.
     TimeSpanException
         If the user supplies a starttime that is after the endtime.
     NoMagObjectError
         If the user selects to calculate magnitudes but does not provide a
-        `QMigrate.signal.local_mag.LocalMag` object.
+        :class:`~quakemigrate.signal.local_mag.LocalMag` object.
 
     """
 
@@ -463,7 +464,7 @@ class QuakeScan:
 
         Parameters
         ----------
-        data : `QMigrate.io.data.WaveformData` object
+        data : :class:`~quakemigrate.io.data.WaveformData` object
             Light class encapsulating data returned by an archive query.
 
         Returns
@@ -516,7 +517,7 @@ class QuakeScan:
 
         Returns
         -------
-        data : `QMigrate.io.data.WaveformData` object
+        data : :class:`~quakemigrate.io.data.WaveformData` object
             Light class encapsulating data returned by an archive query.
 
         """
@@ -580,7 +581,7 @@ class QuakeScan:
 
         Parameters
         ----------
-        event : `QMigrate.io.Event` object
+        event : :class:`~quakemigrate.io.Event` object
             Light class encapsulating signal, onset, and location information
             for a given event.
 

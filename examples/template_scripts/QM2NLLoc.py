@@ -8,8 +8,8 @@ Date: 31/10/2019
 
 import pathlib
 
-import QMigrate.io.export as qexport
-import QMigrate.io.obspy_catalog as obs
+import quakemigrate.export as qexport
+import quakemigrate.io.obspy_catalog as obs
 
 run_dir = ""
 

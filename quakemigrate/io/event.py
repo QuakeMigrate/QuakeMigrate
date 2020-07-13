@@ -29,10 +29,10 @@ class Event:
 
     Parameters
     ----------
-    triggered_event : `pandas.Series` object
-        Contains information on the event output by the trigger stage.
     marginal_window : float
         Estimate of the uncertainty in the earthquake origin time.
+    triggered_event : `pandas.Series` object, optional
+        Contains information on the event output by the trigger stage.
 
     Attributes
     ----------
@@ -118,28 +118,15 @@ class Event:
 
     """
 
-    def __init__(self, triggered_event, marginal_window):
+    def __init__(self, marginal_window, triggered_event=None):
         """Instantiate the Event object."""
 
-        self.coa_time = triggered_event["CoaTime"]
-        self.uid = triggered_event["EventID"]
         self.marginal_window = marginal_window
 
-        try:
-            self.trigger_info = {"TRIG_COA": triggered_event["TRIG_COA"],
-                                 "DEC_COA": triggered_event["COA"],
-                                 "DEC_COA_NORM": triggered_event["COA_NORM"]}
-        except KeyError:
-            # --- Backwards compatibility ---
-            try:
-                self.trigger_info = {"TRIG_COA": triggered_event["COA_V"],
-                                     "DEC_COA": triggered_event["COA"],
-                                     "DEC_COA_NORM": \
-                                         triggered_event["COA_NORM"]}
-            except KeyError:
-                self.trigger_info = {"TRIG_COA": triggered_event["COA_V"],
-                                     "DEC_COA": np.nan,
-                                     "DEC_COA_NORM": np.nan}
+        if triggered_event is not None:
+            self.uid = triggered_event["EventID"]
+            self.coa_time = triggered_event["CoaTime"]
+            self.trigger_info = self._parse_triggered_event(triggered_event)
 
         self.data = None
         self.coa_data = None
@@ -388,10 +375,10 @@ class Event:
 
         # Rename keys for locations; do not output covariance loc (just err)
         loc = self.locations["spline"]
-        gau = dict((f"GAU_{key}", value) \
-            for (key, value) in self.locations["gaussian"].items())
-        cov = dict((f"COV_{key}", value) \
-            for (key, value) in list(self.locations["covariance"].items())[3:])
+        gau = dict((f"GAU_{key}", value) for (key, value)
+                   in self.locations["gaussian"].items())
+        cov = dict((f"COV_{key}", value) for (key, value)
+                   in list(self.locations["covariance"].items())[3:])
         out = {**out, **loc, **gau, **cov}
 
         if self.localmag.get("ML") is not None:
@@ -454,6 +441,8 @@ class Event:
 
         return ev_loc
 
+    hypocentre = property(get_hypocentre)
+
     def get_loc_uncertainty(self, method="gaussian"):
         """
         Get an estimate of the hypocentre location uncertainty.
@@ -476,8 +465,6 @@ class Event:
         ev_loc_unc = np.array([loc[k] for k in ["ErrX", "ErrY", "ErrZ"]])
 
         return ev_loc_unc
-
-    hypocentre = property(get_hypocentre)
 
     loc_uncertainty = property(get_loc_uncertainty)
 
@@ -504,3 +491,32 @@ class Event:
         """Get the origin time based on the peak coalescence."""
         idxmax = self.coa_data["COA"].astype(float).idxmax()
         return self.coa_data.iloc[idxmax]["DT"]
+
+    def _parse_triggered_event(self, event_data):
+        """
+        Parse the information from a triggered event `pandas.Series` object
+        into the Event object.
+
+        Parameters
+        ----------
+        event_data : `~pandas.Series` object
+            Contains information on the event output by the trigger stage.
+
+        """
+
+        try:
+            trigger_info = {"TRIG_COA": dataframe["TRIG_COA"],
+                            "DEC_COA": dataframe["COA"],
+                            "DEC_COA_NORM": dataframe["COA_NORM"]}
+        except KeyError:
+            # --- Backwards compatibility ---
+            try:
+                trigger_info = {"TRIG_COA": dataframe["COA_V"],
+                                "DEC_COA": dataframe["COA"],
+                                "DEC_COA_NORM": dataframe["COA_NORM"]}
+            except KeyError:
+                trigger_info = {"TRIG_COA": dataframe["COA_V"],
+                                "DEC_COA": np.nan,
+                                "DEC_COA_NORM": np.nan}
+
+        return trigger_info

@@ -405,7 +405,7 @@ class QuakeScan:
         self.pre_pad, self.post_pad = pre_pad, post_pad
 
         for i, triggered_event in triggered_events.iterrows():
-            event = Event(triggered_event, self.marginal_window)
+            event = Event(self.marginal_window, triggered_event)
             w_beg = event.coa_time - 2*self.marginal_window - self.pre_pad
             w_end = event.coa_time + 2*self.marginal_window + self.post_pad
             logging.info(util.log_spacer)

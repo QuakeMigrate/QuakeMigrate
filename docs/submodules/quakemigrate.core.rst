@@ -1,7 +1,7 @@
-QMigrate.core
-=============
+quakemigrate.core
+=================
 
-.. automodule:: QMigrate.core
+.. automodule:: quakemigrate.core
    :members:
    :undoc-members:
    :show-inheritance:
@@ -9,7 +9,7 @@ QMigrate.core
 Functions
 ---------
 
-.. automodule:: QMigrate.core.lib
+.. automodule:: quakemigrate.core.lib
    :members:
    :undoc-members:
    :show-inheritance:

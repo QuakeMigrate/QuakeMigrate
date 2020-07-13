@@ -63,7 +63,7 @@ We will be linking the package to PyPi soon, after which you can use the followi
 
 .. code-block:: bash
 
-    pip install QMigrate
+    pip install quakemigrate
 
 conda install
 *************

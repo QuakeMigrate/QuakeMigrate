@@ -6,10 +6,10 @@ Explore the documentation and source code for the QuakeMigrate package.
 .. toctree::
    :maxdepth: 1
 
-   submodules/QMigrate.core
-   submodules/QMigrate.export
-   submodules/QMigrate.io
-   submodules/QMigrate.lut
-   submodules/QMigrate.plot
-   submodules/QMigrate.signal
-   submodules/QMigrate.util
+   submodules/quakemigrate.core
+   submodules/quakemigrate.export
+   submodules/quakemigrate.io
+   submodules/quakemigrate.lut
+   submodules/quakemigrate.plot
+   submodules/quakemigrate.signal
+   submodules/quakemigrate.util

@@ -1,23 +1,23 @@
-quakemigrate.signal.onset
-=========================
+quakemigrate.signal.onsets
+==========================
 
-.. automodule:: quakemigrate.signal.onset
+.. automodule:: quakemigrate.signal.onsets
     :members:
     :undoc-members:
     :show-inheritance:
 
-quakemigrate.signal.onset.onset
--------------------------------
+quakemigrate.signal.onsets.onset
+--------------------------------
 
-.. automodule:: quakemigrate.signal.onset.onset
+.. automodule:: quakemigrate.signal.onsets.onset
     :members:
     :undoc-members:
     :show-inheritance:
 
-quakemigrate.signal.onset.staltaonset
--------------------------------------
+quakemigrate.signal.onsets.staltaonset
+--------------------------------------
 
-.. automodule:: quakemigrate.signal.onset.staltaonset
+.. automodule:: quakemigrate.signal.onsets.staltaonset
     :members:
     :undoc-members:
     :show-inheritance:

@@ -1,23 +1,23 @@
-quakemigrate.signal.pick
-========================
+quakemigrate.signal.pickers
+===========================
 
-.. automodule:: quakemigrate.signal.pick
+.. automodule:: quakemigrate.signal.pickers
     :members:
     :undoc-members:
     :show-inheritance:
 
-quakemigrate.signal.pick.gaussianpicker
----------------------------------------
+quakemigrate.signal.pickers.gaussianpicker
+------------------------------------------
 
-.. automodule:: quakemigrate.signal.pick.gaussianpicker
+.. automodule:: quakemigrate.signal.pickers.gaussianpicker
     :members:
     :undoc-members:
     :show-inheritance:
 
-quakemigrate.signal.pick.pick
------------------------------
+quakemigrate.signal.pickers.picker
+----------------------------------
 
-.. automodule:: quakemigrate.signal.pick.pick
+.. automodule:: quakemigrate.signal.pickers.picker
     :members:
     :undoc-members:
     :show-inheritance:

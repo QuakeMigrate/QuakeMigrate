@@ -8,12 +8,12 @@ We recommend using Python environments to isolate the specific dependencies of Q
 
 Setting up an environment
 *************************
-If you are using conda to manage your Python environments, you can use our QuakeMigrate.yml file to create and activate a minimally complete environment:
+If you are using conda to manage your Python environments, you can use our quakemigrate.yml file to create and activate a minimally complete environment:
 
 .. code-block:: bash
 
-    conda env create -f QuakeMigrate.yml
-    conda activate QuakeMigrate
+    conda env create -f quakemigrate.yml
+    conda activate quakemigrate
 
 Compiling C extensions
 **********************

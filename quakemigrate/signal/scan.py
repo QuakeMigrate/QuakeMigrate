@@ -18,8 +18,8 @@ from quakemigrate.core import find_max_coa, migrate
 from quakemigrate.io import (Event, Run, ScanmSEED, read_triggered_events,
                              write_availability, write_cut_waveforms)
 from quakemigrate.plot.event import event_summary
-from .onset import Onset
-from .pick import GaussianPicker, PhasePicker
+from .onsets import Onset
+from .pickers import GaussianPicker, PhasePicker
 from .local_mag import LocalMag
 
 # Filter warnings

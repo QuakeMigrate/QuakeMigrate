@@ -7,8 +7,8 @@ Creation of LUT for the Iceland icequake example.
 from obspy.core import AttribDict
 from pyproj import Proj
 
-from QMigrate.io import read_stations
-from QMigrate.lut import compute_traveltimes
+from quakemigrate.io import read_stations
+from quakemigrate.lut import compute_traveltimes
 
 station_file = "./inputs/iceland_stations.txt"
 lut_out = "./outputs/lut/example.LUT"

@@ -65,7 +65,7 @@ In addition to the grid specification, we need to provide a list of stations for
 
 ::
 
-    from QMigrate.io import read_stations
+    from quakemigrate.io import read_stations
 
     stations = read_stations("/path/to/station_file")
 
@@ -82,14 +82,14 @@ Simply calculates the straight line traveltimes between stations and points in t
 
 ::
 
-    from QMigrate.lut import compute_traveltimes
+    from quakemigrate.lut import compute_traveltimes
 
     compute_traveltimes(grid_spec, stations, method="homogeneous", vp=5., vs=3.,
                         log=True, save_file=/path/to/save_file)
 
 1-D velocity models
 ###################
-1-D velocity models are read in from an (arbitrarily delimited) textfile using `QMigrate.io.read_vmodel`. There is only 1 required (case-sensitive) column header - "Depth", which corresponds to the depths for each block in the velocity model. Each additional column should contain a velocity model that corresponds to a particular seismic phase, with a (case-sensitive) header, e.g. `Vp` (Note: Uppercase `V`, lowercase phase code).
+1-D velocity models are read in from an (arbitrarily delimited) textfile using `quakemigrate.io.read_vmodel`. There is only 1 required (case-sensitive) column header - "Depth", which corresponds to the depths for each block in the velocity model. Each additional column should contain a velocity model that corresponds to a particular seismic phase, with a (case-sensitive) header, e.g. `Vp` (Note: Uppercase `V`, lowercase phase code).
 
 .. note:: The units for velocities should correspond to the units used in specifying the grid projection. km -> km / s; m -> m / s.
 
@@ -105,8 +105,8 @@ The fast-marching method implicitly tracks the evolution of the wavefront. Our c
 
 ::
 
-    from QMigrate.lut import compute_traveltimes
-    from QMigrate.io import read_vmodel
+    from quakemigrate.lut import compute_traveltimes
+    from quakemigrate.io import read_vmodel
 
     vmod = read_vmodel("/path/to/vmodel_file")
     compute_traveltimes(grid_spec, stations, method="1dfmm", vmod=vmod,
@@ -120,8 +120,8 @@ Uses the Eikonal solver from NonLinLoc under the hood to generate a traveltime g
 
 ::
 
-    from QMigrate.lut import compute_traveltimes
-    from QMigrate.io import read_vmodel
+    from quakemigrate.lut import compute_traveltimes
+    from quakemigrate.io import read_vmodel
 
     vmod = read_vmodel("/path/to/vmodel_file")
     compute_traveltimes(grid_spec, stations, method="1dsweep", vmod=vmod,
@@ -153,5 +153,5 @@ it is necessary to read in the saved LUT, which can be done as:
 
 ::
 
-    from QMigrate.io import read_lut
+    from quakemigrate.io import read_lut
     lut = read_lut(lut_file="/path/to/lut_file")

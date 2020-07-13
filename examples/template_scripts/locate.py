@@ -8,11 +8,11 @@ For more details, please see the manual and read the docs.
 
 from obspy.core import AttribDict
 
-from QMigrate.io import Archive, read_lut, read_response_inv, read_stations
-from QMigrate.signal import QuakeScan
-from QMigrate.signal.onset import STALTAOnset
-from QMigrate.signal.pick import GaussianPicker
-from QMigrate.signal.local_mag import LocalMag
+from quakemigrate.io import Archive, read_lut, read_response_inv, read_stations
+from quakemigrate.signal import QuakeScan
+from quakemigrate.signal.onset import STALTAOnset
+from quakemigrate.signal.pick import GaussianPicker
+from quakemigrate.signal.local_mag import LocalMag
 
 # --- i/o paths ---
 archive_path = "/path/to/archived/data"

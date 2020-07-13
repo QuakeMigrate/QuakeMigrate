@@ -4,8 +4,8 @@ Trigger stage for the Iceland icequake example.
 
 """
 
-from QMigrate.io import read_lut
-from QMigrate.signal import Trigger
+from quakemigrate.io import read_lut
+from quakemigrate.signal import Trigger
 
 # --- i/o paths ---
 lut_file = "./outputs/lut/example.LUT"

@@ -11,8 +11,8 @@ import unittest
 import obspy
 import pandas as pd
 
-from QMigrate.io import read_lut
-# from QMigrate.lut import LUT
+from quakemigrate.io import read_lut
+
 
 examples = ["Icequake_Iceland"]
 e_path = pathlib.Path().cwd().parent / "examples"

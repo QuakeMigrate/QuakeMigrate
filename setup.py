@@ -51,7 +51,7 @@ def read(*parts):
         return f.read()
 
 
-META_FILE = read("QMigrate", "__init__.py")
+META_FILE = read("quakemigrate", "__init__.py")
 
 
 def find_meta(meta):
@@ -71,7 +71,7 @@ def get_package_data():
     package_data = {}
     if not READ_THE_DOCS:
         if get_build_platform() in ("win32", "win-amd64"):
-            package_data["QMigrate.core"] = ["QMigrate/core/src/*.dll"]
+            package_data["quakemigrate.core"] = ["quakemigrate/core/src/*.dll"]
 
     return package_data
 
@@ -79,7 +79,8 @@ def get_package_data():
 def get_package_dir():
     package_dir = {}
     if get_build_platform() in ("win32", "win-amd64"):
-        package_dir["QMigrate.core"] = str(pathlib.Path("QMigrate") / "core")
+        package_dir["quakemigrate.core"] = str(
+            pathlib.Path("quakemigrate") / "core")
 
     return package_dir
 
@@ -94,7 +95,7 @@ def get_extras_require():
 def get_include_dirs():
     import numpy
 
-    include_dirs = [str(pathlib.Path.cwd() / "QMigrate" / "core" / "src"),
+    include_dirs = [str(pathlib.Path.cwd() / "quakemigrate" / "core" / "src"),
                     numpy.get_include(),
                     str(pathlib.Path(sys.prefix) / "include")]
 
@@ -107,7 +108,7 @@ def get_include_dirs():
 def get_library_dirs():
     library_dirs = []
     if get_build_platform() in ("win32", "win-amd64"):
-        library_dirs.append(str(pathlib.Path.cwd() / "QMigrate" / "core"))
+        library_dirs.append(str(pathlib.Path.cwd() / "quakemigrate" / "core"))
         library_dirs.append(str(pathlib.Path(sys.prefix) / "bin"))
 
     library_dirs.append(str(pathlib.Path(sys.prefix) / "lib"))
@@ -137,8 +138,9 @@ def get_extensions():
         "include_dirs": get_include_dirs(),
         "library_dirs": get_library_dirs()}
 
-    sources = [str(pathlib.Path("QMigrate") / "core" / "src" / "QMigrate.c")]
-    exp_symbols = export_symbols("QMigrate/core/src/qmlib.def")
+    sources = [str(pathlib.Path("quakemigrate")
+               / "core" / "src" / "quakemigrate.c")]
+    exp_symbols = export_symbols("quakemigrate/core/src/qmlib.def")
 
     if get_build_platform() not in ("win32", "win-amd64"):
         if get_build_platform().startswith("freebsd"):
@@ -155,7 +157,7 @@ def get_extensions():
     common_extension_args["extra_compile_args"] = extra_compile_args
     common_extension_args["export_symbols"] = exp_symbols
 
-    ext_modules = [Extension("QMigrate.core.src.qmlib", sources=sources,
+    ext_modules = [Extension("quakemigrate.core.src.qmlib", sources=sources,
                    **common_extension_args)]
 
     return ext_modules
@@ -173,7 +175,7 @@ def setup_package():
                             "scikit-fmm==2019.1.30", "scipy"]
 
     setup_args = {
-        "name": "QMigrate",
+        "name": "quakemigrate",
         "version": find_meta("version"),
         "description": find_meta("description"),
         "long_description": long_description,
@@ -196,10 +198,11 @@ def setup_package():
         "install_requires": install_requires,
         "extras_require": get_extras_require(),
         "zip_safe": False,
-        "packages": ["QMigrate", "QMigrate.core", "QMigrate.io",
-                     "QMigrate.export", "QMigrate.lut", "QMigrate.plot",
-                     "QMigrate.signal", "QMigrate.signal.onset",
-                     "QMigrate.signal.pick", "QMigrate.signal.local_mag"],
+        "packages": ["quakemigrate", "quakemigrate.core", "quakemigrate.io",
+                     "quakemigrate.export", "quakemigrate.lut",
+                     "quakemigrate.plot", "quakemigrate.signal",
+                     "quakemigrate.signal.onset", "quakemigrate.signal.pick",
+                     "quakemigrate.signal.local_mag"],
         "ext_modules": get_extensions(),
         "package_data": get_package_data(),
         "package_dir": get_package_dir()
@@ -218,7 +221,7 @@ if __name__ == "__main__":
         shutil.rmtree(str(path), ignore_errors=True)
 
         # Delete all shared libs from clib directory
-        path = SETUP_DIRECTORY / "QMigrate" / "core" / "src"
+        path = SETUP_DIRECTORY / "quakemigrate" / "core" / "src"
         for filename in path.glob("*.pyd"):
             filename.unlink(missing_ok=True)
         for filename in path.glob("*.so"):

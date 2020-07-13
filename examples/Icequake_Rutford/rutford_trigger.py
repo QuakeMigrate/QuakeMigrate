@@ -4,8 +4,8 @@ Trigger stage for the Rutford icequake example.
 
 """
 
+from quakemigrate import Trigger
 from quakemigrate.io import read_lut
-from quakemigrate.signal import Trigger
 
 # --- i/o paths ---
 lut_file = "./outputs/lut/icequake.LUT"

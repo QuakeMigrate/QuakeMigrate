@@ -4,9 +4,9 @@ Detect stage for the Rutford icequake example.
 
 """
 
+from quakemigrate import QuakeScan
 from quakemigrate.io import Archive, read_lut, read_stations
-from quakemigrate.signal import QuakeScan
-from quakemigrate.signal.onset import STALTAOnset
+from quakemigrate.signal.onsets import STALTAOnset
 
 # --- i/o paths ---
 station_file = "./inputs/rutford_stations.txt"

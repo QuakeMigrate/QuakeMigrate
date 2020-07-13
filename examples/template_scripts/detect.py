@@ -6,9 +6,9 @@ For more details, please see the manual and read the docs.
 
 """
 
+from quakemigrate import QuakeScan
 from quakemigrate.io import Archive, read_lut, read_stations
-from quakemigrate.signal import QuakeScan
-from quakemigrate.signal.onset import STALTAOnset
+from quakemigrate.signal.onsets import STALTAOnset
 
 # --- i/o paths ---
 archive_path = "/path/to/archived/data"

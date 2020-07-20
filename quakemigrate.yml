@@ -1,17 +1,14 @@
-name: quakemigrate
+name: quakemigrate3
 channels:
   - conda-forge
   - defaults
 dependencies:
   - ipython
   - jupyter
-  - matplotlib
+  - matplotlib <3.3
   - numpy
   - obspy >=1.2
   - pandas >=1
-  - pip
   - python >=3.6
   - pyproj >=2.5
   - scipy
-  - pip:
-    - scikit-fmm==2019.1.30

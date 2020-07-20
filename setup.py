@@ -11,6 +11,7 @@ except ImportError:
 
 import os
 import pathlib
+from distutils.ccompiler import get_default_compiler
 from pkg_resources import get_build_platform
 import re
 import shutil
@@ -89,7 +90,7 @@ def get_extras_require():
     if READ_THE_DOCS:
         return {"docs": ['Sphinx >= 1.8.1', 'docutils']}
     else:
-        return {}
+        return {"fmm": ["scikit-fmm==2019.1.30"]}
 
 
 def get_include_dirs():
@@ -151,7 +152,7 @@ def get_extensions():
         extra_compile_args = ["-fopenmp", "-fPIC", "-Ofast"]
     else:
         extra_link_args = []
-        extra_compile_args = ["/openmp", "/TP", "/PIC", "/Ofast"]
+        extra_compile_args = ["/openmp", "/TP", "/O2"]
 
     common_extension_args["extra_link_args"] = extra_link_args
     common_extension_args["extra_compile_args"] = extra_compile_args
@@ -163,16 +164,32 @@ def get_extensions():
     return ext_modules
 
 
+class CustomBuildExt(build_ext):
+    def finalize_options(self):
+        build_ext.finalize_options(self)
+
+        if self.compiler is None:
+            compiler = get_default_compiler()
+        else:
+            compiler = self.compiler
+
+        if compiler == "msvc":
+            # Sort linking issues with init exported symbols
+            def _get_export_symbols(self, ext):
+                return ext.export_symbols
+
+            build_ext.get_export_symbols = _get_export_symbols
+
+
 def setup_package():
     """Setup package"""
 
     if not READ_THE_DOCS:
-        install_requires = ["matplotlib", "numpy", "obspy>=1.2", "pandas>=1",
-                            "pyproj>=2.5", "scikit-fmm==2019.1.30", "scipy"]
+        install_requires = ["matplotlib<3.3", "numpy", "obspy>=1.2",
+                            "pandas>=1", "pyproj>=2.5", "scipy"]
     else:
-        install_requires = ["matplotlib", "mock", "numpy", "obspy>=1.2",
-                            "pandas>=1", "pyproj>=2.5",
-                            "scikit-fmm==2019.1.30", "scipy"]
+        install_requires = ["matplotlib<3.3", "mock", "numpy", "obspy>=1.2",
+                            "pandas>=1", "pyproj>=2.5", "scipy"]
 
     setup_args = {
         "name": "quakemigrate",
@@ -198,6 +215,7 @@ def setup_package():
         "install_requires": install_requires,
         "extras_require": get_extras_require(),
         "zip_safe": False,
+        "cmdclass": {"build_ext": CustomBuildExt},
         "packages": ["quakemigrate", "quakemigrate.core", "quakemigrate.io",
                      "quakemigrate.export", "quakemigrate.lut",
                      "quakemigrate.plot", "quakemigrate.signal",

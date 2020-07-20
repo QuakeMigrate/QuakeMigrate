@@ -2,6 +2,12 @@
 """
 Module to produce a summary plot for the phase picking.
 
+:copyright:
+    2020, QuakeMigrate developers.
+:license:
+    GNU General Public License, Version 3
+    (https://www.gnu.org/licenses/gpl-3.0.html)
+
 """
 
 import matplotlib.pyplot as plt

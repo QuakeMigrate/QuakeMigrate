@@ -6,16 +6,13 @@
  *        Purpose:  Routines for computing the 4-D coalescence function and
  *                  determining the maximum values.
  *
- *        Created:  15/05/2020
- *       Revision:  none
- *       Compiler:  gcc/clang
- *
- *         Author:  QuakeMigrate developers.
- *   Organization:  QuakeMigrate
- *      Copyright:  QuakeMigrate developers.
+ *      Copyright:  2020, QuakeMigrate developers.
+ *        License:  GNU General Public License, Version 3
+ *                  (https://www.gnu.org/licenses/gpl-3.0.html)
  *
  * =============================================================================
  */
+
 #include <stdint.h>
 #include <math.h>
 

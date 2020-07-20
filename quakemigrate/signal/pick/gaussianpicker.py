@@ -3,6 +3,12 @@
 The default seismic phase picking class - fits a 1-D Gaussian to the calculated
 onset functions.
 
+:copyright:
+    2020, QuakeMigrate developers.
+:license:
+    GNU General Public License, Version 3
+    (https://www.gnu.org/licenses/gpl-3.0.html)
+
 """
 
 import logging

@@ -3,6 +3,12 @@
 The :mod:`quakemigrate.lut` module handles the definition and generation of the
 traveltime lookup tables used in QuakeMigrate.
 
+:copyright:
+    2020, QuakeMigrate developers.
+:license:
+    GNU General Public License, Version 3
+    (https://www.gnu.org/licenses/gpl-3.0.html)
+
 """
 
 from .create_lut import compute_traveltimes, read_nlloc  # NOQA

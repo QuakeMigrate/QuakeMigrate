@@ -3,6 +3,12 @@
 Module to produce a summary plot for local magnitude calculation from
 Wood-Anderson corrected displacement amplitude measurements.
 
+:copyright:
+    2020, QuakeMigrate developers.
+:license:
+    GNU General Public License, Version 3
+    (https://www.gnu.org/licenses/gpl-3.0.html)
+
 """
 
 import matplotlib.pyplot as plt

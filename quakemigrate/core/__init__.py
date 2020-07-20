@@ -9,6 +9,12 @@ compiled C routines that form the core of QuakeMigrate:
     * Find maximum coalescence - This routine finds the continuous maximum \
     coalescence amplitude in the 4-D coalesence volume.
 
+:copyright:
+    2020, QuakeMigrate developers.
+:license:
+    GNU General Public License, Version 3
+    (https://www.gnu.org/licenses/gpl-3.0.html)
+
 """
 
 from .lib import migrate, find_max_coa  # NOQA

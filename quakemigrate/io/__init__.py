@@ -11,6 +11,12 @@ performed by QuakeMigrate. This includes:
     * Various parsers to input files for different pieces of software. Feel \
     free to contribute more!
 
+:copyright:
+    2020, QuakeMigrate developers.
+:license:
+    GNU General Public License, Version 3
+    (https://www.gnu.org/licenses/gpl-3.0.html)
+
 """
 
 from .amplitudes import write_amplitudes  # NOQA

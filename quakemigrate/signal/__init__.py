@@ -8,6 +8,12 @@ methods. This includes:
     * Raw scan for detect and locate.
     * Measurement of amplitudes and calculation of local earthquake magnitudes.
 
+:copyright:
+    2020, QuakeMigrate developers.
+:license:
+    GNU General Public License, Version 3
+    (https://www.gnu.org/licenses/gpl-3.0.html)
+
 """
 
 from .scan import QuakeScan  # NOQA

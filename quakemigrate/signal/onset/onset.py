@@ -4,6 +4,12 @@ A simple abstract base class with method stubs to enable users to extend
 QuakeMigrate with custom onset functions that remain compatible with the core
 of the package.
 
+:copyright:
+    2020, QuakeMigrate developers.
+:license:
+    GNU General Public License, Version 3
+    (https://www.gnu.org/licenses/gpl-3.0.html)
+
 """
 
 from abc import ABC, abstractmethod

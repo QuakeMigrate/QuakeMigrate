@@ -14,4 +14,10 @@ elsewhere. If you are interested in using these, or wish to add additional
 functionality, please contact the QuakeMigrate developers at
 quakemigrate.developers@gmail.com .
 
+:copyright:
+    2020, QuakeMigrate developers.
+:license:
+    GNU General Public License, Version 3
+    (https://www.gnu.org/licenses/gpl-3.0.html)
+
 """

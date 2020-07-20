@@ -2,6 +2,12 @@
 """
 Module to produce traveltime lookup tables defined on a Cartesian grid.
 
+:copyright:
+    2020, QuakeMigrate developers.
+:license:
+    GNU General Public License, Version 3
+    (https://www.gnu.org/licenses/gpl-3.0.html)
+
 """
 
 import logging

@@ -184,11 +184,11 @@ def setup_package():
         "author_email": find_meta("email"),
         "license": find_meta("license"),
         "classifiers": [
-            "Development Status :: Beta",
+            "Development Status :: 5 - Production/Stable",
             "Intended Audience :: Science/Research",
             "Topic :: Scientific/Engineering",
             "Natural Language :: English",
-            "License :: OSI Approved :: MIT License",
+            "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
             "Operating System :: OS Independent",
             "Programming Language :: Python :: 3.6",
             "Programming Language :: Python :: 3.7",

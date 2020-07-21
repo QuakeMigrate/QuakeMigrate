@@ -20,7 +20,8 @@ void migrate(double *sigPt, int32_t *indPt, double *mapPt, int32_t fSamp,
              int64_t nNodes, int64_t threads) {
     /*
     Purpose: compute time series of the coalescence function in a 3-D volume
-             by migrating and stacking onset functions.
+             by migrating and stacking onset functions, using the
+             geometric mean as the stacking operator.
 
     Args:
       sigPt: Pointer to array containing onset functions for each seismic phase
@@ -63,8 +64,8 @@ void migrate(double *sigPt, int32_t *indPt, double *mapPt, int32_t fSamp,
 void find_max_coa(double *mapPt, double *snrPt, double *nsnrPt, int64_t *indPt,
                   int32_t nSamps, int64_t nNodes, int64_t threads) {
     /*
-    Purpose: find the time series of maximum coalescence, normalised maximum
-             coalescence, and the corresponding indices.
+    Purpose: find the time series of maximum and normalised maximum
+             coalescence values, and their corresponding grid indices.
 
     Args:
       mapPt: Pointer to array containing 4-D coalescence map

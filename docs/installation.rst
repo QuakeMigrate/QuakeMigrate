@@ -9,7 +9,7 @@ QuakeMigrate was developed and tested on Ubuntu 16.04/18.04, with the intention 
 - Ubuntu 16.04/18.04/20.04
 - Red Hat Enterprise Linux
 - Windows 10
-- MacOSX High Sierra 10.13.6
+- macOSX High Sierra 10.13.6
 
 Prerequisites
 -------------
@@ -39,7 +39,7 @@ In addition, we use `NonLinLoc <http://alomax.free.fr/nlloc/>`_ and `scikit fmm 
 
 NonLinLoc
 #########
-We recommend you follow the installation instructions available on the website. Once you have compiled the source code, we recommend you add the bin to your system path by adding the following to your .bashrc file (typically found in your home directory, ``~/``):
+We recommend you follow the installation instructions available on the website. Once you have compiled the source code, we recommend you add the bin to your system path. For Unix systems, this can be done by adding the following to your .bashrc file (typically found in your home directory, ``~/``):
 
 .. code-block:: bash
     
@@ -59,7 +59,13 @@ scikit-fmm is a 3rd-party package which implements the fast-marching method. We 
 
 C compilers
 ***********
-In order to install and use QuakeMigrate, you will need a C compiler that will build the migration extension library. For Linux and MacOSX operating systems, it is possible to install suitable compiler tools through Anaconda.
+In order to install and use QuakeMigrate, you will need a C compiler that will build the migration extension library.
+
+If you already have a suitable compiler (e.g. gcc, MSVC) at the OS level, then you can proceed to the Installing section.
+
+If you do not, or to be sure, we recommend installing a compiler using conda. Instructions for doing this on Linux and macOSX operating systems are given below.
+
+.. note:: In order to build the (optional) dependency scikit-fmm you will need a C++ compiler (e.g. gxx, MSVC). This can also be done either at the OS level, or using conda (see guidance on the conda compiler tools page, linked below).
 
 Linux
 #####
@@ -73,7 +79,7 @@ It is generally useful to install compilers at the OS level, including a C++ com
 
 Once installed, you can proceed with the QuakeMigrate installation.
 
-MacOS
+macOS
 #####
 As with Linux, we recommend installing GCC through conda.
 
@@ -105,13 +111,18 @@ There are a few ways to get a copy of QuakeMigrate:
 
 From source
 ***********
-`Clone the repository <https://help.github.com/en/github/creating-cloning-and-archiving-repositories/cloning-a-repository>`_ from our `GitHub <https://github.com/QuakeMigrate/quakemigrate>`_ (note: you will need ``git`` installed on your system), navigate to the new QuakeMigrate directory and run (ensuring your environment is activated):
+`Clone the repository <https://help.github.com/en/github/creating-cloning-and-archiving-repositories/cloning-a-repository>`_ from our `GitHub <https://github.com/QuakeMigrate/quakemigrate>`_ (note: you will need ``git`` installed on your system), or alternatively download the source code directly through the GitHub web interface. Once you have a local copy, navigate to the new QuakeMigrate directory and run (ensuring your environment is activated):
 
 .. code-block:: bash
     
     python setup.py install
 
-If you do not have git installed, you can download the source code directly through the GitHub web interface.
+You should now be able to import quakemigrate within a Python session:
+
+.. code-block:: bash
+    
+    python
+    >>> import quakemigrate
 
 pip install
 ***********

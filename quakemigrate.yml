@@ -1,4 +1,4 @@
-name: quakemigrate3
+name: quakemigrate
 channels:
   - conda-forge
   - defaults

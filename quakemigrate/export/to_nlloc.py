@@ -4,6 +4,12 @@ This module provides parsers to export an ObsPy Catalog to the NonLinLoc input
 file format. We prefer this to the one offered by ObsPy as it includes the
 additional weighting term.
 
+:copyright:
+    2020, QuakeMigrate developers.
+:license:
+    GNU General Public License, Version 3
+    (https://www.gnu.org/licenses/gpl-3.0.html)
+
 """
 
 import warnings

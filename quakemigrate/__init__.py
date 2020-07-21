@@ -1,4 +1,13 @@
 # -*- coding: utf-8 -*-
+"""
+
+:copyright:
+    2020, QuakeMigrate developers.
+:license:
+    GNU General Public License, Version 3
+    (https://www.gnu.org/licenses/gpl-3.0.html)
+
+"""
 
 import matplotlib
 import os
@@ -16,9 +25,9 @@ try:
 except KeyError:
     matplotlib.use("Agg")
 
-name = "QuakeMigrate"
+name = "quakemigrate"
 __version__ = "1.0.0"
 __description__ = "QuakeMigrate - waveform backprojection for earthquake detection and location."
-__license__ = "GPL v3.0"
+__license__ = "GPLv3"
 __author__ = "QuakeMigrate developers"
-__email__ = "jds70@cantab.net, tom.winder@esc.cam.ac.uk, conor.bacon@esc.cam.ac.uk"
+__email__ = "tom.winder@esc.cam.ac.uk, conor.bacon@esc.cam.ac.uk, jds70@cantab.net"

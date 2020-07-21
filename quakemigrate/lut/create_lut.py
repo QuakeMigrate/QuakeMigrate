@@ -2,6 +2,12 @@
 """
 Module to produce traveltime lookup tables defined on a Cartesian grid.
 
+:copyright:
+    2020, QuakeMigrate developers.
+:license:
+    GNU General Public License, Version 3
+    (https://www.gnu.org/licenses/gpl-3.0.html)
+
 """
 
 import logging
@@ -13,7 +19,6 @@ from shutil import rmtree
 import numpy as np
 import pyproj
 from scipy.interpolate import interp1d
-import skfmm
 
 import quakemigrate.util as util
 from .lut import LUT
@@ -289,6 +294,13 @@ def _eikonal_fmm(grid_xyz, node_spacing, velocity_grid, station_xyz):
         value will be a masked array.
 
     """
+    try:
+        import skfmm
+    except ImportError:
+        raise ImportError("Unable to import skfmm - you need to install "
+                          "scikit-fmm to use this method.\nSee the "
+                          "installation instructions in the documentation"
+                          "for more details.")
 
     phi = -np.ones(grid_xyz[0].shape)
     # Find closest grid node to true station location

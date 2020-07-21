@@ -3,10 +3,29 @@
 The :mod:`quakemigrate.lut` module handles the definition and generation of the
 traveltime lookup tables used in QuakeMigrate.
 
+:copyright:
+    2020, QuakeMigrate developers.
+:license:
+    GNU General Public License, Version 3
+    (https://www.gnu.org/licenses/gpl-3.0.html)
+
 """
+
+import pyproj
 
 from .create_lut import compute_traveltimes, read_nlloc  # NOQA
 from .lut import LUT  # NOQA
+
+
+# Handle bugged version of PROJ
+proj_major, proj_minor, proj_patch = pyproj.proj_version_str.split(".")
+if proj_major == "6" and proj_minor == "2":
+    raise ImportError(f"PROJ version {proj_major}.{proj_minor}.{proj_patch} is"
+                      " being used as the backend for pyproj. This version "
+                      "has a\nbug with the conversion of Z units when using "
+                      "units that are not metres. Please consult the \n"
+                      "QuakeMigrate installation instructions for how to "
+                      "update the PROJ backend.")
 
 
 def update_lut(old_lut_file, save_file):

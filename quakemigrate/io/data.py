@@ -2,6 +2,12 @@
 """
 Module for processing waveform files stored in a data archive.
 
+:copyright:
+    2020, QuakeMigrate developers.
+:license:
+    GNU General Public License, Version 3
+    (https://www.gnu.org/licenses/gpl-3.0.html)
+
 """
 
 from itertools import chain
@@ -460,7 +466,6 @@ class WaveformData:
         raise NotImplementedError("Coming soon. Please contact the "
                                   "QuakeMigrate developers.")
 
-
     def get_wa_waveform(self, tr, water_level, pre_filt,
                         remove_full_response=False, velocity=False):
         """
@@ -540,7 +545,8 @@ class WaveformData:
                             pre_filt=pre_filt,
                             water_level=water_level,
                             taper=True,
-                            sacsim=True, pitsasim=False,  # To replicate remove_response()
+                            sacsim=True,  # To replicate remove_response()
+                            pitsasim=False,  # To replicate remove_response()
                             paz_simulate=util.wa_response())
             except ValueError as e:
                 raise util.ResponseRemovalError(e, tr.id)

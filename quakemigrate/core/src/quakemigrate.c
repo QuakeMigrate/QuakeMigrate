@@ -6,50 +6,22 @@
  *        Purpose:  Routines for computing the 4-D coalescence function and
  *                  determining the maximum values.
  *
- *        Created:  15/05/2020
- *       Revision:  none
- *       Compiler:  gcc/clang
- *
- *         Author:  QuakeMigrate developers.
- *   Organization:  QuakeMigrate
- *      Copyright:  QuakeMigrate developers.
+ *      Copyright:  2020, QuakeMigrate developers.
+ *        License:  GNU General Public License, Version 3
+ *                  (https://www.gnu.org/licenses/gpl-3.0.html)
  *
  * =============================================================================
  */
-#include <stdint.h>
-#include <math.h>
 
-#ifndef _OPENMP
-    /* Generate a compiler error to stop the build */
-    mustLinkOpenMP
-#endif
+#include "qmlib.h"
 
-#if defined(_MSC_VER)
-    //  Microsoft 
-    #define EXPORT __declspec(dllexport)
-    #define IMPORT __declspec(dllimport)
-#elif defined(_GCC)
-    //  GCC
-    #define EXPORT __attribute__((visibility("default")))
-    #define IMPORT
-#else
-    #define EXPORT
-    #define IMPORT
-    // #pragma warning Unknown dynamic link import/export semantics.
-#endif
-
-/* Macros for min/max. */
-#define MIN(a,b) (((a)<(b))?(a):(b))
-#define MAX(a,b) (((a)>(b))?(a):(b))
-
-EXPORT void
-migrate(double *sigPt, int32_t *indPt, double *mapPt, int32_t fSamp,
-        int32_t lSamp, int32_t nSamps, int32_t nStations, int32_t avail,
-        int64_t nNodes, int64_t threads)
-{
+void migrate(double *sigPt, int32_t *indPt, double *mapPt, int32_t fSamp,
+             int32_t lSamp, int32_t nSamps, int32_t nStations, int32_t avail,
+             int64_t nNodes, int64_t threads) {
     /*
     Purpose: compute time series of the coalescence function in a 3-D volume
-             by migrating and stacking onset functions.
+             by migrating and stacking onset functions, using the
+             geometric mean as the stacking operator.
 
     Args:
       sigPt: Pointer to array containing onset functions for each seismic phase
@@ -78,7 +50,7 @@ migrate(double *sigPt, int32_t *indPt, double *mapPt, int32_t fSamp,
         for(station=0; station<nStations; station++) {
             ttp = MAX(0, ttpPt[station]);
             stnPt = &sigPt[station*(fSamp + lSamp + nSamps) + ttp + fSamp];
-            for(t=0; t<nSamps; t++){
+            for(t=0; t<nSamps; t++) {
                 stkPt[t] += stnPt[t];
             }
         }
@@ -89,13 +61,11 @@ migrate(double *sigPt, int32_t *indPt, double *mapPt, int32_t fSamp,
 }
 
 
-EXPORT void
-find_max_coa(double *mapPt, double *snrPt, double *nsnrPt, int64_t *indPt,
-             int32_t nSamps, int64_t nNodes, int64_t threads)
-{
+void find_max_coa(double *mapPt, double *snrPt, double *nsnrPt, int64_t *indPt,
+                  int32_t nSamps, int64_t nNodes, int64_t threads) {
     /*
-    Purpose: find the time series of maximum coalescence, normalised maximum
-             coalescence, and the corresponding indices.
+    Purpose: find the time series of maximum and normalised maximum
+             coalescence values, and their corresponding grid indices.
 
     Args:
       mapPt: Pointer to array containing 4-D coalescence map

@@ -3,6 +3,12 @@
 Module containing the Event class, which stores information related to an
 individual event.
 
+:copyright:
+    2020, QuakeMigrate developers.
+:license:
+    GNU General Public License, Version 3
+    (https://www.gnu.org/licenses/gpl-3.0.html)
+
 """
 
 import logging

@@ -1,4 +1,4 @@
-.. figure:: img/QMLogo.png
+.. figure:: img/QMlogoBig.png
    :figwidth: 50 %
    :width: 90%
    :align: center
@@ -7,19 +7,19 @@
 QuakeMigrate
 ============
 
-:mod:`QuakeMigrate` is a Python package for the detection and location of earthquakes using waveform backprojection.
+:mod:`QuakeMigrate` is a Python package for the detection and location of earthquakes using waveform migration and stacking.
 
 QuakeMigrate uses a waveform stacking algorithm to search for coherent seismic phase arrivals across a network of instruments. It produces, from raw data, a catalogue of earthquakes with locations, origin times and phase arrival picks, as well as estimates of the uncertainties associated with these measurements.
 
 The source code for the project is hosted on |github|.
 
 This package is written by the QuakeMigrate developers, and is distributed under
-the MIT License, Copyright QuakeMigrate developers 2020.
+the GPLv3 License, Copyright QuakeMigrate developers 2020.
 
 
 .. |github| raw:: html
 
-    <a href="https://github.com/Ulvetanna/QuakeMigrate" target="_blank">github</a>
+    <a href="https://github.com/QuakeMigrate/QuakeMigrate" target="_blank">github</a>
 
 Supported operating systems
 ---------------------------

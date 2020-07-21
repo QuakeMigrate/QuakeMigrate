@@ -51,7 +51,7 @@ templates_path = ['_templates']
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = []
 
-html_logo = 'img/QMLogo.png'
+html_logo = 'img/QMlogoBig.png'
 
 # -- Options for HTML output -------------------------------------------------
 

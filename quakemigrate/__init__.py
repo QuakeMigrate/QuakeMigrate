@@ -25,7 +25,7 @@ try:
 except KeyError:
     matplotlib.use("Agg")
 
-name = "QuakeMigrate"
+name = "quakemigrate"
 __version__ = "1.0.0"
 __description__ = "QuakeMigrate - waveform backprojection for earthquake detection and location."
 __license__ = "GPLv3"

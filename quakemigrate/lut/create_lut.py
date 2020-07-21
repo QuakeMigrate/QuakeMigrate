@@ -299,7 +299,8 @@ def _eikonal_fmm(grid_xyz, node_spacing, velocity_grid, station_xyz):
     except ImportError:
         raise ImportError("Unable to import skfmm - you need to install "
                           "scikit-fmm to use this method.\nSee the "
-                          "installation instructions for more details.")
+                          "installation instructions in the documentation"
+                          "for more details.")
 
     phi = -np.ones(grid_xyz[0].shape)
     # Find closest grid node to true station location

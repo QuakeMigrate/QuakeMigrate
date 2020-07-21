@@ -49,7 +49,7 @@ replacing the ``/path/to/nonlinloc`` with the path to where you downloaded/insta
 
 scikit-fmm
 ##########
-scikit-fmm is a 3rd-party package which implements the fast-marching method. We specify the version ``2019.1.30`` as  It can be installed using:
+scikit-fmm is a 3rd-party package which implements the fast-marching method. We specify the version ``2019.1.30`` as previous versions did not catch a potential numerical instability which may lead to unphysical traveltimes. It can be installed using:
 
 .. code-block:: bash
     
@@ -59,7 +59,7 @@ scikit-fmm is a 3rd-party package which implements the fast-marching method. We 
 
 C compilers
 ***********
-In order to install and use QuakeMigrate, you will need a C compiler that will build the migration extension library. For Linux and MacOSX operating systems, it is possible to install suitable compiler tools through Anaconda.
+In order to install and use QuakeMigrate, you will need a C compiler that will build the migration library. For Linux and MacOSX operating systems, it is possible to install suitable compiler tools through Anaconda.
 
 Linux
 #####

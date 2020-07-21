@@ -466,7 +466,6 @@ class WaveformData:
         raise NotImplementedError("Coming soon. Please contact the "
                                   "QuakeMigrate developers.")
 
-
     def get_wa_waveform(self, tr, water_level, pre_filt,
                         remove_full_response=False, velocity=False):
         """
@@ -546,7 +545,8 @@ class WaveformData:
                             pre_filt=pre_filt,
                             water_level=water_level,
                             taper=True,
-                            sacsim=True, pitsasim=False,  # To replicate remove_response()
+                            sacsim=True,  # To replicate remove_response()
+                            pitsasim=False,  # To replicate remove_response()
                             paz_simulate=util.wa_response())
             except ValueError as e:
                 raise util.ResponseRemovalError(e, tr.id)

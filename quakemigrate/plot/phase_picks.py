@@ -88,7 +88,7 @@ def pick_summary(event, station, signal, picks, onsets, ttimes, window):
     # Find indices for window in which to get normalising factor, then plot
     min_t_idx = np.argmin([abs(t - min_t) for t in times])
     max_t_idx = np.argmin([abs(t - max_t) for t in times])
-    times = [x.datetime for x in times]
+    times = event.data.times(type="matplotlib")
     for i, ax in enumerate(axes[:3]):
         # Funky maths to assign the signal data to correct axes
         y = signal[(i+2) % 3, :]
@@ -108,12 +108,12 @@ def pick_summary(event, station, signal, picks, onsets, ttimes, window):
     # --- Plot labels and fix limits ---
     shift = (max_t - min_t) * 0.01  # Fractional shift for text label
     for comp, ax in zip(["Z", "N", "E"], axes[:3]):
-        ax.text((min_t+shift).datetime, 0.9, f"{station}.BH{comp}",
+        ax.text((min_t + shift).datetime, 0.9, f"{station}.BH{comp}",
                 ha="left", va="center", zorder=2, fontsize=18)
         ax.set_ylim([-1.1, 1.1])
         ax.set_yticks(np.arange(-1, 1.5, 0.5))
     for ph, ax in zip(["P", "S"], axes[3:]):
-        ax.text((min_t+shift).datetime, 1., f"{ph} onset", ha="left",
+        ax.text((min_t + shift).datetime, 1., f"{ph} onset", ha="left",
                 va="center", zorder=2, fontsize=18)
         ax.set_ylim([-0.1, 1.1])
         ax.set_yticks(np.arange(0., 1.2, 0.2))
@@ -151,7 +151,7 @@ def pick_summary(event, station, signal, picks, onsets, ttimes, window):
 
     for ax in axes[3:5]:
         ax.legend()
-    fig.tight_layout(pad=4, w_pad=4)
+    fig.tight_layout(pad=1, w_pad=0)
     plt.subplots_adjust(hspace=0)
 
     return fig

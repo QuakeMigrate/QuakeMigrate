@@ -36,12 +36,12 @@ def _load_cdll(name):
     libpath = pathlib.Path(__file__).parent / "src" / name
     lib = libpath.with_suffix(sysconfig.get_config_var("EXT_SUFFIX"))
     try:
-        cdll = ctypes.CDLL(lib)
+        cdll = ctypes.CDLL(str(lib))
     except Exception as e:
-        msg = (f"Could not load extension library '{libpath.name}'.\n\n{e}\n"
+        msg = (f"Could not load extension library '{libpath.name}'.\n\n{e}\n\n"
                "If you have chosen to install from a clone of the github "
-               "repository, please ensure you have run setup.py, which will "
-               "compile and install the C library.")
+               "repository, please ensure you have run 'python setup.py install', which will "
+               "compile and install the C library. See the installation documentation for more details.")
         raise ImportError(msg)
 
     return cdll

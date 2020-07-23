@@ -54,7 +54,7 @@ Any additional comments/questions can be directed to:
 
 License
 -------
-This package is written and maintained by the QuakeMigrate developers, Copyright QuakeMigrate developers 2020. It is distributed under the GPLv3 License. Please see the [LICENSE](LICENSE) file for a complete description of the rights and freedoms that this provides the user.
+This package is written and maintained by the QuakeMigrate developers, Copyright QuakeMigrate developers 2020. It is distributed under the GPLv3 License. Please see the [here](https://www.gnu.org/licenses/gpl-3.0.html) for a complete description of the rights and freedoms that this provides the user.
 
 Contents:
 ---------

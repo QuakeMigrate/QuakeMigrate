@@ -1,8 +1,8 @@
 .. figure:: img/QMlogoBig.png
-   :figwidth: 50 %
+   :figwidth: 70 %
    :width: 90%
    :align: center
-   :alt: QuakeMigrate: a Python package for earthquake detection and location.  
+   :alt: QuakeMigrate: a Python package for earthquake detection and location using waveform migration and stacking.  
 
 QuakeMigrate
 ============
@@ -23,11 +23,12 @@ the GPLv3 License, Copyright QuakeMigrate developers 2020.
 
 Supported operating systems
 ---------------------------
-We currently support Linux environments running Python 3.x. We hope to support OSX and Windows environments soon.
+QuakeMigrate was developed and tested on Ubuntu 16.04/18.04, with the intention of being "platform agnostic". As of July 2020, the package has been successfully built and run on:
 
-Tests
------
-A comprehensive suite of unit tests are in the works.
+- Ubuntu 16.04/18.04/20.04
+- Red Hat Enterprise Linux
+- Windows 10
+- macOSX High Sierra 10.13.6
 
 Citation
 --------
@@ -43,6 +44,17 @@ We hope to have a publication coming out soon:
 
 Winder, T., Smith, J.D., Bacon, C.A., Hudson, T.S., Drew, J., Greenfield, T. and White, R.S. QuakeMigrate: a Python Package for Automatic Earthquake Detection and Location Using Waveform Migration and Stacking. Seismological Research Letters.
 
+Contact
+-------
+You can contact us directly at - quakemigrate.developers@gmail.com
+
+Any additional comments/questions can be directed to:
+* **Tom Winder** - tom.winder@esc.cam.ac.uk
+* **Conor Bacon** - conor.bacon@esc.cam.ac.uk
+
+License
+-------
+This package is written and maintained by the QuakeMigrate developers, Copyright QuakeMigrate developers 2020. It is distributed under the GPLv3 License. Please see the [LICENSE](LICENSE) file for a complete description of the rights and freedoms that this provides the user.
 
 Contents:
 ---------

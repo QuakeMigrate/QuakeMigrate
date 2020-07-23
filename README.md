@@ -1,5 +1,7 @@
 ![](./docs/img/QMlogoBig.png)
 
+[![Documentation Status](https://readthedocs.org/projects/quakemigrate/badge/?version=development)](https://quakemigrate.readthedocs.io/en/development/?badge=development)
+
 QuakeMigrate is a Python package for the detection and location of seismicity from passive seismic data using waveform migration and stacking. It can be used to produce catalogues of earthquakes, including hypocentres, origin times, phase arrival picks, and local magnitude estimates, as well as rigorous estimates of the associated uncertainties.
 
 The package has been implemented with a modular architecture with the potential for extension and adaptation at numerous entry points, including the calculation of traveltime grids, the choice of characteristic function, and the algorithm used to perform phase picking.

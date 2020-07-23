@@ -1,6 +1,6 @@
 Installation
 ============
-The QuakeMigrate is a predominantly Python package with some routines written and optimised in C. These are built and linked to QuakeMigrate at installation, which means you will need to ensure that there is a suitable compiler available (more details below).
+:mod:`QuakeMigrate` is a predominantly Python package with some routines written and optimised in C. These are built and linked to QuakeMigrate at installation, which means you will need to ensure that there is a suitable compiler available (more details below).
 
 Supported operating systems
 ---------------------------

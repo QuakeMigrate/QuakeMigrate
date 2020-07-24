@@ -124,7 +124,7 @@ class ScanmSEED:
         if self.continuous_write and not self.written:
             self.write()
 
-    def empty(self, starttime, timestep, i, msg):
+    def empty(self, starttime, timestep, i, msg, ucf):
         """
         Create an empty set of arrays to write to .scanmseed; used where there
         is no data available to run _compute().
@@ -140,6 +140,11 @@ class ScanmSEED:
         msg : str
             Message to output to log giving details as to why this timestep is
             empty.
+        ucf : float
+            A conversion factor based on the lookup table grid projection. Used
+            to ensure the same level of precision (millimetre) is retained
+            during compression, irrespective of the units of the grid
+            projection.
 
         """
 
@@ -150,7 +155,7 @@ class ScanmSEED:
         max_coa = max_coa_n = np.full(n, 0)
         coord = np.full((n, 3), 0)
 
-        self.append(starttime, max_coa, max_coa_n, coord)
+        self.append(starttime, max_coa, max_coa_n, coord, ucf)
 
     def write(self, write_start=None, write_end=None):
         """

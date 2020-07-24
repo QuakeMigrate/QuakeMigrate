@@ -366,10 +366,12 @@ class QuakeScan:
                                    self.lut.unit_conversion_factor)
                 availability.loc[i] = data.availability
             except util.ArchiveEmptyException as e:
-                coalescence.empty(starttime, self.timestep, i, e.msg)
+                coalescence.empty(starttime, self.timestep, i, e.msg,
+                                  self.lut.unit_conversion_factor)
                 availability.loc[i] = np.zeros(len(self.archive.stations))
             except util.DataGapException as e:
-                coalescence.empty(starttime, self.timestep, i, e.msg)
+                coalescence.empty(starttime, self.timestep, i, e.msg,
+                                  self.lut.unit_conversion_factor)
                 availability.loc[i] = np.zeros(len(self.archive.stations))
 
             availability.rename(index={i: str(starttime + self.timestep*i)},
@@ -568,8 +570,8 @@ class QuakeScan:
             if post_pad < 0:
                 if self.post_cut:
                     msg = (f"\t\tWarning: specified post_cut {self.post_cut} is"
-                        " shorter than default post_pad\n"
-                        f"t\t\tCutting to post_pad = {self.post_pad}")
+                           " shorter than default post_pad\n"
+                           f"t\t\tCutting to post_pad = {self.post_pad}")
                     logging.info(msg)
                 post_pad = 0.
 

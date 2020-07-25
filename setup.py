@@ -207,7 +207,7 @@ def setup_package():
                      "quakemigrate.signal",
                      "quakemigrate.signal.local_mag",
                      "quakemigrate.signal.onsets",
-                     "quakemigrate.signal.picker"],
+                     "quakemigrate.signal.pickers"],
         "ext_modules": get_extensions(),
         "package_data": get_package_data(),
         "package_dir": get_package_dir()

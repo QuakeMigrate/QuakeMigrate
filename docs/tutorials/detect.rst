@@ -2,14 +2,14 @@ The Detect Stage
 ===========================
 This tutorial will cover the basic ideas and definitions underpinning the initial stage of a QuakeMigrate run, the detect stage.
 
-During this stage, the waveform data is continuously migrated through your travel time lookup tables (LUTs) to generate a coalescence function through time. This function records the x, y, z position of maximum coalescence in your volume for each timestep. Peaks in this function are then triggered during the `trigger` stage.
+During this stage, the waveform data is continuously migrated through your travel time lookup tables (LUTs) to generate a coalescence function through time. This function records the x, y, z position of maximum coalescence in your volume for each timestep. Peaks in this function are then used during the `trigger` stage to identify events.
 
-The migration of the data is performed for each node and timestep in a 4D sense and can be very computationally intense. For this reason, it is typical to decimate the LUT to reduce the computation time. Muti-core machines or HPC clusters can also be used to split the time period and perform the computation in parallel.
+The migration of the data is performed for each node and timestep in a 4D sense and can be very computationally demanding. For this reason, it is typical to decimate the LUT to reduce the computation time. Multi-core machines or HPC clusters can also be used to split the time period and perform the computation in parallel.
 
 Before you start
 ===========================
 
-You will need a semi-continuous waveform archive organised in a known way (see `Archive` tutorial), a travel time LUT (as generated in the previous tutorial) and your station file (as used to generate the LUT). You will also need to choose a location to store your results and a name for your run. QuakeMigrate will automatically generate an output structure to store all your results and place this in a folder in your chosen location named as the run name. You may well run QuakeMigrate many times before you reach the final set of parameter values which produce the best results. It is therefore important to choose a clear and documented run naming scheme.
+You will need a semi-continuous waveform archive organised in a known way (see `Archive` tutorial), a travel time LUT (as generated in the previous tutorial) and a station file (as used to generate the LUT). You will also need to choose a location to store your results and a name for your run. QuakeMigrate will automatically generate an output structure to store all your results and place this in a folder in your chosen location named as the run name. You may well run QuakeMigrate many times before you reach the final set of parameter values which produce the best results. It is therefore important to choose a clear and documented run-naming-scheme.
 
 .. note:: Your run name and directory does not have to be the same for the three QuakeMigrate stages (`detect`, `trigger` and `locate`).
 
@@ -28,7 +28,7 @@ We proceed by defining these parameters as variables.
     
     stations = read_stations(station_file)
 
-Detect runs on continuous data between two defined timestamps. Internally, QuakeMigrate uses UTCDateTime (from obspy) to parse the timestamps so you can input your dates in any way that is understandable. However, using an isoformat like datetime string (as below) is recommended.
+Detect runs on continuous data between two defined timestamps. Internally, QuakeMigrate uses UTCDateTime (from obspy) to parse the timestamps so you can input your dates in any way that is understandable. However, using an isoformat-like datetime string (as below) is recommended.
 
 ::
 
@@ -43,6 +43,7 @@ The waveform archive is defined using an `Archive` object (see `Archive` tutoria
     
     archive = Archive(archive_path=archive_path, stations=stations,
                   archive_format="YEAR/JD/STATION")
+    lut = read_lut(lut_file=lut_out)
 
 Decimation of the LUT
 ===========================
@@ -77,7 +78,7 @@ The STALTA function is the ratio between the average value in a short window to 
 
 .. image:: img/waveform.png
 
-Using the `classic` argument will reproduce the `classic_sta_lta` from obspy (https://docs.obspy.org/packages/autogen/obspy.signal.trigger.classic_sta_lta.html) where both windows are behind (in time) the current timestamp. This is the more usual formulation as it is causal (i.e. doesn't rely on data ahead of the timestamp to generate the value). In contrast, the `centred` argument will place the short window ahead of the current timestamp. This will maximise the signal-to-noise ratio. 
+Using the `classic` argument will reproduce the `classic_sta_lta` from obspy (https://docs.obspy.org/packages/autogen/obspy.signal.trigger.classic_sta_lta.html) where both windows are behind the current timestamp. This is the more usual formulation as it is causal (i.e. doesn't rely on future data to generate the value at a particular time). In contrast, the `centred` argument will place the short window ahead of the current timestamp. This will maximise the signal-to-noise ratio. 
 
 Experience has suggested that during the `detect` stage the `classic` option produces more robust results. During the `locate` stage it is often better to use the `centred` argument as the resulting peaks in the coalescence function will be higher and less broad. 
 
@@ -171,7 +172,7 @@ When choosing your parameters, you should experiment with different values using
 `Detect` parameters
 ====================
 
-The `detect` stage of QuakeMigrate takes relatively few parameters which the user should set before starting the run. These mostly effect the runtime of the detect run and optimising them can dramtically reduce the overal compute time. 
+The `detect` stage of QuakeMigrate takes relatively few parameters which the user should set before starting the run. These mostly effect the runtime of the detect run and optimising them can dramtically reduce the overall compute time. 
 
 ::
 
@@ -192,7 +193,7 @@ Starting your `detect` run
 
     scan.detect(starttime, endtime)
 
-`Detect` is called using this command and the waveform archive is scanned between the start and end time in chunks of length `timestep`. A log will be printed to `STDOUT` which summarises the chosen parameters for your run. As the calculation proceeds the chunk of time currently being analysed will be printed to the screen will the amount of time taken to perform the calculation for that chunk.
+`Detect` is called using this command and the waveform archive is scanned between the start and end time in chunks of length `timestep`. A log will be printed to `STDOUT` which summarises the chosen parameters for your run. As the calculation proceeds the chunk of time currently being analysed will be printed to the screen with the amount of time taken to perform the calculation for that chunk.
 
 Common Errors
 ==============
@@ -202,7 +203,7 @@ The errors output from QuakeMigrate should be self-explanatory. See below for so
 `ArchiveEmptyException`
 ------------------------
 
-This common area is output if your `Archive` object doesn't return any data for the time period requested. Check your data archive and time period requested.
+This common error is output if your `Archive` object doesn't return any data for the time period requested. Check your data archive and time period requested.
 
 Understanding the output from `detect`
 ======================================
@@ -253,7 +254,7 @@ By storing the output as a miniSEED object you can read the outputs using the sa
 
     st[0].plot()
 
-By storing the data as miniSEED files, we not only make it easy to plot and manipulate the data using python libraries through obspy. We also can use miniSEEDs impressive compression routines to effciently store large volumes of data. To access this, we store values in the scanmseed object as integers by multiplying the raw output from `detect` by XX and YY for the coalesence and position traces respectively. 
+By storing the data as miniSEED files, we not only make it easy to plot and manipulate the data using python libraries through obspy. We also can use miniSEEDs impressive compression routines to effciently store large volumes of data. To access this, we store values in the scanmseed object as integers. To return the values stored in the `scanmseed` object to the real values, divide the coalesence traces by 5 and the X, and Y traces by 6. The depth (Z trace) is stored to the nearest millimetre, the exact number to divide the output by will depend on your units.
 
 Running `detect` across a large waveform archive
 ===================================================

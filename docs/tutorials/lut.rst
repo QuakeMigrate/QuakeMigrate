@@ -49,6 +49,7 @@ The grid specification needs to be bundled into a dictionary to be used as an in
 have `.`-style access.
 
 ::
+    from obspy import AttribDict
 
     grid_spec = AttribDict()
     grid_spec.ll_corner = ll_corner

@@ -451,15 +451,15 @@ class Magnitude:
 
         # Set figure and axis titles
         ax.set_title(f'Amplitude vs distance plot for event: "{event.uid}"',
-                     fontsize=18)
-        ax.set_ylabel('Amplitude / mm', fontsize=16)
+                     fontsize=8)
+        ax.set_ylabel('Amplitude / mm', fontsize=8)
         if self.use_hyp_dist:
-            ax.set_xlabel('Hypocentral Distance / km', fontsize=16)
+            ax.set_xlabel('Hypocentral Distance / km', fontsize=8)
         else:
-            ax.set_xlabel('Epicentral Distance / km', fontsize=16)
+            ax.set_xlabel('Epicentral Distance / km', fontsize=8)
 
         # Add legend
-        ax.legend(fontsize=16, loc='upper right')
+        ax.legend(fontsize=8, loc='upper right')
 
         # Specify tight layout
         plt.tight_layout()

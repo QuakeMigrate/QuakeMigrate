@@ -651,3 +651,40 @@ class InvalidThresholdMethodException(Exception):
         msg = ("InvalidThresholdMethodException: Only 'static' or 'dynamic' "
                "thresholds are supported.")
         super().__init__(msg)
+
+def inventory_to_QM(inv, elevation_units='m', outputfile='stations.csv'):
+    """
+    Converts an ObsPy inventory object into a csv file suitable for QuakeMigrate.
+
+    Parameters
+    ----------
+    inv : obspy.inventory
+        obspy Inventory to convert
+
+    obspy_def : bool, optional
+        Use the ObsPy definition of the Wood Anderson response (Default).
+        Otherwise, use the IRIS/SAC definition.
+
+    """
+
+    if elevation_units == 'm':
+        factor = 1.e3
+    elif elevation_units == 'km':
+        factor = 1.
+    else:
+        raise NotImplementedError(elevation_units, 
+                'is not implemented yet as a possible unit')
+
+    out = ['Latitude,Longitude,Elevation,Name']
+    for network in inv.networks:
+        for station in network.stations:
+            out.append('{},{},{},{}'.format(station.latitude,
+                                            station.longitude,
+                                            station.elevation / factor,
+                                            '.'.join([network.code, station.code])
+                                            ))
+    
+    with open(outputfile, 'w') as fid:
+        fid.write('\n'.join(out))
+
+    return

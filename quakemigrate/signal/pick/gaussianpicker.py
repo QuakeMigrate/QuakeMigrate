@@ -440,7 +440,7 @@ class GaussianPicker(PhasePicker):
                 norm = max(onsets[j][win[0]:win[1]+1])
                 ax.axhline(thresh / norm, label="Pick threshold")
                 axes[5].text(0.05+j*0.5, 0.25, f"Threshold: {thresh:5.3f}",
-                             ha="left", va="center", fontsize=18)
+                             ha="left", va="center", fontsize=8)
 
                 # Check pick has been made
                 if not gau["PickValue"] == -1:
@@ -457,7 +457,7 @@ class GaussianPicker(PhasePicker):
                                  alpha=0.2, color=clr, label="Picking window")
 
             for ax in axes[3:5]:
-                ax.legend(fontsize=14)
+                ax.legend(fontsize=8)
 
             fstem = f"{event.uid}_{station}"
             file = (fpath / fstem).with_suffix(".pdf")

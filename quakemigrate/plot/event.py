@@ -64,7 +64,7 @@ def event_summary(run, event, marginal_coalescence, lut, xy_files=None):
               coa_map[idx_max[0], :, :].T]
     otime = event.otime
 
-    fig = plt.figure(figsize=(25, 15))
+    fig = plt.figure(figsize=(12, 9))
 
     # Create plot axes, ordering: [SIGNAL, COA, XY, XZ, YZ]
     sig_spec = GridSpec(9, 15).new_subplotspec((0, 8), colspan=7, rowspan=7)
@@ -95,9 +95,9 @@ def event_summary(run, event, marginal_coalescence, lut, xy_files=None):
     text = plt.subplot2grid((9, 15), (0, 0), colspan=8, rowspan=2, fig=fig)
     _plot_text_summary(text, lut, event)
 
-    fig.axes[0].legend(fontsize=14, loc=1, framealpha=1, markerscale=0.5)
-    fig.axes[1].legend(fontsize=14, loc=1, framealpha=1)
-    fig.axes[2].legend(fontsize=14)
+    fig.axes[0].legend(fontsize=8, loc=1, framealpha=1, markerscale=0.5)
+    fig.axes[1].legend(fontsize=8, loc=1, framealpha=1)
+    fig.axes[2].legend(fontsize=8)
     fig.tight_layout(pad=1, h_pad=0)
     plt.subplots_adjust(wspace=0.3, hspace=0.3)
 
@@ -189,7 +189,7 @@ def _plot_waveform_gather(ax, lut, event, idx):
     ax.set_ylim([0, max(range_order)+2])
     ax.xaxis.set_major_formatter(util.DateFormatter("%H:%M:%S.{ms}", 2))
     ax.yaxis.set_ticks(range_order)
-    ax.yaxis.set_ticklabels(event.data.stations, fontsize=14)
+    ax.yaxis.set_ticklabels(event.data.stations, fontsize=8)
 
 
 def _plot_coalescence_trace(ax, event):
@@ -210,8 +210,8 @@ def _plot_coalescence_trace(ax, event):
     times = [x.datetime for x in event.coa_data["DT"]]
     ax.plot(times, event.coa_data["COA"], c="k", lw=0.5, zorder=10,
             label="Maximum coalescence")
-    ax.set_ylabel("Maximum coalescence", fontsize=14)
-    ax.set_xlabel("DateTime", fontsize=14)
+    ax.set_ylabel("Maximum coalescence", fontsize=8)
+    ax.set_xlabel("DateTime", fontsize=8)
     ax.set_xlim([times[0], times[-1]])
     ax.xaxis.set_major_formatter(util.DateFormatter("%H:%M:%S.{ms}", 2))
 
@@ -251,10 +251,10 @@ def _plot_text_summary(ax, lut, event):
     # Grab the magnitude information
     mag_info = event.local_magnitude
 
-    ax.text(0.25, 0.8, f"Event: {event.uid}", fontsize=20, fontweight="bold")
+    ax.text(0.25, 0.8, f"Event: {event.uid}", fontsize=8, fontweight="bold")
     ot_text = event.otime.strftime("%Y-%m-%d %H:%M:%S.")
     ot_text += event.otime.strftime("%f")[:3]
-    with plt.rc_context({"font.size": 16}):
+    with plt.rc_context({"font.size": 8}):
         ax.text(0.35, 0.65, "Origin time:", ha="right", va="center")
         ax.text(0.37, 0.65, f"{ot_text}", ha="left", va="center")
         ax.text(0.35, 0.55, "Hypocentre:", ha="right", va="top")

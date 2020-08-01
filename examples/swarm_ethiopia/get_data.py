@@ -6,9 +6,11 @@ import os
 client = Client('IRIS')
 
 inv = client.get_stations(network="Y6", minlatitude=7.85, maxlatitude=8.3,
-        starttime=UTC('2017-097T'), endtime=UTC('2017-098T'))
+        starttime=UTC('2016-097T'), endtime=UTC('2016-098T'),
+        level='response')
 
 inventory_to_QM(inv, outputfile='./inputs/ethiopia_stations_TM.csv')
+inv.write('./inputs/Y6.dataless.xml', format='STATIONXML')
 
 starttime = UTC("2016-097T18:30:00")
 endtime = UTC("2016-097T18:45:00")

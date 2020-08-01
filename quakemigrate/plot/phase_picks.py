@@ -108,7 +108,7 @@ def pick_summary(event, station, signal, picks, onsets, ttimes, window):
     # --- Plot labels and fix limits ---
     shift = (max_t - min_t) * 0.01  # Fractional shift for text label
     for comp, ax in zip(["Z", "N", "E"], axes[:3]):
-        ax.text((min_t + shift).datetime, 0.9, f"{station}.BH{comp}",
+        ax.text((min_t + shift).datetime, 0.9, f"{station}.{comp}",
                 ha="left", va="center", zorder=2, fontsize=8)
         ax.set_ylim([-1.1, 1.1])
         ax.set_yticks(np.arange(-1, 1.5, 0.5))

@@ -459,8 +459,8 @@ class GaussianPicker(PhasePicker):
             for ax in axes[3:5]:
                 ax.legend(fontsize=8)
 
-            fstem = f"{event.uid}_{station}"
-            file = (fpath / fstem).with_suffix(".pdf")
+            fstem = f"{event.uid}_{station}.pdf"
+            file = (fpath / fstem)
             plt.savefig(file)
             plt.close(fig)
 

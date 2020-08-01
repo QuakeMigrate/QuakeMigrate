@@ -424,7 +424,7 @@ class QuakeScan:
                 logging.info("\tReading waveform data...")
                 event.add_waveform_data(self._read_event_waveform_data(w_beg,
                                                                        w_end))
-                print('YES')
+
                 logging.info("\tComputing 4-D coalescence function...")
                 event.add_coalescence(*self._compute(event.data, event))  # pylint: disable=E1120
             except util.ArchiveEmptyException as e:
@@ -535,7 +535,6 @@ class QuakeScan:
         pre_pad = post_pad = 0.
 
         if self.pre_cut or self.mags is not None:
-            print('self.precut', self.pre_cut)
             if self.mags is not None and self.pre_cut:
                 pre_cut = max(self.mags.amp.noise_window + self.marginal_window,
                               self.pre_cut)
@@ -546,7 +545,6 @@ class QuakeScan:
                                f"{pre_cut}"))
             else:
                 pre_cut = self.pre_cut
-            print('precut', pre_cut)
             # only subtract 1*marginal_window so if the event otime moves by
             # this much the selected pre_cut can still be applied
             pre_pad = pre_cut - self.marginal_window - self.pre_pad

@@ -10,9 +10,12 @@ from quakemigrate.signal.onset import STALTAOnset
 from quakemigrate.signal.pick import GaussianPicker
 from quakemigrate.signal.local_mag import LocalMag
 
+from obspy import read_inventory
+
 # --- i/o paths ---
 station_file = "./inputs/ethiopia_stations_TM.csv"
 data_in = "./inputs/mSEED"
+response_path = './inputs/Y6.dataless.xml'
 lut_out = "./outputs/lut/ethiopia.LUT"
 run_path = "./outputs/runs"
 run_name = "example_run"
@@ -24,25 +27,29 @@ endtime = "2016-097T18:44:00"
 # --- Read in station file ---
 stations = read_stations(station_file)
 
+# --- Read in the instrument responses ---
+inv = read_inventory(response_path)
+
 # --- Create new Archive and set path structure ---
 archive = Archive(archive_path=data_in, stations=stations,
                   format='{year}/{jday:03d}/{network}.{station}*',
-                  catch_network=True)
+                  response_inv=inv, catch_network=True)
 
 # --- Load the LUT ---
 lut = read_lut(lut_file=lut_out)
 
 # --- Create new Onset ---
 onset = STALTAOnset(position="centred")
-onset.p_bp_filter = [1., 10., 2]
-onset.s_bp_filter = [1., 10., 2]
-onset.p_onset_win = [0.7, 5.]
-onset.s_onset_win = [0.7, 5.]
+onset.p_bp_filter = [2., 8., 3]
+onset.s_bp_filter = [2., 8., 3]
+onset.p_onset_win = [0.5, 5.]
+onset.s_onset_win = [0.5, 5.]
 
 # --- Create new PhasePicker ---
 picker = GaussianPicker(onset=onset)
 picker.marginal_window = 1.
 picker.plot_picks = True
+picker.pick_threshold = 0.96
 
 # --- Create new LocalMag object ---
 amp_params = {
@@ -52,6 +59,7 @@ amp_params = {
 mag_params = {
     "A0" : 'keir2006',
     'use_hyp_dist' : True,
+    'noise_filter' : 4.
 }
 localmag = LocalMag(amp_params, mag_params)
 
@@ -75,5 +83,5 @@ scan.plot_event_summary = True
 scan.write_cut_waveforms = False
 
 # --- Run locate ---
-# scan.locate(starttime=starttime, endtime=endtime)
-scan.locate(trigger_file='1event.csv')
+scan.locate(starttime=starttime, endtime=endtime)
+# scan.locate(trigger_file='1event.csv')

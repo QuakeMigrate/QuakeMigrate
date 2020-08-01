@@ -99,7 +99,7 @@ def event_summary(run, event, marginal_coalescence, lut, xy_files=None):
     fig.axes[1].legend(fontsize=8, loc=1, framealpha=1)
     fig.axes[2].legend(fontsize=8)
     fig.tight_layout(pad=1, h_pad=0)
-    plt.subplots_adjust(wspace=0.3, hspace=0.3)
+    plt.subplots_adjust(wspace=0.3, hspace=0.7)
 
     # --- Adjust cross sections to match map aspect ratio ---
     # Get left, bottom, width, height of each subplot bounding box
@@ -190,6 +190,7 @@ def _plot_waveform_gather(ax, lut, event, idx):
     ax.xaxis.set_major_formatter(util.DateFormatter("%H:%M:%S.{ms}", 2))
     ax.yaxis.set_ticks(range_order)
     ax.yaxis.set_ticklabels(event.data.stations, fontsize=8)
+    ax.tick_params(axis='x', which='both', labelsize=8)
 
 
 def _plot_coalescence_trace(ax, event):
@@ -214,6 +215,7 @@ def _plot_coalescence_trace(ax, event):
     ax.set_xlabel("DateTime", fontsize=8)
     ax.set_xlim([times[0], times[-1]])
     ax.xaxis.set_major_formatter(util.DateFormatter("%H:%M:%S.{ms}", 2))
+    ax.tick_params(axis='both', which='both', labelsize=8)
 
 
 def _plot_text_summary(ax, lut, event):

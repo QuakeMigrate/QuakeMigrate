@@ -276,9 +276,7 @@ class Archive:
             # Pass stream to be processed and added to data.signal. This
             # processing includes resampling and determining the availability
             # of the desired stations.
-            print('no')
             data.add_stream(st, self.resample, self.upfactor)
-            print('yes')
 
         except StopIteration:
             raise util.ArchiveEmptyException
@@ -703,7 +701,7 @@ class WaveformData:
 
         samples = util.time2sample(self.endtime - self.starttime,
                                    self.sampling_rate) + 1
-        print('Expected samples', samples)
+
         availability = np.zeros(len(self.stations)).astype(int)
         signal = np.zeros((3, len(self.stations), int(samples)))
 

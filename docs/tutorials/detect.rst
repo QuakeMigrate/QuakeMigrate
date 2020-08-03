@@ -146,7 +146,7 @@ When choosing your parameters, you should experiment with different values using
     onset_data = onset.calculate_onsets(data, log=False)
 
     # onset data is a numpy array of the P and S onsets
-    # to plot the Z-component of a single station
+    # to plot the Z-component of the first station
     fig, axs = plt.subplots(3, 1)
 
     raw_waveform = data.signal[0, 0, :]

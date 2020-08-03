@@ -114,7 +114,7 @@ In combination with your filter choice, the choice of window length is the most 
 
 A good place to start is to choose a short window length equal to 2-3 times the dominant period of the signal you are hoping to capture. The long window values are then much longer than the short window. Typical values are 5-10 times the length of the short window. 
 
-When choosing your parameters, you should experiment with different values using your data before running a `detect` run. A good way to do this is to use a combination of the `Archive` and `STALTAOnset` classes to grab sections of data from your archive and apply different filter and STALTA parameters to it. The data can be manipulated and displayed using `matplotlib` as in the example below.
+When choosing your parameters, you should experiment with different values using your data before running a `detect` run. A good way to do this is to use a combination of the :class:`Archive` and :class:`STALTAOnset` classes to grab sections of data from your archive and apply different filter and STALTA parameters to it. The data can be manipulated and displayed using `matplotlib <https://matplotlib.org/>`_ as in the example below.
 
 ::
 

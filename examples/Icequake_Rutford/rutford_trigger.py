@@ -40,4 +40,4 @@ trig.static_threshold = 2.75
 # trig.mad_multiplier = 8.
 
 # --- Run trigger ---
-trig.trigger(starttime, endtime, savefig=True)
+trig.trigger(starttime, endtime, savefig=False)

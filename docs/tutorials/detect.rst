@@ -180,7 +180,7 @@ The `detect` stage of QuakeMigrate takes relatively few parameters which the use
     scan.timestep = 120.
     scan.threads = 12
 
-The sampling rate should be chosen to be the minimum possible given your chosen filter/signal frequency content as a coalesence grid is calculated for each sample. In this case filtering between 2 - 10 Hz was best so it was possible to decimate 100 sps data to 20 sps. 
+The ``sampling_rate`` should be chosen to be the minimum possible given your chosen filter/signal frequency content as a coalescence grid is calculated for each sample. In this case filtering between 2 - 10 Hz was best so one can decimate 100 Hz data to 20 Hz. 
 
 The timestep parameters is a balance between reducing the number of times data is requested from the `Archive` object and the memory capacity of your machine. As reading data from the hard drive is slow, and limited to one processor, the number of times this is requested should be minimised. However, reading large chunks of waveform data can quickly fill your computers RAM, dramatically slowing the calculation. 
 

@@ -102,7 +102,7 @@ For volcano-tectonic or microseismicity recorded across a local network, good st
 .. note:: Remember to check the Nyquist frequency of your data. An exception will be thrown if you try to filter at frequencies greater than the Nyquist.
 
 Window lengths
-------------------------------
+--------------
 
 In combination with your filter choice, the choice of window length is the most important parameter in producing high-quality results. As when specifying the filter parameters, you can choose to specify different window parameters for P- and S-phases to account for differences in their frequency content and/or noise value. 
 

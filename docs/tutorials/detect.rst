@@ -140,6 +140,7 @@ When choosing your parameters, you should experiment with different values using
     onset.s_bp_filter = [2, 9.9, 2]
     onset.p_onset_win = [0.2, 1.5]
     onset.s_onset_win = [0.2, 1.5]]
+    onset.sampling_rate = sampling_rate  # same sampling_rate used for the archive
 
     # apply the onset function to the data snippet
     onset_data = onset.calculate_onsets(data, log=False)

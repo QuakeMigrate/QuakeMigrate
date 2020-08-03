@@ -95,7 +95,7 @@ Prior inspection of your recorded data before analysis is strongly recommended t
 
 High- and low-cut frequencies can be defined for both P- and S-waves separately and are defined in Hertz. Typically S-waves have lower frequency content than P-waves and the horizontal components may have a different seismic-noise frequency content to the vertical component.
 
-For volcano-tectonic or microseismicity recorded across a local network, good starting values are 2 Hz for the high-pass corner and 10 - 16 Hz for the low-pass filter. These values remove most of the seismic noise associated with the oceanic microseism (periods > 7 s) and reduce high-frequency anthropogenic seismic noise.
+For volcano-tectonic or microseismicity recorded across a local network, good starting values are 2 Hz for the low-cut corner and 10 - 16 Hz for the high-cut corner. These values remove most of the seismic noise associated with the oceanic microseism (periods > 7 s) and reduce high-frequency anthropogenic seismic noise.
 
 .. note:: QuakeMigrate uses a Butterworth filter with customisable high- and low-corners. The filter is applied both forwards and backwards to remove any phase shifts. As such, the effective order is double the user-defined order.
 

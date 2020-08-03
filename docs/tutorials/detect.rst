@@ -197,7 +197,7 @@ Starting your `detect` run
 
     scan.detect(starttime, endtime)
 
-`Detect` is called using this command and the waveform archive is scanned between the start and end time in chunks of length `timestep`. A log will be printed to `STDOUT` which summarises the chosen parameters for your run. As the calculation proceeds the chunk of time currently being analysed will be printed to the screen with the amount of time taken to perform the calculation for that chunk.
+`Detect` is called using this command and the waveform archive is scanned between the start and end time in chunks of length ``timestep``. A log will be printed to `STDOUT` which summarises the chosen parameters for your run. As the calculation proceeds the chunk of time currently being analysed will be printed to the screen with the amount of time taken to perform the calculation for that chunk.
 
 Common Errors
 ==============

@@ -89,7 +89,7 @@ Prior inspection of your recorded data before analysis is strongly recommended t
 
 ::
 
-    # [lowpass (Hz), highpass (Hz), corners]
+    # [lowcut (Hz), highcut (Hz), corners]
     onset.p_bp_filter = [2, 9.9, 2] # P-wave filter values
     onset.s_bp_filter = [2, 9.9, 2] # S-wave filter values
 

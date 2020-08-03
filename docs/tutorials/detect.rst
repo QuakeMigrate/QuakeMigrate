@@ -127,7 +127,7 @@ When choosing your parameters, you should experiment with different values using
     station_file = "/path/to/station_file"
     stations = read_stations(station_file)
     archive = Archive(archive_path=archive_path, stations=stations,
-                    archive_format="YEAR/JD/STATION")
+                      archive_format="YEAR/JD/STATION")
                     
     # read a snippet of data (ideally around a known event)
     starttime = "2018-001T10:00:00.0"

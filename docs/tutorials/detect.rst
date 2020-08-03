@@ -236,7 +236,7 @@ The `scanmseed` object is the primary output from the `detect` stage and is used
 2. The maximum coalescence value of the grid normalised by the mean value of the entire grid
 3. The X, Y and Z position of maximum coalescence
 
-By storing the output as a miniSEED object you can read the outputs using the same methods as for waveform data. For example, you can easily read and plot the coalesence function using:
+By using the miniSEED file format it is possible to read the outputs using the same methods as for waveform data. For example, you can easily read and plot the coalescence function using:
 
 ::
 

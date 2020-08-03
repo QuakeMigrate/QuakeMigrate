@@ -254,7 +254,7 @@ By storing the output as a miniSEED object you can read the outputs using the sa
 
     st[0].plot()
 
-By storing the data as miniSEED files, we not only make it easy to plot and manipulate the data using python libraries through obspy. We also can use miniSEEDs impressive compression routines to effciently store large volumes of data. To access this, we store values in the scanmseed object as integers. To return the values stored in the `scanmseed` object to the real values, divide the coalesence traces by 5 and the X, and Y traces by 6. The depth (Z trace) is stored to the nearest millimetre, the exact number to divide the output by will depend on your units.
+Storing the data as miniSEED files not only makes it easy to plot and manipulate the data using ObsPy, but also enables us to use miniSEEDs impressive compression routines (STEIM1/2) to efficiently store large volumes of data. To facilitate this, we store values in the scanmseed file as integers, retaining the original float point values to some fixed precision. These are: 5 for the two coalescence traces, 6 for X and Y. The depth (Z) is stored to the nearest millimetre, the exact number depending on your choice of units for the LUT. To return the values stored in the `scanmseed` object to the real values, divide each trace by the appropriate factor.
 
 Running `detect` across a large waveform archive
 ===================================================

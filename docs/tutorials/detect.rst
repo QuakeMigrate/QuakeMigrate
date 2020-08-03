@@ -78,7 +78,7 @@ The STALTA function is the ratio between the average value in a short window to 
 
 .. image:: img/waveform.png
 
-Using the `classic` argument will reproduce the `classic_sta_lta` from obspy (https://docs.obspy.org/packages/autogen/obspy.signal.trigger.classic_sta_lta.html) where both windows are behind the current timestamp. This is the more usual formulation as it is causal (i.e. doesn't rely on future data to generate the value at a particular time). In contrast, the `centred` argument will place the short window ahead of the current timestamp. This will maximise the signal-to-noise ratio. 
+When the ``classic`` configuration is chosen, QuakeMigrate will use the :func:`classic_sta_lta` `from ObsPy <https://docs.obspy.org/packages/autogen/obspy.signal.trigger.classic_sta_lta.html>`_ where both windows are behind the current timestamp. This is the more usual formulation as it is causal (i.e. doesn't rely on future data to generate the value at a particular time). In contrast, the ``centred` argument will place the short window ahead of the current timestamp, as to maximise the signal-to-noise ratio. 
 
 Experience has suggested that during the `detect` stage the `classic` option produces more robust results. During the `locate` stage it is often better to use the `centred` argument as the resulting peaks in the coalescence function will be higher and less broad. 
 

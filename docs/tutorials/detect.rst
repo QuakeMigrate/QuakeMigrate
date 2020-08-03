@@ -188,7 +188,7 @@ The ``sampling_rate`` should be chosen to be the minimum possible given your cho
 
 The ``timestep`` parameter is used to balance between reducing the number of times data is requested from the :class:`Archive` object and the memory capacity of your machine. As reading data from the hard drive is slow, and limited to one processor, the number of times this is requested should be minimised. However, reading large chunks of waveform data can quickly fill your computer's RAM, dramatically slowing the calculation.
 
-Finally, the `threads` parameter controls the number of processors available for detect to use when migrating and stacking the waveform data. This parameter should be set as high as it can be for your machine. For example, a 4-core laptop would be able to use 3 as the `threads` parameter, while a 128 core HPC machine can use a lot more (see below for perhaps a better use of an HPCs processing power to speed up calculation time).
+Finally, the ``threads`` parameter controls the number of CPU threads you wish to make available for detect to use when migrating and stacking the waveform data. If you wish to use your computer for other work while running QuakeMigrate, you may find it useful to leave some of your cores free.
 
 Starting your `detect` run
 ===========================

@@ -74,7 +74,7 @@ QuakeMigrate currently ships with one option to use as an onset function (`STALT
     from quakemigrate.signal.onset import STALTAOnset
     onset = STALTAOnset(position="classic")
 
-The STALTA function is the ratio between the average value in a short window to the average value in a longer window. In theory, if your window lengths are well-chosen, this function should peak at the arrival time of a seismic phase. The `STALTAOnset` function that ships with QuakeMigrate takes a single keyword argument which specifies the window position relative to the reference point (see image below).
+The STALTA function is the ratio between the average value in a short window to the average value in a longer window. In theory, if your window lengths are well-chosen, this function should peak at the arrival time of a seismic phase. The :class:`STALTAOnset` function that ships with QuakeMigrate takes a single keyword argument (``position``) which specifies the window position relative to the reference point (see image below).
 
 .. image:: img/waveform.png
 

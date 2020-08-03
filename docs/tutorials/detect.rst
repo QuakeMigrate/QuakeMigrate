@@ -234,7 +234,7 @@ The files in this directory store the screen output from each `detect` run. Thes
 `Scanmseed` object
 -------------------
 
-The `scanmseed` object is the primary output from the `detect` stage and is used as the input for the `trigger` stage. It is a miniSEED object containing 5 traces with data at the same sample rate as requested for the input:
+The :class:`ScanmSEED` object is the primary output from the `detect` stage and is used as the input for the `trigger` stage. It is a miniSEED object containing 5 traces with data at the same sample rate as requested for the input:
 
 1. The maximum coalescence value of the grid.
 2. The maximum coalescence value of the grid normalised by the mean value of the entire grid

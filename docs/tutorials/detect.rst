@@ -176,7 +176,10 @@ When choosing your parameters, you should experiment with different values using
 The `detect` stage of QuakeMigrate takes relatively few parameters which the user should set before starting the run. These mostly affect the runtime of the detect run and optimising them can dramatically reduce the overall compute time. 
 
 ::
-
+    from quakemigrate import QuakeScan
+    
+    scan = QuakeScan(archive, lut, onset=onset, run_path=run_path,
+                     run_name=run_name, log=True, loglevel="info")
     scan.sampling_rate = 20
     scan.timestep = 120.
     scan.threads = 12

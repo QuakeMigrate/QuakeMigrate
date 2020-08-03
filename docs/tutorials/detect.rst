@@ -28,7 +28,7 @@ We proceed by defining these parameters as variables.
     
     stations = read_stations(station_file)
 
-Detect runs on continuous data between two defined timestamps. Internally, QuakeMigrate uses UTCDateTime (from obspy) to parse the timestamps so you can input your dates in any way that is understandable. However, using an isoformat-like datetime string (as below) is recommended.
+Detect runs on continuous data between two defined timestamps. Internally, QuakeMigrate uses `UTCDateTime <https://docs.obspy.org/packages/autogen/obspy.core.utcdatetime.UTCDateTime.html>`_ (from ObsPy) to parse the timestamps, so your start- and endtime strings can be in any form compatible with this :class:`UTCDateTime`, such as:
 
 ::
 

@@ -62,7 +62,7 @@ Using an Onset Function
 Waveform data is initially pre-processed in a standard fashion - the data is linearly detrended, demeaned, and a cosine taper is applied before a zero phase-shift Butterworth bandpass filter - before being transformed into an onset function.
 
 
-The onset function should (if correctly specified) peak at the arrival time of a seismic phase. This function acts to simplify the seismic wavefield recorded by your instruments so the migration and stacking process work more reliably with noisy data or inaccurate velocity models. The correct choice of bandpass filters maximises the signal-to-noise ratio of your desired arrivals thereby maximising the coalescence value of any migrated earthquake.
+The onset function should (if correctly specified) peak at the arrival time of a seismic phase, representing the likelihood and quality of a phase arrival being recorded at any given instant. This function acts to simplify the seismic wavefield recorded by your instruments so the migration and stacking process work more reliably with noisy data or inaccurate velocity models. The correct choice of bandpass filters maximises the signal-to-noise ratio of your desired arrivals thereby maximising the coalescence value of any migrated earthquake.
 
 Deciding your Onset Function
 ------------------------------

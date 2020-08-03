@@ -161,7 +161,7 @@ When choosing your parameters, you should experiment with different values using
     axs[1].set_xlabel('Time [s]')
     axs[1].set_title('Filtered data')
     
-    axs[2].plot(time, raw_waveform, 'k-')
+    axs[2].plot(time, onset_data, 'k-')
     axs[2].set_xlabel('Time [s]')
     axs[2].set_ylabel('signal-to-noise ratio')
     axs[2].set_title('Onset function')

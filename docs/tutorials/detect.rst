@@ -59,7 +59,7 @@ Typically, the final node spacing of your decimated grid should be similar to th
 Using an Onset Function
 ===========================
 
-QuakeMigrate transforms your waveform data using two preprocessing operations before migration and stacking. These are a bandpass filter and transformation into an onset function. 
+Waveform data is initially pre-processed in a standard fashion - the data is linearly detrended, demeaned, and a cosine taper is applied before a zero phase-shift Butterworth bandpass filter - before being transformed into an onset function.
 
 
 The onset function should (if correctly specified) peak at the arrival time of a seismic phase. This function acts to simplify the seismic wavefield recorded by your instruments so the migration and stacking process work more reliably with noisy data or inaccurate velocity models. The correct choice of bandpass filters maximises the signal-to-noise ratio of your desired arrivals thereby maximising the coalescence value of any migrated earthquake.

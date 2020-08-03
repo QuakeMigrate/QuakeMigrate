@@ -35,7 +35,7 @@ Detect runs on continuous data between two defined timestamps. Internally, Quake
     starttime = "2018-001T00:00:00.0"
     endtime = "2018-002T00:00:00.0"
 
-The waveform archive is defined using an `Archive` object (see `Archive` tutorial) and the LUT can be importing using the `read_lut` function.
+The waveform archive is defined using an `Archive` object (see `Archive` tutorial) and the saved LUT can be loaded using the `read_lut` function.
 
 ::
 

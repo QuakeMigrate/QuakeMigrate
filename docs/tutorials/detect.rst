@@ -85,7 +85,7 @@ Experience has suggested that during the `detect` stage the `classic` option pro
 Defining a good filter
 ------------------------------
 
-Prior inspection of your recorded data before analysis is required to correctly choose the best frequencies to filter at. Users can use tools such as Probablistic Power Spectral Densities (https://docs.obspy.org/tutorial/code_snippets/probabilistic_power_spectral_density.html) to characterise the noise across the network. If some event origin times are known then spectrograms (https://docs.obspy.org/packages/autogen/obspy.imaging.spectrogram.spectrogram.html#obspy.imaging.spectrogram.spectrogram) or amplitude spectra (https://numpy.org/doc/stable/reference/generated/numpy.fft.rfft.html) can be calculated to analyse the typical frequency content of the noise and signal. 
+Prior inspection of your recorded data before analysis is strongly recommended to help choose the optimal filter band. Users can use tools such as `Probabilistic Power Spectral Densities <https://docs.obspy.org/tutorial/code_snippets/probabilistic_power_spectral_density.html>`_ to characterise the noise across the network. If some event origin times are known then `spectrograms <https://docs.obspy.org/packages/autogen/obspy.imaging.spectrogram.spectrogram.html#obspy.imaging.spectrogram.spectrogram>`_ or `amplitude spectra <https://numpy.org/doc/stable/reference/generated/numpy.fft.rfft.html>`_ can be calculated to analyse the typical frequency content of the noise and signal. 
 
 ::
 

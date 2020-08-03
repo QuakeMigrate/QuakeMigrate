@@ -225,7 +225,7 @@ This is a .csv file created for each day requested and placed in the output dire
 Logfile
 --------
 
-The files in this directory store the screen output from each `detect` run.
+The files in this directory store the screen output from each `detect` run. These are written to file by default, but if you don’t want/need this output you can set ``log=False`` when initialising the :class:`QuakeScan` object.
 
 `Scanmseed` object
 -------------------

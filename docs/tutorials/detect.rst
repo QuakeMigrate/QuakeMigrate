@@ -172,7 +172,7 @@ When choosing your parameters, you should experiment with different values using
 `Detect` parameters
 ====================
 
-The `detect` stage of QuakeMigrate takes relatively few parameters which the user should set before starting the run. These mostly effect the runtime of the detect run and optimising them can dramtically reduce the overall compute time. 
+The `detect` stage of QuakeMigrate takes relatively few parameters which the user should set before starting the run. These mostly affect the runtime of the detect run and optimising them can dramatically reduce the overall compute time. 
 
 ::
 

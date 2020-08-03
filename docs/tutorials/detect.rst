@@ -11,7 +11,7 @@ Before you start
 
 You will need a semi-continuous waveform archive organised in a known way (see `Archive` tutorial), a travel time LUT (as generated in the previous tutorial) and a station file (as used to generate the LUT). You will also need to choose a location to store your results and a name for your run. QuakeMigrate will automatically generate an output structure to store all your results and place this in a folder in your chosen location named as the run name. You may well run QuakeMigrate many times before you reach the final set of parameter values which produce the best results. It is therefore important to choose a clear and documented run-naming-scheme.
 
-.. note:: Your run name and directory does not have to be the same for the three QuakeMigrate stages (`detect`, `trigger` and `locate`).
+.. note:: The output directory and run names are used to link the outputs from one stage to the next. As such, you must be consistent across ``detect``, ``trigger``, and ``locate`` for a full run.
 
 We proceed by defining these parameters as variables.
 

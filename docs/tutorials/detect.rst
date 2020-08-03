@@ -182,7 +182,7 @@ The `detect` stage of QuakeMigrate takes relatively few parameters which the use
 
 The ``sampling_rate`` should be chosen to be the minimum possible given your chosen filter/signal frequency content as a coalescence grid is calculated for each sample. In this case filtering between 2 - 10 Hz was best so one can decimate 100 Hz data to 20 Hz. 
 
-The timestep parameters is a balance between reducing the number of times data is requested from the `Archive` object and the memory capacity of your machine. As reading data from the hard drive is slow, and limited to one processor, the number of times this is requested should be minimised. However, reading large chunks of waveform data can quickly fill your computers RAM, dramatically slowing the calculation. 
+The ``timestep`` parameter is used to balance between reducing the number of times data is requested from the :class:`Archive` object and the memory capacity of your machine. As reading data from the hard drive is slow, and limited to one processor, the number of times this is requested should be minimised. However, reading large chunks of waveform data can quickly fill your computer's RAM, dramatically slowing the calculation.
 
 Finally, the `threads` parameter controls the number of processors available for detect to use when migrating and stacking the waveform data. This parameter should be set as high as it can be for your machine. For example, a 4-core laptop would be able to use 3 as the `threads` parameter, while a 128 core HPC machine can use a lot more (see below for perhaps a better use of an HPCs processing power to speed up calculation time).
 

@@ -15,6 +15,7 @@
 
 #include <stdint.h>
 #include <math.h>
+#include <stdio.h>
 
 #ifndef _OPENMP
     /* Generate a compiler error to stop the build */
@@ -26,7 +27,20 @@
 #define MAX(a,b) (((a)>(b))?(a):(b))
 
 void migrate(double*, int32_t*, double*, int32_t, int32_t, int32_t, int32_t,
-             int32_t, int64_t, int64_t);
+             int32_t, int64_t, int32_t);
 
 void find_max_coa(double*, double*, double*, int64_t*, int32_t, int64_t,
-                  int64_t);
+                  int32_t);
+
+
+typedef struct {
+    int n;
+    int nsta;
+    int nlta;
+} stalta_header;
+
+void overlapping_sta_lta(const double*, const stalta_header*, double*);
+
+void centred_sta_lta(const double*, const stalta_header*, double*);
+
+void recursive_sta_lta(const double*, const stalta_header*, double*);

@@ -139,8 +139,10 @@ def get_extensions():
         "include_dirs": get_include_dirs(),
         "library_dirs": get_library_dirs()}
 
-    sources = [str(pathlib.Path("quakemigrate")
-               / "core" / "src" / "quakemigrate.c")]
+    source_path = pathlib.Path("quakemigrate") / "core" / "src"
+
+    sources = [str(source_path / "migratelib.c"),
+               str(source_path / "onsetlib.c")]
     exp_symbols = export_symbols("quakemigrate/core/src/qmlib.def")
 
     if get_build_platform() not in ("win32", "win-amd64"):

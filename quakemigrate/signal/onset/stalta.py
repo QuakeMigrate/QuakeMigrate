@@ -13,62 +13,14 @@ seismic data and calculates STA/LTA onset (characteristic) function.
 
 import numpy as np
 from obspy.signal.invsim import cosine_taper
-from obspy.signal.trigger import classic_sta_lta
 from scipy.signal import butter, lfilter, detrend
 
 import quakemigrate.util as util
-from .onset import Onset
+from quakemigrate.core import overlapping_sta_lta, centred_sta_lta
+from .base import Onset
 
 
-def sta_lta_centred(a, nsta, nlta):
-    """
-    Calculates the ratio of the average signal in a short-term (signal) window
-    to a preceding long-term (noise) window. STA/LTA value is assigned to the
-    end of the LTA / start of the STA.
-
-    Parameters
-    ----------
-    a : array-like
-        Signal array
-    nsta : int
-        Number of samples in short-term window
-    nlta : int
-        Number of samples in long-term window
-
-    Returns
-    -------
-    sta / lta : array-like
-        Ratio of short term average window to a preceding long term average
-        window. STA/LTA value is assigned to end of LTA window / start of STA
-        window -- "centred"
-
-    """
-
-    # Cumulative sum to calculate moving average
-    sta = np.cumsum(a ** 2)
-    sta = np.require(sta, dtype=np.float)
-    lta = sta.copy()
-
-    # Compute the STA and the LTA
-    sta[nsta:] = sta[nsta:] - sta[:-nsta]
-    sta[nsta:-nsta] = sta[nsta*2:]
-    sta /= nsta
-
-    lta[nlta:] = lta[nlta:] - lta[:-nlta]
-    lta /= nlta
-
-    sta[:(nlta - 1)] = 0
-    sta[-nsta:] = 0
-
-    # Avoid division by zero by setting zero values to tiny float
-    dtiny = np.finfo(float).tiny
-    idx = lta < dtiny
-    lta[idx] = dtiny
-    sta[idx] = 0.0
-
-    return sta / lta
-
-
+@util.timeit("debug")
 def sta_lta_onset(fsig, stw, ltw, position, log):
     """
     Calculate STA/LTA onset (characteristic) function from pre-processed
@@ -113,9 +65,9 @@ def sta_lta_onset(fsig, stw, ltw, position, log):
             onset[i, :] = 0.0
         else:
             if position == "centred":
-                onset[i, :] = sta_lta_centred(fsig[i, :], stw, ltw)
+                onset[i, :] = centred_sta_lta(fsig[i, :], stw, ltw)
             elif position == "classic":
-                onset[i, :] = classic_sta_lta(fsig[i, :], stw, ltw)
+                onset[i, :] = overlapping_sta_lta(fsig[i, :], stw, ltw)
             np.clip(1 + onset[i, :], 0.8, np.inf, onset[i, :])
             if log:
                 np.log(onset[i, :], onset[i, :])

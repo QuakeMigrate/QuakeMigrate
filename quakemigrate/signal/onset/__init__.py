@@ -14,5 +14,5 @@ Feel free to contribute more Onset function options!
 
 """
 
-from .onset import Onset  # NOQA
-from .staltaonset import STALTAOnset, ClassicSTALTAOnset, CentredSTALTAOnset  # NOQA
+from .base import Onset  # NOQA
+from .stalta import STALTAOnset, ClassicSTALTAOnset, CentredSTALTAOnset  # NOQA

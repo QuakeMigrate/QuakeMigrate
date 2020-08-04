@@ -2,3 +2,6 @@ LIBRARY qmlib.pyd
 EXPORTS
     migrate
     find_max_coa
+    overlapping_sta_lta
+    centred_sta_lta
+    recursive_sta_lta

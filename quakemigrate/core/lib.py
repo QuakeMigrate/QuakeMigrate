@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Bindings for the C library functions, migrate and find_max_coa.
+Bindings for the QuakeMigrate C library functions.
 
 :copyright:
     2020, QuakeMigrate developers.
@@ -19,15 +19,22 @@ import quakemigrate.util as util
 
 qmlib = _load_cdll("qmlib")
 
+
+# Make datatype aliases and build custom datatypes
 c_int32 = clib.ctypes.c_int32
 c_int64 = clib.ctypes.c_int64
 c_dPt = clib.ndpointer(dtype=np.float64, flags="C_CONTIGUOUS")
 c_i32Pt = clib.ndpointer(dtype=np.int32, flags="C_CONTIGUOUS")
 c_i64Pt = clib.ndpointer(dtype=np.int64, flags="C_CONTIGUOUS")
+stalta_header_t = np.dtype([("n", c_int32),
+                            ("nsta", c_int32),
+                            ("nlta", c_int32)],
+                           align=True)
+stalta_header_pt = clib.ndpointer(stalta_header_t, flags="C_CONTIGUOUS")
 
 
 qmlib.migrate.argtypes = [c_dPt, c_i32Pt, c_dPt, c_int32, c_int32, c_int32,
-                          c_int32, c_int32, c_int64, c_int64]
+                          c_int32, c_int32, c_int64, c_int32]
 
 
 @util.timeit()
@@ -70,7 +77,7 @@ def migrate(onsets, traveltimes, first_idx, last_idx, available, threads):
     *grid_dimensions, n_luts = traveltimes.shape
     n_onsets, t_samples = onsets.shape
     n_samples = t_samples - first_idx - last_idx
-    map4d = np.zeros(tuple(grid_dimensions) + (n_samples,), dtype=np.float64)
+    map4d = np.zeros(tuple(grid_dimensions) + (n_samples,), dtype=np.double)
     n_nodes = np.prod(grid_dimensions)
 
     if not n_luts == n_onsets:
@@ -81,13 +88,13 @@ def migrate(onsets, traveltimes, first_idx, last_idx, available, threads):
 
     qmlib.migrate(onsets, traveltimes, map4d, c_int32(first_idx),
                   c_int32(last_idx), c_int32(n_samples), c_int32(n_onsets),
-                  c_int32(available), c_int64(n_nodes), c_int64(threads))
+                  c_int32(available), c_int64(n_nodes), c_int32(threads))
 
     return map4d
 
 
 qmlib.find_max_coa.argtypes = [c_dPt, c_dPt, c_dPt, c_i64Pt, c_int32, c_int64,
-                               c_int64]
+                               c_int32]
 
 
 @util.timeit()
@@ -123,6 +130,127 @@ def find_max_coa(map4d, threads):
     max_coa_idx = np.zeros(n_samples, dtype=np.int64)
 
     qmlib.find_max_coa(map4d, max_coa, max_norm_coa, max_coa_idx,
-                       c_int32(n_samples), c_int64(n_nodes), c_int64(threads))
+                       c_int32(n_samples), c_int64(n_nodes), c_int32(threads))
 
     return max_coa, max_norm_coa, max_coa_idx
+
+
+qmlib.overlapping_sta_lta.argtypes = [c_dPt, stalta_header_pt, c_dPt]
+
+
+def overlapping_sta_lta(signal, nsta, nlta):
+    """
+    Compute the STA/LTA onset function with overlapping windows. The return
+    value is allocated to the last sample of the STA window.
+
+                                                 |--- STA ---|
+     |------------------------- LTA -------------------------|
+                                                             ^
+                                                    Value assigned here
+
+    Parameters
+    ----------
+    signal : `numpy.ndarray` of float
+        Pre-processed waveform data to be processed into an onset function.
+    nsta : int
+        Number of samples in the short-term average window.
+    nlta : int
+        Number of samples in the long-term average window.
+
+    Returns
+    -------
+    onset : `numpy.ndarray` of `numpy.double`
+        Overlapping STA/LTA onset function.
+
+    """
+
+    # Build header structure and ensure signal data is contiguous in memory
+    head = np.empty(1, dtype=stalta_header_t)
+    head[:] = (len(signal), nsta, nlta)
+    signal = np.ascontiguousarray(signal, dtype=np.double)
+    onset = np.zeros(len(signal), dtype=np.double)
+
+    qmlib.overlapping_sta_lta(signal, head, onset)
+
+    return onset
+
+
+qmlib.centred_sta_lta.argtypes = [c_dPt, stalta_header_pt, c_dPt]
+
+
+def centred_sta_lta(signal, nsta, nlta):
+    """
+    Compute the STA/LTA onset function with consecutive windows. The return
+    value is allocated to the first sample of the STA window.
+
+                                                           |--- STA ---|
+         |---------------------- LTA ----------------------|
+                                                           ^
+                                                  Value assigned here
+
+    Parameters
+    ----------
+    signal : `numpy.ndarray` of float
+        Pre-processed waveform data to be processed into an onset function.
+    nsta : int
+        Number of samples in the short-term average window.
+    nlta : int
+        Number of samples in the long-term average window.
+
+    Returns
+    -------
+    onset : `numpy.ndarray` of `numpy.double`
+        Centred STA/LTA onset function.
+
+    """
+
+    # Build header structure and ensure signal data is contiguous in memory
+    head = np.empty(1, dtype=stalta_header_t)
+    head[:] = (len(signal), nsta, nlta)
+    signal = np.ascontiguousarray(signal, dtype=np.double)
+    onset = np.zeros(len(signal), dtype=np.double)
+
+    qmlib.centred_sta_lta(signal, head, onset)
+
+    return onset
+
+
+qmlib.recursive_sta_lta.argtypes = [c_dPt, stalta_header_pt, c_dPt]
+
+
+def recursive_sta_lta(signal, nsta, nlta):
+    """
+    Compute the STA/LTA onset function with consecutive windows using a
+    recursive method (minimises memory costs). Reproduces exactly the centred
+    STA/LTA onset.
+
+                                                           |--- STA ---|
+         |---------------------- LTA ----------------------|
+                                                           ^
+                                                  Value assigned here
+
+    Parameters
+    ----------
+    signal : `numpy.ndarray` of float
+        Pre-processed waveform data to be processed into an onset function.
+    nsta : int
+        Number of samples in the short-term average window.
+    nlta : int
+        Number of samples in the long-term average window.
+
+    Returns
+    -------
+    onset : `numpy.ndarray` of `numpy.double`
+        Recursive (centred) STA/LTA onset function.
+
+    """
+
+    # Build header structure and ensure signal data is contiguous in memory
+    head = np.empty(1, dtype=stalta_header_t)
+    head[:] = (len(signal), nsta, nlta)
+    signal = np.ascontiguousarray(signal, dtype=np.double)
+    onset = np.zeros(len(signal), dtype=np.double)
+
+    qmlib.recursive_sta_lta(signal, head, onset)
+
+    return onset

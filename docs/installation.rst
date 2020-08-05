@@ -8,6 +8,7 @@ QuakeMigrate was developed and tested on Ubuntu 16.04/18.04, with the intention 
 
 - Ubuntu 16.04/18.04/20.04
 - Red Hat Enterprise Linux
+- Debian
 - Windows 10
 - macOSX High Sierra 10.13.6
 
@@ -29,17 +30,28 @@ This will install the explicit dependencies of QuakeMigrate (as well as some add
 - matplotlib < 3.3
 - numpy
 - obspy >= 1.2
-- pandas >= 1
+- pandas >= 1 and < 1.1
 - pyproj >= 2.6
 - scipy
 
 .. note:: These version pins are subject to change. We defer to ObsPy to select suitable versions for NumPy/SciPy.
 
+.. warning:: Some changes to datetime handling were introduced in matplotlib 3.3, which caused some conflicts with pandas versions <= 1.0.5. It is best to 
+
 In addition, we use `NonLinLoc <http://alomax.free.fr/nlloc/>`_ and `scikit fmm <https://pythonhosted.org/scikit-fmm/>`_ as backends for producing 1-D traveltime lookup tables.
 
 NonLinLoc
 #########
-We recommend you follow the installation instructions available on the website. Once you have compiled the source code, we recommend you add the bin to your system path. For Unix systems, this can be done by adding the following to your .bashrc file (typically found in your home directory, ``~/``):
+To download, unpack, and compile NonLinLoc, you can use:
+
+.. code-block:: bash
+    
+    curl http://alomax.free.fr/nlloc/soft7.00/tar/NLL7.00_src.tgz -o NLL7.00_src.tgz
+    tar -xzvf NLL7.00_src.tgz
+    cd src
+    make -R all
+
+Once the source code has been compiled, we recommend you add the bin to your system path. For Unix systems, this can be done by adding the following to your .bashrc file (typically found in your home directory, ``~/``):
 
 .. code-block:: bash
     
@@ -54,6 +66,8 @@ scikit-fmm is a 3rd-party package which implements the fast-marching method. We 
 .. code-block:: bash
     
     pip install scikit-fmm==2019.1.30
+
+It can also be installed along with the rest of package (detailed below).
 
 .. note:: In order to install scikit-fmm, you will need an accessible C++ compiler, such as gxx (see below for details).
 
@@ -99,7 +113,7 @@ Once installed, you can proceed with the QuakeMigrate installation.
 
 Windows
 #######
-Compilation and linking of the C extensions has been successful using the Microsoft Visual C++ (MSVC) build tools. We strongly recommend that you download and install these tools in order to use QuakeMigrate. You can either install Visual Studio in its entirety, or just the Build Tools - `available here <https://visualstudio.microsoft.com/downloads/>`_. You will need to restart your computer once the installation process has completed.
+Compilation and linking of the C extensions has been successful using the Microsoft Visual C++ (MSVC) build tools. We strongly recommend that you download and install these tools in order to use QuakeMigrate. You can either install Visual Studio in its entirety, or just the Build Tools - `available here <https://visualstudio.microsoft.com/downloads/>`_. You will need to restart your computer once the installation process has completed. We recommend using the anaconda command line interface (unix shell-like) to install QuakeMigrate over command prompt.
 
 .. warning:: QuakeMigrate has been tested and validated on Windows, but there may yet remain some unknown issues. If you encounter an issue (and/or resolve it), please let us know!
 
@@ -115,7 +129,15 @@ From source
 
 .. code-block:: bash
     
-    python setup.py install
+    pip install .
+
+You can optionally pass a ``-e`` argument to install the package in 'editable' mode.
+
+If you wish to use :mod:`scikit-fmm`, you can install it here as an optional package using:
+
+.. code-block:: bash
+    
+    pip install .[fmm]
 
 You should now be able to import quakemigrate within a Python session:
 
@@ -142,7 +164,7 @@ We hope to link the package with the conda forge soon, after which you will be a
 
 Testing your installation
 -------------------------
-In order to test your installation, you will need to have cloned the GitHub repository. This will ensure you have all of the required benchmarked data (which is not included in pip/conda installs). Then, navigate to `QuakeMigrate/examples/Icequake_Iceland` and run the example scripts in the following order:
+In order to test your installation, you will need to have cloned the GitHub repository. This will ensure you have all of the required benchmarked data (which is not included in pip/conda installs). Then, navigate to ``QuakeMigrate/examples/Icequake_Iceland`` and run the example scripts in the following order:
 
 .. code-block:: bash
     
@@ -151,7 +173,7 @@ In order to test your installation, you will need to have cloned the GitHub repo
     python iceland_trigger.py
     python iceland_locate.py
 
-Once these have all run successfully, navigate to `QuakeMigrate/tests` and run:
+Once these have all run successfully, navigate to ``QuakeMigrate/tests`` and run:
 
 .. code-block:: bash
     
@@ -163,14 +185,15 @@ This should execute with no failed tests.
 
 Notes
 -----
-There is a known issue with PROJ version 6.2.0 which causes vertical coordinates to be incorrectly transformed when using units other than metres (the PROJ default). If you encounter this issue (you will get an ``ImportError`` when trying to use the ``lut`` subpackage), you should update pyproj. Using conda will install an up-to-date PROJ backend, but you may need to clear your cache of downloaded packages. This can be done using:
+There is a known issue with PROJ version 6.2.0 which causes vertical coordinates to be incorrectly transformed when using units other than metres (the PROJ default). If you encounter this issue (you will get an ``ImportError`` when trying to use the ``lut`` subpackage), you should update :mod:`pyproj`. Using conda will install an up-to-date PROJ backend, but you may need to clear your cache of downloaded packages. This can be done using:
 
 .. code-block:: bash
     
     conda clean --all
 
-Then reinstall pyproj:
+Then reinstall :mod:`pyproj`:
 
 .. code-block:: bash
     
+    conda uninstall pyproj
     conda install pyproj

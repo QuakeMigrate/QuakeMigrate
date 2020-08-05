@@ -1,21 +1,14 @@
 # -*- coding: utf-8 -*-
-try:
-    # Use setuptools if we can
-    from setuptools import setup, Extension
-    from setuptools.command.build_ext import build_ext
-    using_setuptools = True
-except ImportError:
-    from distutils.core import setup, Extension
-    from distutils.command.build_ext import build_ext
-    using_setuptools = False
 
 import os
 import pathlib
-from distutils.ccompiler import get_default_compiler
-from pkg_resources import get_build_platform
 import re
 import shutil
 import sys
+from distutils.ccompiler import get_default_compiler
+from pkg_resources import get_build_platform
+from setuptools import setup, Extension
+from setuptools.command.build_ext import build_ext
 
 
 # Check if we are on RTD and don't build extensions if we are.
@@ -186,10 +179,10 @@ def setup_package():
 
     if not READ_THE_DOCS:
         install_requires = ["matplotlib<3.3", "numpy", "obspy>=1.2",
-                            "pandas>=1", "pyproj>=2.5", "scipy"]
+                            "pandas<1.1", "pyproj>=2.5", "scipy"]
     else:
         install_requires = ["matplotlib<3.3", "mock", "numpy", "obspy>=1.2",
-                            "pandas>=1", "pyproj>=2.5", "scipy"]
+                            "pandas<1.1", "pyproj>=2.5", "scipy"]
 
     setup_args = {
         "name": "quakemigrate",

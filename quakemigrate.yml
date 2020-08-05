@@ -8,7 +8,7 @@ dependencies:
   - matplotlib <3.3
   - numpy
   - obspy >=1.2
-  - pandas >=1
+  - pandas <1.1
   - python >=3.6
   - pyproj >=2.5
   - scipy

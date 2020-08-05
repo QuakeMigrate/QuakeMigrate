@@ -410,7 +410,7 @@ class Event:
         # Set floating point precision for COA values
         for col in event_df.filter(like="COA").columns:
             event_df[col] = event_df[col].map(lambda x: f"{x:.4g}",
-                                              na_action="ignores")
+                                              na_action="ignore")
 
         # Set floating point precision for locations & loc uncertainties
         for axis_precision, axis in zip(lut.precision, ["X", "Y", "Z"]):

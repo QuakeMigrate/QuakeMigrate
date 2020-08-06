@@ -83,13 +83,13 @@ def pick_summary(event, station, signal, picks, onsets, ttimes, window):
     min_t_idx = np.argmin([abs(t - min_t) for t in times])
     max_t_idx = np.argmin([abs(t - max_t) for t in times])
     times = [x.datetime for x in times]
-    for i, ax in enumerate(axes[:3]):
+    for i, (ax, comp) in enumerate(zip(axes[:3], "ZNE")):
         # Funky maths to assign the signal data to correct axes
-        y = signal[(i+2) % 3, :]
+        y = signal.select(channel=f"*{comp}")[0].data
         # Get normalising factor within window
         norm = np.max(abs(y[min_t_idx:max_t_idx+1]))
         ax.plot(times, y / norm, c="k", lw=0.5, zorder=1)
-    for i, (ax, ph) in enumerate(zip(axes[3:], ["P", "S"])):
+    for i, (ax, ph) in enumerate(zip(axes[3:], "PS")):
         y = onsets[i]
         win = window[ph]
         # Get normalising factor within window

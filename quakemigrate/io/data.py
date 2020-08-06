@@ -85,8 +85,6 @@ class Archive:
 
         self.read_all_stations = kwargs.get("read_all_stations", False)
         self.response_inv = kwargs.get("response_inv")
-        self.resample = kwargs.get("resample", False)
-        self.upfactor = kwargs.get("upfactor")
 
     def __str__(self):
         """Returns a short summary string of the Archive object."""
@@ -253,7 +251,7 @@ class Archive:
             # Pass stream to be processed and added to data.signal. This
             # processing includes resampling and determining the availability
             # of the desired stations.
-            data.add_stream(st, self.resample, self.upfactor)
+            data.waveforms = st
 
         except StopIteration:
             raise util.ArchiveEmptyException
@@ -286,32 +284,25 @@ class Archive:
         if self.format is None:
             raise util.ArchiveFormatException
 
-        start_day = UTCDateTime(starttime.date)
-
-        dy = 0
-        files = []
         # Loop through time period by day adding files to list
         # NOTE! This assumes the archive structure is split into days.
-        while start_day + (dy * 86400) <= endtime:
-            now = starttime + (dy * 86400)
+        files = []
+        loadstart = UTCDateTime(starttime)
+        while loadstart < endtime:
+            temp_format = self.format.format(year=loadstart.year,
+                                             month=loadstart.month,
+                                             day=loadstart.day,
+                                             jday=loadstart.julday,
+                                             station="{station}",
+                                             dtime=loadstart)
             if self.read_all_stations is True:
-                file_format = self.format.format(year=now.year,
-                                                 month=now.month,
-                                                 day=now.day,
-                                                 jday=now.julday,
-                                                 station="*",
-                                                 dtime=now)
+                file_format = temp_format.format(station="*")
                 files = chain(files, self.archive_path.glob(file_format))
             else:
                 for station in self.stations:
-                    file_format = self.format.format(year=now.year,
-                                                     month=now.month,
-                                                     day=now.day,
-                                                     jday=now.julday,
-                                                     station=station,
-                                                     dtime=now)
+                    file_format = temp_format.format(station=station)
                     files = chain(files, self.archive_path.glob(file_format))
-            dy += 1
+            loadstart = UTCDateTime(loadstart.date) + 86400
 
         return files
 
@@ -416,40 +407,11 @@ class WaveformData:
         self.post_pad = post_pad
 
         self.raw_waveforms = None
-        self.signal = None
+        self.waveforms = Stream()
+        self.filtered_waveforms = Stream()
+        self.onsets = {}
         self.availability = None
-        self.p_onset = None
-        self.s_onset = None
-        self.filtered_signal = None
         self.wa_waveforms = None
-
-    def add_stream(self, stream, resample, upfactor):
-        """
-        Add signal data supplied in an `obspy.Stream` object. Perform
-        resampling if necessary (decimation and/or upsampling), and determine
-        availability of selected stations.
-
-        Parameters:
-        -----------
-        stream : `obspy.Stream` object
-            Contains list of `obspy.Trace` objects containing the waveform
-            data to add.
-        resample : bool, optional
-            If true, perform resampling of data which cannot be decimated
-            directly to the desired sampling rate.
-        upfactor : int, optional
-            Factor by which to upsample the data to enable it to be decimated
-            to the desired sampling rate, e.g. 40Hz -> 50Hz requires
-            upfactor = 5.
-
-        """
-
-        # Decimate and/or upsample stream if required to achieve the specified
-        # sampling rate
-        stream = self._resample(stream, resample, upfactor)
-
-        # Combine the data into an array and determine station availability
-        self.signal, self.availability = self._station_availability(stream)
 
     def get_real_waveforms(self, tr, remove_full_response=False, velocity=True):
         """
@@ -459,7 +421,6 @@ class WaveformData:
 
         raise NotImplementedError("Coming soon. Please contact the "
                                   "QuakeMigrate developers.")
-
 
     def get_wa_waveform(self, tr, water_level, pre_filt,
                         remove_full_response=False, velocity=False):
@@ -540,7 +501,8 @@ class WaveformData:
                             pre_filt=pre_filt,
                             water_level=water_level,
                             taper=True,
-                            sacsim=True, pitsasim=False,  # To replicate remove_response()
+                            sacsim=True,  # To replicate remove_response()
+                            pitsasim=False,  # To replicate remove_response()
                             paz_simulate=util.wa_response())
             except ValueError as e:
                 raise util.ResponseRemovalError(e, tr.id)
@@ -578,141 +540,7 @@ class WaveformData:
         """
 
         # Utilise the .times() method of `obspy.Trace` objects
-        tr = Trace(header={"npts": self.signal.shape[-1],
+        tr = Trace(header={"npts": len(self.waveforms[0].data),
                            "sampling_rate": self.sampling_rate,
                            "starttime": self.starttime})
         return tr.times(**kwargs)
-
-    def _resample(self, stream, resample, upfactor):
-        """
-        Resample the stream to the specified sampling rate.
-
-        By default, this function will only perform decimation of the data. If
-        necessary, and if the user specifies `resample = True` and an upfactor
-        to upsample by `upfactor = int`, data can also be upsampled and then,
-        if necessary, subsequently decimated to achieve the desired sampling
-        rate.
-
-        For example, for raw input data sampled at a mix of 40, 50 and 100 Hz,
-        to achieve a unified sampling rate of 50 Hz, the user would have to
-        specify an upfactor of 5; 40 Hz x 5 = 200 Hz, which can then be
-        decimated to 50 Hz.
-
-        NOTE: data will be detrended and a cosine taper applied before
-        decimation, in order to avoid edge effects when applying the lowpass
-        filter.
-
-        Parameters
-        ----------
-        stream : `obspy.Stream` object
-            Contains list of `obspy.Trace` objects to be decimated / resampled.
-        resample : bool
-            If true, perform resampling of data which cannot be decimated
-            directly to the desired sampling rate.
-        upfactor : int or None
-            Factor by which to upsample the data to enable it to be decimated
-            to the desired sampling rate, e.g. 40Hz -> 50Hz requires
-            upfactor = 5.
-
-        Returns
-        -------
-        stream : `obspy.Stream` object
-            Contains list of resampled `obspy.Trace` objects at the chosen
-            sampling rate `sr`.
-
-        """
-
-        sr = self.sampling_rate
-        for trace in stream:
-            if sr != trace.stats.sampling_rate:
-                if (trace.stats.sampling_rate % sr) == 0:
-                    stream.remove(trace)
-                    trace = util.decimate(trace, sr)
-                    stream += trace
-                elif resample and upfactor is not None:
-                    # Check the upsampled sampling rate can be decimated to sr
-                    if int(trace.stats.sampling_rate * upfactor) % sr != 0:
-                        raise util.BadUpfactorException(trace)
-                    stream.remove(trace)
-                    trace = util.upsample(trace, upfactor)
-                    if trace.stats.sampling_rate != sr:
-                        trace = util.decimate(trace, sr)
-                    stream += trace
-                else:
-                    logging.info("Mismatched sampling rates - cannot decimate "
-                                 "data - to resample data, set .resample "
-                                 "= True and choose a suitable upfactor")
-
-        return stream
-
-    def _station_availability(self, stream):
-        """
-        Determine whether continuous data exists between two times for a given
-        station.
-
-        Parameters
-        ----------
-        stream : `obspy.Stream` object
-            Stream containing 3-component data for stations in station file.
-        samples : int
-            Number of samples expected in the signal.
-
-        Returns
-        -------
-        signal : `numpy.ndarray`, shape(3, nstations, nsamples)
-            3-component seismic data only for stations with continuous data
-            on all 3 components throughout the desired time period.
-        availability : `np.ndarray` of ints, shape(nstations)
-            Array containing 0s (no data) or 1s (data).
-
-        """
-
-        samples = util.time2sample(self.endtime - self.starttime,
-                                   self.sampling_rate) + 1
-
-        availability = np.zeros(len(self.stations)).astype(int)
-        signal = np.zeros((3, len(self.stations), int(samples)))
-
-        for i, station in enumerate(self.stations):
-            tmp_st = stream.select(station=station)
-            if len(tmp_st) == 3:
-                # Check traces are the correct number of samples and not filled
-                # by a constant value (i.e. not flatlines)
-                if (tmp_st[0].stats.npts == samples and
-                        tmp_st[1].stats.npts == samples and
-                        tmp_st[2].stats.npts == samples and
-                        tmp_st[0].data.max() != tmp_st[0].data.min() and
-                        tmp_st[1].data.max() != tmp_st[1].data.min() and
-                        tmp_st[2].data.max() != tmp_st[2].data.min()):
-
-                    # Defining the station as available
-                    availability[i] = 1
-
-                    for tr in tmp_st:
-                        # Check channel name has 3 characters
-                        try:
-                            channel = tr.stats.channel[2]
-                            # Assign data to signal array by component
-                            if channel == "E" or channel == "2":
-                                signal[1, i, :] = tr.data
-                            elif channel == "N" or channel == "1":
-                                signal[0, i, :] = tr.data
-                            elif channel == "Z":
-                                signal[2, i, :] = tr.data
-                            else:
-                                raise util.ChannelNameException(tr)
-
-                        except IndexError:
-                            raise util.ChannelNameException(tr)
-
-        # Check to see if no traces were continuously active during this period
-        if not np.any(availability):
-            raise util.DataGapException
-
-        return signal, availability
-
-    @property
-    def sample_size(self):
-        """Get the size of a sample (units: s)."""
-
-        return 1 / self.sampling_rate

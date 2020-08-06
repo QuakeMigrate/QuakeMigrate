@@ -148,7 +148,7 @@ def _plot_waveform_gather(ax, lut, event, idx):
     """
 
     # --- Predicted traveltimes ---
-    ttpf, ttsf = [lut.traveltime_to(phase, idx) for phase in ["P", "S"]]
+    ttpf, ttsf = [lut.traveltime_to(phase, idx) for phase in "PS"]
     ttp = [(event.otime + tt).datetime for tt in ttpf]
     tts = [(event.otime + tt).datetime for tt in ttsf]
     range_order = abs(np.argsort(np.argsort(ttp)) - len(ttp)) * 2
@@ -163,11 +163,13 @@ def _plot_waveform_gather(ax, lut, event, idx):
     mint, maxt = event.otime - 0.1, event.otime + max_tts*1.5
     mint_i, maxt_i = [np.argmin(abs(times_utc - t)) for t in (mint, maxt)]
     times_plot = event.data.times(type="matplotlib")[mint_i:maxt_i]
-    for i, signal in enumerate(np.rollaxis(event.data.filtered_signal, 1)):
-        for data, c, comp in zip(signal[::-1], WAVEFORM_COLOURS1,
-                                 "ZNE"):
-            if not data.any():
+    for i, station in enumerate(event.data.stations):
+        waveforms = event.data.filtered_waveforms.select(station=station)
+        for c, comp in zip(WAVEFORM_COLOURS1, "ZNE"):
+            data = waveforms.select(channel=f"*{comp}")
+            if not bool(data):
                 continue
+            data = data[0].data
             data[mint_i:]
 
             # Get station specific range for norm factor

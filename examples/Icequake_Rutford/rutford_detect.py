@@ -30,11 +30,13 @@ archive = Archive(archive_path=data_in, stations=stations,
 lut = read_lut(lut_file=lut_out)
 
 # --- Create new Onset ---
-onset = STALTAOnset(position="classic")
-onset.p_bp_filter = [20, 200, 4]
-onset.s_bp_filter = [10, 125, 4]
-onset.p_onset_win = [0.01, 0.25]
-onset.s_onset_win = [0.05, 0.5]
+onset = STALTAOnset(position="classic", sampling_rate=1000)
+onset.bandpass_filters = {
+    "P": [20, 200, 4],
+    "S": [10, 125, 4]}
+onset.onset_windows = {
+    "P": [0.01, 0.25],
+    "S": [0.05, 0.5]}
 
 # --- Create new QuakeScan ---
 scan = QuakeScan(archive, lut, onset=onset, run_path=run_path,

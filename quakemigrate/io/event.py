@@ -53,7 +53,7 @@ class Event:
         Z : `numpy.ndarray` of floats, shape(nsamples)
             Z coordinate of maximum coalescence through time in input
             projection space.
-    coa_time : `obspy.UTCDateTime` object
+    trigger_time : `obspy.UTCDateTime` object
         The peak coalescence time of the triggered event from the (decimated)
         coalescence output by detect.
     hypocentre : `numpy.ndarray` of floats
@@ -125,7 +125,7 @@ class Event:
 
         if triggered_event is not None:
             self.uid = triggered_event["EventID"]
-            self.coa_time = triggered_event["CoaTime"]
+            self.trigger_time = triggered_event["CoaTime"]
             self.trigger_info = self._parse_triggered_event(triggered_event)
 
         self.data = None
@@ -312,7 +312,8 @@ class Event:
 
         window_start = self.otime - self.marginal_window
         window_end = self.otime + self.marginal_window
-        cond = (self.coa_time > window_start) and (self.coa_time < window_end)
+        cond = (self.trigger_time > window_start
+                and self.trigger_time < window_end)
         if not cond:
             logging.info(f"\tEvent {self.uid} is outside marginal window.")
             logging.info("\tDefine more realistic error - the marginal "
@@ -336,9 +337,10 @@ class Event:
         """
 
         # Utilise the .times() method of `obspy.Trace` objects
-        tr = Trace(header={"npts": 4*self.marginal_window*sampling_rate + 1,
-                           "sampling_rate": sampling_rate,
-                           "starttime": self.coa_time - 2*self.marginal_window})
+        tr = Trace(header={
+            "npts": 4 * self.marginal_window * sampling_rate + 1,
+            "sampling_rate": sampling_rate,
+            "starttime": self.trigger_time - 2 * self.marginal_window})
         return tr.times(type="utcdatetime")
 
     def trim2window(self):

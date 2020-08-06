@@ -406,8 +406,8 @@ class QuakeScan:
 
         for i, triggered_event in triggered_events.iterrows():
             event = Event(self.marginal_window, triggered_event)
-            w_beg = event.coa_time - 2*self.marginal_window - self.pre_pad
-            w_end = event.coa_time + 2*self.marginal_window + self.post_pad
+            w_beg = event.trigger_time - 2*self.marginal_window - self.pre_pad
+            w_end = event.trigger_time + 2*self.marginal_window + self.post_pad
             logging.info(util.log_spacer)
             logging.info(f"\tEVENT - {i+1} of {n_events} - {event.uid}")
             logging.info(util.log_spacer)

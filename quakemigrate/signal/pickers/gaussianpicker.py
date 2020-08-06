@@ -121,31 +121,33 @@ class GaussianPicker(PhasePicker):
         stt = lut.traveltime_to("S", e_ijk)
 
         # Pre-define pick DataFrame and fit params and pick windows dicts
-        picks = pd.DataFrame(index=np.arange(0, 2 * len(event.data.p_onset)),
+        picks = pd.DataFrame(index=np.arange(0, 2 * len(event.data.stations)),
                              columns=["Station", "Phase", "ModelledTime",
                                       "PickTime", "PickError", "SNR"])
         gaussfits = {}
         pick_windows = {}
 
-        for i, station in lut.station_data.iterrows():
-            gaussfits[station["Name"]] = {}
-            pick_windows[station["Name"]] = {}
+        for i, station in enumerate(event.data.stations):
+            gaussfits[station] = {}
+            pick_windows[station] = {}
             for j, phase in enumerate(["P", "S"]):
+                try:
+                    onset = event.data.onsets[station][phase]
+                except KeyError:
+                    continue
                 if phase == "P":
-                    onset = event.data.p_onset[i]
                     model_time = event.otime + ptt[i]
                 else:
-                    onset = event.data.s_onset[i]
                     model_time = event.otime + stt[i]
 
                 gau, max_onset, pick, pick_error, window = self._fit_gaussian(
                     onset, phase, event.data.starttime, event.otime,
                     ptt[i], stt[i], fraction_tt)
 
-                gaussfits[station["Name"]][phase] = gau
-                pick_windows[station["Name"]][phase] = window
+                gaussfits[station][phase] = gau
+                pick_windows[station][phase] = window
 
-                picks.iloc[2*i+j] = [station["Name"], phase, model_time, pick,
+                picks.iloc[2*i+j] = [station, phase, model_time, pick,
                                      pick_error, max_onset]
 
         event.add_picks(picks, gaussfits=gaussfits, pick_windows=pick_windows,
@@ -409,14 +411,17 @@ class GaussianPicker(PhasePicker):
 
         # Generate plottable timestamps for data
         times = event.data.times(type="matplotlib")
-        for i, station in lut.station_data["Name"].iteritems():
-            signal = event.data.filtered_signal[:, i, :]
-            onsets = [event.data.p_onset[i, :], event.data.s_onset[i, :]]
+        for i, station in enumerate(event.data.stations):
+            signal = event.data.filtered_waveforms.select(station=station)
+            if not bool(signal):
+                continue
+            onsets = [event.data.onsets[station]["P"],
+                      event.data.onsets[station]["S"]]
             stpicks = picks[picks["Station"] == station].reset_index(drop=True)
             window = event.picks["pick_windows"][station]
 
             # Check if any data available to plot
-            if not signal.any():
+            if not bool(signal):
                 continue
 
             # Call subroutine to plot basic phase pick figure

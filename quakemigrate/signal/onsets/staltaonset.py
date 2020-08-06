@@ -5,7 +5,10 @@ seismic data and calculates STA/LTA onset (characteristic) function.
 
 """
 
+import logging
+
 import numpy as np
+from obspy import Stream
 from obspy.signal.invsim import cosine_taper
 from obspy.signal.trigger import classic_sta_lta
 from scipy.signal import butter, lfilter, detrend
@@ -63,61 +66,7 @@ def sta_lta_centred(a, nsta, nlta):
     return sta / lta
 
 
-def sta_lta_onset(fsig, stw, ltw, position, log):
-    """
-    Calculate STA/LTA onset (characteristic) function from pre-processed
-    seismic data.
-
-    Parameters
-    ----------
-    fsig : array-like
-        Filtered (pre-processed) data signal to be used to generate an onset
-        function.
-    stw : int
-        Short term window length (# of samples).
-    ltw : int
-        Long term window length (# of samples)
-    position : str
-        "centred": Compute centred STA/LTA (STA window is preceded by LTA
-            window; value is assigned to end of LTA window / start of STA
-            window) or:
-        "classic": classic STA/LTA (STA window is within LTA window; value
-            is assigned to end of STA & LTA windows).
-
-        Centred gives less phase-shifted (late) onset function, and is closer
-        to a Gaussian approximation, but is far more sensitive to data with
-        sharp offsets due to instrument failures. We recommend using classic
-        for detect() and centred for locate() if your data quality allows it.
-        This is the default behaviour; override by setting self.onset_centred.
-    log : bool
-        Will return log(onset) if True, otherwise it will return the raw onset.
-
-    Returns
-    -------
-    onset : array-like
-        onset_raw or log(onset_raw); both are clipped between 0.8 and
-        infinity.
-
-    """
-
-    n_channels, _ = fsig.shape
-    onset = np.copy(fsig)
-    for i in range(n_channels):
-        if np.sum(fsig[i, :]) == 0.0:
-            onset[i, :] = 0.0
-        else:
-            if position == "centred":
-                onset[i, :] = sta_lta_centred(fsig[i, :], stw, ltw)
-            elif position == "classic":
-                onset[i, :] = classic_sta_lta(fsig[i, :], stw, ltw)
-            np.clip(1 + onset[i, :], 0.8, np.inf, onset[i, :])
-            if log:
-                np.log(onset[i, :], onset[i, :])
-
-    return onset
-
-
-def pre_process(sig, sampling_rate, lc, hc, order=2):
+def pre_process(stream, sampling_rate, resample, upfactor, filt):
     """
     Detrend raw seismic data and apply cosine taper and zero phase-shift
     Butterworth band-pass filter.
@@ -149,58 +98,53 @@ def pre_process(sig, sampling_rate, lc, hc, order=2):
 
     """
 
+    # Resample the data here
+    resampled_stream = util.resample(stream, sampling_rate, resample, upfactor)
+
+    # Grab filter info
+    lowcut, highcut, order = filt
     # Construct butterworth band-pass filter
     try:
-        b1, a1 = butter(order, [2.0 * lc / sampling_rate,
-                                2.0 * hc / sampling_rate], btype="band")
+        b1, a1 = butter(order, [2.0 * lowcut / sampling_rate,
+                                2.0 * highcut / sampling_rate], btype="band")
     except ValueError:
-        raise util.NyquistException(hc, 0.5 * sampling_rate, "")
+        raise util.NyquistException(highcut, 0.5 * sampling_rate, "")
 
     # Construct cosine taper
-    tap = cosine_taper(len(sig[0, :]), 0.1)
+    taper = cosine_taper(len(resampled_stream[0].data), 0.1)
 
-    nchan, _ = sig.shape
-    fsig = np.copy(sig)
+    filtered_waveforms = Stream()
 
     # Detrend, apply cosine taper then apply band-pass filter in both
     # directions for zero phase-shift
-    for ch in range(0, nchan):
-        fsig[ch, :] = detrend(fsig[ch, :], type='linear')
-        fsig[ch, :] = detrend(fsig[ch, :], type='constant')
-        fsig[ch, :] = fsig[ch, :] * tap
-        fsig[ch, :] = lfilter(b1, a1, fsig[ch, ::-1])[::-1]
-        fsig[ch, :] = lfilter(b1, a1, fsig[ch, :])
+    for trace in resampled_stream:
+        filtered_trace = trace.copy()
+        filtered_data = filtered_trace.data
+        filtered_data = detrend(filtered_data, type="linear")
+        filtered_data = detrend(filtered_data, type="constant")
+        filtered_data = filtered_data * taper
+        filtered_data = lfilter(b1, a1, filtered_data[::-1])[::-1]
+        filtered_data = lfilter(b1, a1, filtered_data)
+        filtered_trace.data = filtered_data
+        filtered_waveforms.append(filtered_trace)
 
-    return fsig
+    return filtered_waveforms
 
 
 class STALTAOnset(Onset):
     """
-    QuakeMigrate default onset function class - uses a classic STA/LTA onset.
+    QuakeMigrate default onset function class - uses the Short-Term Average to
+    Long-Term Average ratio.
 
     Attributes
     ----------
-    p_bp_filter : array-like, [float, float, int]
-        Butterworth bandpass filter specification
+    bandpass_filters : dict of [float, float, int]
+        Butterworth bandpass filter specification - keys are phases.
         [lowpass (Hz), highpass (Hz), corners*]
         *NOTE: two-pass filter effectively doubles the number of corners.
-    s_bp_filter : array-like, [float, float, int]
-        Butterworth bandpass filter specification
-        [lowpass (Hz), highpass (Hz), corners*]
-        *NOTE: two-pass filter effectively doubles the number of corners.
-    p_onset_win : array-like, [float, float]
-        P onset window parameters
+    onset_windows : dict of [float, float]
+        Onset window lengths - keys are phases.
         [STA, LTA] (both in seconds)
-    s_onset_win : array-like, [float, float]
-        S onset window parameters
-        [STA, LTA] (both in seconds)
-    sampling_rate : int
-        Desired sampling rate for input data, in Hz; sampling rate at which
-        the onset functions will be computed.
-    pre_pad : float, optional
-        Option to override the default pre-pad duration of data to read
-        before computing 4-D coalescence in detect() and locate(). Default
-        value is calculated from the onset function parameters.
     position : str, optional
         Compute centred STA/LTA (STA window is preceded by LTA window;
         value is assigned to end of LTA window / start of STA window) or
@@ -213,11 +157,17 @@ class STALTAOnset(Onset):
         using classic for detect() and centred for locate() if your data
         quality allows it. This is the default behaviour; override by
         setting this variable.
+    sampling_rate : int
+        Desired sampling rate for input data, in Hz; sampling rate at which
+        the onset functions will be computed.
 
     Methods
     -------
-    calculate_onsets()
-        Generate onset functions that represent seismic phase arrivals
+    calculate_onsets
+        Generate onset functions that represent seismic phase arrivals.
+    gaussian_halfwidth
+        Phase-appropriate Gaussian half-width estimate based on the short-term
+        average window length.
 
     """
 
@@ -227,25 +177,37 @@ class STALTAOnset(Onset):
         super().__init__(**kwargs)
 
         self.position = kwargs.get("position", "classic")
+        self.bandpass_filters = kwargs.get("bandpass_filters",
+                                           {"P": [2.0, 16.0, 2],
+                                            "S": [2.0, 16.0, 2]})
+        self.onset_windows = kwargs.get("onset_windows", {"P": [0.2, 1.0],
+                                                          "S": [0.2, 1.0]})
+        self.channel_maps = kwargs.get("channel_maps", {"P": "*Z",
+                                                        "S": "*[N,E]"})
+        self.resample = kwargs.get("resample", False)
+        self.upfactor = kwargs.get("upfactor")
+
+        # --- Deprecated ---
         self.onset_centred = kwargs.get("onset_centred")
-        self.p_bp_filter = kwargs.get("p_bp_filter", [2.0, 16.0, 2])
-        self.p_onset_win = kwargs.get("p_onset_win", [0.2, 1.0])
-        self.s_bp_filter = kwargs.get("s_bp_filter", [2.0, 12.0, 2])
-        self.s_onset_win = kwargs.get("s_onset_win", [0.2, 1.0])
+        self.p_bp_filter = kwargs.get("p_bp_filter")
+        self.s_bp_filter = kwargs.get("s_bp_filter")
+        self.p_onset_win = kwargs.get("p_onset_win")
+        self.s_onset_win = kwargs.get("s_onset_win")
 
     def __str__(self):
         """Return short summary string of the Onset object."""
 
         out = (f"\tOnset parameters - using the {self.position} STA/LTA onset"
-               f"\n\t\tData sampling rate = {self.sampling_rate} Hz\n"
-               f"\n\t\tBandpass filter P  = {self.p_bp_filter} (Hz, Hz, -)"
-               f"\n\t\tBandpass filter S  = {self.s_bp_filter} (Hz, Hz, -)\n"
-               f"\n\t\tOnset P [STA, LTA] = {self.p_onset_win} (s, s)"
-               f"\n\t\tOnset S [STA, LTA] = {self.s_onset_win} (s, s)\n")
+               f"\n\t\tData sampling rate = {self.sampling_rate} Hz\n")
+        for phase, filt in self.bandpass_filters.items():
+            out += f"\n\t\t{phase} bandpass filter  = {filt} (Hz, Hz, -)"
+        out += "\n"
+        for phase, windows in self.onset_windows.items():
+            out += f"\n\t\t{phase} onset [STA, LTA] = {windows} (s, s)"
 
         return out
 
-    def calculate_onsets(self, data, log=True, run=None):
+    def calculate_onsets(self, data, phases=["P", "S"], log=True):
         """
         Returns a stacked pair of onset (characteristic) functions for the P
         and S phase arrivals.
@@ -256,38 +218,53 @@ class STALTAOnset(Onset):
             Light class encapsulating data returned by an archive query.
         log : bool
             Calculate log(onset) if True, otherwise calculate the raw onset.
-        run :
 
         """
 
-        filtered_signal = np.empty((data.signal.shape))
-        filtered_signal[:] = np.nan
+        for phase in phases:
+            phase_waveforms = data.waveforms.select(
+                channel=self.channel_maps[phase])
+            # Check if empty here?
 
-        p_onset, filtered_signal[2, :, :] = self._p_onset(data.signal[2], log)
-        s_onset, filtered_signal[1, :, :], \
-            filtered_signal[0, :, :] = self._s_onset(data.signal[0],
-                                                     data.signal[1], log)
-        if not (isinstance(p_onset, np.ndarray)
-                and isinstance(s_onset, np.ndarray)):
-            raise TypeError
-        data.p_onset = p_onset
-        data.s_onset = s_onset
+            stw, ltw = self.onset_windows[phase]
+            stw = util.time2sample(stw, self.sampling_rate) + 1
+            ltw = util.time2sample(ltw, self.sampling_rate) + 1
 
-        ps_onset = np.concatenate((p_onset, s_onset))
-        ps_onset[np.isnan(ps_onset)] = 0
+            filtered_waveforms = pre_process(
+                phase_waveforms, self.sampling_rate, self.resample,
+                self.upfactor, self.bandpass_filters[phase])
 
-        data.filtered_signal = filtered_signal
+            for station in data.stations:
+                waveforms = filtered_waveforms.select(station=station)
 
-        return ps_onset
+                # Check for flatlines and any available data
+                if any([tr.data.max() == tr.data.min() for tr in waveforms]):
+                    continue
+                if not bool(waveforms):
+                    continue
 
-    def _p_onset(self, sigz, log):
+                data.onsets.setdefault(station, {}).update(
+                    {phase: self._onset(waveforms, stw, ltw, log)})
+
+            data.filtered_waveforms += filtered_waveforms
+
+        data.availability = {station: int(len(data.onsets[station]))
+                             for station in data.onsets.keys()}
+
+        onsets = []
+        for phase in phases:
+            for station in data.onsets.keys():
+                onsets.append(data.onsets[station][phase])
+        return np.stack(onsets, axis=0), data.availability.keys()
+
+    def _onset(self, stream, stw, ltw, log):
         """
         Generates an onset (characteristic) function for the P-phase from the
         Z-component signal.
 
         Parameters
         ----------
-        sigz : array-like
+        stream : array-like
             Z-component time series.
         log : bool
             Calculate log(onset) if True, otherwise calculate the raw onset.
@@ -302,61 +279,19 @@ class STALTAOnset(Onset):
 
         """
 
-        stw, ltw = self.p_onset_win
-        stw = util.time2sample(stw, self.sampling_rate) + 1
-        ltw = util.time2sample(ltw, self.sampling_rate) + 1
+        if self.position == "centred":
+            onsets = [sta_lta_centred(tr.data, stw, ltw) for tr in stream]
+        elif self.position == "classic":
+            onsets = [classic_sta_lta(tr.data, stw, ltw) for tr in stream]
 
-        lc, hc, ord_ = self.p_bp_filter
-        filt_sigz = pre_process(sigz, self.sampling_rate, lc, hc, ord_)
+        onsets = np.sqrt(np.sum(np.stack([onset ** 2 for onset in onsets]),
+                                axis=0) / len(onsets))
 
-        p_onset = sta_lta_onset(filt_sigz, stw, ltw, position=self.position,
-                                log=log)
+        np.clip(1 + onsets, 0.8, np.inf, onsets)
+        if log:
+            np.log(onsets, onsets)
 
-        return p_onset, filt_sigz
-
-    def _s_onset(self, sige, sign, log):
-        """
-        Generates an onset (characteristic) function for the S-phase from the
-        E- and N-components signal.
-
-        Parameters
-        ----------
-        sige : array-like
-            E-component time series.
-        sign : array-like
-            N-component time series.
-        log : bool
-            Calculate log(onset) if True, otherwise calculate the raw onset.
-
-        Returns
-        -------
-        s_onset : array-like
-            Onset function generated from STA/LTA of horizontal component data.
-        filt_sige : array-like
-            Pre-processed East-component data (detrended, tapered and
-            bandpass filtered.)
-        filt_sign : array-like
-            Pre-processed North-component data (detrended, tapered and
-            bandpass filtered.)
-
-        """
-
-        stw, ltw = self.s_onset_win
-        stw = util.time2sample(stw, self.sampling_rate) + 1
-        ltw = util.time2sample(ltw, self.sampling_rate) + 1
-
-        lc, hc, ord_ = self.s_bp_filter
-        filt_sige = pre_process(sige, self.sampling_rate, lc, hc, ord_)
-        filt_sign = pre_process(sign, self.sampling_rate, lc, hc, ord_)
-
-        s_e_onset = sta_lta_onset(filt_sige, stw, ltw, position=self.position,
-                                  log=log)
-        s_n_onset = sta_lta_onset(filt_sign, stw, ltw, position=self.position,
-                                  log=log)
-
-        s_onset = np.sqrt((s_e_onset ** 2 + s_n_onset ** 2) / 2.)
-
-        return s_onset, filt_sige, filt_sign
+        return onsets
 
     def gaussian_halfwidth(self, phase):
         """
@@ -370,12 +305,7 @@ class STALTAOnset(Onset):
 
         """
 
-        if phase == "P":
-            sta_window = self.p_onset_win[0]
-        elif phase == "S":
-            sta_window = self.s_onset_win[0]
-
-        return (sta_window * self.sampling_rate / 2)
+        return self.onset_windows[phase][0] * self.sampling_rate / 2
 
     @property
     def pre_pad(self):
@@ -433,6 +363,78 @@ class STALTAOnset(Onset):
             self.position = "centred"
         else:
             self.position = "classic"
+
+    @property
+    def p_bp_filter(self):
+        """Handle deprecated p_bp_filter kwarg / attribute"""
+        return self.bandpass_filters["P"]
+
+    @p_bp_filter.setter
+    def p_bp_filter(self, value):
+        """
+        Handle deprecated p_bp_filter kwarg / attribute and print warning.
+
+        """
+        if value is None:
+            return
+        print("FutureWarning: Parameter name has changed - continuing.")
+        print("To remove this message, refer to the documentation.")
+
+        self.bandpass_filters["P"] = value
+
+    @property
+    def s_bp_filter(self):
+        """Handle deprecated s_bp_filter kwarg / attribute"""
+        return self.bandpass_filters["S"]
+
+    @s_bp_filter.setter
+    def s_bp_filter(self, value):
+        """
+        Handle deprecated s_bp_filter kwarg / attribute and print warning.
+
+        """
+        if value is None:
+            return
+        print("FutureWarning: Parameter name has changed - continuing.")
+        print("To remove this message, refer to the documentation.")
+
+        self.bandpass_filters["S"] = value
+
+    @property
+    def p_onset_win(self):
+        """Handle deprecated p_onset_win kwarg / attribute"""
+        return self.onset_windows["P"]
+
+    @p_onset_win.setter
+    def p_onset_win(self, value):
+        """
+        Handle deprecated p_onset_win kwarg / attribute and print warning.
+
+        """
+        if value is None:
+            return
+        print("FutureWarning: Parameter name has changed - continuing.")
+        print("To remove this message, refer to the documentation.")
+
+        self.onset_windows["P"] = value
+
+    @property
+    def s_onset_win(self):
+        """Handle deprecated s_onset_win kwarg / attribute"""
+        return self.onset_windows["S"]
+
+    @s_onset_win.setter
+    def s_onset_win(self, value):
+        """
+        Handle deprecated s_onset_win kwarg / attribute and print warning.
+
+        """
+        if value is None:
+            return
+        print("FutureWarning: Parameter name has changed - continuing.")
+        print("To remove this message, refer to the documentation.")
+
+        self.onset_windows["S"] = value
 
 
 class CentredSTALTAOnset(STALTAOnset):

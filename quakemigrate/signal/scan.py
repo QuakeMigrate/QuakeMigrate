@@ -93,9 +93,8 @@ class QuakeScan:
         ensure the correct coalescence is calculated at every sample.
     run : :class:`~quakemigrate.io.Run` object
         Light class encapsulating i/o path information for a given run.
-    sampling_rate : int, optional
-        Desired sampling rate of input data; sampling rate at which to compute
-        the coalescence function. Default: 50 Hz.
+    scan_rate : int, optional
+        Desired sampling rate of scan. Default: 50 Hz.
     threads : int, optional
         The number of threads for the C functions to use on the executing host.
         Default: 1 thread.
@@ -168,9 +167,6 @@ class QuakeScan:
             raise util.OnsetTypeError
         self.onset.post_pad = lut.max_traveltime
 
-        self.pre_pad = 0.
-        self.post_pad = 0.
-
         # --- Set up i/o ---
         self.run = Run(run_path, run_name, kwargs.get("run_subname", ""),
                        loglevel=kwargs.get("loglevel", "info"))
@@ -195,8 +191,8 @@ class QuakeScan:
         # General QuakeScan parameters
         self.threads = kwargs.get("threads", 1)
         self.n_cores = kwargs.get("n_cores")  # DEPRECATING
-        self.sampling_rate = kwargs.get("sampling_rate", 50)
-        self.scan_rate = kwargs.get("scan_rate", 50)  # FUTURE
+        self.sampling_rate = kwargs.get("sampling_rate")  # DEPRECATING
+        self.scan_rate = kwargs.get("scan_rate", 50)
 
         # Magnitudes
         mags = kwargs.get("mags")
@@ -225,7 +221,7 @@ class QuakeScan:
         """Return short summary string of the QuakeScan object."""
 
         out = ("\tScan parameters:\n"
-               f"\t\tData sampling rate = {self.sampling_rate} Hz\n"
+               f"\t\tScan sampling rate = {self.scan_rate} Hz\n"
                f"\t\tThread count       = {self.threads}\n")
         if self.run.stage == "detect":
             out += f"\t\tTime step          = {self.timestep} s\n"
@@ -340,30 +336,25 @@ class QuakeScan:
         """
 
         coalescence = ScanmSEED(self.run, self.continuous_scanmseed_write,
-                                self.sampling_rate)
+                                self.scan_rate)
 
-        pre_pad, post_pad = self.onset.pad(self.timestep)
-        self.pre_pad, self.post_pad = pre_pad, post_pad
-        nsteps = int(np.ceil((endtime - starttime) / self.timestep))
-        try:
-            availability = pd.DataFrame(index=np.arange(nsteps),
-                                        columns=self.lut.traveltimes.keys())
-        except AttributeError:
-            availability = pd.DataFrame(index=np.arange(nsteps),
-                                        columns=self.lut.maps.keys())
+        self.pre_pad, self.post_pad = self.onset.pad(self.timestep)
+        n_steps = int(np.ceil((endtime - starttime) / self.timestep))
+        availability = pd.DataFrame(index=range(n_steps),
+                                    columns=self.archive.stations)
 
-        for i in range(nsteps):
+        for i in range(n_steps):
             w_beg = starttime + self.timestep*i - self.pre_pad
             w_end = starttime + self.timestep*(i + 1) + self.post_pad
-            logging.debug("~"*20 + f" Processing : {w_beg}-{w_end} " + "~"*20)
-            logging.info("~"*20 + f" Processing : {w_beg + self.pre_pad}-"
-                         + f"{w_end - self.post_pad} " + "~"*20)
+            logging.debug(f" Processing : {w_beg}-{w_end} ".center(110, "~"))
+            logging.info((f" Processing : {w_beg + self.pre_pad}-"
+                          f"{w_end - self.post_pad} ").center(110, "~"))
 
             try:
-                data = self.archive.read_waveform_data(w_beg, w_end,
-                                                       self.sampling_rate)
-                coalescence.append(*self._compute(data),
-                                   self.lut.unit_conversion_factor)
+                data = self.archive.read_waveform_data(
+                    w_beg, w_end, self.scan_rate)
+                coalescence.append(
+                    *self._compute(data), self.lut.unit_conversion_factor)
                 availability.loc[i] = data.availability
             except util.ArchiveEmptyException as e:
                 coalescence.empty(starttime, self.timestep, i, e.msg)
@@ -401,8 +392,7 @@ class QuakeScan:
         triggered_events = read_triggered_events(self.run, **kwargs)
         n_events = len(triggered_events.index)
 
-        pre_pad, post_pad = self.onset.pad(4*self.marginal_window)
-        self.pre_pad, self.post_pad = pre_pad, post_pad
+        self.pre_pad, self.post_pad = self.onset.pad(4*self.marginal_window)
 
         for i, triggered_event in triggered_events.iterrows():
             event = Event(self.marginal_window, triggered_event)
@@ -414,10 +404,11 @@ class QuakeScan:
 
             try:
                 logging.info("\tReading waveform data...")
-                event.add_waveform_data(self._read_event_waveform_data(w_beg,
-                                                                       w_end))
+                event.add_waveform_data(
+                    self._read_event_waveform_data(w_beg, w_end))
                 logging.info("\tComputing 4-D coalescence function...")
-                event.add_coalescence(*self._compute(event.data, event))  # pylint: disable=E1120
+                event.add_coalescence(  # pylint: disable=E1120
+                    *self._compute(event.data, event))
             except util.ArchiveEmptyException as e:
                 logging.info(e.msg)
                 continue
@@ -484,11 +475,11 @@ class QuakeScan:
         """
 
         # --- Calculate continuous coalescence within 3-D volume ---
-        onsets = self.onset.calculate_onsets(data)
-        traveltimes = self.lut.serve_traveltimes(self.sampling_rate)
-        fsmp = util.time2sample(self.pre_pad, self.sampling_rate)
-        lsmp = util.time2sample(self.post_pad, self.sampling_rate)
-        avail = np.sum(data.availability)*2
+        onsets, stations = self.onset.calculate_onsets(data)
+        traveltimes = self.lut.serve_traveltimes(self.scan_rate, stations)
+        fsmp = util.time2sample(self.pre_pad, self.scan_rate)
+        lsmp = util.time2sample(self.post_pad, self.scan_rate)
+        avail = np.sum([value for _, value in data.availability.items()])
         map4d = migrate(onsets, traveltimes, fsmp, lsmp, avail, self.threads)
 
         # --- Find continuous peak coalescence in 3-D volume ---
@@ -500,7 +491,7 @@ class QuakeScan:
             time = data.starttime + self.pre_pad
             return time, max_coa, max_coa_n, coord
         else:
-            times = event.mw_times(self.sampling_rate)
+            times = event.mw_times(self.scan_rate)
             return times, max_coa, max_coa_n, coord, map4d
 
     @util.timeit("info")
@@ -564,9 +555,8 @@ class QuakeScan:
                 logging.info(msg)
                 post_pad = 0.
 
-        return self.archive.read_waveform_data(w_beg, w_end,
-                                               self.sampling_rate, pre_pad,
-                                               post_pad)
+        return self.archive.read_waveform_data(w_beg, w_end, self.scan_rate,
+                                               pre_pad, post_pad)
 
     @util.timeit("info")
     def _calculate_location(self, event):
@@ -944,22 +934,16 @@ class QuakeScan:
     @property
     def sampling_rate(self):
         """Get sampling_rate"""
-        return self._sampling_rate
+        return self.scan_rate
 
     @sampling_rate.setter
     def sampling_rate(self, value):
-        """
-        Set sampling_rate and try distribute to other objects.
-
-        """
-
-        try:
-            self.archive.sampling_rate = value
-            self.onset.sampling_rate = value
-            self.picker.sampling_rate = value
-        except AttributeError:
-            pass
-        self._sampling_rate = value
+        if value is None:
+            return
+        print("FutureWarning: Parameter name has changed - continuing.")
+        print("To remove this message, change:")
+        print("\t'sampling_rate' -> 'scan_rate'")
+        self.scan_rate = value
 
     # --- Deprecation/Future handling ---
     @property

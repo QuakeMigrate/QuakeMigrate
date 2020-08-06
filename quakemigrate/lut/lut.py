@@ -484,7 +484,7 @@ class LUT(Grid3D):
 
         return out
 
-    def serve_traveltimes(self, sampling_rate):
+    def serve_traveltimes(self, sampling_rate, stations):
         """
         Serve up the traveltime lookup tables.
 
@@ -504,7 +504,7 @@ class LUT(Grid3D):
 
         """
 
-        traveltimes = self._serve_traveltimes(self.phases)
+        traveltimes = self._serve_traveltimes(self.phases, stations)
 
         return np.rint(traveltimes * sampling_rate).astype(np.int32)
 
@@ -536,12 +536,15 @@ class LUT(Grid3D):
 
         return interpolator(ijk)[0]
 
-    def _serve_traveltimes(self, phases):
+    def _serve_traveltimes(self, phases, stations=None):
         """Utility function to serve up traveltimes for a list of phases."""
+
+        stations = (self.station_data["Name"].values
+                    if stations is None else stations)
 
         traveltimes = []
         for phase in phases:
-            for station in self.station_data["Name"].values:
+            for station in stations:
                 try:
                     traveltimes.append(self[station][phase])
                 except KeyError:

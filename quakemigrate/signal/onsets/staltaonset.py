@@ -66,29 +66,31 @@ def sta_lta_centred(a, nsta, nlta):
     return sta / lta
 
 
-def pre_process(stream, sampling_rate, resample, upfactor, filt):
+def pre_process(stream, sampling_rate, resample, upfactor, filter_):
     """
     Detrend raw seismic data and apply cosine taper and zero phase-shift
     Butterworth band-pass filter.
 
     Parameters
     ----------
-    sig : array-like
+    stream : `~obspy.Stream` object
         Data signal to be pre-processed.
     sampling_rate : int
         Number of samples per second, in Hz.
-    lc : float
-        Lowpass frequency of band-pass filter, in Hz.
-    hc : float
-        Highpass frequency of band-pass filter, in Hz.
-    order : int, optional
-        Number of filter corners. NOTE: two-pass filter effectively doubles the
-        number of corners.
+    resample : bool, optional
+        If true, perform resampling of data which cannot be decimated directly
+        to the desired sampling rate.
+    upfactor : int, optional
+        Factor by which to upsample the data to enable it to be decimated to
+        the desired sampling rate, e.g. 40Hz -> 50Hz requires upfactor = 5.
+    filter_ : list
+        Filter specifications, as [lowcut (Hz), highcut (Hz), order]. NOTE -
+        two-pass filter effectively doubles the number of corners.
 
     Returns
     -------
-    fsig : array-like
-        Filtered seismic data.
+    filtered_waveforms : `~obspy.Stream` object
+        Pre-processed seismic data.
 
     Raises
     ------
@@ -102,7 +104,7 @@ def pre_process(stream, sampling_rate, resample, upfactor, filt):
     resampled_stream = util.resample(stream, sampling_rate, resample, upfactor)
 
     # Grab filter info
-    lowcut, highcut, order = filt
+    lowcut, highcut, order = filter_
     # Construct butterworth band-pass filter
     try:
         b1, a1 = butter(order, [2.0 * lowcut / sampling_rate,
@@ -142,6 +144,9 @@ class STALTAOnset(Onset):
         Butterworth bandpass filter specification - keys are phases.
         [lowpass (Hz), highpass (Hz), corners*]
         *NOTE: two-pass filter effectively doubles the number of corners.
+    channel_maps : dict of str
+        Data component maps - keys are phases. These are passed into the ObsPy
+        stream.select method.
     onset_windows : dict of [float, float]
         Onset window lengths - keys are phases.
         [STA, LTA] (both in seconds)
@@ -157,9 +162,15 @@ class STALTAOnset(Onset):
         using classic for detect() and centred for locate() if your data
         quality allows it. This is the default behaviour; override by
         setting this variable.
+    resample : bool, optional
+        If true, perform resampling of data which cannot be decimated directly
+        to the desired sampling rate.
     sampling_rate : int
         Desired sampling rate for input data, in Hz; sampling rate at which
         the onset functions will be computed.
+    upfactor : int, optional
+        Factor by which to upsample the data to enable it to be decimated to
+        the desired sampling rate, e.g. 40Hz -> 50Hz requires upfactor = 5.
 
     Methods
     -------
@@ -209,22 +220,31 @@ class STALTAOnset(Onset):
 
     def calculate_onsets(self, data, phases=["P", "S"], log=True):
         """
-        Returns a stacked pair of onset (characteristic) functions for the P
-        and S phase arrivals.
+        Returns a stacked pair of onset (characteristic) functions for the
+        requested phases.
 
         Parameters
         ----------
         data : :class:`~quakemigrate.io.data.SignalData` object
             Light class encapsulating data returned by an archive query.
+        phases : list of str
+            Specify the phases to use for the onset calculation.
         log : bool
             Calculate log(onset) if True, otherwise calculate the raw onset.
+
+        Returns
+        -------
+        onsets : `numpy.ndarray` of float
+            Stacked onset functions served up to the scanner.
+        stations : list of str
+            Available stations, used to request the correct traveltime lookup
+            tables.
 
         """
 
         for phase in phases:
             phase_waveforms = data.waveforms.select(
                 channel=self.channel_maps[phase])
-            # Check if empty here?
 
             stw, ltw = self.onset_windows[phase]
             stw = util.time2sample(stw, self.sampling_rate) + 1
@@ -259,23 +279,25 @@ class STALTAOnset(Onset):
 
     def _onset(self, stream, stw, ltw, log):
         """
-        Generates an onset (characteristic) function for the P-phase from the
-        Z-component signal.
+        Generates an onset (characteristic) function. If there are multiple
+        components, these are combined as the root-mean-square of the onset
+        functions BEFORE taking a log (if requested).
 
         Parameters
         ----------
-        stream : array-like
-            Z-component time series.
+        stream : `~obspy.Stream` object
+            Stream containing the pre-processed data to calculate the onset.
+        stw : int
+            Number of samples in the short-term window.
+        ltw : int
+            Number of samples in the long-term window.
         log : bool
             Calculate log(onset) if True, otherwise calculate the raw onset.
 
         Returns
         -------
-        p_onset : array-like
-            Onset function generated from STA/LTA of vertical component data.
-        filt_sigz : array-like
-            Pre-processed vertical component data (detrended, tapered and
-            bandpass filtered.)
+        onset : `numpy.ndarray` of float
+            STA/LTA onset function.
 
         """
 
@@ -284,14 +306,14 @@ class STALTAOnset(Onset):
         elif self.position == "classic":
             onsets = [classic_sta_lta(tr.data, stw, ltw) for tr in stream]
 
-        onsets = np.sqrt(np.sum(np.stack([onset ** 2 for onset in onsets]),
-                                axis=0) / len(onsets))
+        onset = np.sqrt(np.sum(np.stack([onset ** 2 for onset in onsets]),
+                               axis=0) / len(onsets))
 
-        np.clip(1 + onsets, 0.8, np.inf, onsets)
+        np.clip(1 + onset, 0.8, np.inf, onset)
         if log:
-            np.log(onsets, onsets)
+            np.log(onset, onset)
 
-        return onsets
+        return onset
 
     def gaussian_halfwidth(self, phase):
         """
@@ -310,8 +332,9 @@ class STALTAOnset(Onset):
     @property
     def pre_pad(self):
         """Pre-pad is determined as a function of the onset windows"""
-        pre_pad = max(self.p_onset_win[1], self.s_onset_win[1]) \
-            + 3 * max(self.p_onset_win[0], self.s_onset_win[0])
+        windows = self.onset_windows
+        pre_pad = (max([windows[key][1] for key in windows.keys()])
+                   + 3 * max([windows[key][0] for key in windows.keys()]))
 
         return pre_pad
 
@@ -338,8 +361,8 @@ class STALTAOnset(Onset):
         station and a grid point plus the LTA (in case onset_centred is True)
 
         """
-
-        lta_max = max(self.p_onset_win[1], self.s_onset_win[1])
+        windows = self.onset_windows
+        lta_max = max([windows[key][1] for key in windows.keys()])
         self._post_pad = np.ceil(ttmax + 2 * lta_max)
 
     # --- Deprecation/Future handling ---

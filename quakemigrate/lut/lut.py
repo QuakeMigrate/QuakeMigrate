@@ -484,7 +484,7 @@ class LUT(Grid3D):
 
         return out
 
-    def serve_traveltimes(self, sampling_rate, stations):
+    def serve_traveltimes(self, sampling_rate, stations=None):
         """
         Serve up the traveltime lookup tables.
 
@@ -495,6 +495,8 @@ class LUT(Grid3D):
         ----------
         sampling_rate : int
             Samples per second used in the scan run.
+        stations : list of str, optional
+            List of stations for which to serve traveltime lookup tables.
 
         Returns
         -------
@@ -537,7 +539,23 @@ class LUT(Grid3D):
         return interpolator(ijk)[0]
 
     def _serve_traveltimes(self, phases, stations=None):
-        """Utility function to serve up traveltimes for a list of phases."""
+        """
+        Utility function to serve up traveltimes for a list of phases.
+
+        Parameters
+        ----------
+        phases : list of str
+            List of phases for which to serve traveltime lookup tables.
+        stations : list of str, optional
+            List of stations for which to serve traveltime lookup tables.
+
+        Returns
+        -------
+        traveltimes : `numpy.ndarray` of float
+            Array of stacked traveltimes, per the requested phases and
+            stations.
+
+        """
 
         stations = (self.station_data["Name"].values
                     if stations is None else stations)

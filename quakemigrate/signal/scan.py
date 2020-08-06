@@ -475,7 +475,7 @@ class QuakeScan:
         """
 
         # --- Calculate continuous coalescence within 3-D volume ---
-        onsets, stations = self.onset.calculate_onsets(data)
+        onsets, stations = self.onset.calculate_onsets(data, self.lut.phases)
         traveltimes = self.lut.serve_traveltimes(self.scan_rate, stations)
         fsmp = util.time2sample(self.pre_pad, self.scan_rate)
         lsmp = util.time2sample(self.post_pad, self.scan_rate)

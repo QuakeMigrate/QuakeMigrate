@@ -109,7 +109,8 @@ class GaussianPicker(PhasePicker):
         """
 
         # Onsets are recalculated without logging
-        _ = self.onset.calculate_onsets(event.data, log=False)
+        _ = self.onset.calculate_onsets(event.data, lut.phases, log=False)
+        self.sampling_rate = self.onset.sampling_rate
 
         if self._fraction_tt is None:
             fraction_tt = lut.fraction_tt
@@ -130,7 +131,7 @@ class GaussianPicker(PhasePicker):
         for i, station in enumerate(event.data.stations):
             gaussfits[station] = {}
             pick_windows[station] = {}
-            for j, phase in enumerate(["P", "S"]):
+            for j, phase in enumerate(lut.phases):
                 try:
                     onset = event.data.onsets[station][phase]
                 except KeyError:

@@ -84,7 +84,8 @@ class Archive:
         """Instantiate the Archive object."""
 
         self.archive_path = pathlib.Path(archive_path)
-        self.stations = stations["Name"]
+        self.stations = stations
+        self.catch_network = kwargs.get('catch_network', False)
         if archive_format:
             channels = kwargs.get("channels", "*")
             self.path_structure(archive_format, channels)
@@ -94,9 +95,7 @@ class Archive:
         self.read_all_stations = kwargs.get("read_all_stations", False)
         self.response_inv = kwargs.get("response_inv")
         self.resample = kwargs.get("resample", False)
-        self.upfactor = kwargs.get("upfactor")
-
-        self.catch_network = kwargs.get('catch_network', False)
+        self.upfactor = kwargs.get("upfactor")        
 
     def __str__(self):
         """Returns a short summary string of the Archive object."""
@@ -106,7 +105,7 @@ class Archive:
                f"\n\tPath structure\t:\t{self.format}"
                f"\n\tResampling\t:\t{self.resample}"
                "\n\tStations:")
-        for station in self.stations:
+        for station in self.stations['Name']:
             out += f"\n\t\t{station}"
 
         return out
@@ -130,14 +129,9 @@ class Archive:
         """
 
         if archive_format == "SeisComp3":
-            if self.catch_network:
-                self.format = ("{year}/{network}/{station}/" + \
-                            channels + "/{network}.{station}.*.*.D."
-                            "{year}.{jday:03d}")
-            else:
-                self.format = ("{year}/*/{station}/" + \
-                            channels + "/*.{station}.*.*.D."
-                            "{year}.{jday:03d}")
+            self.format = "{year}/{network}/{station}/{channel}.D" + \
+                        "/{network}.{station}.{location}.{channel}.D." + \
+                        "{year}.{jday:03d}"
         elif archive_format == "YEAR/JD/*_STATION_*":
             self.format = "{year}/{jday:03d}/*_{station}_*"
         elif archive_format == "YEAR/JD/STATION":
@@ -244,7 +238,7 @@ class Archive:
             # Re-populate st with only stations in station file, and only
             # data between start and end time needed for QuakeScan
             st_selected = Stream()
-            for station in self.stations:
+            for station in self.stations['Station']:
                 if self.catch_network and '.' in station:
                     network = station.split('.')[0]
                     station = station.split('.')[1]
@@ -317,30 +311,30 @@ class Archive:
         # NOTE! This assumes the archive structure is split into days.
         while start_day + (dy * 86400) <= endtime:
             now = starttime + (dy * 86400)
-            if self.read_all_stations is True:
+            # if self.read_all_stations is True:
+            #     file_format = self.format.format(year=now.year,
+            #                                      month=now.month,
+            #                                      day=now.day,
+            #                                      jday=now.julday,
+            #                                      station="*",
+            #                                      network='*',
+            #                                      dtime=now)
+            #     files = chain(files, self.archive_path.glob(file_format))
+            # else:
+            for n, s, l, c in zip(self.stations['Network'],
+                                  self.stations['Station'],
+                                  self.stations['Location'],
+                                  self.stations['Channel']):
                 file_format = self.format.format(year=now.year,
-                                                 month=now.month,
-                                                 day=now.day,
-                                                 jday=now.julday,
-                                                 station="*",
-                                                 network='*',
-                                                 dtime=now)
+                                                    month=now.month,
+                                                    day=now.day,
+                                                    jday=now.julday,
+                                                    station=s,
+                                                    network=n,
+                                                    location=l,
+                                                    channel=c,
+                                                    dtime=now)
                 files = chain(files, self.archive_path.glob(file_format))
-            else:
-                for station in self.stations:
-                    if self.catch_network and '.' in station:
-                        network = station.split('.')[0]
-                        station = station.split('.')[1]
-                    else:
-                        network = None
-                    file_format = self.format.format(year=now.year,
-                                                     month=now.month,
-                                                     day=now.day,
-                                                     jday=now.julday,
-                                                     station=station,
-                                                     network=network,
-                                                     dtime=now)
-                    files = chain(files, self.archive_path.glob(file_format))
             dy += 1
 
         return files
@@ -705,14 +699,11 @@ class WaveformData:
         availability = np.zeros(len(self.stations)).astype(int)
         signal = np.zeros((3, len(self.stations), int(samples)))
 
-        for i, station in enumerate(self.stations):
-            if self.catch_network and '.' in station:
-                network = station.split('.')[0]
-                station = station.split('.')[1]
-                tmp_st = stream.select(network=network, 
-                                       station=station)
-            else:
-                tmp_st = stream.select(station=station)
+        for i, (n, s, l, c) in enumerate(zip(self.stations['Network'],
+                                             self.stations['Station'],
+                                             self.stations['Location'],
+                                             self.stations['Channel'])):
+            tmp_st = stream.select(network=n, station=s, location=l, channel=c)
             if len(tmp_st) == 3:
                 # Check traces are the correct number of samples and not filled
                 # by a constant value (i.e. not flatlines)

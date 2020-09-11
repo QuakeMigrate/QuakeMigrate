@@ -189,7 +189,9 @@ def _plot_waveform_gather(ax, lut, event, idx):
     ax.set_ylim([0, max(range_order)+2])
     ax.xaxis.set_major_formatter(util.DateFormatter("%H:%M:%S.{ms}", 2))
     ax.yaxis.set_ticks(range_order)
-    ax.yaxis.set_ticklabels(event.data.stations, fontsize=8)
+    ax.yaxis.set_ticklabels(['{}.{}'.format(n, s) for n, s in zip(event.data.stations['Network'], 
+                                                                  event.data.stations['Station'])], 
+                            fontsize=8)
     ax.tick_params(axis='x', which='both', labelsize=8)
 
 

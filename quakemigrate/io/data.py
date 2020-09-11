@@ -85,6 +85,7 @@ class Archive:
 
         self.archive_path = pathlib.Path(archive_path)
         self.stations = stations["Name"]
+        self.catch_network = kwargs.get('catch_network', False)
         if archive_format:
             channels = kwargs.get("channels", "*")
             self.path_structure(archive_format, channels)
@@ -96,7 +97,7 @@ class Archive:
         self.resample = kwargs.get("resample", False)
         self.upfactor = kwargs.get("upfactor")
 
-        self.catch_network = kwargs.get('catch_network', False)
+        
 
     def __str__(self):
         """Returns a short summary string of the Archive object."""

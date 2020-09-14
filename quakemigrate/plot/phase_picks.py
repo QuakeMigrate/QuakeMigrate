@@ -12,10 +12,6 @@ Module to produce a summary plot for the phase picking.
 
 import matplotlib.pyplot as plt
 import numpy as np
-from pandas.plotting import register_matplotlib_converters
-
-
-register_matplotlib_converters()
 
 
 def pick_summary(event, station, signal, picks, onsets, ttimes, window):

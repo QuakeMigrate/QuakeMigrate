@@ -206,8 +206,9 @@ def _compute_homogeneous(lut, phase, velocity):
     grid_xyz = lut.grid_xyz
     stations_xyz = lut.stations_xyz
 
-    for i, station in enumerate(lut.station_data["Name"].values):
-        logging.info(f"\t\t...station: {station} - {i+1} of "
+    for i, (network, station) in enumerate(zip(lut.station_data["Network"].values, 
+                                             lut.station_data["Station"].values)):
+        logging.info(f"\t\t...station: {network}.{station} - {i+1} of "
                      f"{stations_xyz.shape[0]}")
 
         dx, dy, dz = [grid_xyz[j] - stations_xyz[i, j] for j in range(3)]
@@ -252,8 +253,9 @@ def _compute_1d_fmm(lut, phase, vmodel):
     f = interp1d(depths, vmodel)
     int_vmodel = f(grid_xyz[2])
 
-    for i, station in enumerate(lut.station_data["Name"].values):
-        logging.info(f"\t\t...station: {station} - {i+1} of "
+    for i, (network, station) in enumerate(zip(lut.station_data["Network"].values, 
+                                             lut.station_data["Station"].values)):
+        logging.info(f"\t\t...station: {network}.{station} - {i+1} of "
                      f"{stations_xyz.shape[0]}")
 
         lut.traveltimes.setdefault(station, {}).update(
@@ -377,9 +379,10 @@ def _compute_1d_sweep(lut, phase, vmodel, **kwargs):
     (cwd / "time").mkdir(exist_ok=True)
     (cwd / "model").mkdir(exist_ok=True)
 
-    for i, station in enumerate(lut.station_data["Name"].values):
-        logging.info(f"\t\t...running NonLinLoc - station: {station:5s} - "
-                     f"{i+1} of {stations_xyz.shape[0]}")
+    for i, (network, station) in enumerate(zip(lut.station_data["Network"].values, 
+                                             lut.station_data["Station"].values)):
+        logging.info(f"\t\t...station: {network}.{station} - {i+1} of "
+                     f"{stations_xyz.shape[0]}")
 
         dx, dy = [grid_xyz[j] - stations_xyz[i, j] for j in range(2)]
         distances = np.sqrt(dx**2 + dy**2).flatten()
@@ -393,7 +396,7 @@ def _compute_1d_sweep(lut, phase, vmodel, **kwargs):
                       np.max([ur[2], stations_xyz[i, 2]])]
 
         # Allow 2 nodes on depth extent as a computational buffer
-        _write_control_file(stations_xyz[i], station, max_dist, vmodel,
+        _write_control_file(stations_xyz[i], network + '.' + station, max_dist, vmodel,
                             depth_span, phase, nlloc_dx, block_model)
 
         for mode in ["Vel2Grid", "Grid2Time"]:
@@ -402,10 +405,10 @@ def _compute_1d_sweep(lut, phase, vmodel, **kwargs):
             if b"ERROR" in out:
                 raise Exception(f"{mode} Error", out)
 
-        to_read = cwd / "time" / f"layer.{phase}.{station}.time"
+        to_read = cwd / "time" / f"layer.{phase}.{network}.{station}.time"
         gridspec, _, traveltimes = _read_nlloc(to_read, ignore_proj=True)
 
-        lut.traveltimes.setdefault(station, {}).update(
+        lut.traveltimes.setdefault(network + '.' + station, {}).update(
             {phase: _bilinear_interpolate(np.c_[distances, depths],
                                           gridspec[1, 1:],
                                           gridspec[2, 1:],
@@ -415,7 +418,7 @@ def _compute_1d_sweep(lut, phase, vmodel, **kwargs):
         # Tidy up: remove control file and nll model and time files
         os.remove(cwd / "control.in")
         if not retain_nll_grids:
-            for file in (cwd / "time").glob(f"layer.{phase}.{station}.time*"):
+            for file in (cwd / "time").glob(f"layer.{phase}.{network}.{station}.time*"):
                 file.unlink()
             for file in (cwd / "time").glob(f"layer.{phase}.mod.*"):
                 file.unlink()

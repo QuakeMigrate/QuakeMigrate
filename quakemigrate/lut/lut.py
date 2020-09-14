@@ -547,9 +547,10 @@ class LUT(Grid3D):
 
         traveltimes = []
         for phase in phases:
-            for station in self.station_data["Name"].values:
+            for network, station in zip(self.station_data["Network"].values,
+                                        self.station_data["Station"].values):
                 try:
-                    traveltimes.append(self[station][phase])
+                    traveltimes.append(self[network + '.' + station][phase])
                 except KeyError:
                     traveltimes.append(self[station][f"TIME_{phase}"])
         return np.stack(traveltimes, axis=-1)

@@ -667,11 +667,14 @@ class LUT(Grid3D):
                              fontsize=14)
 
         # --- Plot stations ---
-        xy.scatter(self.station_data.Longitude, self.station_data.Latitude,
+        xy.scatter(self.station_data.Longitude.values,
+                   self.station_data.Latitude.values,
                    s=15, marker="^", zorder=20, c=station_clr)
-        xz.scatter(self.station_data.Longitude, self.station_data.Elevation,
+        xz.scatter(self.station_data.Longitude.values,
+                   self.station_data.Elevation.values,
                    s=15, marker="^", zorder=20, c=station_clr)
-        yz.scatter(self.station_data.Elevation, self.station_data.Latitude,
+        yz.scatter(self.station_data.Elevation.values,
+                   self.station_data.Latitude.values,
                    s=15, marker="<", zorder=20, c=station_clr)
         for i, row in self.station_data.iterrows():
             xy.annotate(row["Name"], [row.Longitude, row.Latitude], zorder=20,

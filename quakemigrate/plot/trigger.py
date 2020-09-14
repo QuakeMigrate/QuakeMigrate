@@ -11,19 +11,14 @@ Module to plot the triggered events on a decimated grid.
 """
 
 import logging
-import os
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from pandas.plotting import register_matplotlib_converters
 
 
 from quakemigrate.io import read_availability
 import quakemigrate.util as util
-
-
-register_matplotlib_converters()
 
 
 @util.timeit("info")
@@ -79,7 +74,7 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
 
     """
 
-    dt = pd.to_datetime(data["DT"].astype(str))
+    dt = pd.to_datetime(data["DT"].astype(str)).values
 
     fig = plt.figure(figsize=(30, 15))
     gs = (9, 18)
@@ -95,8 +90,8 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
     for ax in axes[:2]:
         ax.get_shared_x_axes().join(ax, axes[2])
     # for ax, data, label in zip(fig.axes[:2], )
-    _plot_coalescence(axes[0], dt, data.COA, "Maximum coalescence")
-    _plot_coalescence(axes[1], dt, data.COA_N,
+    _plot_coalescence(axes[0], dt, data.COA.values, "Maximum coalescence")
+    _plot_coalescence(axes[1], dt, data.COA_N.values,
                       "Normalised maximum coalescence")
     try:
         availability = read_availability(run, starttime, endtime)

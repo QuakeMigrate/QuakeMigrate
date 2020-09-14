@@ -338,9 +338,8 @@ def _plot_xy_files(xy_files, ax):
                                       "Linewidth", "Linestyle"],
                                header=None)
         for _, f in xy_files.iterrows():
-            xy_file = pd.read_csv(f["File"], names=["Longitude",
-                                                    "Latitude"],
+            xy_file = pd.read_csv(f["File"], names=["Longitude", "Latitude"],
                                   header=None)
-            ax.plot(xy_file["Longitude"], xy_file["Latitude"],
+            ax.plot(xy_file["Longitude"].values, xy_file["Latitude"].values,
                     ls=f["Linestyle"], lw=f["Linewidth"],
                     c=f["Color"])

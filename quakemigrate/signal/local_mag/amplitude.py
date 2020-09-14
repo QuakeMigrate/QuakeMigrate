@@ -276,7 +276,11 @@ class Amplitude:
 
             # Read in raw waveforms
             st = event.data.raw_waveforms.select(network=network, 
+<<<<<<< HEAD
                                                 station=station)
+=======
+                                                 station=station)
+>>>>>>> magnitude_pick_error
 
             for j, comp in enumerate(["E", "N", "Z"]): # NOTE: Will not work with 1, 2 (etc.)
                 amps = amps_template.copy()
@@ -312,10 +316,14 @@ class Amplitude:
                 else:
                     filter_sos = None
 
-                windows, picked = self._get_amplitude_windows(station, i,
-                                                              event, p_ttimes,
-                                                              s_ttimes,
-                                                              lut.fraction_tt)
+                try:
+                    windows, picked = self._get_amplitude_windows(station, i,
+                                                                event, p_ttimes,
+                                                                s_ttimes,
+                                                                lut.fraction_tt)
+                except util.PickOrderException:
+                    print('\t{}.{} :   P pick is later than its S pick, skipping'.format(network, station))
+                    continue
 
                 amps, filter_gain = self._measure_signal_amps(amps, tr,
                                                               windows,

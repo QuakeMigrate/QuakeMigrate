@@ -273,6 +273,8 @@ class GaussianPicker(PhasePicker):
             win_min = S_idxmin
             win_max = S_idxmax
 
+        logging.debug(f"Win_min = {win_min} ; Win_max = {win_max}")
+
         # Find index of maximum value of onset function in the appropriate
         # pick window
         max_onset = np.argmax(onset[win_min:win_max]) + win_min
@@ -324,6 +326,8 @@ class GaussianPicker(PhasePicker):
             # Add one data point below the threshold at each end of this period
             gau_idxmin = exceedence[tmp][0] + win_min - 1
             gau_idxmax = exceedence[tmp][-1] + win_min + 2
+            logging.debug(f"gau_idxmin = {gau_idxmin} ; "
+                          f"gau_idxmax = {gau_idxmax}")
 
             # Initial guess for gaussian half-width based on onset function
             # STA window length
@@ -361,7 +365,7 @@ class GaussianPicker(PhasePicker):
                 sigma = np.absolute(popt[2])
 
                 # Check pick mean is within the pick window.
-                if not gau_idxmin < popt[1] * self.sampling_rate < gau_idxmax:
+                if not win_min < popt[1] * self.sampling_rate < win_max:
                     gaussian_fit = self.DEFAULT_GAUSSIAN_FIT
                     gaussian_fit["PickThreshold"] = threshold
                     sigma = -1

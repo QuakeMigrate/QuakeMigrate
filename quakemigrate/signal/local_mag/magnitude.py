@@ -736,11 +736,7 @@ class Magnitude:
         # Calculate amplitudes -- including station corrections!
         amps = magnitudes[self.amp_feature].values * self.amp_multiplier * \
             np.power(10, magnitudes["Station_Correction"])
-<<<<<<< HEAD
-        if len(amps) < 2:
-=======
         if len(amps) < 2.:
->>>>>>> magnitude_pick_error
             return np.nan
 
         dist = magnitudes["Dist"]

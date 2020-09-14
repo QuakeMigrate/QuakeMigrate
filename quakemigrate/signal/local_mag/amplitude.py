@@ -276,11 +276,7 @@ class Amplitude:
 
             # Read in raw waveforms
             st = event.data.raw_waveforms.select(network=network, 
-<<<<<<< HEAD
-                                                station=station)
-=======
                                                  station=station)
->>>>>>> magnitude_pick_error
 
             for j, comp in enumerate(["E", "N", "Z"]): # NOTE: Will not work with 1, 2 (etc.)
                 amps = amps_template.copy()

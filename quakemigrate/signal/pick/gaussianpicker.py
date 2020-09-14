@@ -134,8 +134,9 @@ class GaussianPicker(PhasePicker):
         pick_windows = {}
 
         for i, station in lut.station_data.iterrows():
-            gaussfits[station["Name"]] = {}
-            pick_windows[station["Name"]] = {}
+            netsta = '.'.join([station["Network"], station['Station']])
+            gaussfits[netsta] = {}
+            pick_windows[netsta] = {}
             for j, phase in enumerate(["P", "S"]):
                 if phase == "P":
                     onset = event.data.p_onset[i]
@@ -148,10 +149,10 @@ class GaussianPicker(PhasePicker):
                     onset, phase, event.data.starttime, event.otime,
                     ptt[i], stt[i], fraction_tt)
 
-                gaussfits[station["Name"]][phase] = gau
-                pick_windows[station["Name"]][phase] = window
+                gaussfits[netsta][phase] = gau
+                pick_windows[netsta][phase] = window
 
-                picks.iloc[2*i+j] = [station["Name"], phase, model_time, pick,
+                picks.iloc[2*i+j] = [netsta, phase, model_time, pick,
                                      pick_error, max_onset]
 
         event.add_picks(picks, gaussfits=gaussfits, pick_windows=pick_windows,
@@ -415,24 +416,25 @@ class GaussianPicker(PhasePicker):
 
         # Generate plottable timestamps for data
         times = event.data.times(type="matplotlib")
-        for i, station in lut.station_data["Name"].iteritems():
+        for i, station in lut.station_data.iterrows():
+            netsta = '.'.join([station["Network"], station['Station']])
             signal = event.data.filtered_signal[:, i, :]
             onsets = [event.data.p_onset[i, :], event.data.s_onset[i, :]]
-            stpicks = picks[picks["Station"] == station].reset_index(drop=True)
-            window = event.picks["pick_windows"][station]
+            stpicks = picks[picks['Station'] == netsta].reset_index(drop=True)
+            window = event.picks["pick_windows"][netsta]
 
             # Check if any data available to plot
             if not signal.any():
                 continue
 
             # Call subroutine to plot basic phase pick figure
-            fig = pick_summary(event, station, signal, stpicks, onsets,
+            fig = pick_summary(event, netsta, signal, stpicks, onsets,
                                ttimes[i], window)
 
             # --- Gaussian fits ---
             axes = fig.axes
             for j, (ax, ph) in enumerate(zip(axes[3:5], ["P", "S"])):
-                gau = event.picks["gaussfits"][station][ph]
+                gau = event.picks["gaussfits"][netsta][ph]
                 win = window[ph]
 
                 # Plot threshold
@@ -459,7 +461,7 @@ class GaussianPicker(PhasePicker):
             for ax in axes[3:5]:
                 ax.legend(fontsize=8)
 
-            fstem = f"{event.uid}_{station}.pdf"
+            fstem = f"{event.uid}_{netsta}.pdf"
             file = (fpath / fstem)
             plt.savefig(file)
             plt.close(fig)

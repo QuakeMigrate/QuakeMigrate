@@ -675,7 +675,8 @@ class LUT(Grid3D):
         yz.scatter(self.station_data.Elevation, self.station_data.Latitude,
                    s=15, marker="<", zorder=20, c=station_clr)
         for i, row in self.station_data.iterrows():
-            xy.annotate(row["Name"], [row.Longitude, row.Latitude], zorder=20,
+            xy.annotate('.'.join([row["Network"], row["Station"]]), 
+                        [row.Longitude, row.Latitude], zorder=20,
                         c=station_clr, clip_on=True, fontsize=8)
 
         # --- Add scalebar ---

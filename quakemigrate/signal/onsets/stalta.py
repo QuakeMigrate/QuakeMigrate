@@ -17,7 +17,7 @@ from obspy.signal.trigger import classic_sta_lta
 from scipy.signal import butter, lfilter, detrend
 
 import quakemigrate.util as util
-from .onset import Onset
+from .base import Onset
 
 
 def sta_lta_centred(a, nsta, nlta):

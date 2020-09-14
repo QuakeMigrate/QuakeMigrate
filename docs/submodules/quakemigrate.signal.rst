@@ -11,8 +11,8 @@ Subpackages
 
 .. toctree::
     
-    quakemigrate.signal.onset
-    quakemigrate.signal.pick
+    quakemigrate.signal.onsets
+    quakemigrate.signal.pickers
     quakemigrate.signal.local_mag
 
 quakemigrate.signal.scan

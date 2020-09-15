@@ -94,13 +94,19 @@ def pick_summary(event, station, signal, picks, onsets, ttimes, window):
         y = signal[(i+2) % 3, :]
         # Get normalising factor within window
         norm = np.max(abs(y[min_t_idx:max_t_idx+1]))
-        ax.plot(times, y / norm, c="k", lw=0.5, zorder=1)
+        if not norm == 0.:
+            ax.plot(times, y / norm, c="k", lw=0.5, zorder=1)
+        else:
+            ax.plot(times, y, c="k", lw=0.5, zorder=1)
     for i, (ax, ph) in enumerate(zip(axes[3:], ["P", "S"])):
         y = onsets[i]
         win = window[ph]
         # Get normalising factor within window
         norm = np.max(abs(y[win[0]:win[1]+1]))
-        ax.plot(times, y / norm, c="k", lw=0.5, zorder=1)
+        if not norm == 0.:
+            ax.plot(times, y / norm, c="k", lw=0.5, zorder=1)
+        else:
+            ax.plot(times, y, c="k", lw=0.5, zorder=1)
 
     for ax in axes:
         ax.set_xlim([min_t.datetime, max_t.datetime])
@@ -108,7 +114,7 @@ def pick_summary(event, station, signal, picks, onsets, ttimes, window):
     # --- Plot labels and fix limits ---
     shift = (max_t - min_t) * 0.01  # Fractional shift for text label
     for comp, ax in zip(["Z", "N", "E"], axes[:3]):
-        ax.text((min_t + shift).datetime, 0.9, f"{station}.BH{comp}",
+        ax.text((min_t + shift).datetime, 0.9, f"{station}.{comp}",
                 ha="left", va="center", zorder=2, fontsize=8)
         ax.set_ylim([-1.1, 1.1])
         ax.set_yticks(np.arange(-1, 1.5, 0.5))

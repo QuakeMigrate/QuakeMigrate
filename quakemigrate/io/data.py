@@ -84,7 +84,8 @@ class Archive:
         """Instantiate the Archive object."""
 
         self.archive_path = pathlib.Path(archive_path)
-        self.stations = stations["Name"]
+        self.stations = stations
+        self.catch_network = kwargs.get('catch_network', False)
         if archive_format:
             channels = kwargs.get("channels", "*")
             self.path_structure(archive_format, channels)
@@ -94,7 +95,7 @@ class Archive:
         self.read_all_stations = kwargs.get("read_all_stations", False)
         self.response_inv = kwargs.get("response_inv")
         self.resample = kwargs.get("resample", False)
-        self.upfactor = kwargs.get("upfactor")
+        self.upfactor = kwargs.get("upfactor")        
 
         self.catch_network = kwargs.get('catch_network', False)
 
@@ -106,7 +107,7 @@ class Archive:
                f"\n\tPath structure\t:\t{self.format}"
                f"\n\tResampling\t:\t{self.resample}"
                "\n\tStations:")
-        for station in self.stations:
+        for station in self.stations['Name']:
             out += f"\n\t\t{station}"
 
         return out
@@ -130,14 +131,9 @@ class Archive:
         """
 
         if archive_format == "SeisComp3":
-            if self.catch_network:
-                self.format = ("{year}/{network}/{station}/" + \
-                            channels + "/{network}.{station}.*.*.D."
-                            "{year}.{jday:03d}")
-            else:
-                self.format = ("{year}/*/{station}/" + \
-                            channels + "/*.{station}.*.*.D."
-                            "{year}.{jday:03d}")
+            self.format = "{year}/{network}/{station}/{channel}.D" + \
+                        "/{network}.{station}.{location}.{channel}.D." + \
+                        "{year}.{jday:03d}"
         elif archive_format == "YEAR/JD/*_STATION_*":
             self.format = "{year}/{jday:03d}/*_{station}_*"
         elif archive_format == "YEAR/JD/STATION":
@@ -244,7 +240,7 @@ class Archive:
             # Re-populate st with only stations in station file, and only
             # data between start and end time needed for QuakeScan
             st_selected = Stream()
-            for station in self.stations:
+            for station in self.stations['Station']:
                 if self.catch_network and '.' in station:
                     network = station.split('.')[0]
                     station = station.split('.')[1]
@@ -319,30 +315,30 @@ class Archive:
         # NOTE! This assumes the archive structure is split into days.
         while start_day + (dy * 86400) <= endtime:
             now = starttime + (dy * 86400)
-            if self.read_all_stations is True:
+            # if self.read_all_stations is True:
+            #     file_format = self.format.format(year=now.year,
+            #                                      month=now.month,
+            #                                      day=now.day,
+            #                                      jday=now.julday,
+            #                                      station="*",
+            #                                      network='*',
+            #                                      dtime=now)
+            #     files = chain(files, self.archive_path.glob(file_format))
+            # else:
+            for n, s, l, c in zip(self.stations['Network'],
+                                  self.stations['Station'],
+                                  self.stations['Location'],
+                                  self.stations['Channel']):
                 file_format = self.format.format(year=now.year,
-                                                 month=now.month,
-                                                 day=now.day,
-                                                 jday=now.julday,
-                                                 station="*",
-                                                 network='*',
-                                                 dtime=now)
+                                                    month=now.month,
+                                                    day=now.day,
+                                                    jday=now.julday,
+                                                    station=s,
+                                                    network=n,
+                                                    location=l,
+                                                    channel=c,
+                                                    dtime=now)
                 files = chain(files, self.archive_path.glob(file_format))
-            else:
-                for station in self.stations:
-                    if self.catch_network and '.' in station:
-                        network = station.split('.')[0]
-                        station = station.split('.')[1]
-                    else:
-                        network = None
-                    file_format = self.format.format(year=now.year,
-                                                     month=now.month,
-                                                     day=now.day,
-                                                     jday=now.julday,
-                                                     station=station,
-                                                     network=network,
-                                                     dtime=now)
-                    files = chain(files, self.archive_path.glob(file_format))
             dy += 1
 
         return files
@@ -484,7 +480,7 @@ class WaveformData:
         stream = self._resample(stream, resample, upfactor)
 
         # Combine the data into an array and determine station availability
-        self.signal, self.availability = self._station_availability(stream)
+        self.signal, self.p_availability, self.s_availability = self._station_availability(stream)
 
     def get_real_waveforms(self, tr, remove_full_response=False, velocity=True):
         """
@@ -703,18 +699,16 @@ class WaveformData:
 
         samples = util.time2sample(self.endtime - self.starttime,
                                    self.sampling_rate) + 1
-        print('Expected samples', samples)
-        availability = np.zeros(len(self.stations)).astype(int)
+
+        p_availability = np.zeros(len(self.stations)).astype(int)
+        s_availability = np.zeros(len(self.stations)).astype(int)
         signal = np.zeros((3, len(self.stations), int(samples)))
 
-        for i, station in enumerate(self.stations):
-            if self.catch_network and '.' in station:
-                network = station.split('.')[0]
-                station = station.split('.')[1]
-                tmp_st = stream.select(network=network, 
-                                       station=station)
-            else:
-                tmp_st = stream.select(station=station)
+        for i, (n, s, l, c) in enumerate(zip(self.stations['Network'],
+                                             self.stations['Station'],
+                                             self.stations['Location'],
+                                             self.stations['Channel'])):
+            tmp_st = stream.select(network=n, station=s, location=l, channel=c)
             if len(tmp_st) == 3:
                 # Check traces are the correct number of samples and not filled
                 # by a constant value (i.e. not flatlines)
@@ -726,7 +720,8 @@ class WaveformData:
                         tmp_st[2].data.max() != tmp_st[2].data.min()):
 
                     # Defining the station as available
-                    availability[i] = 1
+                    p_availability[i] = 1
+                    s_availability[i] = 1
 
                     for tr in tmp_st:
                         # Check channel name has 3 characters
@@ -744,12 +739,76 @@ class WaveformData:
 
                         except IndexError:
                             raise util.ChannelNameException(tr)
+            
+            elif len(tmp_st) == 2: # should be the two horizontal components
+                # Check traces are the correct number of samples and not filled
+                # by a constant value (i.e. not flatlines)
+                if (tmp_st[0].stats.npts == samples and
+                        tmp_st[1].stats.npts == samples and
+                        tmp_st[0].data.max() != tmp_st[0].data.min() and
+                        tmp_st[1].data.max() != tmp_st[1].data.min()):
+
+                    # Defining the station as available
+                    comps = ''.join([tr.stats.channel[2] for tr in tmp_st])
+                    if not 'Z' in comps:
+                        s_availability[i] = 1
+                        p_availability[i] = 0
+                    else:
+                        s_availability[i] = 0
+                        p_availability[i] = 0
+                        continue
+                        
+
+                    for tr in tmp_st:
+                        # Check channel name has 3 characters
+                        try:
+                            channel = tr.stats.channel[2]
+                            # Assign data to signal array by component
+                            if channel == "E" or channel == "2":
+                                signal[1, i, :] = tr.data
+                            elif channel == "N" or channel == "1":
+                                signal[0, i, :] = tr.data
+                            else:
+                                raise util.ChannelNameException(tr)
+
+                        except IndexError:
+                            raise util.ChannelNameException(tr)
+            
+            elif len(tmp_st) == 1:
+                # Check traces are the correct number of samples and not filled
+                # by a constant value (i.e. not flatlines)
+                if (tmp_st[0].stats.npts == samples and
+                        tmp_st[0].data.max() != tmp_st[0].data.min()):
+
+
+                    # Defining the station as available
+                    if tmp_st[0].stats.channel[2] == 'Z':
+                        p_availability[i] = 1
+                        s_availability[i] = 0
+                    else:
+                        p_availability[i] = 0
+                        s_availability[i] = 0
+                        continue
+
+                    for tr in tmp_st:
+                        # Check channel name has 3 characters
+                        try:
+                            channel = tr.stats.channel[2]
+                            # Assign data to signal array by component
+                            if channel == "Z":
+                                signal[2, i, :] = tr.data
+                            else:
+                                raise util.ChannelNameException(tr)
+
+                        except IndexError:
+                            raise util.ChannelNameException(tr)
 
         # Check to see if no traces were continuously active during this period
-        if not np.any(availability):
+        print(p_availability, s_availability)
+        if not np.any(np.hstack((p_availability, s_availability))):
             raise util.DataGapException
 
-        return signal, availability
+        return signal, p_availability, s_availability
 
     @property
     def sample_size(self):

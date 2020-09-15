@@ -95,6 +95,30 @@ def read_stations(station_file, **kwargs):
     # Ensure station names are strings
     stn_data = stn_data.astype({"Name": "str"})
 
+    # add columns for nslc paramters
+    net, stn, loc, chn = [], [], [], []
+    for val in stn_data['Name']:
+        n = val.split('.')[0]
+        s = val.split('.')[1]
+        l = val.split('.')[2]
+        c = val.split('.')[3]
+        if n == '':
+            n = '*'
+        if s == '':
+            s = '*'
+        if l == '':
+            l = '*'
+        if c == '':
+            c = '*'
+        net.append(n)
+        stn.append(s)
+        loc.append(l)
+        chn.append(c)
+    stn_data['Network'] = net
+    stn_data['Station'] = stn
+    stn_data['Location'] = loc
+    stn_data['Channel'] = chn
+
     return stn_data
 
 

@@ -262,7 +262,8 @@ class Amplitude:
 
         # Loop through stations, calculating amplitude info
         for i, station_data in lut.station_data.iterrows():
-            station = station_data["Name"]
+            station = station_data["Station"]
+            network = station_data["Network"]
 
             epi_dist, z_dist = self._get_distances(ev_loc, station_data,
                                                    lut.unit_conversion_factor)
@@ -274,7 +275,8 @@ class Amplitude:
                              np.nan, np.nan, np.nan, np.nan, False]
 
             # Read in raw waveforms
-            st = event.data.raw_waveforms.select(station=station)
+            st = event.data.raw_waveforms.select(network=network, 
+                                                 station=station)
 
             for j, comp in enumerate(["E", "N", "Z"]): # NOTE: Will not work with 1, 2 (etc.)
                 amps = amps_template.copy()
@@ -310,10 +312,14 @@ class Amplitude:
                 else:
                     filter_sos = None
 
-                windows, picked = self._get_amplitude_windows(station, i,
-                                                              event, p_ttimes,
-                                                              s_ttimes,
-                                                              lut.fraction_tt)
+                try:
+                    windows, picked = self._get_amplitude_windows(station, i,
+                                                                event, p_ttimes,
+                                                                s_ttimes,
+                                                                lut.fraction_tt)
+                except util.PickOrderException:
+                    print('\t{}.{} :   P pick is later than its S pick, skipping'.format(network, station))
+                    continue
 
                 amps, filter_gain = self._measure_signal_amps(amps, tr,
                                                               windows,

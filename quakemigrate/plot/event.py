@@ -99,7 +99,7 @@ def event_summary(run, event, marginal_coalescence, lut, xy_files=None):
     fig.axes[1].legend(fontsize=8, loc=1, framealpha=1)
     fig.axes[2].legend(fontsize=8)
     fig.tight_layout(pad=1, h_pad=0)
-    plt.subplots_adjust(wspace=0.3, hspace=0.3)
+    plt.subplots_adjust(wspace=0.3, hspace=0.7)
 
     # --- Adjust cross sections to match map aspect ratio ---
     # Get left, bottom, width, height of each subplot bounding box
@@ -169,7 +169,14 @@ def _plot_waveform_gather(ax, lut, event, idx):
     mint, maxt = event.otime - 0.1, event.otime + max_tts*1.5
     mint_i, maxt_i = [np.argmin(abs(times_utc - t)) for t in (mint, maxt)]
     times_plot = event.data.times(type="matplotlib")[mint_i:maxt_i]
+    done_label = False
     for i, signal in enumerate(np.rollaxis(event.data.filtered_signal, 1)):
+        if not done_label and event.data.p_availability[i] and event.data.s_availability[i]:
+            do_label = True
+            done_label = True
+        else:
+            do_label = False
+
         for data, c, comp in zip(signal[::-1], WAVEFORM_COLOURS1,
                                  "ZNE"):
             if not data.any():
@@ -181,7 +188,7 @@ def _plot_waveform_gather(ax, lut, event, idx):
             norm = max(abs(data[mint_i:np.argmin(abs(times_utc - stat_maxt))]))
 
             y = data[mint_i:maxt_i] / norm + range_order[i]
-            label = f"{comp} component" if i == 0 else None
+            label = f"{comp} component" if do_label else None
             ax.plot(times_plot, y, c=c, lw=0.3, label=label, alpha=0.85)
 
     # --- Limits, annotations, and axis formatting ---
@@ -189,7 +196,10 @@ def _plot_waveform_gather(ax, lut, event, idx):
     ax.set_ylim([0, max(range_order)+2])
     ax.xaxis.set_major_formatter(util.DateFormatter("%H:%M:%S.{ms}", 2))
     ax.yaxis.set_ticks(range_order)
-    ax.yaxis.set_ticklabels(event.data.stations, fontsize=8)
+    ax.yaxis.set_ticklabels(['{}.{}'.format(n, s) for n, s in zip(event.data.stations['Network'], 
+                                                                  event.data.stations['Station'])], 
+                            fontsize=8)
+    ax.tick_params(axis='x', which='both', labelsize=8)
 
 
 def _plot_coalescence_trace(ax, event):
@@ -214,6 +224,7 @@ def _plot_coalescence_trace(ax, event):
     ax.set_xlabel("DateTime", fontsize=8)
     ax.set_xlim([times[0], times[-1]])
     ax.xaxis.set_major_formatter(util.DateFormatter("%H:%M:%S.{ms}", 2))
+    ax.tick_params(axis='both', which='both', labelsize=8)
 
 
 def _plot_text_summary(ax, lut, event):

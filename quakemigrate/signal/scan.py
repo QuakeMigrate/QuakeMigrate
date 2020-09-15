@@ -353,10 +353,12 @@ class QuakeScan:
         nsteps = int(np.ceil((endtime - starttime) / self.timestep))
         try:
             availability = pd.DataFrame(index=np.arange(nsteps),
-                                        columns=self.lut.traveltimes.keys())
+                                        columns=[itm + '.P' for itm in self.lut.traveltimes.keys()] + 
+                                                [itm + '.S' for itm in self.lut.traveltimes.keys()])
         except AttributeError:
             availability = pd.DataFrame(index=np.arange(nsteps),
-                                        columns=self.lut.maps.keys())
+                                        columns=[itm + '.P' for itm in self.lut.maps.keys()] + 
+                                                [itm + '.S' for itm in self.lut.maps.keys()])
 
         for i in range(nsteps):
             w_beg = starttime + self.timestep*i - self.pre_pad
@@ -370,15 +372,15 @@ class QuakeScan:
                                                        self.sampling_rate)
                 coalescence.append(*self._compute(data),
                                    self.lut.unit_conversion_factor)
-                availability.loc[i] = data.availability
+                availability.loc[i] = np.hstack((data.p_availability, data.s_availability))
             except util.ArchiveEmptyException as e:
                 coalescence.empty(starttime, self.timestep, i, e.msg,
                                   self.lut.unit_conversion_factor)
-                availability.loc[i] = np.zeros(len(self.archive.stations))
+                availability.loc[i] = np.zeros(len(self.archive.stations)*2)
             except util.DataGapException as e:
                 coalescence.empty(starttime, self.timestep, i, e.msg,
                                   self.lut.unit_conversion_factor)
-                availability.loc[i] = np.zeros(len(self.archive.stations))
+                availability.loc[i] = np.zeros(len(self.archive.stations)*2)
 
             availability.rename(index={i: str(starttime + self.timestep*i)},
                                 inplace=True)
@@ -424,7 +426,6 @@ class QuakeScan:
                 logging.info("\tReading waveform data...")
                 event.add_waveform_data(self._read_event_waveform_data(w_beg,
                                                                        w_end))
-                print('YES')
                 logging.info("\tComputing 4-D coalescence function...")
                 event.add_coalescence(*self._compute(event.data, event))  # pylint: disable=E1120
             except util.ArchiveEmptyException as e:
@@ -497,7 +498,7 @@ class QuakeScan:
         traveltimes = self.lut.serve_traveltimes(self.sampling_rate)
         fsmp = util.time2sample(self.pre_pad, self.sampling_rate)
         lsmp = util.time2sample(self.post_pad, self.sampling_rate)
-        avail = np.sum(data.availability)*2
+        avail = np.sum(np.hstack((data.p_availability, data.s_availability)))
         map4d = migrate(onsets, traveltimes, fsmp, lsmp, avail, self.threads)
 
         # --- Find continuous peak coalescence in 3-D volume ---

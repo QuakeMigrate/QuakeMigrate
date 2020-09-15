@@ -10,6 +10,7 @@ from quakemigrate.signal.onset import STALTAOnset
 from quakemigrate.signal.pick import GaussianPicker
 from quakemigrate.signal.local_mag import LocalMag
 
+
 # --- i/o paths ---
 station_file = "./inputs/ethiopia_stations_TM.csv"
 data_in = "./inputs/mSEED"
@@ -43,6 +44,7 @@ onset.s_onset_win = [0.7, 5.]
 picker = GaussianPicker(onset=onset)
 picker.marginal_window = 1.
 picker.plot_picks = True
+picker.pick_threshold = 0.96
 
 # --- Create new LocalMag object ---
 amp_params = {
@@ -52,6 +54,7 @@ amp_params = {
 mag_params = {
     "A0" : 'keir2006',
     'use_hyp_dist' : True,
+    'noise_filter' : 4.
 }
 localmag = LocalMag(amp_params, mag_params)
 

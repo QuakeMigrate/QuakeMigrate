@@ -169,7 +169,14 @@ def _plot_waveform_gather(ax, lut, event, idx):
     mint, maxt = event.otime - 0.1, event.otime + max_tts*1.5
     mint_i, maxt_i = [np.argmin(abs(times_utc - t)) for t in (mint, maxt)]
     times_plot = event.data.times(type="matplotlib")[mint_i:maxt_i]
+    done_label = False
     for i, signal in enumerate(np.rollaxis(event.data.filtered_signal, 1)):
+        if not done_label and event.data.p_availability[i] and event.data.s_availability[i]:
+            do_label = True
+            done_label = True
+        else:
+            do_label = False
+
         for data, c, comp in zip(signal[::-1], WAVEFORM_COLOURS1,
                                  "ZNE"):
             if not data.any():
@@ -181,7 +188,7 @@ def _plot_waveform_gather(ax, lut, event, idx):
             norm = max(abs(data[mint_i:np.argmin(abs(times_utc - stat_maxt))]))
 
             y = data[mint_i:maxt_i] / norm + range_order[i]
-            label = f"{comp} component" if i == 0 else None
+            label = f"{comp} component" if do_label else None
             ax.plot(times_plot, y, c=c, lw=0.3, label=label, alpha=0.85)
 
     # --- Limits, annotations, and axis formatting ---

@@ -444,7 +444,10 @@ class GaussianPicker(PhasePicker):
                 # Plot threshold
                 thresh = gau["PickThreshold"]
                 norm = max(onsets[j][win[0]:win[1]+1])
-                ax.axhline(thresh / norm, label="Pick threshold")
+                if not norm == 0.:
+                    ax.axhline(thresh / norm, label="Pick threshold")
+                else:
+                    ax.axhline(thresh, label="Pick threshold")
                 axes[5].text(0.05+j*0.5, 0.25, f"Threshold: {thresh:5.3f}",
                              ha="left", va="center", fontsize=8)
 

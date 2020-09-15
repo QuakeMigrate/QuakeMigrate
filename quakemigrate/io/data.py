@@ -800,7 +800,8 @@ class WaveformData:
                             raise util.ChannelNameException(tr)
 
         # Check to see if no traces were continuously active during this period
-        if not np.any(availability):
+        print(p_availability, s_availability)
+        if not np.any(np.hstack((p_availability, s_availability))):
             raise util.DataGapException
 
         return signal, p_availability, s_availability

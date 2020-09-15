@@ -97,6 +97,8 @@ class Archive:
         self.resample = kwargs.get("resample", False)
         self.upfactor = kwargs.get("upfactor")        
 
+        self.catch_network = kwargs.get('catch_network', False)
+
     def __str__(self):
         """Returns a short summary string of the Archive object."""
 
@@ -270,7 +272,9 @@ class Archive:
             # Pass stream to be processed and added to data.signal. This
             # processing includes resampling and determining the availability
             # of the desired stations.
+            print('no')
             data.add_stream(st, self.resample, self.upfactor)
+            print('yes')
 
         except StopIteration:
             raise util.ArchiveEmptyException

@@ -476,7 +476,7 @@ class WaveformData:
         stream = self._resample(stream, resample, upfactor)
 
         # Combine the data into an array and determine station availability
-        self.signal, self.availability = self._station_availability(stream)
+        self.signal, self.p_availability, self.s_availability = self._station_availability(stream)
 
     def get_real_waveforms(self, tr, remove_full_response=False, velocity=True):
         """
@@ -696,7 +696,8 @@ class WaveformData:
         samples = util.time2sample(self.endtime - self.starttime,
                                    self.sampling_rate) + 1
 
-        availability = np.zeros(len(self.stations)).astype(int)
+        p_availability = np.zeros(len(self.stations)).astype(int)
+        s_availability = np.zeros(len(self.stations)).astype(int)
         signal = np.zeros((3, len(self.stations), int(samples)))
 
         for i, (n, s, l, c) in enumerate(zip(self.stations['Network'],
@@ -715,7 +716,8 @@ class WaveformData:
                         tmp_st[2].data.max() != tmp_st[2].data.min()):
 
                     # Defining the station as available
-                    availability[i] = 1
+                    p_availability[i] = 1
+                    s_availability[i] = 1
 
                     for tr in tmp_st:
                         # Check channel name has 3 characters
@@ -733,12 +735,75 @@ class WaveformData:
 
                         except IndexError:
                             raise util.ChannelNameException(tr)
+            
+            elif len(tmp_st) == 2: # should be the two horizontal components
+                # Check traces are the correct number of samples and not filled
+                # by a constant value (i.e. not flatlines)
+                if (tmp_st[0].stats.npts == samples and
+                        tmp_st[1].stats.npts == samples and
+                        tmp_st[0].data.max() != tmp_st[0].data.min() and
+                        tmp_st[1].data.max() != tmp_st[1].data.min()):
+
+                    # Defining the station as available
+                    comps = ''.join([tr.stats.channel[2] for tr in tmp_st])
+                    if not 'Z' in comps:
+                        s_availability[i] = 1
+                        p_availability[i] = 0
+                    else:
+                        s_availability[i] = 0
+                        p_availability[i] = 0
+                        continue
+                        
+
+                    for tr in tmp_st:
+                        # Check channel name has 3 characters
+                        try:
+                            channel = tr.stats.channel[2]
+                            # Assign data to signal array by component
+                            if channel == "E" or channel == "2":
+                                signal[1, i, :] = tr.data
+                            elif channel == "N" or channel == "1":
+                                signal[0, i, :] = tr.data
+                            else:
+                                raise util.ChannelNameException(tr)
+
+                        except IndexError:
+                            raise util.ChannelNameException(tr)
+            
+            elif len(tmp_st) == 1:
+                # Check traces are the correct number of samples and not filled
+                # by a constant value (i.e. not flatlines)
+                if (tmp_st[0].stats.npts == samples and
+                        tmp_st[0].data.max() != tmp_st[0].data.min()):
+
+
+                    # Defining the station as available
+                    if tmp_st[0].stats.channel[2] == 'Z':
+                        p_availability[i] = 1
+                        s_availability[i] = 0
+                    else:
+                        p_availability[i] = 0
+                        s_availability[i] = 0
+                        continue
+
+                    for tr in tmp_st:
+                        # Check channel name has 3 characters
+                        try:
+                            channel = tr.stats.channel[2]
+                            # Assign data to signal array by component
+                            if channel == "Z":
+                                signal[2, i, :] = tr.data
+                            else:
+                                raise util.ChannelNameException(tr)
+
+                        except IndexError:
+                            raise util.ChannelNameException(tr)
 
         # Check to see if no traces were continuously active during this period
         if not np.any(availability):
             raise util.DataGapException
 
-        return signal, availability
+        return signal, p_availability, s_availability
 
     @property
     def sample_size(self):

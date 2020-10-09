@@ -49,8 +49,8 @@ To download, unpack, and compile NonLinLoc, you can use:
     curl http://alomax.free.fr/nlloc/soft7.00/tar/NLL7.00_src.tgz -o NLL7.00_src.tgz
     tar -xzvf NLL7.00_src.tgz
     cd src
-    make -R all
     mkdir bin; export MYBIN=./bin
+    make -R all
 
 Once the source code has been compiled, we recommend you add the bin to your system path. For Unix systems, this can be done by adding the following to your .bashrc file (typically found in your home directory, ``~/``):
 

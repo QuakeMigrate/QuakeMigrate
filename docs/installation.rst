@@ -36,7 +36,7 @@ This will install the explicit dependencies of QuakeMigrate (as well as some add
 
 .. note:: These version pins are subject to change. We defer to ObsPy to select suitable versions for NumPy/SciPy.
 
-.. warning:: Some changes to datetime handling were introduced in matplotlib 3.3, which caused some conflicts with pandas versions <= 1.0.5. It is best to 
+.. warning:: Some changes to datetime handling were introduced in matplotlib 3.3, which caused some conflicts with pandas versions <= 1.0.5. A patch was applied, but for the time being we have pinned these two packages until we find time to fully resolve the issues arising from these changes.
 
 In addition, we use `NonLinLoc <http://alomax.free.fr/nlloc/>`_ and `scikit fmm <https://pythonhosted.org/scikit-fmm/>`_ as backends for producing 1-D traveltime lookup tables.
 
@@ -50,6 +50,7 @@ To download, unpack, and compile NonLinLoc, you can use:
     tar -xzvf NLL7.00_src.tgz
     cd src
     make -R all
+    mkdir bin; export MYBIN=./bin
 
 Once the source code has been compiled, we recommend you add the bin to your system path. For Unix systems, this can be done by adding the following to your .bashrc file (typically found in your home directory, ``~/``):
 

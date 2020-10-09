@@ -63,9 +63,9 @@ void
 centred_sta_lta(const double *signal, const stalta_header *head, double *onset) {
     /*
     Purpose: compute the STA/LTA onset function with consecutive windows. The
-             return value is allocated to the first sample of the STA window.
+             return value is allocated to the last sample of the LTA window.
 
-                                                               |--- STA ---|
+                                                                |--- STA ---|
              |---------------------- LTA ----------------------|
                                                                ^
                                                       Value assigned here
@@ -90,14 +90,14 @@ centred_sta_lta(const double *signal, const stalta_header *head, double *onset) 
     }
 
     // Calculate initial STA (starting from last sample of long-term window)
-    for (i = head->nlta - 1; i < head->nlta - 1 + head->nsta; ++i) {
+    for (i = head->nlta; i < head->nlta + head->nsta; ++i) {
         sta += pow(signal[i], 2);
     }
 
     // Set first value, and loop over rest of signal
     onset[head->nlta - 1] = sta / lta * frac;
-    for (i = head->nlta; i < head->n - head->nsta + 1; ++i) {
-        sta += pow(signal[i - 1 + head->nsta], 2) - pow(signal[i - 1], 2);
+    for (i = head->nlta; i < head->n - head->nsta; ++i) {
+        sta += pow(signal[i + head->nsta], 2) - pow(signal[i], 2);
         lta += pow(signal[i], 2) - pow(signal[i - head->nlta], 2);
         if (lta > 0.) {
             onset[i] = sta / lta * frac;

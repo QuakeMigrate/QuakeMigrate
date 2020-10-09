@@ -181,9 +181,9 @@ qmlib.centred_sta_lta.argtypes = [c_dPt, stalta_header_pt, c_dPt]
 def centred_sta_lta(signal, nsta, nlta):
     """
     Compute the STA/LTA onset function with consecutive windows. The return
-    value is allocated to the first sample of the STA window.
+    value is allocated to the last sample of the LTA window.
 
-                                                           |--- STA ---|
+                                                            |--- STA ---|
          |---------------------- LTA ----------------------|
                                                            ^
                                                   Value assigned here

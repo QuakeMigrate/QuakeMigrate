@@ -76,7 +76,8 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
 
     dt = pd.to_datetime(data["DT"].astype(str)).values
 
-    fig = plt.figure(figsize=(30, 15))
+    fig = plt.figure(figsize=(12, 6))
+
     gs = (9, 18)
 
     # Create plot axes, ordering: [COA, COA_N, AVAIL, XY, XZ, YZ]
@@ -93,6 +94,8 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
     _plot_coalescence(axes[0], dt, data.COA.values, "Maximum coalescence")
     _plot_coalescence(axes[1], dt, data.COA_N.values,
                       "Normalised maximum coalescence")
+    axes[0].set_xticklabels([])
+    axes[1].set_xticklabels([])
     try:
         availability = read_availability(run, starttime, endtime)
         _plot_station_availability(axes[2], availability, endtime)
@@ -115,12 +118,12 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
     # --- Write summary information ---
     text = plt.subplot2grid(gs, (0, 0), colspan=8, rowspan=2, fig=fig)
     st, et = [t.strftime("%Y-%m-%d %H:%M:%S") for t in (starttime, endtime)]
-    text.text(0.42, 0.8, f"{st}  -  {et}", fontsize=20, fontweight="bold",
+    text.text(0.42, 0.8, f"{st}  -  {et}", fontsize=8, fontweight="bold",
               ha="center")
     _plot_text_summary(text, events, detection_threshold, marginal_window,
                        min_event_interval, normalise_coalescence)
 
-    fig.axes[ax_i].legend(loc=1, fontsize=14, framealpha=0.85).set_zorder(20)
+    fig.axes[ax_i].legend(loc=1, fontsize=8, framealpha=0.85).set_zorder(20)
     fig.tight_layout(pad=1, h_pad=0)
     plt.subplots_adjust(wspace=0.3, hspace=0.3)
 
@@ -180,11 +183,15 @@ def _plot_station_availability(ax, availability, endtime):
     ax.step(times, available, c="green", where="post")
 
     _add_plot_tag(ax, "Station availability")
+    ax.yaxis.tick_right()
+    ax.yaxis.set_label_position("right")
     ax.set_ylim([int(min(available)*0.8), int(max(available)*1.1)])
     ax.set_yticks(range(int(min(available)*0.8), int(max(available)*1.1)+1))
     ax.xaxis.set_major_formatter(util.DateFormatter("%H:%M:%S.{ms}", 2))
-    ax.set_xlabel("DateTime", fontsize=14)
-    ax.set_ylabel("Available stations", fontsize=14)
+    ax.set_xlabel("DateTime", fontsize=8)
+    ax.set_ylabel("Available stations", fontsize=8)
+    ax.tick_params(axis='both', which='both', labelsize=8)
+    
 
 
 def _plot_coalescence(ax, dt, data, label):
@@ -204,11 +211,14 @@ def _plot_coalescence(ax, dt, data, label):
 
     """
 
-    ax.plot(dt, data, c="k", lw=0.01, label="Coalesence value", alpha=0.8,
+    ax.plot(dt, data, c="k", lw=0.5, label="Coalesence value", alpha=0.8,
             zorder=10)
     _add_plot_tag(ax, label)
-    ax.set_ylabel(label, fontsize=14)
+    ax.set_ylabel(label, fontsize=8)
     ax.xaxis.set_major_formatter(util.DateFormatter("%H:%M:%S.{ms}", 2))
+    ax.tick_params(axis='both', which='both', labelsize=8)
+    ax.yaxis.tick_right()
+    ax.yaxis.set_label_position("right")
 
 
 def _add_plot_tag(ax, tag):
@@ -225,7 +235,7 @@ def _add_plot_tag(ax, tag):
     """
 
     ax.text(0.01, 0.925, tag, ha="left", va="center", transform=ax.transAxes,
-            bbox=dict(boxstyle="round", fc="w", alpha=0.8), fontsize=18,
+            bbox=dict(boxstyle="round", fc="w", alpha=0.8), fontsize=8,
             zorder=20)
 
 
@@ -251,16 +261,17 @@ def _plot_event_scatter(fig, events):
     # Plotting the scatter of the earthquake locations
     x, y, z = events["COA_X"], events["COA_Y"], events["COA_Z"]
     c = events["TRIG_COA"]
-    sc = fig.axes[3].scatter(x, y, s=50, c=c, vmin=vmin, vmax=vmax)
-    fig.axes[4].scatter(x, z, s=50, c=c, vmin=vmin, vmax=vmax)
-    fig.axes[5].scatter(z, y, s=50, c=c, vmin=vmin, vmax=vmax)
+    sc = fig.axes[3].scatter(x, y, s=10, c=c, vmin=vmin, vmax=vmax)
+    fig.axes[4].scatter(x, z, s=10, c=c, vmin=vmin, vmax=vmax)
+    fig.axes[5].scatter(z, y, s=10, c=c, vmin=vmin, vmax=vmax)
 
     # --- Add colourbar ---
     cax = plt.subplot2grid((9, 18), (7, 5), colspan=2, rowspan=2, fig=fig)
     cax.set_axis_off()
     cb = fig.colorbar(sc, ax=cax, orientation="horizontal", fraction=0.8,
                       aspect=8)
-    cb.ax.set_xlabel("Peak coalescence value", rotation=0, fontsize=14)
+    cb.ax.set_xlabel("Peak coalescence value", rotation=0, fontsize=8)
+    cb.ax.tick_params(labelsize=8) 
 
 
 def _plot_event_windows(axes, events, marginal_window):
@@ -292,7 +303,7 @@ def _plot_event_windows(axes, events, marginal_window):
             ax.axvspan(min_dt, mw_stt, label=lab1, alpha=0.2, color="#F03B20")
             ax.axvspan(mw_end, max_dt, alpha=0.2, color="#F03B20")
             ax.axvspan(mw_stt, mw_end, label=lab2, alpha=0.2, color="#3182BD")
-            ax.axvline(event["CoaTime"].datetime, label=lab3, lw=0.01,
+            ax.axvline(event["CoaTime"].datetime, label=lab3, lw=1,
                        alpha=0.4)
 
 
@@ -328,7 +339,7 @@ def _plot_text_summary(ax, events, threshold, marginal_window,
     trig = "normalised coalescence" if normalise_coalescence else "coalescence"
     count = len(events) if events is not None else 0
 
-    with plt.rc_context({"font.size": 18}):
+    with plt.rc_context({"font.size": 8}):
         ax.text(0.45, 0.65, "Trigger threshold:", ha="right", va="center")
         ax.text(0.47, 0.65, f"{threshold}", ha="left", va="center")
         ax.text(0.45, 0.5, "Marginal window:", ha="right", va="center")

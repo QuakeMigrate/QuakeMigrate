@@ -49,7 +49,7 @@ def pick_summary(event, station, signal, picks, onsets, ttimes, window):
 
     """
 
-    fig = plt.figure(figsize=(30, 15))
+    fig = plt.figure(figsize=(12, 6))
 
     # Create plot axes, ordering: [Z data, N data, E data, P onset, S onset]
     for i in [2, 1, 3, 4, 5]:
@@ -62,7 +62,7 @@ def pick_summary(event, station, signal, picks, onsets, ttimes, window):
     axes[0].set_xticklabels([])
     axes[0].set_yticklabels([])
     axes[0].yaxis.set_ticks_position('none')
-    axes[0].set_title("P phase", fontsize=22, fontweight="bold")
+    axes[0].set_title("P phase", fontsize=8, fontweight="bold")
 
     # Share S-pick x-axes and set title
     for ax in axes[1:3]:
@@ -70,7 +70,7 @@ def pick_summary(event, station, signal, picks, onsets, ttimes, window):
         ax.set_xticklabels([])
         ax.set_yticklabels([])
         ax.yaxis.set_ticks_position('none')
-    axes[1].set_title("S phase", fontsize=22, fontweight="bold")
+    axes[1].set_title("S phase", fontsize=8, fontweight="bold")
 
     # --- Grab event information once ---
     otime = event.otime
@@ -104,13 +104,13 @@ def pick_summary(event, station, signal, picks, onsets, ttimes, window):
     # --- Plot labels and fix limits ---
     shift = (max_t - min_t) * 0.01  # Fractional shift for text label
     for comp, ax in zip(["Z", "N", "E"], axes[:3]):
-        ax.text((min_t + shift).datetime, 0.9, f"{station}.BH{comp}",
-                ha="left", va="center", zorder=2, fontsize=18)
+        ax.text((min_t + shift).datetime, 0.9, f"{station}.{comp}",
+                ha="left", va="center", zorder=2, fontsize=8)
         ax.set_ylim([-1.1, 1.1])
         ax.set_yticks(np.arange(-1, 1.5, 0.5))
     for ph, ax in zip(["P", "S"], axes[3:]):
         ax.text((min_t + shift).datetime, 1., f"{ph} onset", ha="left",
-                va="center", zorder=2, fontsize=18)
+                va="center", zorder=2, fontsize=8)
         ax.set_ylim([-0.1, 1.1])
         ax.set_yticks(np.arange(0., 1.2, 0.2))
 
@@ -123,7 +123,7 @@ def pick_summary(event, station, signal, picks, onsets, ttimes, window):
     # --- Plot picks and summary information ---
     text = fig.add_subplot(3, 2, 1)
     text.text(0.5, 0.8, f"Event: {event.uid}\nStation: {station}",
-              ha="center", va="center", fontsize=22, fontweight="bold")
+              ha="center", va="center", fontsize=8, fontweight="bold")
     for i, pick in picks.iterrows():
         # Pick lines
         if pick["Phase"] == "P":
@@ -137,16 +137,17 @@ def pick_summary(event, station, signal, picks, onsets, ttimes, window):
 
         # Summary text
         text.text(0.1+i*0.5, 0.6, f"{pick.Phase} phase", ha="center",
-                  va="center", fontsize=20, fontweight="bold")
+                  va="center", fontsize=8, fontweight="bold")
         pick_info = (f"Pick time: {pick.PickTime}\n"
                      f"Pick error: {pick.PickError:5.3f} s\n"
                      f"Pick SNR: {pick.SNR:5.3f}")
         text.text(0.05+i*0.5, 0.45, pick_info, ha="left", va="center",
-                  fontsize=18)
+                  fontsize=8)
     text.set_axis_off()
 
     for ax in axes[3:5]:
-        ax.legend()
+        ax.legend(loc=0, prop={'size' : 8})
+        ax.tick_params(axis='both', which='both', labelsize=8)
     fig.tight_layout(pad=1, w_pad=0)
     plt.subplots_adjust(hspace=0)
 

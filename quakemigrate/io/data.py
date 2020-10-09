@@ -65,6 +65,8 @@ class Archive:
     upfactor : int, optional
         Factor by which to upsample the data to enable it to be decimated to
         the desired sampling rate, e.g. 40Hz -> 50Hz requires upfactor = 5.
+    catch_network : bool
+        Catch to define whether a network check is used
 
     Methods
     -------
@@ -93,6 +95,8 @@ class Archive:
         self.response_inv = kwargs.get("response_inv")
         self.resample = kwargs.get("resample", False)
         self.upfactor = kwargs.get("upfactor")
+
+        self.catch_network = kwargs.get('catch_network', False)
 
     def __str__(self):
         """Returns a short summary string of the Archive object."""
@@ -126,8 +130,14 @@ class Archive:
         """
 
         if archive_format == "SeisComp3":
-            self.format = ("{year}/*/{station}/"+channels+"/*.{station}.*.*.D."
-                           "{year}.{jday:03d}")
+            if self.catch_network:
+                self.format = ("{year}/{network}/{station}/" + \
+                            channels + "/{network}.{station}.*.*.D."
+                            "{year}.{jday:03d}")
+            else:
+                self.format = ("{year}/*/{station}/" + \
+                            channels + "/*.{station}.*.*.D."
+                            "{year}.{jday:03d}")
         elif archive_format == "YEAR/JD/*_STATION_*":
             self.format = "{year}/{jday:03d}/*_{station}_*"
         elif archive_format == "YEAR/JD/STATION":
@@ -205,7 +215,8 @@ class Archive:
                             stations=self.stations,
                             read_all_stations=self.read_all_stations,
                             response_inv=self.response_inv,
-                            pre_pad=pre_pad, post_pad=post_pad)
+                            pre_pad=pre_pad, post_pad=post_pad,
+                            catch_network=self.catch_network)
 
         files = self._load_from_path(starttime - pre_pad, endtime + post_pad)
 
@@ -234,7 +245,13 @@ class Archive:
             # data between start and end time needed for QuakeScan
             st_selected = Stream()
             for station in self.stations:
-                st_selected += st.select(station=station)
+                if self.catch_network and '.' in station:
+                    network = station.split('.')[0]
+                    station = station.split('.')[1]
+                    st_selected += st.select(network=network, 
+                                             station=station)
+                else:
+                    st_selected += st.select(station=station)
             st = st_selected.copy()
             for tr in st:
                 tr.trim(starttime=starttime, endtime=endtime)
@@ -306,15 +323,22 @@ class Archive:
                                                  day=now.day,
                                                  jday=now.julday,
                                                  station="*",
+                                                 network='*',
                                                  dtime=now)
                 files = chain(files, self.archive_path.glob(file_format))
             else:
                 for station in self.stations:
+                    if self.catch_network and '.' in station:
+                        network = station.split('.')[0]
+                        station = station.split('.')[1]
+                    else:
+                        network = None
                     file_format = self.format.format(year=now.year,
                                                      month=now.month,
                                                      day=now.day,
                                                      jday=now.julday,
                                                      station=station,
+                                                     network=network,
                                                      dtime=now)
                     files = chain(files, self.archive_path.glob(file_format))
             dy += 1
@@ -324,7 +348,7 @@ class Archive:
 
 class WaveformData:
     """
-    The WaveformData class encapsulates the waveform data returned by an`
+    The WaveformData class encapsulates the waveform data returned by an
     Archive query.
 
     This includes the waveform data which has been pre-processed to a unified
@@ -364,6 +388,8 @@ class WaveformData:
         Sampling rate of signal data.
     stations : `pandas.Series` object
         Series object containing station names.
+    catch_network : bool
+        catch as to whether to check for network in the station name
     read_all_stations : bool
         If True, raw_waveforms contain all stations in archive for that time
         period. Else, only selected stations will be included.
@@ -408,7 +434,7 @@ class WaveformData:
 
     def __init__(self, starttime, endtime, sampling_rate, stations=None,
                  response_inv=None, read_all_stations=False, pre_pad=0.,
-                 post_pad=0.):
+                 post_pad=0., catch_network=False):
         """Instantiate the WaveformData object."""
 
         self.starttime = starttime
@@ -416,6 +442,7 @@ class WaveformData:
         self.sampling_rate = sampling_rate
         self.stations = stations
         self.response_inv = response_inv
+        self.catch_network = catch_network
 
         self.read_all_stations = read_all_stations
         self.pre_pad = pre_pad
@@ -648,7 +675,6 @@ class WaveformData:
                     logging.info("Mismatched sampling rates - cannot decimate "
                                  "data - to resample data, set .resample "
                                  "= True and choose a suitable upfactor")
-
         return stream
 
     def _station_availability(self, stream):
@@ -680,7 +706,13 @@ class WaveformData:
         signal = np.zeros((3, len(self.stations), int(samples)))
 
         for i, station in enumerate(self.stations):
-            tmp_st = stream.select(station=station)
+            if self.catch_network and '.' in station:
+                network = station.split('.')[0]
+                station = station.split('.')[1]
+                tmp_st = stream.select(network=network, 
+                                       station=station)
+            else:
+                tmp_st = stream.select(station=station)
             if len(tmp_st) == 3:
                 # Check traces are the correct number of samples and not filled
                 # by a constant value (i.e. not flatlines)

@@ -63,7 +63,7 @@ def amplitudes_summary(magnitudes, amp_feature, amp_multiplier, dist_err,
     """
 
     # Initiate figure
-    fig = plt.figure(figsize=(25, 15))
+    fig = plt.figure(figsize=(12, 9))
     ax = fig.add_subplot(111)
 
     # Correct noise amplitudes according to station corrections
@@ -75,7 +75,7 @@ def amplitudes_summary(magnitudes, amp_feature, amp_multiplier, dist_err,
     ax.set_yscale('log')
 
     # Set axis tick label font size
-    ax.tick_params(axis='both', which='major', labelsize=14)
+    ax.tick_params(axis='both', which='major', labelsize=8)
 
     # Plot noise amps
     noise_label = (f"Noise amplitude ({noise_measure} amplitude in noise "
@@ -141,7 +141,7 @@ def amplitudes_summary(magnitudes, amp_feature, amp_multiplier, dist_err,
     # Label r-squared value
     ax.text(0.98, 0.02, f'r-squared: {r_squared:.2f}', transform=ax.transAxes,
             bbox=dict(boxstyle='round', fc='w', alpha=0.8), va='bottom',
-            ha='right', fontsize=16)
+            ha='right', fontsize=8)
 
     return fig, ax
 

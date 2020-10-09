@@ -274,7 +274,13 @@ class Amplitude:
                              np.nan, np.nan, np.nan, np.nan, False]
 
             # Read in raw waveforms
-            st = event.data.raw_waveforms.select(station=station)
+            if event.data.catch_network and '.' in station:
+                network = station.split('.')[0]
+                station = station.split('.')[1]
+                st = event.data.raw_waveforms.select(network=network, 
+                                                     station=station)
+            else:
+                st = event.data.raw_waveforms.select(station=station)
 
             for j, comp in enumerate(["E", "N", "Z"]): # NOTE: Will not work with 1, 2 (etc.)
                 amps = amps_template.copy()

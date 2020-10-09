@@ -481,8 +481,8 @@ class LUT(Grid3D):
                f"\n\tNode spacing       : {self.node_spacing} {self.unit_name}"
                "\n\n")
 
-        out = out.format(lat1=ll[0], lon1=ll[1], dep1=ll[2],
-                         lat2=ur[0], lon2=ur[1], dep2=ur[2],
+        out = out.format(lat1=ll[1], lon1=ll[0], dep1=ll[2],
+                         lat2=ur[1], lon2=ur[0], dep2=ur[2],
                          unit_name=self.unit_name)
 
         out += ("\tVelocity model:\n"
@@ -664,7 +664,7 @@ class LUT(Grid3D):
             cb = fig.colorbar(sc, ax=cax, orientation="horizontal",
                               fraction=0.8, aspect=8)
             cb.ax.set_xlabel("Normalised coalescence\nvalue", rotation=0,
-                             fontsize=14)
+                             fontsize=8)
 
         # --- Plot stations ---
         xy.scatter(self.station_data.Longitude.values,
@@ -678,7 +678,7 @@ class LUT(Grid3D):
                    s=15, marker="<", zorder=20, c=station_clr)
         for i, row in self.station_data.iterrows():
             xy.annotate(row["Name"], [row.Longitude, row.Latitude], zorder=20,
-                        c=station_clr, clip_on=True)
+                        c=station_clr, clip_on=True, fontsize=8)
 
         # --- Add scalebar ---
         num_cells = np.ceil(self.node_count[0] / 10)
@@ -692,23 +692,26 @@ class LUT(Grid3D):
 
         # --- Axes labelling ---
         xy.tick_params(which="both", left=True, right=True, top=True,
-                       bottom=True, labelleft=True, labeltop=True,
-                       labelright=False, labelbottom=False)
-        xy.set_ylabel("Latitude (deg)", fontsize=14)
+                       bottom=True, labelleft=True, labeltop=False,
+                       labelright=False, labelbottom=False,
+                       labelsize=8)
+        xy.set_ylabel("Latitude (deg)", fontsize=8)
         xy.yaxis.set_label_position("left")
 
         xz.invert_yaxis()
         xz.tick_params(which="both", left=True, right=True, top=True,
                        bottom=True, labelleft=True, labeltop=False,
-                       labelright=False, labelbottom=True)
-        xz.set_xlabel("Longitude (deg)", fontsize=14)
-        xz.set_ylabel(f"Depth ({self.unit_name})", fontsize=14)
+                       labelright=False, labelbottom=True,
+                       labelsize=8)
+        xz.set_xlabel("Longitude (deg)", fontsize=8)
+        xz.set_ylabel(f"Depth ({self.unit_name})", fontsize=8)
         xz.yaxis.set_label_position("left")
 
         yz.tick_params(which="both", left=True, right=True, top=True,
-                       bottom=True, labelleft=False, labeltop=True,
-                       labelright=True, labelbottom=True)
-        yz.set_xlabel(f"Depth ({self.unit_name})", fontsize=14)
+                       bottom=True, labelleft=False, labeltop=False,
+                       labelright=False, labelbottom=True,
+                       labelsize=8)
+        yz.set_xlabel(f"Depth ({self.unit_name})", fontsize=8)
         yz.xaxis.set_label_position("bottom")
 
     @property

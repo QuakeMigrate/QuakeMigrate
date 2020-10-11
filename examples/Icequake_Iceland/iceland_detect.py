@@ -6,7 +6,7 @@ Detect stage for the Iceland icequake example.
 
 from quakemigrate.io import Archive, read_lut, read_stations
 from quakemigrate.signal import QuakeScan
-from quakemigrate.signal.onset import STALTAOnset
+from quakemigrate.signal.onsets import STALTAOnset
 
 # --- i/o paths ---
 station_file = "./inputs/iceland_stations.txt"

@@ -10,8 +10,8 @@ from obspy.core import AttribDict
 
 from quakemigrate.io import Archive, read_lut, read_response_inv, read_stations
 from quakemigrate.signal import QuakeScan
-from quakemigrate.signal.onset import STALTAOnset
-from quakemigrate.signal.pick import GaussianPicker
+from quakemigrate.signal.onsets import STALTAOnset
+from quakemigrate.signal.pickers import GaussianPicker
 from quakemigrate.signal.local_mag import LocalMag
 
 # --- i/o paths ---

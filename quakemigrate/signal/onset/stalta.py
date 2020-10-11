@@ -39,14 +39,15 @@ def sta_lta_onset(fsig, stw, ltw, position, log):
         "centred": Compute centred STA/LTA (STA window is preceded by LTA
             window; value is assigned to end of LTA window / start of STA
             window) or:
-        "classic": classic STA/LTA (STA window is within LTA window; value
-            is assigned to end of STA & LTA windows).
+        "overlapping": overlapping STA/LTA (STA window is within LTA window;
+            value is assigned to end of STA & LTA windows).
 
         Centred gives less phase-shifted (late) onset function, and is closer
         to a Gaussian approximation, but is far more sensitive to data with
-        sharp offsets due to instrument failures. We recommend using classic
-        for detect() and centred for locate() if your data quality allows it.
-        This is the default behaviour; override by setting self.onset_centred.
+        sharp offsets due to instrument failures. We recommend using
+        overlapping for detect() and centred for locate() if your data quality
+        allows it. This is the default behaviour; override by setting
+        self.onset_centred.
     log : bool
         Will return log(onset) if True, otherwise it will return the raw onset.
 
@@ -66,7 +67,7 @@ def sta_lta_onset(fsig, stw, ltw, position, log):
         else:
             if position == "centred":
                 onset[i, :] = centred_sta_lta(fsig[i, :], stw, ltw)
-            elif position == "classic":
+            elif position == "overlapping":
                 onset[i, :] = overlapping_sta_lta(fsig[i, :], stw, ltw)
             np.clip(1 + onset[i, :], 0.8, np.inf, onset[i, :])
             if log:
@@ -134,7 +135,8 @@ def pre_process(sig, sampling_rate, lc, hc, order=2):
 
 class STALTAOnset(Onset):
     """
-    QuakeMigrate default onset function class - uses a classic STA/LTA onset.
+    QuakeMigrate default onset function class - uses an overlapping STA/LTA
+    onset.
 
     Attributes
     ----------
@@ -162,13 +164,13 @@ class STALTAOnset(Onset):
     position : str, optional
         Compute centred STA/LTA (STA window is preceded by LTA window;
         value is assigned to end of LTA window / start of STA window) or
-        classic STA/LTA (STA window is within LTA window; value is assigned
-        to end of STA & LTA windows). Default: "classic".
+        overlapping STA/LTA (STA window is within LTA window; value is assigned
+        to end of STA & LTA windows). Default: "overlapping".
 
         Centred gives less phase-shifted (late) onset function, and is
         closer to a Gaussian approximation, but is far more sensitive to
         data with sharp offsets due to instrument failures. We recommend
-        using classic for detect() and centred for locate() if your data
+        using overlapping for detect() and centred for locate() if your data
         quality allows it. This is the default behaviour; override by
         setting this variable.
 
@@ -184,7 +186,7 @@ class STALTAOnset(Onset):
 
         super().__init__(**kwargs)
 
-        self.position = kwargs.get("position", "classic")
+        self.position = kwargs.get("position", "overlapping")
         self.onset_centred = kwargs.get("onset_centred")
         self.p_bp_filter = kwargs.get("p_bp_filter", [2.0, 16.0, 2])
         self.p_onset_win = kwargs.get("p_onset_win", [0.2, 1.0])
@@ -390,7 +392,28 @@ class STALTAOnset(Onset):
         if value:
             self.position = "centred"
         else:
-            self.position = "classic"
+            self.position = "overlapping"
+
+    @property
+    def position(self):
+        """Handle deprecated onset_centred kwarg / attribute"""
+        return self.position
+
+    @position.setter
+    def position(self, value):
+        """
+        Handle deprecated position kwarg / attribute and print warning.
+
+        """
+        if value is None:
+            return
+        print("FutureWarning: Parameter name value has changed - continuing.")
+        print("To remove this message, change:")
+        print("\t'position = \"classic\" -> 'position = \"overlapping\"'")
+        if value == "classic":
+            self.position = "overlapping"
+        else:
+            self.position = value
 
 
 class CentredSTALTAOnset(STALTAOnset):
@@ -415,7 +438,8 @@ class CentredSTALTAOnset(STALTAOnset):
 
 class ClassicSTALTAOnset(STALTAOnset):
     """
-    QuakeMigrate default onset function class - uses a classic STA/LTA onset.
+    QuakeMigrate default onset function class - uses an overlapping STA/LTA
+    onset.
 
     NOTE: THIS CLASS HAS BEEN DEPRECATED AND WILL BE REMOVED IN A FUTURE UPDATE
 
@@ -429,5 +453,5 @@ class ClassicSTALTAOnset(STALTAOnset):
         print("FutureWarning: This class has been deprecated - continuing.")
         print("To remove this message:")
         print("\tClassicSTALTAOnset -> STALTAOnset")
-        print("\tAnd add keyword argument 'position=classic'\n")
-        self.position = "classic"
+        print("\tAnd add keyword argument 'position=overlapping'\n")
+        self.position = "overlapping"

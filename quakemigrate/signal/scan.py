@@ -24,8 +24,8 @@ from quakemigrate.core import find_max_coa, migrate
 from quakemigrate.io import (Event, Run, ScanmSEED, read_triggered_events,
                              write_availability, write_cut_waveforms)
 from quakemigrate.plot.event import event_summary
-from .onset import Onset
-from .pick import GaussianPicker, PhasePicker
+from .onsets import Onset
+from .pickers import GaussianPicker, PhasePicker
 from .local_mag import LocalMag
 
 # Filter warnings
@@ -48,7 +48,7 @@ class QuakeScan:
     lut : :class:`~quakemigrate.lut.LUT` object
         Contains the traveltime lookup tables for seismic phases, computed for
         some pre-defined velocity model.
-    onset : :class:`~quakemigrate.signal.onset.Onset` object
+    onset : :class:`~quakemigrate.signal.onsets.Onset` object
         Provides callback methods for calculation of onset functions.
     run_path : str
         Points to the top level directory containing all input files, under
@@ -84,7 +84,7 @@ class QuakeScan:
         uncertainty in the earthquake origin time, which itself is some
         combination of the expected spatial uncertainty and uncertainty in the
         seismic velocity model used. Default: 2 seconds.
-    picker : :class:`~quakemigrate.signal.pick.PhasePicker` object, optional
+    picker : :class:`~quakemigrate.signal.pickers.PhasePicker` object, optional
         Provides callback methods for phase picking, performed during locate.
     plot_event_summary : bool, optional
         Plot event summary figure - see `quakemigrate.plot` for more details.
@@ -148,10 +148,10 @@ class QuakeScan:
     ------
     OnsetTypeError
         If an object is passed in through the `onset` argument that does not
-        derive from the :class:`~quakemigrate.signal.onset.Onset` base class.
+        derive from the :class:`~quakemigrate.signal.onsets.Onset` base class.
     PickerTypeError
         If an object is passed in through the `picker` argument that does not
-        derive from the :class:`~quakemigrate.signal.pick.PhasePicker` base
+        derive from the :class:`~quakemigrate.signal.pickers.PhasePicker` base
         class.
     RuntimeError
         If the user does not supply the locate function with valid arguments.

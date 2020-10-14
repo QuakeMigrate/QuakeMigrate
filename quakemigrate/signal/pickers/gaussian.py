@@ -14,7 +14,7 @@ from scipy.optimize import curve_fit
 
 from quakemigrate.plot.phase_picks import pick_summary
 import quakemigrate.util as util
-from .picker import PhasePicker
+from .base import PhasePicker
 
 
 class GaussianPicker(PhasePicker):

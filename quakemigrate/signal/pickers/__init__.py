@@ -8,5 +8,5 @@ Feel free to contribute more phase picking methods!
 
 """
 
-from .gaussianpicker import GaussianPicker  # NOQA
-from .picker import PhasePicker  # NOQA
+from .gaussian import GaussianPicker  # NOQA
+from .base import PhasePicker  # NOQA

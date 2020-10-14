@@ -6,18 +6,18 @@ quakemigrate.signal.pickers
     :undoc-members:
     :show-inheritance:
 
-quakemigrate.signal.pickers.gaussianpicker
-------------------------------------------
+quakemigrate.signal.pickers.base
+--------------------------------
 
-.. automodule:: quakemigrate.signal.pickers.gaussianpicker
+.. automodule:: quakemigrate.signal.pickers.base
     :members:
     :undoc-members:
     :show-inheritance:
 
-quakemigrate.signal.pickers.picker
-----------------------------------
+quakemigrate.signal.pickers.gaussian
+------------------------------------
 
-.. automodule:: quakemigrate.signal.pickers.picker
+.. automodule:: quakemigrate.signal.pickers.gaussian
     :members:
     :undoc-members:
     :show-inheritance:

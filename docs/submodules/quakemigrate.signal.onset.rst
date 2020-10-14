@@ -6,18 +6,18 @@ quakemigrate.signal.onsets
     :undoc-members:
     :show-inheritance:
 
-quakemigrate.signal.onsets.onset
---------------------------------
+quakemigrate.signal.onsets.base
+-------------------------------
 
-.. automodule:: quakemigrate.signal.onsets.onset
+.. automodule:: quakemigrate.signal.onsets.base
     :members:
     :undoc-members:
     :show-inheritance:
 
-quakemigrate.signal.onsets.staltaonset
---------------------------------------
+quakemigrate.signal.onsets.stalta
+---------------------------------
 
-.. automodule:: quakemigrate.signal.onsets.staltaonset
+.. automodule:: quakemigrate.signal.onsets.stalta
     :members:
     :undoc-members:
     :show-inheritance:

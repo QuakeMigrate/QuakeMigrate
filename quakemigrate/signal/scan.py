@@ -340,8 +340,11 @@ class QuakeScan:
 
         self.pre_pad, self.post_pad = self.onset.pad(self.timestep)
         n_steps = int(np.ceil((endtime - starttime) / self.timestep))
+        availability_cols = np.array([[f"{stat}.{ph}" for stat
+                                       in self.archive.stations]
+                                      for ph in self.lut.phases]).flatten()
         availability = pd.DataFrame(index=range(n_steps),
-                                    columns=self.archive.stations)
+                                    columns=availability_cols)
 
         for i in range(n_steps):
             w_beg = starttime + self.timestep*i - self.pre_pad
@@ -358,10 +361,10 @@ class QuakeScan:
                 availability.loc[i] = data.availability
             except util.ArchiveEmptyException as e:
                 coalescence.empty(starttime, self.timestep, i, e.msg)
-                availability.loc[i] = np.zeros(len(self.archive.stations))
+                availability.loc[i] = np.zeros(len(availability_cols))
             except util.DataGapException as e:
                 coalescence.empty(starttime, self.timestep, i, e.msg)
-                availability.loc[i] = np.zeros(len(self.archive.stations))
+                availability.loc[i] = np.zeros(len(availability_cols))
 
             availability.rename(index={i: str(starttime + self.timestep*i)},
                                 inplace=True)
@@ -475,8 +478,9 @@ class QuakeScan:
         """
 
         # --- Calculate continuous coalescence within 3-D volume ---
-        onsets, stations = self.onset.calculate_onsets(data, self.lut.phases)
-        traveltimes = self.lut.serve_traveltimes(self.scan_rate, stations)
+        onsets = self.onset.calculate_onsets(data, self.lut.phases)
+        traveltimes = self.lut.serve_traveltimes(self.scan_rate,
+                                                 data.availability)
         fsmp = util.time2sample(self.pre_pad, self.scan_rate)
         lsmp = util.time2sample(self.post_pad, self.scan_rate)
         avail = np.sum([value for _, value in data.availability.items()])

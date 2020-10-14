@@ -484,7 +484,7 @@ class LUT(Grid3D):
 
         return out
 
-    def serve_traveltimes(self, sampling_rate, stations=None):
+    def serve_traveltimes(self, sampling_rate, availability=None):
         """
         Serve up the traveltime lookup tables.
 
@@ -495,8 +495,9 @@ class LUT(Grid3D):
         ----------
         sampling_rate : int
             Samples per second used in the scan run.
-        stations : list of str, optional
-            List of stations for which to serve traveltime lookup tables.
+        availability : dict, optional
+            Dict of stations and phases for which to serve traveltime lookup
+            tables.
 
         Returns
         -------
@@ -506,11 +507,22 @@ class LUT(Grid3D):
 
         """
 
-        traveltimes = self._serve_traveltimes(self.phases, stations)
-
+        if availability is None:
+            # Serve all
+            traveltimes = self._serve_traveltimes(self.phases)
+        else:
+            traveltimes = []
+            for key, available in availability.items():
+                station, phase = key.split(".")
+                if available == 1:
+                    try:
+                        traveltimes.append(self[station][phase])
+                    except KeyError:
+                        traveltimes.append(self[station][f"TIME_{phase}"])
+            traveltimes = np.stack(traveltimes, axis=-1)
         return np.rint(traveltimes * sampling_rate).astype(np.int32)
 
-    def traveltime_to(self, phase, ijk):
+    def traveltime_to(self, phase, ijk, station=None):
         """
         Serve up the traveltimes to a grid location for a particular phase.
 
@@ -530,7 +542,10 @@ class LUT(Grid3D):
 
         grid = tuple([np.arange(nc) for nc in self.node_count])
 
-        traveltimes = self._serve_traveltimes([phase])
+        if station is None:
+            traveltimes = self._serve_traveltimes([phase])
+        else:
+            traveltimes = self._serve_traveltimes([phase], [station])
 
         interpolator = RegularGridInterpolator(grid, traveltimes,
                                                bounds_error=False,

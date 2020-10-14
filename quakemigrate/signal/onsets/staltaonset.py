@@ -242,6 +242,8 @@ class STALTAOnset(Onset):
 
         """
 
+        availability = {}
+
         for phase in phases:
             phase_waveforms = data.waveforms.select(
                 channel=self.channel_maps[phase])
@@ -255,6 +257,7 @@ class STALTAOnset(Onset):
                 self.upfactor, self.bandpass_filters[phase])
 
             for station in data.stations:
+                availability[f"{station}.{phase}"] = 0
                 waveforms = filtered_waveforms.select(station=station)
 
                 # Check for flatlines and any available data
@@ -265,17 +268,20 @@ class STALTAOnset(Onset):
 
                 data.onsets.setdefault(station, {}).update(
                     {phase: self._onset(waveforms, stw, ltw, log)})
+                availability[f"{station}.{phase}"] = 1
 
             data.filtered_waveforms += filtered_waveforms
 
-        data.availability = {station: int(len(data.onsets[station]))
-                             for station in data.onsets.keys()}
+        data.availability = availability
 
         onsets = []
-        for phase in phases:
-            for station in data.onsets.keys():
+        for key, available in availability.items():
+            station, phase = key.split(".")
+            if available == 1:
                 onsets.append(data.onsets[station][phase])
-        return np.stack(onsets, axis=0), data.availability.keys()
+            else:
+                logging.debug(f"\t\tNo {phase} onset for {station}.")
+        return np.stack(onsets, axis=0)
 
     def _onset(self, stream, stw, ltw, log):
         """
@@ -305,13 +311,13 @@ class STALTAOnset(Onset):
             onsets = [sta_lta_centred(tr.data, stw, ltw) for tr in stream]
         elif self.position == "classic":
             onsets = [classic_sta_lta(tr.data, stw, ltw) for tr in stream]
-
-        onset = np.sqrt(np.sum(np.stack([onset ** 2 for onset in onsets]),
-                               axis=0) / len(onsets))
-
-        np.clip(1 + onset, 0.8, np.inf, onset)
+        onsets = np.array(onsets)
+        np.clip(1 + onsets, 0.8, np.inf, onsets)
         if log:
-            np.log(onset, onset)
+            np.log(onsets, onsets)
+
+        onset = np.sqrt(np.sum([onset ** 2 for onset in onsets], axis=0)
+                        / len(onsets))
 
         return onset
 

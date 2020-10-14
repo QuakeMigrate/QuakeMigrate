@@ -77,23 +77,29 @@ def pick_summary(event, station, signal, picks, onsets, ttimes, window):
     # --- Plot data signal ---
     # Trim data to just around phase picks
     min_t = otime + 0.5 * ttimes[0]
-    max_t = otime + 1.5 * ttimes[1]
+    max_t = otime + 1.5 * ttimes[-1]
+
+    phases = [phase for phase, _ in onsets.items()]
+    onsets = [onset for _, onset in onsets.items()]
 
     # Find indices for window in which to get normalising factor, then plot
     min_t_idx = np.argmin([abs(t - min_t) for t in times])
     max_t_idx = np.argmin([abs(t - max_t) for t in times])
     times = [x.datetime for x in times]
-    for i, (ax, comp) in enumerate(zip(axes[:3], "ZNE")):
+    for i, (ax, comp) in enumerate(zip(axes[:3], ["Z", "[N,1]", "[E,2]"])):
+        y = signal.select(component=comp)
+        if not bool(y):
+            continue
         # Funky maths to assign the signal data to correct axes
-        y = signal.select(channel=f"*{comp}")[0].data
+        y = y[0].data
         # Get normalising factor within window
         norm = np.max(abs(y[min_t_idx:max_t_idx+1]))
         ax.plot(times, y / norm, c="k", lw=0.5, zorder=1)
-    for i, (ax, ph) in enumerate(zip(axes[3:], "PS")):
+    for i, (ax, ph) in enumerate(zip(axes[3:], phases)):
         y = onsets[i]
         win = window[ph]
         # Get normalising factor within window
-        norm = np.max(abs(y[win[0]:win[1]+1]))
+        norm = np.max(abs(y[win[0]:win[2]+1]))
         ax.plot(times, y / norm, c="k", lw=0.5, zorder=1)
 
     for ax in axes:
@@ -114,7 +120,7 @@ def pick_summary(event, station, signal, picks, onsets, ttimes, window):
 
     # --- Plot predicted arrival times ---
     for i, ax in enumerate(axes):
-        model_pick = otime + ttimes[0] if i % 3 == 0 else otime + ttimes[1]
+        model_pick = otime + ttimes[0] if i % 3 == 0 else otime + ttimes[-1]
         ax.axvline(model_pick.datetime, alpha=0.9, c="k",
                    label="Modelled pick time")
 

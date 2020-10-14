@@ -9,6 +9,7 @@ import sys
 import time
 from datetime import datetime
 from functools import wraps
+from itertools import tee
 
 import matplotlib.ticker as ticker
 import numpy as np
@@ -406,6 +407,14 @@ def upsample(trace, upfactor):
     out.stats.sampling_rate = int(upfactor * trace.stats.sampling_rate)
 
     return out
+
+
+def pairwise(iterable):
+    """Utility to iterate over an iterable pairwise."""
+
+    a, b = tee(iterable)
+    next(b, None)
+    return zip(a, b)
 
 
 def timeit(*args_, **kwargs_):

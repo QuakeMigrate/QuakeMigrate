@@ -118,38 +118,43 @@ class GaussianPicker(PhasePicker):
             fraction_tt = self._fraction_tt
 
         e_ijk = lut.index2coord(event.hypocentre, inverse=True)[0]
-        ptt = lut.traveltime_to("P", e_ijk)
-        stt = lut.traveltime_to("S", e_ijk)
 
         # Pre-define pick DataFrame and fit params and pick windows dicts
-        picks = pd.DataFrame(index=np.arange(0, 2 * len(event.data.stations)),
+        p_idx = np.arange(sum([len(v) for _, v in event.data.onsets.items()]))
+        picks = pd.DataFrame(index=p_idx,
                              columns=["Station", "Phase", "ModelledTime",
                                       "PickTime", "PickError", "SNR"])
         gaussfits = {}
         pick_windows = {}
+        idx = 0
 
-        for i, station in enumerate(event.data.stations):
-            gaussfits[station] = {}
-            pick_windows[station] = {}
-            for j, phase in enumerate(lut.phases):
-                try:
-                    onset = event.data.onsets[station][phase]
-                except KeyError:
-                    continue
-                if phase == "P":
-                    model_time = event.otime + ptt[i]
-                else:
-                    model_time = event.otime + stt[i]
+        for station, onsets in event.data.onsets.items():
+            for phase, onset in onsets.items():
+                traveltime = lut.traveltime_to(phase, e_ijk, station)[0]
+                pick_windows.setdefault(station, {}).update(
+                    {phase: self._determine_window(
+                        event, traveltime, fraction_tt)})
+                n_samples = len(onset)
 
-                gau, max_onset, pick, pick_error, window = self._fit_gaussian(
-                    onset, phase, event.data.starttime, event.otime,
-                    ptt[i], stt[i], fraction_tt)
+            self._distinguish_windows(
+                pick_windows[station], list(onsets.keys()), n_samples)
 
-                gaussfits[station][phase] = gau
-                pick_windows[station][phase] = window
+            for phase, onset in onsets.items():
+                # Find threshold from 'noise' part of onset
+                noise_threshold = self._find_noise_threshold(
+                    onset, pick_windows[station])
 
-                picks.iloc[2*i+j] = [station, phase, model_time, pick,
-                                     pick_error, max_onset]
+                fit, *pick = self._fit_gaussian(
+                    onset, self.onset.gaussian_halfwidth(phase),
+                    event.data.starttime, noise_threshold,
+                    pick_windows[station][phase])
+
+                gaussfits.setdefault(station, {}).update({phase: fit})
+
+                traveltime = lut.traveltime_to(phase, e_ijk, station)[0]
+                model_time = event.otime + traveltime
+                picks.iloc[idx] = [station, phase, model_time, *pick]
+                idx += 1
 
         event.add_picks(picks, gaussfits=gaussfits, pick_windows=pick_windows,
                         pick_threshold=self.pick_threshold)
@@ -158,12 +163,112 @@ class GaussianPicker(PhasePicker):
 
         if self.plot_picks:
             logging.info("\t\tPlotting picks...")
-            self.plot(event, lut, picks, list(zip(ptt, stt)), run)
+            for station, onsets in event.data.onsets.items():
+                traveltimes = [lut.traveltime_to(phase, e_ijk, station)[0]
+                               for phase in onsets.keys()]
+                self.plot(event, station, onsets, picks, traveltimes, run)
 
         return event, picks
 
-    def _fit_gaussian(self, onset, phase, starttime, otime, ptt, stt,
-                      fraction_tt):
+    def _determine_window(self, event, tt, fraction_tt):
+        """
+        Determine phase pick window upper and lower bounds based on a set
+        percentage of the phase travel time.
+
+        Parameters
+        ----------
+        event : :class:`~quakemigrate.io.event.Event` object
+            Contains pre-processed waveform data on which to perform picking,
+            the event location, and a unique identifier.
+        tt : float
+            Traveltime for the requested phase.
+        fraction_tt : float
+            Defines width of time window around expected phase arrival time in
+            which to search for a phase pick as a function of the traveltime
+            from the event location to that station -- should be an estimate of
+            the uncertainty in the velocity model.
+
+        Returns
+        -------
+        lower_idx : int
+            Index of lower bound for the phase pick window.
+        arrival_idx : int
+            Index of the phase arrival.
+        upper_idx : int
+            Index of upper bound for the phase pick window.
+
+        """
+
+        arrival_idx = util.time2sample(event.otime + tt - event.data.starttime,
+                                       self.sampling_rate)
+
+        # Add length of marginal window to this and convert to index
+        samples = util.time2sample(tt * fraction_tt, self.sampling_rate)
+
+        return [arrival_idx - samples, arrival_idx, arrival_idx + samples]
+
+    def _distinguish_windows(self, windows, phases, samples):
+        """
+        Ensure pick windows do not overlap - if they do, set the upper bound of
+        window one and the lower bound of window two to be the midpoint index
+        of the two arrivals.
+
+        Parameters
+        ----------
+        windows : dict
+            Dictionary of windows with phases as keys.
+        phases : list of str
+            Phases being migrated.
+        samples : int
+            Total number of samples in the onset function.
+
+        """
+
+        # Handle first key
+        first_idx = windows[phases[0]][0]
+        windows[phases[0]][0] = 0 if first_idx < 0 else first_idx
+
+        # Handle keys pairwise
+        for p1, p2 in util.pairwise(phases):
+            p1_window, p2_window = windows[p1], windows[p2]
+            mid_idx = int((p1_window[2] + p2_window[0]) / 2)
+            windows[p1][2] = min(mid_idx, p1_window[2])
+            windows[p2][0] = max(mid_idx, p2_window[0])
+
+        # Handle last key
+        last_idx = windows[phases[-1]][2]
+        windows[phases[-1]][2] = samples if last_idx > samples else last_idx
+
+    def _find_noise_threshold(self, onset, windows):
+        """
+        Determine a pick threshold as a percentile of the onset data outside
+        the pick windows.
+
+        Parameters
+        ----------
+        onset : `numpy.ndarray` of `numpy.double`
+            Onset (characteristic) function.
+        windows : list of int
+            Indexes of the lower window bound, the phase arrival, and the upper
+            window bound.
+
+        Return
+        ------
+        noise_threshold : float
+            The threshold based on 'noise'.
+
+        """
+
+        onset_noise = onset.copy()
+        for _, window in windows.items():
+            onset_noise[window[0]:window[2]] = -1
+        onset_noise = onset_noise[onset_noise > -1]
+
+        noise_threshold = np.percentile(onset_noise, self.pick_threshold * 100)
+
+        return noise_threshold
+
+    def _fit_gaussian(self, onset, halfwidth, starttime, noise_threshold, window):
         """
         Fit a Gaussian to the onset function in order to make a time pick with
         an associated uncertainty. Uses the same STA/LTA onset (characteristic)
@@ -176,25 +281,14 @@ class GaussianPicker(PhasePicker):
 
         Parameters
         ----------
-        onset : array-like
+        onset : `numpy.ndarray` of `numpy.double`
             Onset (characteristic) function.
-        phase : str
-            Phase name ("P" or "S").
         starttime : UTCDateTime object
             Start time of data (w_beg).
         p_arr : UTCDateTime object
             Time when P phase is expected to arrive based on best location.
         s_arr : UTCDateTime object
             Time when S phase is expected to arrive based on best location.
-        ptt : UTCDateTime object
-            Traveltime of P phase.
-        stt : UTCDateTime object
-            Traveltime of S phase.
-        fraction_tt : float
-            Defines width of time window around expected phase arrival time in
-            which to search for a phase pick as a function of the traveltime
-            from the event location to that station -- should be an estimate of
-            the uncertainty in the velocity model.
 
         Returns
         -------
@@ -213,88 +307,24 @@ class GaussianPicker(PhasePicker):
 
         """
 
-        p_arr, s_arr = otime + ptt, otime + stt
-
-        # Determine indices of P and S pick times
-        pt_idx = int((p_arr - starttime) * self.sampling_rate)
-        st_idx = int((s_arr - starttime) * self.sampling_rate)
-
-        # Determine P and S pick window upper and lower bounds based on
-        # (P-S)/2 -- either this or the next window definition will be
-        # used depending on which is wider.
-        pmin_idx = int(pt_idx - (st_idx - pt_idx) / 2)
-        pmax_idx = int(pt_idx + (st_idx - pt_idx) / 2)
-        smin_idx = int(st_idx - (st_idx - pt_idx) / 2)
-        smax_idx = int(st_idx + (st_idx - pt_idx) / 2)
-
-        # Check if index falls outside length of onset function; if so set
-        # window to start/end at start/end of data.
-        for idx in [pmin_idx, pmax_idx, smin_idx, smax_idx]:
-            if idx < 0:
-                idx = 0
-            if idx > len(onset):
-                idx = len(onset)
-
-        # Defining the bounds to search for the event over
-        # Determine P and S pick window upper and lower bounds based on
-        # set percentage of total travel time, plus marginal window
-
-        # window based on self.fraction_tt of P/S travel time
-        ptt *= fraction_tt
-        stt *= fraction_tt
-
-        # Add length of marginal window to this. Convert to index.
-        P_idxmin_new = int(pt_idx - int((self.marginal_window + ptt)
-                                        * self.sampling_rate))
-        P_idxmax_new = int(pt_idx + int((self.marginal_window + ptt)
-                                        * self.sampling_rate))
-        S_idxmin_new = int(st_idx - int((self.marginal_window + stt)
-                                        * self.sampling_rate))
-        S_idxmax_new = int(st_idx + int((self.marginal_window + stt)
-                                        * self.sampling_rate))
-
-        # Setting so the search region can't be bigger than (P-S)/2:
-        # compare the two window definitions; if (P-S)/2 window is
-        # smaller then use this (to avoid picking the wrong phase).
-        P_idxmin = np.max([pmin_idx, P_idxmin_new])
-        P_idxmax = np.min([pmax_idx, P_idxmax_new])
-        S_idxmin = np.max([smin_idx, S_idxmin_new])
-        S_idxmax = np.min([smax_idx, S_idxmax_new])
-
-        # Setting parameters depending on the phase
-        if phase == "P":
-            win_min = P_idxmin
-            win_max = P_idxmax
-        if phase == "S":
-            win_min = S_idxmin
-            win_max = S_idxmax
-
         # Find index of maximum value of onset function in the appropriate
         # pick window
-        max_onset = np.argmax(onset[win_min:win_max]) + win_min
+        max_onset = np.argmax(onset[window[0]:window[2]]) + window[0]
         # Trim the onset function in the pick window
-        onset_trim = onset[win_min:win_max]
-
-        # Only keep the onset function outside the pick windows to
-        # calculate the pick threshold
-        onset_threshold = onset.copy()
-        onset_threshold[P_idxmin:P_idxmax] = -1
-        onset_threshold[S_idxmin:S_idxmax] = -1
-        onset_threshold = onset_threshold[onset_threshold > -1]
+        onset_signal = onset[window[0]:window[2]]
 
         # Calculate the pick threshold: either user-specified percentile of
         # data outside pick windows, or 88th percentile within the relevant
         # pick window (whichever is bigger).
-        threshold = np.percentile(onset_threshold, self.pick_threshold * 100)
-        threshold_window = np.percentile(onset_trim, 88)
-        threshold = np.max([threshold, threshold_window])
+        signal_threshold = np.percentile(onset_signal, 88)
+        threshold = np.max([noise_threshold, signal_threshold])
 
         # Remove data within the pick window that is lower than the threshold
-        tmp = (onset_trim - threshold).any() > 0
+        tmp = (onset_signal - threshold).any() > 0
 
         # If there is any data that meets this requirement...
         if onset[max_onset] >= threshold and tmp:
-            exceedence = np.where((onset_trim - threshold) > 0)[0]
+            exceedence = np.where((onset_signal - threshold) > 0)[0]
             exceedence_dist = np.zeros(len(exceedence))
 
             # Really faffy process to identify the period of data which is
@@ -314,16 +344,12 @@ class GaussianPicker(PhasePicker):
                 e += 1
 
             # Find the indices for this period of data
-            tmp = exceedence_dist[np.argmax(onset_trim[exceedence])]
+            tmp = exceedence_dist[np.argmax(onset_signal[exceedence])]
             tmp = np.where(exceedence_dist == tmp)
 
             # Add one data point below the threshold at each end of this period
-            gau_idxmin = exceedence[tmp][0] + win_min - 1
-            gau_idxmax = exceedence[tmp][-1] + win_min + 2
-
-            # Initial guess for gaussian half-width based on onset function
-            # STA window length
-            data_half_range = self.onset.gaussian_halfwidth(phase)
+            gau_idxmin = exceedence[tmp][0] + window[0] - 1
+            gau_idxmax = exceedence[tmp][-1] + window[0] + 2
 
             # Select data to fit the gaussian to
             x_data = np.arange(gau_idxmin, gau_idxmax, dtype=float)
@@ -344,7 +370,7 @@ class GaussianPicker(PhasePicker):
                 p0 = [np.max(y_data),
                       float(gau_idxmin + np.argmax(y_data))
                       / self.sampling_rate,
-                      data_half_range / self.sampling_rate]
+                      halfwidth / self.sampling_rate]
 
                 # Do the fit
                 popt, _ = curve_fit(util.gaussian_1d, x_data, y_data, p0)
@@ -387,10 +413,10 @@ class GaussianPicker(PhasePicker):
             mean = -1
             max_onset = -1
 
-        return gaussian_fit, max_onset, mean, sigma, [win_min, win_max]
+        return gaussian_fit, mean, sigma, max_onset
 
     @util.timeit()
-    def plot(self, event, lut, picks, ttimes, run):
+    def plot(self, event, station, onsets, picks, traveltimes, run):
         """
         Plot figure showing the filtered traces for each data component and the
         characteristic functions calculated from them (P and S) for each
@@ -407,62 +433,58 @@ class GaussianPicker(PhasePicker):
 
         """
 
-        fpath = run.path / "locate" / run.subname / "pick_plots" / f"{event.uid}"
+        fpath = run.path / f"locate/{run.subname}/pick_plots/{event.uid}"
         fpath.mkdir(exist_ok=True, parents=True)
 
+        signal = event.data.filtered_waveforms.select(station=station)
+        # Check if any data available to plot
+        if not bool(signal):
+            return
+        stpicks = picks[picks["Station"] == station].reset_index(drop=True)
+        window = event.picks["pick_windows"][station]
+
+        # Call subroutine to plot basic phase pick figure
+        fig = pick_summary(event, station, signal, stpicks, onsets,
+                           traveltimes, window)
+
+        # --- Gaussian fits ---
+        axes = fig.axes
+        phases = [phase for phase, _ in onsets.items()]
+        onsets = [onset for _, onset in onsets.items()]
+        for j, (ax, ph) in enumerate(zip(axes[3:5], phases)):
+            gau = event.picks["gaussfits"][station][ph]
+            win = window[ph]
+
+            # Plot threshold
+            thresh = gau["PickThreshold"]
+            norm = max(onsets[j][win[0]:win[2]+1])
+            ax.axhline(thresh / norm, label="Pick threshold")
+            axes[5].text(0.05+j*0.5, 0.25, f"Threshold: {thresh:5.3f}",
+                         ha="left", va="center", fontsize=18)
+
+            # Check pick has been made
+            if not gau["PickValue"] == -1:
+                yy = util.gaussian_1d(gau["xdata"], gau["popt"][0],
+                                      gau["popt"][1], gau["popt"][2])
+                dt = [x.datetime for x in gau["xdata_dt"]]
+                ax.plot(dt, yy / norm)
+
+        # --- Picking windows ---
         # Generate plottable timestamps for data
         times = event.data.times(type="matplotlib")
-        for i, station in enumerate(event.data.stations):
-            signal = event.data.filtered_waveforms.select(station=station)
-            if not bool(signal):
-                continue
-            onsets = [event.data.onsets[station]["P"],
-                      event.data.onsets[station]["S"]]
-            stpicks = picks[picks["Station"] == station].reset_index(drop=True)
-            window = event.picks["pick_windows"][station]
+        for j, ax in enumerate(axes[:5]):
+            win = window[phases[0]] if j % 3 == 0 else window[phases[-1]]
+            clr = "#F03B20" if j % 3 == 0 else "#3182BD"
+            ax.fill_betweenx([-1.1, 1.1], times[win[0]], times[win[2]],
+                             alpha=0.2, color=clr, label="Picking window")
 
-            # Check if any data available to plot
-            if not bool(signal):
-                continue
+        for ax in axes[3:5]:
+            ax.legend(fontsize=14)
 
-            # Call subroutine to plot basic phase pick figure
-            fig = pick_summary(event, station, signal, stpicks, onsets,
-                               ttimes[i], window)
-
-            # --- Gaussian fits ---
-            axes = fig.axes
-            for j, (ax, ph) in enumerate(zip(axes[3:5], ["P", "S"])):
-                gau = event.picks["gaussfits"][station][ph]
-                win = window[ph]
-
-                # Plot threshold
-                thresh = gau["PickThreshold"]
-                norm = max(onsets[j][win[0]:win[1]+1])
-                ax.axhline(thresh / norm, label="Pick threshold")
-                axes[5].text(0.05+j*0.5, 0.25, f"Threshold: {thresh:5.3f}",
-                             ha="left", va="center", fontsize=18)
-
-                # Check pick has been made
-                if not gau["PickValue"] == -1:
-                    yy = util.gaussian_1d(gau["xdata"], gau["popt"][0],
-                                          gau["popt"][1], gau["popt"][2])
-                    dt = [x.datetime for x in gau["xdata_dt"]]
-                    ax.plot(dt, yy / norm)
-
-            # --- Picking windows ---
-            for j, ax in enumerate(axes[:5]):
-                win = window["P"] if j % 3 == 0 else window["S"]
-                clr = "#F03B20" if j % 3 == 0 else "#3182BD"
-                ax.fill_betweenx([-1.1, 1.1], times[win[0]], times[win[1]],
-                                 alpha=0.2, color=clr, label="Picking window")
-
-            for ax in axes[3:5]:
-                ax.legend(fontsize=14)
-
-            fstem = f"{event.uid}_{station}"
-            file = (fpath / fstem).with_suffix(".pdf")
-            plt.savefig(file)
-            plt.close(fig)
+        fstem = f"{event.uid}_{station}"
+        file = (fpath / fstem).with_suffix(".pdf")
+        plt.savefig(file)
+        plt.close(fig)
 
     @property
     def fraction_tt(self):

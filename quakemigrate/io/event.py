@@ -20,6 +20,8 @@ EVENT_FILE_COLS = ["EventID", "DT", "X", "Y", "Z", "COA", "COA_NORM",
                    "COV_ErrX", "COV_ErrY", "COV_ErrZ",
                    "TRIG_COA", "DEC_COA", "DEC_COA_NORM"]
 
+XYZ, ERR_XYZ = ["X", "Y", "Z"], ["ErrX", "ErrY", "ErrZ"]
+
 
 class Event:
     """
@@ -53,9 +55,6 @@ class Event:
         Z : `numpy.ndarray` of floats, shape(nsamples)
             Z coordinate of maximum coalescence through time in input
             projection space.
-    trigger_time : `obspy.UTCDateTime` object
-        The peak coalescence time of the triggered event from the (decimated)
-        coalescence output by detect.
     hypocentre : `numpy.ndarray` of floats
         Geographical coordinates of the instantaneous event hypocentre.
     locations : dict
@@ -87,6 +86,9 @@ class Event:
             The peak coalescence value.
         DEC_COA_NORM : float
             The peak normalised coalescence value.
+    trigger_time : `obspy.UTCDateTime` object
+        The peak coalescence time of the triggered event from the (decimated)
+        coalescence output by detect.
     uid : str
         A unique identifier for the event based on the peak coalescence time.
 
@@ -131,6 +133,7 @@ class Event:
         self.data = None
         self.coa_data = None
         self.map4d = None
+        self.otime = None
         self.locations = {}
         self.picks = {}
         self.localmag = {}
@@ -178,6 +181,8 @@ class Event:
                                       "Y": coord[:, 1],
                                       "Z": coord[:, 2]})
         self.map4d = map4d
+        idxmax = self.coa_data["COA"].astype(float).idxmax()
+        self.otime = self.coa_data.iloc[idxmax]["DT"]
 
     def add_covariance_location(self, xyz, xyz_unc):
         """
@@ -233,7 +238,7 @@ class Event:
 
         """
 
-        self.locations["spline"] = dict(zip(["X", "Y", "Z"], xyz))
+        self.locations["spline"] = dict(zip(XYZ, xyz))
 
     def add_picks(self, pick_df, **kwargs):
         """
@@ -327,7 +332,7 @@ class Event:
     def mw_times(self, sampling_rate):
         """
         Utility function to generate timestamps between `data.starttime` and
-        `data.endtime`, with a sample size of `data.sample_size`
+        `data.endtime`, with a sample size of 1 / `sampling_rate`.
 
         Returns
         -------
@@ -358,6 +363,9 @@ class Event:
                                 self.coa_data.index[0]:self.coa_data.index[-1]]
         self.coa_data.reset_index(drop=True, inplace=True)
 
+        idxmax = self.coa_data["COA"].astype(float).idxmax()
+        self.otime = self.coa_data.iloc[idxmax]["DT"]
+
     def write(self, run, lut):
         """
         Write event. to a .event file.
@@ -366,6 +374,9 @@ class Event:
         ----------
         run : :class:`~quakemigrate.io.Run` object
             Light class encapsulating i/o path information for a given run.
+        lut : :class:`~quakemigrate.lut.LUT` object
+            Contains the traveltime lookup tables for seismic phases, computed
+            for some pre-defined velocity model.
 
         """
 
@@ -396,7 +407,7 @@ class Event:
                                               na_action="ignores")
 
         # Set floating point precision for locations & loc uncertainties
-        for axis_precision, axis in zip(lut.precision, ["X", "Y", "Z"]):
+        for axis_precision, axis in zip(lut.precision, XYZ):
             # Sort out which columns to format
             cols = [axis, f"GAU_{axis}"]
             if axis == "Z":
@@ -439,7 +450,7 @@ class Event:
 
         hypocentre = self.locations[method]
 
-        ev_loc = np.array([hypocentre[k] for k in ["X", "Y", "Z"]])
+        ev_loc = np.array([hypocentre[k] for k in XYZ])
 
         return ev_loc
 
@@ -464,7 +475,7 @@ class Event:
 
         loc = self.locations[method]
 
-        ev_loc_unc = np.array([loc[k] for k in ["ErrX", "ErrY", "ErrZ"]])
+        ev_loc_unc = np.array([loc[k] for k in ERR_XYZ])
 
         return ev_loc_unc
 
@@ -488,12 +499,6 @@ class Event:
 
         return dict(zip(keys, max_coa[keys].values))
 
-    @property
-    def otime(self):
-        """Get the origin time based on the peak coalescence."""
-        idxmax = self.coa_data["COA"].astype(float).idxmax()
-        return self.coa_data.iloc[idxmax]["DT"]
-
     def _parse_triggered_event(self, event_data):
         """
         Parse the information from a triggered event `pandas.Series` object
@@ -507,17 +512,17 @@ class Event:
         """
 
         try:
-            trigger_info = {"TRIG_COA": dataframe["TRIG_COA"],
-                            "DEC_COA": dataframe["COA"],
-                            "DEC_COA_NORM": dataframe["COA_NORM"]}
+            trigger_info = {"TRIG_COA": event_data["TRIG_COA"],
+                            "DEC_COA": event_data["COA"],
+                            "DEC_COA_NORM": event_data["COA_NORM"]}
         except KeyError:
             # --- Backwards compatibility ---
             try:
-                trigger_info = {"TRIG_COA": dataframe["COA_V"],
-                                "DEC_COA": dataframe["COA"],
-                                "DEC_COA_NORM": dataframe["COA_NORM"]}
+                trigger_info = {"TRIG_COA": event_data["COA_V"],
+                                "DEC_COA": event_data["COA"],
+                                "DEC_COA_NORM": event_data["COA_NORM"]}
             except KeyError:
-                trigger_info = {"TRIG_COA": dataframe["COA_V"],
+                trigger_info = {"TRIG_COA": event_data["COA_V"],
                                 "DEC_COA": np.nan,
                                 "DEC_COA_NORM": np.nan}
 

@@ -307,9 +307,6 @@ class GaussianPicker(PhasePicker):
 
         """
 
-        # Find index of maximum value of onset function in the appropriate
-        # pick window
-        max_onset = np.argmax(onset[window[0]:window[2]]) + window[0]
         # Trim the onset function in the pick window
         onset_signal = onset[window[0]:window[2]]
 
@@ -319,12 +316,9 @@ class GaussianPicker(PhasePicker):
         signal_threshold = np.percentile(onset_signal, 88)
         threshold = np.max([noise_threshold, signal_threshold])
 
-        # Remove data within the pick window that is lower than the threshold
-        tmp = (onset_signal - threshold).any() > 0
-
         # If there is any data that meets this requirement...
-        if onset[max_onset] >= threshold and tmp:
-            exceedence = np.where((onset_signal - threshold) > 0)[0]
+        if (onset_signal > threshold).any():
+            exceedence = np.where(onset_signal > threshold)[0]
             exceedence_dist = np.zeros(len(exceedence))
 
             # Really faffy process to identify the period of data which is
@@ -384,7 +378,7 @@ class GaussianPicker(PhasePicker):
 
                 # Check pick mean is within the pick window.
                 if not gau_idxmin < popt[1] * self.sampling_rate < gau_idxmax:
-                    gaussian_fit = self.DEFAULT_GAUSSIAN_FIT
+                    gaussian_fit = self.DEFAULT_GAUSSIAN_FIT.copy()
                     gaussian_fit["PickThreshold"] = threshold
                     sigma = -1
                     mean = -1
@@ -399,7 +393,7 @@ class GaussianPicker(PhasePicker):
             # If curve_fit fails. Will also spit error message to stdout,
             # though this can be suppressed  - see warnings.filterwarnings()
             except (ValueError, RuntimeError):
-                gaussian_fit = self.DEFAULT_GAUSSIAN_FIT
+                gaussian_fit = self.DEFAULT_GAUSSIAN_FIT.copy()
                 gaussian_fit["PickThreshold"] = threshold
                 sigma = -1
                 mean = -1
@@ -407,7 +401,7 @@ class GaussianPicker(PhasePicker):
 
         # If onset function does not exceed threshold in pick window
         else:
-            gaussian_fit = self.DEFAULT_GAUSSIAN_FIT
+            gaussian_fit = self.DEFAULT_GAUSSIAN_FIT.copy()
             gaussian_fit["PickThreshold"] = threshold
             sigma = -1
             mean = -1

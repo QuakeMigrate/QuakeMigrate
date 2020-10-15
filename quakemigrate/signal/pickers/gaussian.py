@@ -17,6 +17,34 @@ import quakemigrate.util as util
 from .base import PhasePicker
 
 
+def calculate_mad(x, scale=1.4826):
+    """
+    Calculates the Median Absolute Deviation (MAD) of the input array x.
+
+    Parameters
+    ----------
+    x : array-like
+        Coalescence array in.
+    scale : float, optional
+        A scaling factor for the MAD output to make the calculated MAD factor
+        a consistent estimation of the standard deviation of the distribution.
+
+    Returns
+    -------
+    scaled_mad : array-like
+        Array of scaled mean absolute deviation values for the input array, x,
+        scaled to provide an estimation of the standard deviation of the
+        distribution.
+
+    """
+
+    # Calculate median and mad values:
+    med = np.apply_over_axes(np.median, x, 0)
+    mad = np.median(np.abs(x - med), axis=0)
+
+    return scale * mad
+
+
 class GaussianPicker(PhasePicker):
     """
     This class details the default method of making phase picks shipped with
@@ -144,6 +172,7 @@ class GaussianPicker(PhasePicker):
                 noise_threshold = self._find_noise_threshold(
                     onset, pick_windows[station])
 
+                logging.debug(f"\t\tPicking {phase} at {station}...")
                 fit, *pick = self._fit_gaussian(
                     onset, self.onset.gaussian_halfwidth(phase),
                     event.data.starttime, noise_threshold,
@@ -264,7 +293,8 @@ class GaussianPicker(PhasePicker):
             onset_noise[window[0]:window[2]] = -1
         onset_noise = onset_noise[onset_noise > -1]
 
-        noise_threshold = np.percentile(onset_noise, self.pick_threshold * 100)
+        # noise_threshold = np.percentile(onset_noise, self.pick_threshold * 100)
+        noise_threshold = calculate_mad(onset_noise, scale=8)
 
         return noise_threshold
 
@@ -378,6 +408,8 @@ class GaussianPicker(PhasePicker):
 
                 # Check pick mean is within the pick window.
                 if not gau_idxmin < popt[1] * self.sampling_rate < gau_idxmax:
+                    logging.debug("\t\t    Pick mean out of bounds - "
+                                 "continuing.")
                     gaussian_fit = self.DEFAULT_GAUSSIAN_FIT.copy()
                     gaussian_fit["PickThreshold"] = threshold
                     sigma = -1
@@ -393,6 +425,7 @@ class GaussianPicker(PhasePicker):
             # If curve_fit fails. Will also spit error message to stdout,
             # though this can be suppressed  - see warnings.filterwarnings()
             except (ValueError, RuntimeError):
+                logging.debug("\t\t    Failed curve_fit - continuing.")
                 gaussian_fit = self.DEFAULT_GAUSSIAN_FIT.copy()
                 gaussian_fit["PickThreshold"] = threshold
                 sigma = -1
@@ -401,6 +434,8 @@ class GaussianPicker(PhasePicker):
 
         # If onset function does not exceed threshold in pick window
         else:
+            logging.debug("\t\t    No onset signal exceeding threshold "
+                          f"({threshold:5.3f}) - continuing.")
             gaussian_fit = self.DEFAULT_GAUSSIAN_FIT.copy()
             gaussian_fit["PickThreshold"] = threshold
             sigma = -1

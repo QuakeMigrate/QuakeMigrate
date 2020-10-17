@@ -268,7 +268,8 @@ class GaussianPicker(PhasePicker):
 
         return noise_threshold
 
-    def _fit_gaussian(self, onset, halfwidth, starttime, noise_threshold, window):
+    def _fit_gaussian(self, onset, halfwidth, starttime, noise_threshold,
+                      window):
         """
         Fit a Gaussian to the onset function in order to make a time pick with
         an associated uncertainty. Uses the same STA/LTA onset (characteristic)
@@ -283,27 +284,30 @@ class GaussianPicker(PhasePicker):
         ----------
         onset : `numpy.ndarray` of `numpy.double`
             Onset (characteristic) function.
-        starttime : UTCDateTime object
-            Start time of data (w_beg).
-        p_arr : UTCDateTime object
-            Time when P phase is expected to arrive based on best location.
-        s_arr : UTCDateTime object
-            Time when S phase is expected to arrive based on best location.
+        halfwidth : float
+            Initial estimate for the Gaussian half-width based on the
+            short-term average window length.
+        starttime : `obspy.UTCDateTime` object
+            Timestamp for first sample of data.
+        noise_threshold : float
+            Value above which to threshold data based on noise.
+        window : list of int, [start, arrival, end]
+            Indices for the window start, phase arrival, and window end.
 
         Returns
         -------
         gaussian_fit : dictionary
-            gaussian fit parameters: {"popt": popt,
+            Gaussian fit parameters: {"popt": popt,
                                       "xdata": x_data,
                                       "xdata_dt": x_data_dt,
                                       "PickValue": max_onset,
                                       "PickThreshold": threshold}
         max_onset : float
-            amplitude of gaussian fit to onset function
+            Amplitude of Gaussian fit to onset function, i.e. the SNR.
         sigma : float
-            sigma of gaussian fit to onset function
-        mean : UTCDateTime
-            mean of gaussian fit to onset function == pick time
+            Sigma of Gaussian fit to onset function, i.e. the pick uncertainty.
+        mean : `obspy.UTCDateTime`
+            Mean of Gaussian fit to onset function, i.e. the pick time.
 
         """
 
@@ -426,9 +430,21 @@ class GaussianPicker(PhasePicker):
 
         Parameters
         ----------
-        event_uid : str, optional
-            Earthquake UID string; for subdirectory naming within directory
-            {run_path}/traces/
+        event : :class:`~quakemigrate.io.Event` object
+            Light class encapsulating signal, onset, and location information
+            for a given event.
+        station : str
+            Station name.
+        onsets : `numpy.ndarray`
+            Collection of onset functions to be plotted.
+        picks : `pandas.DataFrame` object
+            DataFrame that contains the measured picks with columns:
+            ["Name", "Phase", "ModelledTime", "PickTime", "PickError", "SNR"]
+            Each row contains the phase pick from one station/phase.
+        traveltimes : list of float
+            Modelled traveltimes for the station/phase pairs to be plotted.
+        run : :class:`~quakemigrate.io.Run` object
+            Light class encapsulating i/o path information for a given run.
 
         """
 

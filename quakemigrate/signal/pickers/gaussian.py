@@ -17,34 +17,6 @@ import quakemigrate.util as util
 from .base import PhasePicker
 
 
-def calculate_mad(x, scale=1.4826):
-    """
-    Calculates the Median Absolute Deviation (MAD) of the input array x.
-
-    Parameters
-    ----------
-    x : array-like
-        Coalescence array in.
-    scale : float, optional
-        A scaling factor for the MAD output to make the calculated MAD factor
-        a consistent estimation of the standard deviation of the distribution.
-
-    Returns
-    -------
-    scaled_mad : array-like
-        Array of scaled mean absolute deviation values for the input array, x,
-        scaled to provide an estimation of the standard deviation of the
-        distribution.
-
-    """
-
-    # Calculate median and mad values:
-    med = np.apply_over_axes(np.median, x, 0)
-    mad = np.median(np.abs(x - med), axis=0)
-
-    return scale * mad
-
-
 class GaussianPicker(PhasePicker):
     """
     This class details the default method of making phase picks shipped with
@@ -86,7 +58,6 @@ class GaussianPicker(PhasePicker):
 
         self.onset = onset
         self.pick_threshold = kwargs.get("pick_threshold", 1.0)
-        self.marginal_window = kwargs.get("marginal_window", 1.0)
         self.sampling_rate = None
         self.plot_picks = kwargs.get("plot_picks", False)
 
@@ -101,8 +72,7 @@ class GaussianPicker(PhasePicker):
         """Returns a short summary string of the GaussianPicker."""
 
         str_ = ("\tPhase picking by fitting a 1-D Gaussian to onsets\n"
-                f"\t\tPick threshold  = {self.pick_threshold}\n"
-                f"\t\tMarginal window = {self.marginal_window} s\n")
+                f"\t\tPick threshold  = {self.pick_threshold}\n")
         if self._fraction_tt is not None:
             str_ += (f"\t\tSearch window   = {self._fraction_tt*100}% of "
                      "traveltime\n")
@@ -232,7 +202,8 @@ class GaussianPicker(PhasePicker):
                                        self.sampling_rate)
 
         # Add length of marginal window to this and convert to index
-        samples = util.time2sample(tt * fraction_tt, self.sampling_rate)
+        samples = util.time2sample(tt * fraction_tt + event.marginal_window,
+                                   self.sampling_rate)
 
         return [arrival_idx - samples, arrival_idx, arrival_idx + samples]
 
@@ -293,8 +264,7 @@ class GaussianPicker(PhasePicker):
             onset_noise[window[0]:window[2]] = -1
         onset_noise = onset_noise[onset_noise > -1]
 
-        # noise_threshold = np.percentile(onset_noise, self.pick_threshold * 100)
-        noise_threshold = calculate_mad(onset_noise, scale=8)
+        noise_threshold = np.percentile(onset_noise, self.pick_threshold * 100)
 
         return noise_threshold
 

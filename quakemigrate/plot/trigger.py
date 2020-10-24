@@ -24,7 +24,7 @@ import quakemigrate.util as util
 @util.timeit("info")
 def trigger_summary(events, starttime, endtime, run, marginal_window,
                     min_event_interval, detection_threshold,
-                    normalise_coalescence, lut, data, region, savefig,
+                    normalise_coalescence, lut, data, region, interactive,
                     xy_files=None):
     """
     Plots the data from a .scanmseed file with annotations illustrating the
@@ -60,8 +60,8 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
         "X", "Y", "Z"]
     region : list
         Geographical region within which earthquakes have been triggered.
-    savefig : bool
-        Output the plot as a file. The plot is shown by default, and not saved.
+    interactive : bool
+        Toggles the ability to live interact with the trigger plot.
     xy_files : str, optional
         Path to comma-separated value file (.csv) containing a series of
         coordinate files to plot. Columns: ["File", "Color", "Linewidth",
@@ -144,14 +144,16 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
     fig.axes[5].set_position([new_yz_left, xy_bottom, new_yz_width, xy_height])
 
     # Save figure or open interactive matplotlib window
-    if savefig:
-        fpath = run.path / "trigger" / run.subname / "summaries"
-        fpath.mkdir(exist_ok=True, parents=True)
-        fstem = f"{run.name}_{starttime.year}_{starttime.julday:03d}_Trigger"
-        file = (fpath / fstem).with_suffix(".pdf")
-        plt.savefig(str(file))
-    else:
+    fpath = run.path / "trigger" / run.subname / "summaries"
+    fpath.mkdir(exist_ok=True, parents=True)
+    fstem = f"{run.name}_{starttime.year}_{starttime.julday:03d}_Trigger"
+    file = (fpath / fstem).with_suffix(".pdf")
+    plt.savefig(str(file))
+
+    if interactive:
         plt.show()
+
+    plt.close(fig)
 
 
 def _plot_station_availability(ax, availability, endtime):

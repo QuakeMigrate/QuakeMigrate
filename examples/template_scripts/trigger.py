@@ -41,5 +41,8 @@ trig.static_threshold = 1.75
 # trig.mad_window_length = 7200.
 # trig.mad_multiplier = 8.
 
+# --- Toggle plotting options ---
+trig.plot_trigger_summary = True
+
 # --- Run trigger ---
-trig.trigger(starttime, endtime, savefig=False)
+trig.trigger(starttime, endtime, interactive_plot=True)

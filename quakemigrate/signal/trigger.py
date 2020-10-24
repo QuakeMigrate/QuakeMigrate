@@ -141,6 +141,8 @@ class Trigger:
     pad : float, optional
         Additional time padding to ensure events close to the starttime/endtime
         are not cut off and missed. Default: 120 seconds.
+    plot_trigger_summary : bool, optional
+        Plot triggering through time for each batched segment. Default: True.
     run : :class:`~quakemigrate.io.Run` object
         Light class encapsulating i/o path information for a given run.
     static_threshold : float, optional
@@ -160,7 +162,7 @@ class Trigger:
 
     Methods
     -------
-    trigger(starttime, endtime, region=None, savefig=True)
+    trigger(starttime, endtime, region=None, interactive_plot=True)
         Trigger candidate earthquakes from decimated detect scan results.
 
     Raises
@@ -199,7 +201,8 @@ class Trigger:
         self.normalise_coalescence = kwargs.get("normalise_coalescence", False)
         self.pad = kwargs.get("pad", 120.)
 
-        # --- Plotting parameters ---
+        # --- Plotting toggles and parameters ---
+        self.plot_trigger_summary = kwargs.get("plot_trigger_summary", True)
         self.xy_files = kwargs.get("xy_files")
 
     def __str__(self):
@@ -221,7 +224,7 @@ class Trigger:
 
         return out
 
-    def trigger(self, starttime, endtime, region=None, savefig=True):
+    def trigger(self, starttime, endtime, region=None, interactive_plot=True):
         """
         Trigger candidate earthquakes from decimated scan data.
 
@@ -236,8 +239,9 @@ class Trigger:
             events csv file (for use in locate.) Format is:
                 [Xmin, Ymin, Zmin, Xmax, Ymax, Zmax]
             Units are longitude / latitude / metres (in positive-down frame).
-        savefig : bool, optional
-            Save triggered events figure (default) or open interactive view.
+        interactive_plot : bool, optional
+            Toggles the ability to live interact with the trigger plot. Default
+            is true.
 
         Raises
         ------
@@ -261,12 +265,12 @@ class Trigger:
         while batchstart < endtime:
             next_day = UTCDateTime(batchstart.date) + 86400
             batchend = next_day if next_day <= endtime else endtime
-            self._trigger_batch(batchstart, batchend, region, savefig)
+            self._trigger_batch(batchstart, batchend, region, interactive_plot)
             batchstart = next_day
 
         logging.info(util.log_spacer)
 
-    def _trigger_batch(self, batchstart, batchend, region, savefig):
+    def _trigger_batch(self, batchstart, batchend, region, interactive_plot):
         """
         Wraps all of the methods used in sequence to determine triggers.
 
@@ -281,8 +285,8 @@ class Trigger:
             events csv file (for use in locate.) Format is:
                 [Xmin, Ymin, Zmin, Xmax, Ymax, Zmax]
             Units are longitude / latitude / metres (in positive-down frame).
-        savefig : bool
-            Save triggered events figure (default) or open interactive view.
+        interactive_plot : bool
+            Toggles the ability to live interact with the trigger plot.
 
         """
 
@@ -310,12 +314,13 @@ class Trigger:
             logging.info("\n\tWriting triggered events to file...")
             write_triggered_events(self.run, events, batchstart)
 
-        logging.info("\n\tPlotting trigger summary...")
-        trigger_summary(events, batchstart, batchend, self.run,
-                        self.marginal_window, self.min_event_interval,
-                        threshold, self.normalise_coalescence, self.lut,
-                        data, region=region, savefig=savefig,
-                        xy_files=self.xy_files)
+        if self.plot_trigger_summary:
+            logging.info("\n\tPlotting trigger summary...")
+            trigger_summary(events, batchstart, batchend, self.run,
+                            self.marginal_window, self.min_event_interval,
+                            threshold, self.normalise_coalescence, self.lut,
+                            data, region=region, interactive=interactive_plot,
+                            xy_files=self.xy_files)
 
     @util.timeit()
     def _get_threshold(self, scandata, sampling_rate):

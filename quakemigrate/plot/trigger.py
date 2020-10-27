@@ -25,7 +25,7 @@ import quakemigrate.util as util
 def trigger_summary(events, starttime, endtime, run, marginal_window,
                     min_event_interval, detection_threshold,
                     normalise_coalescence, lut, data, region, savefig,
-                    xy_files=None):
+                    discarded_events, xy_files=None):
     """
     Plots the data from a .scanmseed file with annotations illustrating the
     trigger results: event triggers and marginal windows on the coalescence
@@ -62,6 +62,10 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
         Geographical region within which earthquakes have been triggered.
     savefig : bool
         Output the plot as a file. The plot is shown by default, and not saved.
+    discarded_events : `pandas.DataFrame`
+        Discarded triggered events information, columns: ["EventID", "CoaTime",
+        "TRIG_COA", "COA_X", "COA_Y", "COA_Z", "MinTime", "MaxTime", "COA",
+        "COA_NORM"].
     xy_files : str, optional
         Path to comma-separated value file (.csv) containing a series of
         coordinate files to plot. Columns: ["File", "Color", "Linewidth",
@@ -101,6 +105,10 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
 
     # --- Plot xy files on map ---
     _plot_xy_files(xy_files, fig.axes[3])
+
+    # --- Plot trigger region (if any) ---
+    if region is not None:
+        _plot_trigger_region(axes[3:], region, discarded_events)
 
     # --- Plot event scatter on LUT and windows on coalescence traces ---
     if events is not None:
@@ -338,6 +346,45 @@ def _plot_text_summary(ax, events, threshold, marginal_window,
         ax.text(0.42, 0.15, f"Triggered {count} event(s) on the {trig} trace.",
                 ha="center", va="center")
     ax.set_axis_off()
+
+
+def _plot_trigger_region(axes, region, discarded_events):
+    """
+    Utility function for plotting the bounding geographical box used to filter
+    triggered events.
+
+    Parameters
+    ----------
+    axes : list of `~matplotlib.Axes` objects
+        Axes on which to plot the bounding boxes.
+    region : list
+        Geographical region within which earthquakes have been triggered.
+    discarded_events : `~pandas.DataFrame` object
+        Dataframe of discarded triggered events.
+
+    """
+
+    min_x, min_y, min_z, max_x, max_y, max_z = region
+    x, y, z = discarded_events[["COA_X", "COA_Y", "COA_Z"]].values.T
+
+    # Plot on XY
+    axes[0].plot([min_x, min_x, max_x, max_x, min_x],
+                 [min_y, max_y, max_y, min_y, min_y],
+                 linestyle="--", color="#238b45", linewidth=1.5)
+    axes[0].scatter(x, y, s=50, c="grey")
+
+    # Plot on XZ
+    axes[1].plot([min_x, min_x, max_x, max_x, min_x],
+                 [min_z, max_z, max_z, min_z, min_z],
+                 linestyle="--", color="#238b45", linewidth=1.5)
+    axes[1].scatter(x, z, s=50, c="grey")
+
+    # Plot on YZ
+    axes[2].plot([min_z, max_z, max_z, min_z, min_z],
+                 [min_y, min_y, max_y, max_y, min_y],
+                 linestyle="--", color="#238b45", linewidth=1.5)
+    axes[2].scatter(z, y, s=50, c="grey")
+
 
 def _plot_xy_files(xy_files, ax):
     """

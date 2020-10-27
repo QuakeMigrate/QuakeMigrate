@@ -39,8 +39,8 @@ for station in stations["Name"]:
 inv.write(response_file, format="STATIONXML")
 
 # --- Make directories to store waveform data ---
-(data_path / str(starttime.year) /
-    str(starttime.julday).zfill(3)).mkdir(parents=True, exist_ok=True)
+waveform_path = data_path / str(starttime.year) / f"{starttime.julday:03d}"
+waveform_path.mkdir(parents=True, exist_ok=True)
 
 # --- Download waveform data ---
 for station in stations["Name"]:
@@ -51,9 +51,8 @@ for station in stations["Name"]:
     st.merge(method=-1)
     for comp in ["E", "N", "Z"]:
         try:
-            st_comp = st.select(channel=f"*{comp}")
-            st_comp.write(str(data_path / str(starttime.year) /
-                              str(starttime.julday).zfill(3) /
-                              f"{station}_{comp}.m"), format="MSEED")
+            st_comp = st.select(component=comp)
+            st_comp.write(str(waveform_path / f"{station}_{comp}.m"),
+                          format="MSEED")
         except IndexError:
             pass

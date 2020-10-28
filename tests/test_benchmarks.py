@@ -14,8 +14,8 @@ import pandas as pd
 from quakemigrate.io import read_lut
 
 
-examples = ["Icequake_Iceland"]
-e_path = pathlib.Path().cwd().parent / "examples"
+examples = ["Icequake_Iceland", "Volcanotectonic_Iceland"]
+e_path = pathlib.Path(__file__).parent.parent / "examples"
 b_path = e_path / "benchmarks"
 t_path = e_path / "{}" / "outputs" / "runs" / "example_run"
 
@@ -128,6 +128,7 @@ class TestExamples(unittest.TestCase):
             print("\t5: Assert data channels are identical...")
             c_st = b_st + t_st
             c_st.merge(method=-1)
+            b_st.merge(method=-1)
             self.assertEqual(len(c_st), len(b_st))
             print("\t   ...passed!")
 

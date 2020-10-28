@@ -304,6 +304,7 @@ class Trigger:
             refined_events = self._refine_candidates(candidate_events)
             events = self._filter_events(refined_events, batchstart, batchend,
                                          region)
+            discarded = refined_events[~refined_events.isin(events)].dropna()
             logging.info(f"\n\t\t{len(events)} event(s) triggered within the "
                          f"specified region between {batchstart} \n\t\tand "
                          f"{batchend}")
@@ -314,7 +315,7 @@ class Trigger:
         trigger_summary(events, batchstart, batchend, self.run,
                         self.marginal_window, self.min_event_interval,
                         threshold, self.normalise_coalescence, self.lut,
-                        data, region=region, savefig=savefig,
+                        data, region, savefig, discarded,
                         xy_files=self.xy_files)
 
     @util.timeit()

@@ -71,6 +71,10 @@ def read_triggered_events(run, **kwargs):
         events = events[(events["CoaTime"] >= starttime) &
                         (events["CoaTime"] <= endtime)]
 
+    if len(events) == 0:
+        logging.info("\n\t    No triggered events found! Check your trigger "
+                     "output files.\n")
+
     return events.reset_index()
 
 

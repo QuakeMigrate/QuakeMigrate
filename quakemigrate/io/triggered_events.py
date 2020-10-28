@@ -60,6 +60,8 @@ def read_triggered_events(run, **kwargs):
             else:
                 logging.info(f"\n\t    Cannot find file: {fstem}")
             readstart += 86400
+        if len(trigger_files) == 0:
+            raise util.NoTriggerFilesFound
         events = pd.concat((pd.read_csv(f) for f in trigger_files),
                            ignore_index=True)
 

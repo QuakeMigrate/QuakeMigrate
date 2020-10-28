@@ -549,6 +549,20 @@ class MagsTypeError(Exception):
         super().__init__(msg)
 
 
+class NoTriggerFilesFound(Exception):
+    """
+    Custom exception to handle case when no trigger files are found during
+    locate. This can occur for a number of reasons - an entirely invalid time
+    period was used
+
+    """
+
+    def __init__(self):
+        msg = ("NoTriggerFilesFound: Double check you have supplied a valid "
+               "run name and a time period for which you have run detect.")
+        super().__init__(msg)
+
+
 class ResponseNotFoundError(Exception):
     """
     Custom exception to handle the case where the provided response inventory

@@ -552,8 +552,10 @@ class MagsTypeError(Exception):
 class NoTriggerFilesFound(Exception):
     """
     Custom exception to handle case when no trigger files are found during
-    locate. This can occur for a number of reasons - an entirely invalid time
-    period was used
+    locate. This can occur for one of two reasons - an entirely invalid time
+    period was used (i.e. one that does not overlap at all with a period of
+    time for which there exists TriggeredEvents.csv files) or an invalid run
+    name was provided.
 
     """
 

@@ -43,5 +43,9 @@ trig.static_threshold = 1.45
 trig.xy_files = "./inputs/XY_FILES/dike_xyfiles.csv"
 
 # --- Run trigger ---
+# NOTE: here we use the optional "region" keyword argument to specify a spatial
+# filter for the triggered events. Only candidate events that fall within this
+# geographic area will be retained. This is useful for removing clear
+# artefacts; for example at the very edges of the grid.
 trig.trigger(starttime, endtime, savefig=True,
-             region=[-17.0, 64.7, 0.0, -16.7, 64.9, 15.0])
+             region=[-17.15, 64.72, 0.0, -16.65, 64.93, 14.0])

@@ -108,7 +108,11 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
 
     # --- Plot trigger region (if any) ---
     if region is not None:
-        _plot_trigger_region(axes[3:], region, discarded_events)
+        _plot_trigger_region(axes[3:], region)
+        _plot_event_windows(axes[:2], discarded_events, marginal_window,
+                            discarded=True)
+        _plot_event_scatter(fig, discarded_events, discarded=True)
+
 
     # --- Plot event scatter on LUT and windows on coalescence traces ---
     if events is not None:
@@ -237,7 +241,7 @@ def _add_plot_tag(ax, tag):
             zorder=20)
 
 
-def _plot_event_scatter(fig, events):
+def _plot_event_scatter(fig, events, discarded=False):
     """
     Utility function for plotting the triggered events as a scatter on the
     LUT cross-sections.
@@ -248,30 +252,43 @@ def _plot_event_scatter(fig, events):
         Figure containing axes on which to plot event scatter.
     events : `~pandas.DataFrame` object
         Dataframe of triggered events.
+    discarded : bool, optional
+         Whether supplied events are discarded (due to being outside the trigger
+         region, or outside the trigger time window).
 
     """
 
-    # Get bounds for cmap - hack to prevent inconsistent color being assigned
-    # when only a single event has been triggered.
-    vmin, vmax = (events["TRIG_COA"].min() * 0.999,
-                  events["TRIG_COA"].max() * 1.001)
+    if discarded:
+        x, y, z = events[["COA_X", "COA_Y", "COA_Z"]].values.T
+        # Plot on XY
+        fig.axes[3].scatter(x, y, s=50, c="grey")
+        # Plot on XZ
+        fig.axes[4].scatter(x, z, s=50, c="grey")
+        # Plot on YZ
+        fig.axes[5].scatter(z, y, s=50, c="grey")
 
-    # Plotting the scatter of the earthquake locations
-    x, y, z = events["COA_X"], events["COA_Y"], events["COA_Z"]
-    c = events["TRIG_COA"]
-    sc = fig.axes[3].scatter(x, y, s=50, c=c, vmin=vmin, vmax=vmax)
-    fig.axes[4].scatter(x, z, s=50, c=c, vmin=vmin, vmax=vmax)
-    fig.axes[5].scatter(z, y, s=50, c=c, vmin=vmin, vmax=vmax)
+    else:
+        # Get bounds for cmap - hack to prevent inconsistent color being
+        # assigned when only a single event has been triggered.
+        vmin, vmax = (events["TRIG_COA"].min() * 0.999,
+                    events["TRIG_COA"].max() * 1.001)
 
-    # --- Add colourbar ---
-    cax = plt.subplot2grid((9, 18), (7, 5), colspan=2, rowspan=2, fig=fig)
-    cax.set_axis_off()
-    cb = fig.colorbar(sc, ax=cax, orientation="horizontal", fraction=0.8,
-                      aspect=8)
-    cb.ax.set_xlabel("Peak coalescence value", rotation=0, fontsize=14)
+        # Plotting the scatter of the earthquake locations
+        x, y, z = events["COA_X"], events["COA_Y"], events["COA_Z"]
+        c = events["TRIG_COA"]
+        sc = fig.axes[3].scatter(x, y, s=50, c=c, vmin=vmin, vmax=vmax)
+        fig.axes[4].scatter(x, z, s=50, c=c, vmin=vmin, vmax=vmax)
+        fig.axes[5].scatter(z, y, s=50, c=c, vmin=vmin, vmax=vmax)
+
+        # --- Add colourbar ---
+        cax = plt.subplot2grid((9, 18), (7, 5), colspan=2, rowspan=2, fig=fig)
+        cax.set_axis_off()
+        cb = fig.colorbar(sc, ax=cax, orientation="horizontal", fraction=0.8,
+                        aspect=8)
+        cb.ax.set_xlabel("Peak coalescence value", rotation=0, fontsize=14)
 
 
-def _plot_event_windows(axes, events, marginal_window):
+def _plot_event_windows(axes, events, marginal_window, discarded=False):
     """
     Utility function for plotting the marginal event window and minimum event
     interval for triggered events.
@@ -284,6 +301,9 @@ def _plot_event_windows(axes, events, marginal_window):
         Dataframe of triggered events.
     marginal_window : float
         Estimate of time error over which to marginalise the coalescence.
+    discarded : bool, optional
+        Whether supplied events are discarded (due to being outside the trigger
+         region, or outside the trigger time window).
 
     """
 
@@ -297,11 +317,17 @@ def _plot_event_windows(axes, events, marginal_window):
         mw_stt = (event["CoaTime"] - marginal_window).datetime
         mw_end = (event["CoaTime"] + marginal_window).datetime
         for ax in axes:
-            ax.axvspan(min_dt, mw_stt, label=lab1, alpha=0.2, color="#F03B20")
-            ax.axvspan(mw_end, max_dt, alpha=0.2, color="#F03B20")
-            ax.axvspan(mw_stt, mw_end, label=lab2, alpha=0.2, color="#3182BD")
-            ax.axvline(event["CoaTime"].datetime, label=lab3, lw=0.01,
-                       alpha=0.4)
+            if discarded:
+                ax.axvspan(min_dt, max_dt, alpha=0.2, color="grey")
+                ax.axvline(event["CoaTime"].datetime, lw=0.01, alpha=0.4,
+                           color="grey")
+            else:
+                ax.axvspan(min_dt, mw_stt, label=lab1, alpha=0.2, color="#F03B20")
+                ax.axvspan(mw_end, max_dt, alpha=0.2, color="#F03B20")
+                ax.axvspan(mw_stt, mw_end, label=lab2, alpha=0.2,
+                           color="#3182BD")
+                ax.axvline(event["CoaTime"].datetime, label=lab3, lw=0.01,
+                           alpha=0.4, color="#1F77B4")
 
 
 def _plot_text_summary(ax, events, threshold, marginal_window,
@@ -348,7 +374,7 @@ def _plot_text_summary(ax, events, threshold, marginal_window,
     ax.set_axis_off()
 
 
-def _plot_trigger_region(axes, region, discarded_events):
+def _plot_trigger_region(axes, region):
     """
     Utility function for plotting the bounding geographical box used to filter
     triggered events.
@@ -359,31 +385,25 @@ def _plot_trigger_region(axes, region, discarded_events):
         Axes on which to plot the bounding boxes.
     region : list
         Geographical region within which earthquakes have been triggered.
-    discarded_events : `~pandas.DataFrame` object
-        Dataframe of discarded triggered events.
 
     """
 
     min_x, min_y, min_z, max_x, max_y, max_z = region
-    x, y, z = discarded_events[["COA_X", "COA_Y", "COA_Z"]].values.T
 
     # Plot on XY
     axes[0].plot([min_x, min_x, max_x, max_x, min_x],
                  [min_y, max_y, max_y, min_y, min_y],
                  linestyle="--", color="#238b45", linewidth=1.5)
-    axes[0].scatter(x, y, s=50, c="grey")
 
     # Plot on XZ
     axes[1].plot([min_x, min_x, max_x, max_x, min_x],
                  [min_z, max_z, max_z, min_z, min_z],
                  linestyle="--", color="#238b45", linewidth=1.5)
-    axes[1].scatter(x, z, s=50, c="grey")
 
     # Plot on YZ
     axes[2].plot([min_z, max_z, max_z, min_z, min_z],
                  [min_y, min_y, max_y, max_y, min_y],
                  linestyle="--", color="#238b45", linewidth=1.5)
-    axes[2].scatter(z, y, s=50, c="grey")
 
 
 def _plot_xy_files(xy_files, ax):

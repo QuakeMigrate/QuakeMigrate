@@ -274,8 +274,8 @@ def _plot_event_scatter(fig, events, discarded=False):
                     events["TRIG_COA"].max() * 1.001)
 
         # Plotting the scatter of the earthquake locations
-        x, y, z = events["COA_X"], events["COA_Y"], events["COA_Z"]
-        c = events["TRIG_COA"]
+        x, y, z = events[["COA_X", "COA_Y", "COA_Z"]].values.T
+        c = events["TRIG_COA"].values
         sc = fig.axes[3].scatter(x, y, s=50, c=c, vmin=vmin, vmax=vmax)
         fig.axes[4].scatter(x, z, s=50, c=c, vmin=vmin, vmax=vmax)
         fig.axes[5].scatter(z, y, s=50, c=c, vmin=vmin, vmax=vmax)

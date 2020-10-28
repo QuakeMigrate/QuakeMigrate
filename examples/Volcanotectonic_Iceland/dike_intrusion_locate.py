@@ -4,8 +4,13 @@ This script runs the locate stage for the Iceland dike intrusion example.
 
 """
 
+# Stop numpy using all available threads (these environment variables must be
+# set before numpy is imported for the first time).
 import os
-os.environ['OMP_NUM_THREADS'] = '1'
+os.environ.update(OMP_NUM_THREADS = "1",
+                  OPENBLAS_NUM_THREADS = "1",
+                  NUMEXPR_NUM_THREADS = "1",
+                  MKL_NUM_THREADS = "1")
 
 from obspy.core import AttribDict
 

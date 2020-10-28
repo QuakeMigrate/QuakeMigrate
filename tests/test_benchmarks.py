@@ -132,6 +132,14 @@ class TestExamples(unittest.TestCase):
             self.assertEqual(len(c_st), len(b_st))
             print("\t   ...passed!")
 
+            print("\t6: Assert amplitude files are identical...")
+            try:
+                b_amps = pd.read_csv(list(b_dir.glob("*.amps"))[0])
+                t_amps = pd.read_csv(list((t_dir / "amplitudes").glob("*.amps"))[0])
+                self.assertTrue(b_amps.equals(t_amps))
+                print("\t   ...passed!")
+            except IndexError:
+                print("\t   ...no amplitude files found!")
 
 if __name__ == "__main__":
     unittest.main()

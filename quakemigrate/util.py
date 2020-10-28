@@ -546,6 +546,19 @@ class ChannelNameException(Exception):
         super().__init__(msg)
 
 
+class NoOnsetPeak(Exception):
+    """
+    Custom exception to handle case when no values in the onset function exceed
+    the threshold used for picking.
+
+    """
+
+    def __init__(self, threshold):
+        self.msg = ("\t\t    No onset signal exceeding threshold "
+                    f"({threshold:5.3f}) - continuing.")
+        super().__init__(self.msg)
+
+
 class BadUpfactorException(Exception):
     """
     Custom exception to handle case when the chosen upfactor does not create a

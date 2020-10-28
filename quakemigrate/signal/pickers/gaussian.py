@@ -320,103 +320,141 @@ class GaussianPicker(PhasePicker):
         signal_threshold = np.percentile(onset_signal, 88)
         threshold = np.max([noise_threshold, signal_threshold])
 
-        # If there is any data that meets this requirement...
-        if (onset_signal > threshold).any():
-            exceedence = np.where(onset_signal > threshold)[0]
-            exceedence_dist = np.zeros(len(exceedence))
+        # Identify the peak in the windowed onset that exceeds this threshold
+        # AND contains the maximum value in the window (i.e. the 'true' peak).
+        try:
+            peak_idxs = self._find_peak(onset_signal, threshold)
+            peak_idxs = [window[0] + p for p in peak_idxs]
+            x_data = np.arange(*peak_idxs) / self.sampling_rate
+            y_data = onset[peak_idxs[0]:peak_idxs[1]]
+        except util.NoOnsetPeak as e:
+            logging.debug(e.msg)
+            return self._pick_failure(threshold)
 
-            # Really faffy process to identify the period of data which is
-            # above the threshold around the highest value of the onset
-            # function.
-            d = 1
-            e = 0
-            while e < len(exceedence_dist) - 1:
-                if e == len(exceedence_dist):
-                    exceedence_dist[e] = d
-                else:
-                    if exceedence[e + 1] == exceedence[e] + 1:
-                        exceedence_dist[e] = d
-                    else:
-                        exceedence_dist[e] = d
-                        d += 1
-                e += 1
+        # Try to fit a 1-D Gaussian
+        # Initial parameters (p0) are:
+        #   height = max value of onset function
+        #   mean   = time of max value
+        #   sigma  = data half-range
+        p0 = [max(y_data),
+              (peak_idxs[0] + np.argmax(y_data)) / self.sampling_rate,
+              halfwidth / self.sampling_rate]
+        try:
+            popt, _ = curve_fit(util.gaussian_1d, x_data, y_data, p0)
+        except (ValueError, RuntimeError):
+            # curve_fit can fail for a number of reasons - primarily if the
+            # input data contains nans or if the least-squares minimisation
+            # fails. A warning may also be emitted to stdout if the covariance
+            # of the parameters could not be estimated - this is suppressed by
+            # default in scan.py.
+            logging.debug("\t\t    Failed curve_fit - continuing.")
+            return self._pick_failure(threshold)
 
-            # Find the indices for this period of data
-            tmp = exceedence_dist[np.argmax(onset_signal[exceedence])]
-            tmp = np.where(exceedence_dist == tmp)
+        # Unpack results:
+        #  popt = [height, mean (seconds), sigma (seconds)]
+        max_onset = popt[0]
+        mean = starttime + float(popt[1])
+        sigma = np.absolute(popt[2])
 
-            # Add one data point below the threshold at each end of this period
-            gau_idxmin = exceedence[tmp][0] + window[0] - 1
-            gau_idxmax = exceedence[tmp][-1] + window[0] + 2
+        # Check pick mean is within the pick window.
+        if not peak_idxs[0] < popt[1] * self.sampling_rate < peak_idxs[1]:
+            logging.debug("\t\t    Pick mean out of bounds - continuing.")
+            return self._pick_failure(threshold)
 
-            # Select data to fit the gaussian to
-            x_data = np.arange(gau_idxmin, gau_idxmax, dtype=float)
-            x_data = x_data / self.sampling_rate
-            y_data = onset[gau_idxmin:gau_idxmax]
-
-            # Convert indices to times
-            x_data_dt = np.array([])
-            for _, x in enumerate(x_data):
-                x_data_dt = np.hstack([x_data_dt, starttime + x])
-
-            # Try to fit a 1-D Gaussian.
-            try:
-                # Initial parameters are:
-                #  height = max value of onset function
-                #  mean   = time of max value
-                #  sigma  = data half-range (calculated above)
-                p0 = [np.max(y_data),
-                      float(gau_idxmin + np.argmax(y_data))
-                      / self.sampling_rate,
-                      halfwidth / self.sampling_rate]
-
-                # Do the fit
-                popt, _ = curve_fit(util.gaussian_1d, x_data, y_data, p0)
-
-                # Results:
-                #  popt = [height, mean (seconds), sigma (seconds)]
-                max_onset = popt[0]
-                # Convert mean (pick time) to time
-                mean = starttime + float(popt[1])
-                sigma = np.absolute(popt[2])
-
-                # Check pick mean is within the pick window.
-                if not gau_idxmin < popt[1] * self.sampling_rate < gau_idxmax:
-                    logging.debug("\t\t    Pick mean out of bounds - "
-                                 "continuing.")
-                    gaussian_fit = self.DEFAULT_GAUSSIAN_FIT.copy()
-                    gaussian_fit["PickThreshold"] = threshold
-                    sigma = -1
-                    mean = -1
-                    max_onset = -1
-                else:
-                    gaussian_fit = {"popt": popt,
-                                    "xdata": x_data,
-                                    "xdata_dt": x_data_dt,
-                                    "PickValue": max_onset,
-                                    "PickThreshold": threshold}
-
-            # If curve_fit fails. Will also spit error message to stdout,
-            # though this can be suppressed  - see warnings.filterwarnings()
-            except (ValueError, RuntimeError):
-                logging.debug("\t\t    Failed curve_fit - continuing.")
-                gaussian_fit = self.DEFAULT_GAUSSIAN_FIT.copy()
-                gaussian_fit["PickThreshold"] = threshold
-                sigma = -1
-                mean = -1
-                max_onset = -1
-
-        # If onset function does not exceed threshold in pick window
-        else:
-            logging.debug("\t\t    No onset signal exceeding threshold "
-                          f"({threshold:5.3f}) - continuing.")
-            gaussian_fit = self.DEFAULT_GAUSSIAN_FIT.copy()
-            gaussian_fit["PickThreshold"] = threshold
-            sigma = -1
-            mean = -1
-            max_onset = -1
+        gaussian_fit = {"popt": popt,
+                        "xdata": x_data,
+                        "xdata_dt": np.array([starttime + x for x in x_data]),
+                        "PickValue": max_onset,
+                        "PickThreshold": threshold}
 
         return gaussian_fit, mean, sigma, max_onset
+
+    def _pick_failure(self, threshold):
+        """
+        Short utility function to produce the default values when a pick cannot
+        be made.
+
+        Parameters
+        ----------
+        threshold : float
+            Threshold value for onset data.
+
+        Returns
+        -------
+        gaussian_fit : dictionary
+            The default Gaussian fit dictionary, with relevant threshold value.
+        max_onset : int
+            A default of -1 value to indicate failure.
+        sigma : int
+            A default of -1 value to indicate failure.
+        mean : int
+            A default of -1 value to indicate failure.
+
+        """
+
+        gaussian_fit = self.DEFAULT_GAUSSIAN_FIT.copy()
+        gaussian_fit["PickThreshold"] = threshold
+        mean = sigma = max_onset = -1
+
+        return gaussian_fit, mean, sigma, max_onset
+
+    def _find_peak(self, windowed_onset, threshold):
+        """
+        Identify peaks, if any, within the windowed onset that exceed the
+        specified threshold value. Of those peaks, this function seeks the one
+        that contains the maximum value within the window, i.e. the 'true'
+        peak - see the diagram below.
+
+                                             v
+                                             *
+                                            * *
+                                    *      *   *
+                         |         * *    *     *     |
+                         |---------------#-------#----|
+                         |        *    **         *   |
+
+        Parameters
+        ----------
+        windowed_onset : `numpy.ndarray` of `numpy.double`
+            The onset function within the picking window.
+        threshold : float
+            Value above which to search for peaks in the onset data.
+
+        Returns
+        -------
+        true_peak_idx : [float, float]
+            Start and end index values for the 'true' peak, with an additional
+            buffer of 1 data point either side.
+
+        Raises
+        ------
+        util.NoOnsetPeak
+            If no onset data exceeds the threshold.
+
+        """
+
+        exceedence = np.where(windowed_onset > threshold)[0]
+        if len(exceedence) == 0:
+            raise util.NoOnsetPeak(threshold)
+
+        # Identify all peaks - there are possibly multiple distinct periods
+        # of data that exceed the threshold. The following command simply seeks
+        # non-consecutive index values in the array of points that exceed
+        # the threshold and splits the array at these points into 'peaks'.
+        peaks = np.split(exceedence, np.where(np.diff(exceedence) != 1)[0] + 1)
+
+        # Identify the peak that contains the true peak (maximum)
+        true_maximum = np.argmax(windowed_onset)
+        for i, peak in enumerate(peaks):
+            if np.any(peak == true_maximum):
+                break
+
+        # Grab the peak and return the start/end index values. The vales are
+        # adjusted slightly to allow for 1 additional sampling below the
+        # threshold on either end.
+        true_peak_idxs = [peaks[i][0] - 1, peaks[i][-1] + 1]
+
+        return true_peak_idxs
 
     @util.timeit()
     def plot(self, event, station, onsets, picks, traveltimes, run):

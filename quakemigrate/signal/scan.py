@@ -121,7 +121,9 @@ class QuakeScan:
         the coordinates to be plotted. E.g:
         "/home/user/volcano_outlines.csv,black,0.5,-". Each .csv coordinate
         file should contain coordinates only, with columns: ["Longitude",
-        "Latitude"]. E.g.: "-17.5,64.8".
+        "Latitude"]. E.g.: "-17.5,64.8". Lines pre-pended with ``#`` will be
+        treated as a comment - this can be used to include references. See the
+        Volcanotectonic_Iceland example XY_files for a template.\n
         .. note:: Do not include a header line in either file.
 
     +++ TO BE REMOVED TO ARCHIVE CLASS +++

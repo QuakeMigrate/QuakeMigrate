@@ -73,7 +73,9 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
         the coordinates to be plotted. E.g:
         "/home/user/volcano_outlines.csv,black,0.5,-". Each .csv coordinate
         file should contain coordinates only, with columns: ["Longitude",
-        "Latitude"]. E.g.: "-17.5,64.8".
+        "Latitude"]. E.g.: "-17.5,64.8". Lines pre-pended with ``#`` will be
+        treated as a comment - this can be used to include references. See the
+        Volcanotectonic_Iceland example XY_files for a template.\n
         .. note:: Do not include a header line in either file.
 
     """
@@ -418,6 +420,10 @@ def _plot_xy_files(xy_files, ax):
     Each specified xy file should contain coordinates only, with columns:
     ["Longitude", "Latitude"]. E.g.: "-17.5,64.8".
 
+    Lines pre-pended with `#` will be treated as a comment - this can be used
+    to include references. See the Volcanotectonic_Iceland example XY_files for
+    a template.\n
+
     .. note:: Do not include a header line in either file.
 
     Parameters
@@ -434,11 +440,11 @@ def _plot_xy_files(xy_files, ax):
         xy_files = pd.read_csv(xy_files,
                                names=["File", "Color",
                                       "Linewidth", "Linestyle"],
-                               header=None)
+                               header=None, comment="#")
         for _, f in xy_files.iterrows():
             xy_file = pd.read_csv(f["File"], names=["Longitude",
                                                     "Latitude"],
-                                  header=None)
+                                  header=None, comment="#")
             ax.plot(xy_file["Longitude"], xy_file["Latitude"],
                     ls=f["Linestyle"], lw=f["Linewidth"],
                     c=f["Color"])

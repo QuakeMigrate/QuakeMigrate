@@ -313,6 +313,7 @@ class GaussianPicker(PhasePicker):
 
         # Trim the onset function in the pick window
         onset_signal = onset[window[0]:window[2]]
+        logging.debug(f"\t\t    win_min: {window[0]}, win_max: {window[2]}")
 
         # Calculate the pick threshold: either user-specified percentile of
         # data outside pick windows, or 88th percentile within the relevant
@@ -329,6 +330,8 @@ class GaussianPicker(PhasePicker):
             # avoids an under-constrained optimisation (3 fitting params).
             padded_peak_idxs = [peak_idxs[0] - 1, peak_idxs[1] + 1]
             padded_peak_idxs = [window[0] + p for p in padded_peak_idxs]
+            logging.debug(f"\t\t    padded_peak_idxmin: {padded_peak_idxs[0]},"
+                          f" padded_peak_idxmax: {padded_peak_idxs[1]}")
             x_data = np.arange(*padded_peak_idxs) / self.sampling_rate
             y_data = onset[padded_peak_idxs[0]:padded_peak_idxs[1]]
         except util.NoOnsetPeak as e:
@@ -365,8 +368,7 @@ class GaussianPicker(PhasePicker):
         sigma = np.absolute(popt[2])
 
         # Check pick mean is within the pick window.
-        peak_idxs = [window[0] + p for p in peak_idxs]
-        if not peak_idxs[0] < popt[1] * self.sampling_rate < peak_idxs[1]:
+        if not window[0] < popt[1] * self.sampling_rate < window[2]:
             logging.debug("\t\t    Pick mean out of bounds - continuing.")
             return self._pick_failure(threshold)
 

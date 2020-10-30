@@ -324,9 +324,13 @@ class GaussianPicker(PhasePicker):
         # AND contains the maximum value in the window (i.e. the 'true' peak).
         try:
             peak_idxs = self._find_peak(onset_signal, threshold)
-            peak_idxs = [window[0] + p for p in peak_idxs]
-            x_data = np.arange(*peak_idxs) / self.sampling_rate
-            y_data = onset[peak_idxs[0]:peak_idxs[1]]
+            # add an extra sample either side for the curve fitting. This makes
+            # the fitting more stable, and guarantees at least 3 samples -->
+            # avoids an under-constrained optimisation (3 fitting params).
+            padded_peak_idxs = [peak_idxs[0] - 1, peak_idxs[1] + 1]
+            padded_peak_idxs = [window[0] + p for p in padded_peak_idxs]
+            x_data = np.arange(*padded_peak_idxs) / self.sampling_rate
+            y_data = onset[padded_peak_idxs[0]:padded_peak_idxs[1]]
         except util.NoOnsetPeak as e:
             logging.debug(e.msg)
             return self._pick_failure(threshold)
@@ -337,18 +341,22 @@ class GaussianPicker(PhasePicker):
         #   mean   = time of max value
         #   sigma  = data half-range
         p0 = [max(y_data),
-              (peak_idxs[0] + np.argmax(y_data)) / self.sampling_rate,
+              (padded_peak_idxs[0] + np.argmax(y_data)) / self.sampling_rate,
               halfwidth / self.sampling_rate]
         try:
             popt, _ = curve_fit(util.gaussian_1d, x_data, y_data, p0)
-        except (ValueError, RuntimeError):
+        except (ValueError, RuntimeError) as e:
             # curve_fit can fail for a number of reasons - primarily if the
             # input data contains nans or if the least-squares minimisation
             # fails. A warning may also be emitted to stdout if the covariance
             # of the parameters could not be estimated - this is suppressed by
             # default in scan.py.
-            logging.debug("\t\t    Failed curve_fit - continuing.")
+            logging.debug(f"\t\t    Failed curve_fit:\n{e}\n\t\t    "
+                          "Continuing...")
             return self._pick_failure(threshold)
+        except TypeError as e:
+            logging.debug("\t\t    Failed curve_fit - too few input data?"
+                          f"{e}\n\t\t    Continuing...")
 
         # Unpack results:
         #  popt = [height, mean (seconds), sigma (seconds)]
@@ -357,6 +365,7 @@ class GaussianPicker(PhasePicker):
         sigma = np.absolute(popt[2])
 
         # Check pick mean is within the pick window.
+        peak_idxs = [window[0] + p for p in peak_idxs]
         if not peak_idxs[0] < popt[1] * self.sampling_rate < peak_idxs[1]:
             logging.debug("\t\t    Pick mean out of bounds - continuing.")
             return self._pick_failure(threshold)
@@ -422,19 +431,20 @@ class GaussianPicker(PhasePicker):
 
         Returns
         -------
-        true_peak_idx : [float, float]
-            Start and end index values for the 'true' peak, with an additional
-            buffer of 1 data point either side.
+        true_peak_idx : [int, int]
+            Start and end index values for the 'true' peak, with +1 added to
+            the last index so that all of the values above the threshold are
+            returned when slicing by index.
 
         Raises
         ------
         util.NoOnsetPeak
-            If no onset data exceeds the threshold.
+            If no onset data, or only a single sample, exceeds the threshold.
 
         """
 
         exceedence = np.where(windowed_onset > threshold)[0]
-        if len(exceedence) == 0:
+        if len(exceedence) < 2:
             raise util.NoOnsetPeak(threshold)
 
         # Identify all peaks - there are possibly multiple distinct periods
@@ -449,10 +459,9 @@ class GaussianPicker(PhasePicker):
             if np.any(peak == true_maximum):
                 break
 
-        # Grab the peak and return the start/end index values. The vales are
-        # adjusted slightly to allow for 1 additional sampling below the
-        # threshold on either end.
-        true_peak_idxs = [peaks[i][0] - 1, peaks[i][-1] + 1]
+        # Grab the peak and return the start/end index values. NOTE: + 1 is
+        # required so that the last sample is included when slicing by index
+        true_peak_idxs = [peaks[i][0], peaks[i][-1] + 1]
 
         return true_peak_idxs
 

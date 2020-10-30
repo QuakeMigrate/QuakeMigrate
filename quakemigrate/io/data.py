@@ -540,7 +540,7 @@ class WaveformData:
         """
 
         # Utilise the .times() method of `obspy.Trace` objects
-        tr = Trace(header={"npts": len(self.waveforms[0].data),
+        tr = Trace(header={"npts": len(self.filtered_waveforms[0].data),
                            "sampling_rate": self.sampling_rate,
                            "starttime": self.starttime})
         return tr.times(**kwargs)

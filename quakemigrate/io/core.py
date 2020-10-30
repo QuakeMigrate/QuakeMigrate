@@ -86,14 +86,29 @@ def read_stations(station_file, **kwargs):
 
     stn_data = pd.read_csv(station_file, **kwargs)
 
-    if ("Latitude" or "Longitude" or "Elevation" or "Name") \
+    if ("Latitude" or "Longitude" or "Elevation" or "Station") \
        not in stn_data.columns:
         raise util.StationFileHeaderException
 
     stn_data["Elevation"] = stn_data["Elevation"].apply(lambda x: -1*x)
 
+    if not 'Network' in stn_data.columns:
+        stn_data["Network"] = "*"
+    if not 'Location' in stn_data.columns:
+        stn_data["Location"] = "*"
+    if not 'Channel' in stn_data.columns:
+        stn_data["Channel"] = "*"
+    stn_data['Name'] = stn_data["Network"] + "." + \
+                        stn_data["Station"]
+
     # Ensure station names are strings
+    stn_data = stn_data.astype({"Network": "str"})
+    stn_data = stn_data.astype({"Station": "str"})
+    stn_data = stn_data.astype({"Location": "str"})
+    stn_data = stn_data.astype({"Channel": "str"})
     stn_data = stn_data.astype({"Name": "str"})
+
+    stn_data['Name'] = [s.replace('*', '') for s in stn_data['Name']]
 
     return stn_data
 

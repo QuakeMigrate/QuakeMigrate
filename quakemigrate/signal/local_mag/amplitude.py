@@ -262,7 +262,10 @@ class Amplitude:
 
         # Loop through stations, calculating amplitude info
         for i, station_data in lut.station_data.iterrows():
-            station = station_data["Name"]
+            network = station_data["Network"]
+            station = station_data["Station"]
+            location = station_data["Location"]
+            channel = station_data["Channel"]
 
             epi_dist, z_dist = self._get_distances(ev_loc, station_data,
                                                    lut.unit_conversion_factor)
@@ -274,7 +277,10 @@ class Amplitude:
                              np.nan, np.nan, np.nan, np.nan, False]
 
             # Read in raw waveforms
-            st = event.data.raw_waveforms.select(station=station)
+            st = event.data.raw_waveforms.select(network=network,
+                                                 station=station,
+                                                 location=location,
+                                                 channel=channel)
 
             for j, comp in enumerate(["E", "N", "Z"]): # NOTE: Will not work with 1, 2 (etc.)
                 amps = amps_template.copy()
@@ -287,7 +293,7 @@ class Amplitude:
                     and tr[0].stats.endtime > (tr_end - tr[0].stats.delta):
                     tr = tr[0]
                 else:
-                    amps[0] = f".{station}..{comp}"
+                    amps[0] = f"{network}.{station}.{location}.{comp}"
                     amplitudes.loc[i*3+j] = amps
                     continue
 

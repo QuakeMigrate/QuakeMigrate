@@ -231,7 +231,7 @@ class GaussianPicker(PhasePicker):
         # Handle keys pairwise
         for p1, p2 in util.pairwise(phases):
             p1_window, p2_window = windows[p1], windows[p2]
-            mid_idx = int((p1_window[2] + p2_window[0]) / 2)
+            mid_idx = int((p1_window[1] + p2_window[1]) / 2)
             windows[p1][2] = min(mid_idx, p1_window[2])
             windows[p2][0] = max(mid_idx, p2_window[0])
 

@@ -82,7 +82,7 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
 
     dt = pd.to_datetime(data["DT"].astype(str)).values
 
-    fig = plt.figure(figsize=(30, 15))
+    fig = plt.figure(figsize=(15, 7.5))
     gs = (9, 18)
 
     # Create plot axes, ordering: [COA, COA_N, AVAIL, XY, XZ, YZ]
@@ -129,14 +129,16 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
     # --- Write summary information ---
     text = plt.subplot2grid(gs, (0, 0), colspan=8, rowspan=2, fig=fig)
     st, et = [t.strftime("%Y-%m-%d %H:%M:%S") for t in (starttime, endtime)]
-    text.text(0.42, 0.8, f"{st}  -  {et}", fontsize=20, fontweight="bold",
+    text.text(0.42, 0.8, f"{st}  -  {et}", fontsize=14, fontweight="bold",
               ha="center")
     _plot_text_summary(text, events, detection_threshold, marginal_window,
                        min_event_interval, normalise_coalescence)
 
-    fig.axes[ax_i].legend(loc=1, fontsize=14, framealpha=0.85).set_zorder(20)
-    fig.tight_layout(pad=1, h_pad=0)
-    plt.subplots_adjust(wspace=0.3, hspace=0.3)
+    fig.axes[ax_i].legend(loc=1, fontsize=10, framealpha=0.85).set_zorder(20)
+    # fig.tight_layout(pad=1, h_pad=0)
+    # plt.subplots_adjust(wspace=0.3, hspace=0.3)
+    fig.tight_layout()
+    plt.subplots_adjust(wspace=.5, hspace=.5)
 
     # --- Adjust cross sections to match map aspect ratio ---
     # Get left, bottom, width, height of each subplot bounding box
@@ -194,11 +196,11 @@ def _plot_station_availability(ax, availability, endtime):
     ax.step(times, available, c="green", where="post")
 
     _add_plot_tag(ax, "Station availability")
-    ax.set_ylim([int(min(available)*0.8), int(max(available)*1.1)])
-    ax.set_yticks(range(int(min(available)*0.8), int(max(available)*1.1)+1))
+    ax.set_ylim([int(min(available)) - 1, int(max(available) + 1)])
+    ax.set_yticks(range(int(min(available)) - 1, int(max(available)) + 2))
     ax.xaxis.set_major_formatter(util.DateFormatter("%H:%M:%S.{ms}", 2))
-    ax.set_xlabel("DateTime", fontsize=14)
-    ax.set_ylabel("Available stations", fontsize=14)
+    ax.set_xlabel("DateTime", fontsize=10)
+    ax.set_ylabel("Available stations", fontsize=10)
 
 
 def _plot_coalescence(ax, dt, data, label):
@@ -218,10 +220,10 @@ def _plot_coalescence(ax, dt, data, label):
 
     """
 
-    ax.plot(dt, data, c="k", lw=0.01, label="Coalesence value", alpha=0.8,
+    ax.plot(dt, data, c="k", lw=0.5, label="Coalesence value", alpha=0.8,
             zorder=10)
     _add_plot_tag(ax, label)
-    ax.set_ylabel(label, fontsize=14)
+    ax.set_ylabel(label, fontsize=10)
     ax.xaxis.set_major_formatter(util.DateFormatter("%H:%M:%S.{ms}", 2))
 
 
@@ -239,7 +241,7 @@ def _add_plot_tag(ax, tag):
     """
 
     ax.text(0.01, 0.925, tag, ha="left", va="center", transform=ax.transAxes,
-            bbox=dict(boxstyle="round", fc="w", alpha=0.8), fontsize=18,
+            bbox=dict(boxstyle="round", fc="w", alpha=0.8), fontsize=12,
             zorder=20)
 
 
@@ -287,7 +289,7 @@ def _plot_event_scatter(fig, events, discarded=False):
         cax.set_axis_off()
         cb = fig.colorbar(sc, ax=cax, orientation="horizontal", fraction=0.8,
                         aspect=8)
-        cb.ax.set_xlabel("Peak coalescence value", rotation=0, fontsize=14)
+        cb.ax.set_xlabel("Peak coalescence value", rotation=0, fontsize=10)
 
 
 def _plot_event_windows(axes, events, marginal_window, discarded=False):
@@ -364,7 +366,7 @@ def _plot_text_summary(ax, events, threshold, marginal_window,
     trig = "normalised coalescence" if normalise_coalescence else "coalescence"
     count = len(events) if events is not None else 0
 
-    with plt.rc_context({"font.size": 18}):
+    with plt.rc_context({"font.size": 12}):
         ax.text(0.45, 0.65, "Trigger threshold:", ha="right", va="center")
         ax.text(0.47, 0.65, f"{threshold}", ha="left", va="center")
         ax.text(0.45, 0.5, "Marginal window:", ha="right", va="center")

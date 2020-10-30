@@ -69,12 +69,13 @@ def sta_lta_centred(a, nsta, nlta):
 def pre_process(stream, sampling_rate, resample, upfactor, filter_):
     """
     Detrend raw seismic data and apply cosine taper and zero phase-shift
-    Butterworth band-pass filter.
+    Butterworth band-pass filter; all carried out using the built-in obspy
+    functions.
 
     Parameters
     ----------
     stream : `~obspy.Stream` object
-        Data signal to be pre-processed.
+        Waveform data to be pre-processed.
     sampling_rate : int
         Number of samples per second, in Hz.
     resample : bool, optional
@@ -85,7 +86,7 @@ def pre_process(stream, sampling_rate, resample, upfactor, filter_):
         the desired sampling rate, e.g. 40Hz -> 50Hz requires upfactor = 5.
     filter_ : list
         Filter specifications, as [lowcut (Hz), highcut (Hz), order]. NOTE -
-        two-pass filter effectively doubles the number of corners.
+        two-pass filter effectively doubles the number of corners (order).
 
     Returns
     -------
@@ -105,30 +106,18 @@ def pre_process(stream, sampling_rate, resample, upfactor, filter_):
 
     # Grab filter info
     lowcut, highcut, order = filter_
-    # Construct butterworth band-pass filter
-    try:
-        b1, a1 = butter(order, [2.0 * lowcut / sampling_rate,
-                                2.0 * highcut / sampling_rate], btype="band")
-    except ValueError:
+    # Check that the filter is compatible with the sampling rate
+    if highcut >= 0.5 * sampling_rate:
         raise util.NyquistException(highcut, 0.5 * sampling_rate, "")
 
-    # Construct cosine taper
-    taper = cosine_taper(len(resampled_stream[0].data), 0.1)
-
-    filtered_waveforms = Stream()
-
-    # Detrend, apply cosine taper then apply band-pass filter in both
-    # directions for zero phase-shift
-    for trace in resampled_stream:
-        filtered_trace = trace.copy()
-        filtered_data = filtered_trace.data
-        filtered_data = detrend(filtered_data, type="linear")
-        filtered_data = detrend(filtered_data, type="constant")
-        filtered_data = filtered_data * taper
-        filtered_data = lfilter(b1, a1, filtered_data[::-1])[::-1]
-        filtered_data = lfilter(b1, a1, filtered_data)
-        filtered_trace.data = filtered_data
-        filtered_waveforms.append(filtered_trace)
+    # Detrend, apply cosine taper then apply zero-phase band-pass filter
+    # Copy to not operate in-place on the input stream
+    filtered_waveforms = resampled_stream.copy()
+    filtered_waveforms.detrend("linear")
+    filtered_waveforms.detrend("constant")
+    filtered_waveforms.taper(type="cosine", max_percentage=0.05)
+    filtered_waveforms.filter(type="bandpass", freqmin=lowcut, freqmax=highcut,
+                              corners=order, zerophase=True)
 
     return filtered_waveforms
 
@@ -276,7 +265,7 @@ class STALTAOnset(Onset):
                     {phase: self._onset(waveforms, stw, ltw, log)})
                 availability[f"{station}.{phase}"] = 1
 
-            data.filtered_waveforms += filtered_waveforms
+                data.filtered_waveforms += filtered_waveforms
 
         data.availability = availability
 

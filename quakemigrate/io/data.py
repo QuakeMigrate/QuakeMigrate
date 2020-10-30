@@ -39,7 +39,8 @@ class Archive:
         Location of seismic data archive: e.g.: ./DATA_ARCHIVE.
     stations : `pandas.DataFrame` object
         Station information.
-        Columns ["Latitude", "Longitude", "Elevation", "Name"]
+        Columns ["Latitude", "Longitude", "Elevation", "Name", 
+                 "Network", "Station", "Location", "Channel"]
     archive_format : str, optional
         Sets path type for different archive formats.
     kwargs : **dict
@@ -82,10 +83,9 @@ class Archive:
         """Instantiate the Archive object."""
 
         self.archive_path = pathlib.Path(archive_path)
-        self.stations = stations["Name"]
+        self.stations = stations
         if archive_format:
-            channels = kwargs.get("channels", "*")
-            self.path_structure(archive_format, channels)
+            self.path_structure(archive_format)
         else:
             self.format = kwargs.get("format")
 
@@ -107,7 +107,7 @@ class Archive:
 
         return out
 
-    def path_structure(self, archive_format="YEAR/JD/STATION", channels="*"):
+    def path_structure(self, archive_format="YEAR/JD/STATION"):
         """
         Define the path structure of the data archive.
 
@@ -126,20 +126,10 @@ class Archive:
         """
 
         if archive_format == "SeisComp3":
-            self.format = ("{year}/*/{station}/"+channels+"/*.{station}.*.*.D."
+            self.format = ("{year}/{network}/{station}/{channel}.D/{network}.{station}.{location}.{channel}.D."
                            "{year}.{jday:03d}")
-        elif archive_format == "YEAR/JD/*_STATION_*":
-            self.format = "{year}/{jday:03d}/*_{station}_*"
-        elif archive_format == "YEAR/JD/STATION":
-            self.format = "{year}/{jday:03d}/{station}*"
-        elif archive_format == "STATION.YEAR.JULIANDAY":
-            self.format = "*{station}.*.{year}.{jday:03d}"
-        elif archive_format == "/STATION/STATION.YearMonthDay":
-            self.format = "{station}/{station}.{year}{month:02d}{day:02d}"
-        elif archive_format == "YEAR_JD/STATION*":
-            self.format = "{year}_{jday:03d}/{station}*"
-        elif archive_format == "YEAR_JD/STATION_*":
-            self.format = "{year}_{jday:03d}/{station}_*"
+        elif archive_format == "custom":
+            pass
         else:
             raise util.ArchivePathStructureError(archive_format)
 
@@ -233,8 +223,12 @@ class Archive:
             # Re-populate st with only stations in station file, and only
             # data between start and end time needed for QuakeScan
             st_selected = Stream()
-            for station in self.stations:
-                st_selected += st.select(station=station)
+            for n, s, l, c in zip(self.stations['Network'], 
+                                  self.stations['Station'],
+                                  self.stations['Location'],
+                                  self.stations['Channel']):
+                st_selected += st.select(network=n, station=s, 
+                                        location=l, channel=c)
             st = st_selected.copy()
             for tr in st:
                 tr.trim(starttime=starttime, endtime=endtime)
@@ -309,12 +303,16 @@ class Archive:
                                                  dtime=now)
                 files = chain(files, self.archive_path.glob(file_format))
             else:
-                for station in self.stations:
+                for n, s, l, c in zip(self.stations['Network'], 
+                                  self.stations['Station'],
+                                  self.stations['Location'],
+                                  self.stations['Channel']):
                     file_format = self.format.format(year=now.year,
                                                      month=now.month,
                                                      day=now.day,
                                                      jday=now.julday,
-                                                     station=station,
+                                                     network=n, station=s, 
+                                                     location=l, channel=c,
                                                      dtime=now)
                     files = chain(files, self.archive_path.glob(file_format))
             dy += 1
@@ -679,8 +677,11 @@ class WaveformData:
         availability = np.zeros(len(self.stations)).astype(int)
         signal = np.zeros((3, len(self.stations), int(samples)))
 
-        for i, station in enumerate(self.stations):
-            tmp_st = stream.select(station=station)
+        for i, (n, s, l, c) in enumerate(zip(self.stations['Network'],
+                                             self.stations['Station'],
+                                             self.stations['Location'],
+                                             self.stations['Channel'])):
+            tmp_st = stream.select(network=n, station=s, location=l, channel=c)
             if len(tmp_st) == 3:
                 # Check traces are the correct number of samples and not filled
                 # by a constant value (i.e. not flatlines)

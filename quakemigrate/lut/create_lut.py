@@ -378,6 +378,7 @@ def _compute_1d_sweep(lut, phase, vmodel, **kwargs):
     (cwd / "model").mkdir(exist_ok=True)
 
     for i, station in enumerate(lut.station_data["Name"].values):
+        # station = station.replace('*', '')
         logging.info(f"\t\t...running NonLinLoc - station: {station:5s} - "
                      f"{i+1} of {stations_xyz.shape[0]}")
 
@@ -405,7 +406,7 @@ def _compute_1d_sweep(lut, phase, vmodel, **kwargs):
         to_read = cwd / "time" / f"layer.{phase}.{station}.time"
         gridspec, _, traveltimes = _read_nlloc(to_read, ignore_proj=True)
 
-        lut.traveltimes.setdefault(station, {}).update(
+        lut.traveltimes.setdefault(lut.station_data["Name"][i], {}).update(
             {phase: _bilinear_interpolate(np.c_[distances, depths],
                                           gridspec[1, 1:],
                                           gridspec[2, 1:],

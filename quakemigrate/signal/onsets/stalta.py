@@ -225,7 +225,7 @@ class STALTAOnset(Onset):
 
         Parameters
         ----------
-        data : :class:`~quakemigrate.io.data.SignalData` object
+        data : :class:`~quakemigrate.io.data.WaveformData` object
             Light class encapsulating data returned by an archive query.
         phases : list of str
             Specify the phases to use for the onset calculation.
@@ -264,6 +264,12 @@ class STALTAOnset(Onset):
                 if any([tr.data.max() == tr.data.min() for tr in waveforms]):
                     continue
                 if not bool(waveforms):
+                    continue
+
+                # Check that data covers the whole timespan
+                samples = util.time2sample(data.endtime - data.starttime,
+                                           self.sampling_rate) + 1
+                if any([tr.stats.npts != samples for tr in waveforms]):
                     continue
 
                 data.onsets.setdefault(station, {}).update(

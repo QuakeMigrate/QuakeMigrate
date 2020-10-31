@@ -599,6 +599,18 @@ class PickerTypeError(Exception):
         super().__init__(msg)
 
 
+class LUTPhasesException(Exception):
+    """
+    Custom exception to handle the case when the look-up table does not
+    contain the traveltimes for the phases necessary for a given function.
+
+    """
+
+    def __init__(self, message):
+        msg = (f"LUTPhasesException: {message}")
+        super().__init__(msg)
+
+
 class PickOrderException(Exception):
     """
     Custom exception to handle the case when the pick for the P phase is later

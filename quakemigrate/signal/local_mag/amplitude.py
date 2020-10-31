@@ -232,8 +232,26 @@ class Amplitude:
 
         """
 
+        # Initialise amplitudes DataFrame
+        amplitudes = pd.DataFrame(columns=["id", "epi_dist", "z_dist",
+                                           "P_amp", "P_freq", "P_time",
+                                           "S_amp", "S_freq", "S_time",
+                                           "Noise_amp", "is_picked"])
+
         # Get event hypocentre location
         ev_loc = event.get_hypocentre(self.loc_method)
+
+        # Get traveltimes for all stations and phases: much quicker than
+        # doing this multiple times in the loop
+        event_ijk = lut.index2coord(ev_loc, inverse=True)[0]
+        try:
+            p_ttimes = lut.traveltime_to("P", event_ijk)
+            s_ttimes = lut.traveltime_to("S", event_ijk)
+        except KeyError:
+            msg = ("Both P and S traveltimes are required to measure phase "
+                   "amplitudes for local magnitude calculation. Please create "
+                   "a new lookup table with phases=['P', 'S']")
+            raise util.LUTPhasesException(msg)
 
         # Get start of earliest possible noise window and end of latest
         # possible signal window
@@ -241,18 +259,6 @@ class Amplitude:
         tr_start = event.otime - event.marginal_window - self.noise_window
         tr_end = event.otime + event.marginal_window + \
             (1. + lut.fraction_tt) * max_tt + self.signal_window
-
-        # Get traveltimes for all stations and phases: much quicker than
-        # doing this multiple times in the loop
-        event_ijk = lut.index2coord(ev_loc, inverse=True)[0]
-        p_ttimes = lut.traveltime_to("P", event_ijk)
-        s_ttimes = lut.traveltime_to("S", event_ijk)
-
-        # Initialise amplitudes DataFrame
-        amplitudes = pd.DataFrame(columns=["id", "epi_dist", "z_dist",
-                                           "P_amp", "P_freq", "P_time",
-                                           "S_amp", "S_freq", "S_time",
-                                           "Noise_amp", "is_picked"])
 
         # Loop through stations, calculating amplitude info
         for i, station_data in lut.station_data.iterrows():
@@ -270,7 +276,7 @@ class Amplitude:
             # Read in raw waveforms
             st = event.data.raw_waveforms.select(station=station)
 
-            for j, comp in enumerate(["E", "N", "Z"]): # NOTE: Will not work with 1, 2 (etc.)
+            for j, comp in enumerate(["[E,2]", "[N,1]", "Z"]):
                 amps = amps_template.copy()
                 tr = st.select(component=comp)
                 # if trace is empty (no traces) or there is more than 1 (gaps),
@@ -367,7 +373,7 @@ class Amplitude:
         # Evaulate vertical distance between station and event. Convert to
         # kilometres.
         km_cf = 1000 / unit_conversion_factor
-        z_dist = (evdp - stel) / km_cf
+        z_dist = (evdp - stel) / km_cf # NOTE: stel is actually depth.
 
         return epi_dist, z_dist
 
@@ -539,7 +545,16 @@ class Amplitude:
 
         """
 
-        p_pick, s_pick, picked = self._get_picks(i, event)
+        p_pick, s_pick = self._get_picks(station, event)
+
+        picked = True
+        for pick, phase in [[p_pick, "P"], [s_pick, "S"]]:
+            if not isinstance(pick, UTCDateTime) and pick == "-1":
+                picked = False
+                if phase == "P":
+                    p_pick = event.otime + p_ttimes[i]
+                else:
+                    s_pick = event.otime + s_ttimes[i]
 
         # Check p_pick is before s_pick
         try:
@@ -568,51 +583,48 @@ class Amplitude:
 
         return windows, picked
 
-    def _get_picks(self, i, event):
+    def _get_picks(self, station, event):
         """
-        Get picks from this station for this event. Phase picks are preferred,
-        but modelled times according to the event location and travel-time
-        look-up table are used if no automatic pick was made.
+        Get picks from this station for this event. If no phase picks are
+        found, or if no pick was found, -1 is returned.
 
         Parameters
         ----------
-        i : int
-            Iterator variable.
+        station : str
+            Station name.
         event : :class:`~quakemigrate.io.Event` object
             Light class encapsulating signal, onset, pick and location
             information for a given event.
 
         Returns
         -------
-        p_pick : `obspy.UTCDateTime` object
+        p_pick : `obspy.UTCDateTime` object or "-1"
             P pick time. Autopick time if available, otherwise ModelledTime
             calculated by the autopicker.
-        s_pick : `obspy.UTCDateTime` object
+        s_pick : `obspy.UTCDateTime` object or "-1"
             S pick time. Autopick time if available, otherwise ModelledTime
             calculated by the autpicker.
-        picked : bool
-            Whether at least one of the phases was picked by the autopicker.
 
         """
 
         picks = event.picks["df"]
-        p_pick = picks.iloc[i*2]["PickTime"]
-        s_pick = picks.iloc[i*2+1]["PickTime"]
+        picks = picks.loc[picks["Station"] == station]
 
-        picked = True
-        # If neither P nor S is picked, picked=False
-        if p_pick == -1 and s_pick == -1:
-            picked = False
-        if p_pick == -1:
-            p_pick = picks.iloc[i*2]["ModelledTime"]
-        if s_pick == -1:
-            s_pick = picks.iloc[i*2+1]["ModelledTime"]
+        if len(picks) > 0:
+            try:
+                p_pick = picks.loc[picks["Phase"] == "P"]["PickTime"].iloc[0]
+                p_pick = UTCDateTime(str(p_pick))
+            except (IndexError, ValueError): # UTCDateTime("-1") -> ValueError
+                p_pick = "-1"
+            try:
+                s_pick = picks.loc[picks["Phase"] == "S"]["PickTime"].iloc[0]
+                s_pick = UTCDateTime(str(s_pick))
+            except (IndexError, ValueError): # UTCDateTime("-1") -> ValueError
+                s_pick = "-1"
+        else:
+            p_pick = s_pick = "-1"
 
-        # Convert to UTCDateTime objects
-        p_pick = UTCDateTime(p_pick)
-        s_pick = UTCDateTime(s_pick)
-
-        return p_pick, s_pick, picked
+        return p_pick, s_pick
 
     def _measure_signal_amps(self, amps, tr, windows, filter_sos=None):
         """
@@ -696,12 +708,11 @@ class Amplitude:
 
             # Correct for filter gain at approximate frequency of
             # measured amplitude
+            filter_gain = None
             if self.bandpass_filter or self.highpass_filter:
                 _, filter_gain = sosfreqz(filter_sos, worN=[approx_freq],
                                           fs=tr.stats.sampling_rate)
                 half_amp /= np.abs(filter_gain[0])
-            else:
-                filter_gain = None
 
             # Multiply amplitude by 1000 to convert to *millimetres*
             half_amp *= 1000.

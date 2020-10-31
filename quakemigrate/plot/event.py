@@ -167,10 +167,11 @@ def _plot_waveform_gather(ax, lut, event, idx):
     times_plot = event.data.times(type="matplotlib")[mint_i:maxt_i]
     for i, station in enumerate(event.data.stations):
         waveforms = event.data.filtered_waveforms.select(station=station)
-        for c, comp in zip(WAVEFORM_COLOURS1, "ZNE"):
-            data = waveforms.select(channel=f"*{comp}")
+        for c, comp in zip(WAVEFORM_COLOURS1, ["Z", "[N,1]", "[E,2]"]):
+            data = waveforms.select(component=comp)
             if not bool(data):
                 continue
+            comp = data[0].stats.component
             data = data[0].data
 
             # Get station specific range for norm factor

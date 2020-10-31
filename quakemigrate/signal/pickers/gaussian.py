@@ -446,7 +446,7 @@ class GaussianPicker(PhasePicker):
         """
 
         exceedence = np.where(windowed_onset > threshold)[0]
-        if len(exceedence) < 2:
+        if len(exceedence) == 0:
             raise util.NoOnsetPeak(threshold)
 
         # Identify all peaks - there are possibly multiple distinct periods
@@ -460,6 +460,10 @@ class GaussianPicker(PhasePicker):
         for i, peak in enumerate(peaks):
             if np.any(peak == true_maximum):
                 break
+
+        # Check if there is more than a single sample above the threshold
+        if len(peaks[i]) < 2:
+            raise util.NoOnsetPeak(threshold)
 
         # Grab the peak and return the start/end index values. NOTE: + 1 is
         # required so that the last sample is included when slicing by index

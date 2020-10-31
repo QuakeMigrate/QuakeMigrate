@@ -373,7 +373,7 @@ class Amplitude:
         # Evaulate vertical distance between station and event. Convert to
         # kilometres.
         km_cf = 1000 / unit_conversion_factor
-        z_dist = (evdp - stel) / km_cf # NOTE: stel is actually depth.
+        z_dist = (evdp - stel) / km_cf  # NOTE: stel is actually depth.
 
         return epi_dist, z_dist
 
@@ -614,12 +614,12 @@ class Amplitude:
             try:
                 p_pick = picks.loc[picks["Phase"] == "P"]["PickTime"].iloc[0]
                 p_pick = UTCDateTime(str(p_pick))
-            except (IndexError, ValueError): # UTCDateTime("-1") -> ValueError
+            except (IndexError, ValueError):  # UTCDateTime("-1") -> ValueError
                 p_pick = "-1"
             try:
                 s_pick = picks.loc[picks["Phase"] == "S"]["PickTime"].iloc[0]
                 s_pick = UTCDateTime(str(s_pick))
-            except (IndexError, ValueError): # UTCDateTime("-1") -> ValueError
+            except (IndexError, ValueError):  # UTCDateTime("-1") -> ValueError
                 s_pick = "-1"
         else:
             p_pick = s_pick = "-1"

@@ -148,19 +148,21 @@ def _plot_waveform_gather(ax, lut, event, idx):
     """
 
     # --- Predicted traveltimes ---
-    ttpf, ttsf = [lut.traveltime_to(phase, idx) for phase in "PS"]
-    ttp = [(event.otime + tt).datetime for tt in ttpf]
-    tts = [(event.otime + tt).datetime for tt in ttsf]
-    range_order = abs(np.argsort(np.argsort(ttp)) - len(ttp)) * 2
+    traveltimes = [lut.traveltime_to(phase, idx) for phase in lut.phases]
+    arrivals = [[(event.otime + tt).datetime for tt in tt_f]
+                for tt_f in traveltimes]
+
+    range_order = abs(np.argsort(np.argsort(arrivals[0]))
+                      - len(arrivals[0])) * 2
     s = (ax.get_window_extent().height / (max(range_order)+1) * 1.2) ** 2
-    max_tts = max(ttsf)
-    for tt, c, phase in zip([ttp, tts], PICK_COLOURS, "PS"):
-        ax.scatter(tt, range_order, s=s, c=c, marker="|", zorder=5, lw=1.5,
-                   label=f"Modelled {phase}")
+
+    for arrival, c, phase in zip(arrivals, PICK_COLOURS, lut.phases):
+        ax.scatter(arrival, range_order, s=s, c=c, marker="|", zorder=5,
+                   lw=1.5, label=f"Modelled {phase}")
 
     # --- Waveforms ---
     times_utc = event.data.times(type="UTCDateTime")
-    mint, maxt = event.otime - 0.1, event.otime + max_tts*1.5
+    mint, maxt = event.otime - 0.1, event.otime + max(traveltimes[-1])*1.5
     mint_i, maxt_i = [np.argmin(abs(times_utc - t)) for t in (mint, maxt)]
     times_plot = event.data.times(type="matplotlib")[mint_i:maxt_i]
     for i, station in enumerate(event.data.stations):
@@ -170,10 +172,9 @@ def _plot_waveform_gather(ax, lut, event, idx):
             if not bool(data):
                 continue
             data = data[0].data
-            data[mint_i:]
 
             # Get station specific range for norm factor
-            stat_maxt = event.otime + ttsf[i]*1.5
+            stat_maxt = event.otime + traveltimes[-1][i]*1.5
             norm = max(abs(data[mint_i:np.argmin(abs(times_utc - stat_maxt))]))
 
             y = data[mint_i:maxt_i] / norm + range_order[i]

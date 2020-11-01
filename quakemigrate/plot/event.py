@@ -148,7 +148,8 @@ def _plot_waveform_gather(ax, lut, event, idx):
     """
 
     # --- Predicted traveltimes ---
-    traveltimes = [lut.traveltime_to(phase, idx) for phase in lut.phases]
+    traveltimes = np.array([lut.traveltime_to(phase, idx)
+                            for phase in lut.phases])
     arrivals = [[(event.otime + tt).datetime for tt in tt_f]
                 for tt_f in traveltimes]
 
@@ -162,7 +163,7 @@ def _plot_waveform_gather(ax, lut, event, idx):
 
     # --- Waveforms ---
     times_utc = event.data.times(type="UTCDateTime")
-    mint, maxt = event.otime - 0.1, event.otime + max(traveltimes[-1])*1.5
+    mint, maxt = event.otime - 0.1, event.otime + np.max(traveltimes)*1.5
     mint_i, maxt_i = [np.argmin(abs(times_utc - t)) for t in (mint, maxt)]
     times_plot = event.data.times(type="matplotlib")[mint_i:maxt_i]
     for i, station in enumerate(event.data.stations):
@@ -175,7 +176,8 @@ def _plot_waveform_gather(ax, lut, event, idx):
             data = data[0].data
 
             # Get station specific range for norm factor
-            stat_maxt = event.otime + traveltimes[-1][i]*1.5
+            stat_maxt = event.otime + max(traveltimes[:, i])*1.5
+
             norm = max(abs(data[mint_i:np.argmin(abs(times_utc - stat_maxt))]))
 
             y = data[mint_i:maxt_i] / norm + range_order[i]

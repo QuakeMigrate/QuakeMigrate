@@ -539,7 +539,7 @@ class GaussianPicker(PhasePicker):
 
         # --- Picking windows ---
         # Generate plottable timestamps for data
-        times = event.data.times(type="matplotlib")
+        times = signal[0].times(type="matplotlib")
         for j, ax in enumerate(axes[:5]):
             win = window[phases[0]] if j % 3 == 0 else window[phases[-1]]
             clr = "#F03B20" if j % 3 == 0 else "#3182BD"

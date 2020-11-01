@@ -72,7 +72,7 @@ def pick_summary(event, station, signal, picks, onsets, ttimes, window):
 
     # --- Grab event information once ---
     otime = event.otime
-    times = event.data.times(type="utcdatetime")
+    times = signal[0].times(type="utcdatetime")
 
     # --- Plot data signal ---
     # Trim data to just around phase picks

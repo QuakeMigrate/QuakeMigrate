@@ -162,10 +162,10 @@ def _plot_waveform_gather(ax, lut, event, idx):
                    lw=1.5, label=f"Modelled {phase}")
 
     # --- Waveforms ---
-    times_utc = event.data.times(type="UTCDateTime")
+    times_utc = event.data.filtered_waveforms[0].times(type="UTCDateTime")
     mint, maxt = event.otime - 0.1, event.otime + np.max(traveltimes)*1.5
     mint_i, maxt_i = [np.argmin(abs(times_utc - t)) for t in (mint, maxt)]
-    times_plot = event.data.times(type="matplotlib")[mint_i:maxt_i]
+    times_plot = event.data.filtered_waveforms[0].times(type="matplotlib")[mint_i:maxt_i]
     for i, station in enumerate(event.data.stations):
         waveforms = event.data.filtered_waveforms.select(station=station)
         for c, comp in zip(WAVEFORM_COLOURS1, ["Z", "[N,1]", "[E,2]"]):

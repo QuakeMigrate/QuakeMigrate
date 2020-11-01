@@ -354,8 +354,7 @@ class QuakeScan:
                           f"{w_end - self.post_pad} ").center(110, "~"))
 
             try:
-                data = self.archive.read_waveform_data(
-                    w_beg, w_end, self.scan_rate)
+                data = self.archive.read_waveform_data(w_beg, w_end)
                 coalescence.append(
                     *self._compute(data), self.lut.unit_conversion_factor)
                 availability.loc[i] = data.availability
@@ -559,8 +558,7 @@ class QuakeScan:
                 logging.info(msg)
                 post_pad = 0.
 
-        return self.archive.read_waveform_data(w_beg, w_end, self.scan_rate,
-                                               pre_pad, post_pad)
+        return self.archive.read_waveform_data(w_beg, w_end, pre_pad, post_pad)
 
     @util.timeit("info")
     def _calculate_location(self, event):

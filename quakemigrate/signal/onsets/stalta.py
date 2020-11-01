@@ -9,9 +9,7 @@ import logging
 
 import numpy as np
 from obspy import Stream
-from obspy.signal.invsim import cosine_taper
 from obspy.signal.trigger import classic_sta_lta
-from scipy.signal import butter, lfilter, detrend
 
 import quakemigrate.util as util
 from .base import Onset
@@ -68,16 +66,34 @@ def sta_lta_centred(a, nsta, nlta):
 
 def pre_process(stream, sampling_rate, resample, upfactor, filter_):
     """
-    Detrend raw seismic data and apply cosine taper and zero phase-shift
-    Butterworth band-pass filter; all carried out using the built-in obspy
-    functions.
+    Resample raw seismic data, detrend and apply cosine taper and zero
+    phase-shift Butterworth band-pass filter; all carried out using the
+    built-in obspy functions.
+
+    By default, data with mismatched sampling rates will only be decimated.
+    If necessary, and if the user specifies `resample = True` and an
+    upfactor to upsample by `upfactor = int` for the waveform archive, data
+    can also be upsampled and then, if necessary, subsequently decimated to
+    achieve the desired sampling rate.
+
+    For example, for raw input data sampled at a mix of 40, 50 and 100 Hz,
+    to achieve a unified sampling rate of 50 Hz, the user would have to
+    specify an upfactor of 5; 40 Hz x 5 = 200 Hz, which can then be
+    decimated to 50 Hz.
+
+    NOTE: data will be detrended and a cosine taper applied before
+    decimation, in order to avoid edge effects when applying the lowpass
+    filter.
 
     Parameters
     ----------
     stream : `~obspy.Stream` object
         Waveform data to be pre-processed.
     sampling_rate : int
-        Number of samples per second, in Hz.
+        Desired sampling rate for data to be used to calculate onset. This will
+        be achieved by resampling the raw waveform data. By default, only
+        decimation will be applied, but data can also be upsampled if
+        specified by the user when creating the Archive object.
     resample : bool, optional
         If true, perform resampling of data which cannot be decimated directly
         to the desired sampling rate.
@@ -125,7 +141,7 @@ def pre_process(stream, sampling_rate, resample, upfactor, filter_):
 class STALTAOnset(Onset):
     """
     QuakeMigrate default onset function class - uses the Short-Term Average to
-    Long-Term Average ratio.
+    Long-Term Average ratio of the signal energy amplitude.
 
     Attributes
     ----------
@@ -151,15 +167,9 @@ class STALTAOnset(Onset):
         using classic for detect() and centred for locate() if your data
         quality allows it. This is the default behaviour; override by
         setting this variable.
-    resample : bool, optional
-        If true, perform resampling of data which cannot be decimated directly
-        to the desired sampling rate.
     sampling_rate : int
         Desired sampling rate for input data, in Hz; sampling rate at which
         the onset functions will be computed.
-    upfactor : int, optional
-        Factor by which to upsample the data to enable it to be decimated to
-        the desired sampling rate, e.g. 40Hz -> 50Hz requires upfactor = 5.
 
     Methods
     -------
@@ -184,8 +194,8 @@ class STALTAOnset(Onset):
                                                           "S": [0.2, 1.0]})
         self.channel_maps = kwargs.get("channel_maps", {"P": "*Z",
                                                         "S": "*[N,E]"})
-        self.resample = kwargs.get("resample", False)
-        self.upfactor = kwargs.get("upfactor")
+        self.allow_gaps = kwargs.get("allow_gaps", False)
+        self.full_timespan = kwargs.get("full_timespan", True)
 
         # --- Deprecated ---
         self.onset_centred = kwargs.get("onset_centred")
@@ -232,57 +242,79 @@ class STALTAOnset(Onset):
         """
 
         availability = {}
+        onsets = []
+        # Set data.filtered_waveforms to empty stream; otherwise data
+        # generated here will be appended to what is already there.
+        data.filtered_waveforms = Stream()
 
+        # Loop through phases, pre-process data, and calculate onsets.
         for phase in phases:
+            # Select traces based on channel map for this phase
             phase_waveforms = data.waveforms.select(
                 channel=self.channel_maps[phase])
 
+            # Convert sta window, lta window lengths from seconds to samples.
             stw, ltw = self.onset_windows[phase]
             stw = util.time2sample(stw, self.sampling_rate) + 1
             ltw = util.time2sample(ltw, self.sampling_rate) + 1
 
+            # Pre-process the data. The ObsPy functions operate by trace, so
+            # will not break on gappy data (we haven't checked availability
+            # yet)
             filtered_waveforms = pre_process(
-                phase_waveforms, self.sampling_rate, self.resample,
-                self.upfactor, self.bandpass_filters[phase])
+                phase_waveforms, self.sampling_rate, data.resample,
+                data.upfactor, self.bandpass_filters[phase])
 
+            # Loop through stations, check data availability for this phase,
+            # and store this info, filtered waveforms and calculated onsets
             for station in data.stations:
-                availability[f"{station}.{phase}"] = 0
                 waveforms = filtered_waveforms.select(station=station)
 
-                # Check for flatlines and any available data
-                if any([tr.data.max() == tr.data.min() for tr in waveforms]):
-                    continue
-                if not bool(waveforms):
+                available, av_dict = data.check_availability(waveforms,
+                    allow_gaps=self.allow_gaps,
+                    full_timespan=self.full_timespan)
+                availability[f"{station}.{phase}"] = available
+
+                # If no data available, skip
+                if available == 0:
+                    logging.debug(f"\t\tNo {phase} onset for {station}.")
                     continue
 
-                # Check that data covers the whole timespan
-                samples = util.time2sample(data.endtime - data.starttime,
-                                           self.sampling_rate) + 1
-                if any([tr.stats.npts != samples for tr in waveforms]):
-                    continue
+                # Check that all channels met the availability critera. If
+                # not, remove this channel from the stream.
+                for key, available in av_dict.items():
+                    if available == 0:
+                        to_remove = waveforms.select(id=key)
+                        [waveforms.remove(tr) for tr in to_remove]
 
+                # Pad with zeros so onset will be the correct length. Note:
+                # this will only have an effect if allow_gaps=True or
+                # full_timespan=False. Otherwise, there will be no gaps to pad.
+                if self.allow_gaps or not self.full_timespan:
+                    waveforms.trim(starttime=data.starttime,
+                                   endtime=data.endtime, pad=True,
+                                   fill_value=0)
+
+                # Calculate onset and add to WaveForm data object; add filtered
+                # waveforms that have passed the availability check to
+                # WaveformData.filtered_waveforms
                 data.onsets.setdefault(station, {}).update(
                     {phase: self._onset(waveforms, stw, ltw, log)})
-                availability[f"{station}.{phase}"] = 1
+                onsets.append(data.onsets[station][phase])
+                data.filtered_waveforms += waveforms
 
-                data.filtered_waveforms += filtered_waveforms
+        logging.debug(data.filtered_waveforms.__str__(extended=True))
 
+        # Add availability info to WaveformData object.
         data.availability = availability
 
-        onsets = []
-        for key, available in availability.items():
-            station, phase = key.split(".")
-            if available == 1:
-                onsets.append(data.onsets[station][phase])
-            else:
-                logging.debug(f"\t\tNo {phase} onset for {station}.")
         return np.stack(onsets, axis=0)
 
     def _onset(self, stream, stw, ltw, log):
         """
         Generates an onset (characteristic) function. If there are multiple
         components, these are combined as the root-mean-square of the onset
-        functions BEFORE taking a log (if requested).
+        functions AFTER taking a log (if requested).
 
         Parameters
         ----------

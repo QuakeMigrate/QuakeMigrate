@@ -5,7 +5,6 @@ Module to plot the triggered events on a decimated grid.
 """
 
 import logging
-import os
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -168,21 +167,67 @@ def _plot_station_availability(ax, availability, endtime):
 
     """
 
-    available = availability.sum(axis=1).astype(int)
-    times = list(pd.to_datetime(available.index))
+    # Get list of phases from station availability dataframe
+    phases = sorted(set([col_name.split(".")[1] for col_name in \
+        availability.columns]))
+    logging.debug(f"\t\t    Found phases: {phases}")
 
-    # Handle last step
-    available = available.values
-    available = np.append(available, [available[-1]])
-    times.append(endtime.datetime)
-    ax.step(times, available, c="green", where="post")
+    # Sort out plotting options based on the number of phases
+    if len(phases) > 2:
+        logging.warning("\t\t    Only P and/or S are currently supported! "
+                        "Plotting by station only.")
+        phases = ["*"]
+        colours = ["green"]
+        divideby = len(phases)
+    elif len(phases) == 1:
+        if phases[0] == "P":
+            colours = ["#F03B20"]
+        else:
+            colours = ["#3182BD"]
+    elif (availability.filter(like=f".{phases[0]}").values == \
+        availability.filter(like=f".{phases[1]}").values).all():
+        logging.info("\t\t    Station availability is identical for both "
+                     "phases; plotting by station only.")
+        divideby = len(phases)
+        phases = ["*"]
+        colours = ["green"]
+    else:
+        colours = ["#F03B20", "#3182BD"]
 
+    # Loop through phases and plot
+    max_ava = []
+    min_ava = []
+    for phase, colour in zip(phases, colours):
+        ph_availability = availability.filter(regex=f".{phase}$")
+
+        available = ph_availability.sum(axis=1).astype(int)
+        times = list(pd.to_datetime(available.index))
+
+        # If plotting by station, divide by # of phases
+        if phases[0] == "*":
+            # This can lead to incorrect value (e.g. if 2 / 3 phases are
+            # available for a station). But not important enough to faff with.
+            available = (available / divideby).astype(int)
+
+        # Handle last step
+        available = available.values
+        available = np.append(available, [available[-1]])
+        times.append(endtime.datetime)
+        ax.step(times, available, c=colour, where="post", label=phase)
+
+        max_ava.append(max(available))
+        min_ava.append(min(available))
+
+    # Plot formatting
     _add_plot_tag(ax, "Station availability")
-    ax.set_ylim([int(min(available)*0.8), int(max(available)*1.1)])
-    ax.set_yticks(range(int(min(available)*0.8), int(max(available)*1.1)+1))
+    ax.set_ylim([int(min(min_ava)*0.8), np.int(np.ceil(max(max_ava)*1.1))])
+    ax.set_yticks(range(int(min(min_ava)*0.8),
+                        np.int(np.ceil(max(max_ava)*1.1))+1))
     ax.xaxis.set_major_formatter(util.DateFormatter("%H:%M:%S.{ms}", 2))
     ax.set_xlabel("DateTime", fontsize=14)
     ax.set_ylabel("Available stations", fontsize=14)
+    if phases[0] != "*":
+        ax.legend(loc=1, fontsize=14, framealpha=0.85).set_zorder(20)
 
 
 def _plot_coalescence(ax, dt, data, label):

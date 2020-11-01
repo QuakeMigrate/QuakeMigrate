@@ -35,26 +35,23 @@ def read_availability(run, starttime, endtime):
 
     fpath = run.path / "detect" / "availability"
 
-    startday = UTCDateTime(starttime.date)
-
-    dy = 0
     availability = None
     # Loop through days trying to read .StationAvailability files
     logging.debug("\t    Reading in .StationAvailability...")
-    while startday + (dy * 86400) <= endtime:
-        now = starttime + (dy * 86400)
-        fstem = f"{now.year}_{now.julday:03d}_StationAvailability"
-        file = (fpath / fstem).with_suffix(".csv")
+    readstart = UTCDateTime(starttime.date)
+    while readstart <= endtime:
+        fstem = f"{readstart.year}_{readstart.julday:03d}"
+        file = (fpath / f"{fstem}_StationAvailability").with_suffix(".csv")
         try:
             if availability is None:
-                availability = pd.read_csv(file, index_col=0)
+                availability = _handle_old_structure(file)
             else:
-                tmp = pd.read_csv(file, index_col=0)
+                tmp = _handle_old_structure(file)
                 availability = pd.concat([availability, tmp])
         except FileNotFoundError:
             logging.info("\tNo .StationAvailability file found for "
-                         f"{now.year} - {now.julday:03d}")
-        dy += 1
+                         f"{readstart.year} - {readstart.julday:03d}")
+        readstart += 86400
 
     if availability is None:
         raise util.NoStationAvailabilityDataException
@@ -62,8 +59,56 @@ def read_availability(run, starttime, endtime):
     starttime, endtime = availability.index[0], availability.index[-1]
     logging.debug(f"\t\t...from {starttime} - {endtime}")
 
-
     return availability
+
+
+def _handle_old_structure(availability_in_file, permanent_conversion=False):
+    """
+    A short utility function that dynamically converts the old style
+    availability files (with column names simply the station) to the new style
+    (with separate columns for each station/phase combination). This uses the
+    knowledge that an availability of '1' in the old style meant that all data
+    was available (e.g. <station>.P and <station>.S available).
+
+    This is only done if the file was in the old format - otherwise it just
+    returns the original, unaltered dataframe.
+
+    Parameters
+    ----------
+    availability_in_file : `pathlib.Path` object
+        An availability file to be read in, tested and potentially converted.
+    permanent_conversion : bool, optional
+        If toggled, the availability file will be permanently converted to the
+        new file structure.
+
+    Returns
+    -------
+    availability_out : `pandas.DataFrame` object
+        The corrected (if necessary) availability dataframe.
+
+    """
+
+    availability_in = pd.read_csv(availability_in_file, index_col=0)
+
+    cols = [col_names.split(".") for col_names in availability_in.columns]
+
+    # Check if station + phase are already in the column names
+    if len(cols[0]) == 2:
+        return availability_in
+
+    availability_out = pd.DataFrame()
+    logging.info("\t\tWarning: an availability file is in the old format - "
+                 "converting...")
+    for phase in "PS":
+        for stat in cols:
+            new_key = f"{stat[0]}.{phase}"
+            availability_out[new_key] = availability_in[stat[0]].values
+    availability_out.index = availability_in.index
+
+    if permanent_conversion:
+        availability_out.to_csv(availability_in_file)
+
+    return availability_out
 
 
 def write_availability(run, availability):

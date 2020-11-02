@@ -464,10 +464,8 @@ class WaveformData:
                 if full_timespan:
                     if len(st_id) > 1:
                         availability[tr_id] = 0
-                    else:
-                        tr = st_id[0]
-                        if tr.stats.starttime != self.starttime or \
-                            tr.stats.endtime != self.endtime:
+                    elif st_id[0].stats.starttime != self.starttime or \
+                        st_id[0].stats.endtime != self.endtime:
                             availability[tr_id] = 0
 
             # Return availability based on "all_channels" setting

@@ -193,7 +193,7 @@ class STALTAOnset(Onset):
         self.onset_windows = kwargs.get("onset_windows", {"P": [0.2, 1.0],
                                                           "S": [0.2, 1.0]})
         self.channel_maps = kwargs.get("channel_maps", {"P": "*Z",
-                                                        "S": "*[N,E]"})
+                                                        "S": "*[N,E,1,2]"})
         self.allow_gaps = kwargs.get("allow_gaps", False)
         self.full_timespan = kwargs.get("full_timespan", True)
 

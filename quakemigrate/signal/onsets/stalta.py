@@ -194,6 +194,9 @@ class STALTAOnset(Onset):
                                                           "S": [0.2, 1.0]})
         self.channel_maps = kwargs.get("channel_maps", {"P": "*Z",
                                                         "S": "*[N,E,1,2]"})
+        self.channel_counts = kwargs.get("channel_counts", {"P": 1,
+                                                            "S": 2})
+        self.all_channels = kwargs.get("all_channels", False)
         self.allow_gaps = kwargs.get("allow_gaps", False)
         self.full_timespan = kwargs.get("full_timespan", True)
 
@@ -271,6 +274,8 @@ class STALTAOnset(Onset):
                 waveforms = filtered_waveforms.select(station=station)
 
                 available, av_dict = data.check_availability(waveforms,
+                    all_channels=self.all_channels,
+                    n_channels=self.channel_counts[phase],
                     allow_gaps=self.allow_gaps,
                     full_timespan=self.full_timespan)
                 availability[f"{station}.{phase}"] = available

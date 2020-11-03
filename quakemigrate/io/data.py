@@ -398,8 +398,8 @@ class WaveformData:
         self.availability = None
         self.wa_waveforms = None
 
-    def check_availability(self, st, all_channels=False, allow_gaps=False,
-                           full_timespan=True):
+    def check_availability(self, st, all_channels=False, n_channels=None,
+                           allow_gaps=False, full_timespan=True):
         """
         Check waveform availability against data quality criteria. There are a
         number of hard-coded checks: for whether any data is present; for
@@ -416,6 +416,9 @@ class WaveformData:
         all_channels : bool, optional
             Whether all supplied channels (distinguished by SEED id) need to
             meet the availability criteria to mark the data as 'available'.
+        n_channels : int, optional
+            If `all_channels=True`, this argument is required (in order to
+            specify the number of channels expected to be present).
         allow_gaps : bool, optional
             Whether to allow gaps.
         full_timespan : bool, optional
@@ -430,55 +433,62 @@ class WaveformData:
             Dict of {tr_id : available} for each unique SEED ID in the input
             stream (available is again 0 or 1).
 
+        Raises
+        ------
+        TypeError
+            If the user specifies `all_channels=True` but does not specify
+            `n_channels`.
+
         """
 
         availability = {}
+        available = 0
 
         # Check if any channels in stream
         if bool(st):
             # Loop through channels with unique SEED id's
             for tr_id in sorted([tr.id for tr in st]):
                 st_id = st.select(id=tr_id)
-                availability[tr_id] = 1
+                availability[tr_id] = 0
 
-                # First check data is here:
-                if not bool(st_id):
-                    availability[tr_id] = 0
-                    continue
                 # Check it's not flatlined
-                if any([tr.data.max() == tr.data.min() for tr in st_id]):
-                    availability[tr_id] = 0
+                if any(tr.data.max() == tr.data.min() for tr in st_id):
                     continue
                 # Check for overlaps
                 overlaps = st_id.get_gaps(max_gap=-0.000001)
                 if len(overlaps) != 0:
-                    availability[tr_id] = 0
                     continue
                 # Check for gaps (if requested)
                 if not allow_gaps:
                     gaps = st_id.get_gaps()  # Overlaps already dealt with
                     if len(gaps) != 0:
-                        availability[tr_id] = 0
                         continue
                 # Check data covers full timespan (if requested)
                 if full_timespan:
                     if len(st_id) > 1:
-                        availability[tr_id] = 0
+                        continue
                     elif st_id[0].stats.starttime != self.starttime or \
                         st_id[0].stats.endtime != self.endtime:
-                            availability[tr_id] = 0
+                        continue
+                # If passed all tests, set availability to 1
+                availability[tr_id] = 1
 
             # Return availability based on "all_channels" setting
             if all(ava == 1 for ava in availability.values()):
-                available = 1
+                if all_channels:
+                    # If all_channels requested, must also check that the
+                    # expected number of channels are present
+                    if not n_channels:
+                        raise TypeError("Please specify n_channels if you wish"
+                                        " to check all channels meet the "
+                                        "availability criteria.")
+                    elif len(availability) == n_channels:
+                            available = 1
+                else:
+                    available = 1
             elif not all_channels \
                 and any(ava == 1 for ava in availability.values()):
                 available = 1
-            else:
-                available = 0
-
-        else:
-            available = 0
 
         return available, availability
 

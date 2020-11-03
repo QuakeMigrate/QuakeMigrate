@@ -143,6 +143,12 @@ class STALTAOnset(Onset):
     QuakeMigrate default onset function class - uses the Short-Term Average to
     Long-Term Average ratio of the signal energy amplitude.
 
+    Raw seismic data will be pre-processed, including re-sampling if necessary
+    to reach the specified uniform sampling raate, checked against a user-
+    specified set of data quality criteria, then used to calculate onset
+    functions for each phase (using seismic channels as specified in
+    `channel_maps`) by computing the STA/LTA of s^2.
+
     Attributes
     ----------
     bandpass_filters : dict of [float, float, int]
@@ -152,9 +158,29 @@ class STALTAOnset(Onset):
     channel_maps : dict of str
         Data component maps - keys are phases. These are passed into the ObsPy
         stream.select method.
-    onset_windows : dict of [float, float]
-        Onset window lengths - keys are phases.
-        [STA, LTA] (both in seconds)
+    channel_counts : dict of int
+        Number of channels to be used to calculate the onset function for each
+        phase. Keys are phases.
+    sta_lta_windows : dict of [float, float]
+        Short-term average (STA) and Long-term average (LTA) window lengths - 
+        keys are phases. [STA, LTA] (both in seconds)
+    all_channels : bool
+        If True, only calculate an onset function when all requested channels
+        meet the availability criteria. Otherwise, if at least one channel is
+        available (e.g. just the N component for the S phase) the onset
+        function will be calculated from that/those.
+    allow_gaps : bool
+        If True, allow gappy data to be used to calculate the onset function.
+        Gappy data will be detrended, tapered and filtered, then gaps padded
+        with zeros. This should help mitigate the expected spikes as data
+        goes on- and off-line, but will not eliminate it. Onset functions for
+        periods with no data will be filled with zeros.
+    full_timespan : bool
+        If False, allow data which doesn't cover the full timespan requested
+        to be used for onset function calculation. This is a subtly different
+        test to `allow_gaps`; data can be continuous within the timespan, but
+        not span the whole period. Data will be treated as described in
+        `allow_gaps`. 
     position : str, optional
         Compute centred STA/LTA (STA window is preceded by LTA window;
         value is assigned to end of LTA window / start of STA window) or
@@ -190,8 +216,8 @@ class STALTAOnset(Onset):
         self.bandpass_filters = kwargs.get("bandpass_filters",
                                            {"P": [2.0, 16.0, 2],
                                             "S": [2.0, 16.0, 2]})
-        self.onset_windows = kwargs.get("onset_windows", {"P": [0.2, 1.0],
-                                                          "S": [0.2, 1.0]})
+        self.sta_lta_windows = kwargs.get("sta_lta_windows", {"P": [0.2, 1.0],
+                                                              "S": [0.2, 1.0]})
         self.channel_maps = kwargs.get("channel_maps", {"P": "*Z",
                                                         "S": "*[N,E,1,2]"})
         self.channel_counts = kwargs.get("channel_counts", {"P": 1,
@@ -215,8 +241,9 @@ class STALTAOnset(Onset):
         for phase, filt in self.bandpass_filters.items():
             out += f"\n\t\t{phase} bandpass filter  = {filt} (Hz, Hz, -)"
         out += "\n"
-        for phase, windows in self.onset_windows.items():
+        for phase, windows in self.sta_lta_windows.items():
             out += f"\n\t\t{phase} onset [STA, LTA] = {windows} (s, s)"
+        out += "\n"
 
         return out
 
@@ -257,7 +284,7 @@ class STALTAOnset(Onset):
                 channel=self.channel_maps[phase])
 
             # Convert sta window, lta window lengths from seconds to samples.
-            stw, ltw = self.onset_windows[phase]
+            stw, ltw = self.sta_lta_windows[phase]
             stw = util.time2sample(stw, self.sampling_rate) + 1
             ltw = util.time2sample(ltw, self.sampling_rate) + 1
 
@@ -365,12 +392,12 @@ class STALTAOnset(Onset):
 
         """
 
-        return self.onset_windows[phase][0] * self.sampling_rate / 2
+        return self.sta_lta_windows[phase][0] * self.sampling_rate / 2
 
     @property
     def pre_pad(self):
         """Pre-pad is determined as a function of the onset windows"""
-        windows = self.onset_windows
+        windows = self.sta_lta_windows
         pre_pad = (max([windows[key][1] for key in windows.keys()])
                    + 3 * max([windows[key][0] for key in windows.keys()]))
 
@@ -399,7 +426,7 @@ class STALTAOnset(Onset):
         station and a grid point plus the LTA (in case onset_centred is True)
 
         """
-        windows = self.onset_windows
+        windows = self.sta_lta_windows
         lta_max = max([windows[key][1] for key in windows.keys()])
         self._post_pad = np.ceil(ttmax + 2 * lta_max)
 
@@ -464,7 +491,7 @@ class STALTAOnset(Onset):
     @property
     def p_onset_win(self):
         """Handle deprecated p_onset_win kwarg / attribute"""
-        return self.onset_windows["P"]
+        return self.sta_lta_windows["P"]
 
     @p_onset_win.setter
     def p_onset_win(self, value):
@@ -477,12 +504,12 @@ class STALTAOnset(Onset):
         print("FutureWarning: Parameter name has changed - continuing.")
         print("To remove this message, refer to the documentation.")
 
-        self.onset_windows["P"] = value
+        self.sta_lta_windows["P"] = value
 
     @property
     def s_onset_win(self):
         """Handle deprecated s_onset_win kwarg / attribute"""
-        return self.onset_windows["S"]
+        return self.sta_lta_windows["S"]
 
     @s_onset_win.setter
     def s_onset_win(self, value):
@@ -495,7 +522,7 @@ class STALTAOnset(Onset):
         print("FutureWarning: Parameter name has changed - continuing.")
         print("To remove this message, refer to the documentation.")
 
-        self.onset_windows["S"] = value
+        self.sta_lta_windows["S"] = value
 
 
 class CentredSTALTAOnset(STALTAOnset):

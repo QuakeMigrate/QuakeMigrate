@@ -35,7 +35,7 @@ onset = STALTAOnset(position="centred", sampling_rate=500)
 onset.bandpass_filters = {
     "P": [10, 125, 4],
     "S": [10, 125, 4]}
-onset.onset_windows = {
+onset.sta_lta_windows = {
     "P": [0.01, 0.25],
     "S": [0.05, 0.5]}
 

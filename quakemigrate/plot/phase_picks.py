@@ -123,8 +123,8 @@ def pick_summary(event, station, signal, picks, onsets, ttimes, windows):
                 bbox=dict(boxstyle="round", fc="w", alpha=0.8), va="top",
                 ha="left", fontsize=18, zorder=2)
         # Set ylim
-        y_min = min(y[min_win_idx:max_win_idx])
-        y_max = max(y[min_win_idx:max_win_idx])
+        y_min = min(y[min_win_idx:max_win_idx+1])
+        y_max = max(y[min_win_idx:max_win_idx+1])
         ax.set_ylim(ymin=(y_min - 0.1 * abs(y_min)),
                     ymax=(y_max + 0.1 * abs(y_max)))
 
@@ -164,11 +164,11 @@ def pick_summary(event, station, signal, picks, onsets, ttimes, windows):
         win = windows[ph]
         onset_max = max(onsets[i][win[0]:win[2]+1])
         y_max = max(onset_max, thresh)
-        ax.set_ylim(ymin=0, ymax=y_max*1.1)
+        ax.set_ylim(0, y_max*1.1)
 
     # --- Plot predicted arrival times ---
     # Handle case where only a single phase is used
-    ax_ind = [ind for ind in range(5)]
+    ax_ind = range(5)
     colors = ["#F03B20", "#3182BD"]
     if len(phases) == 1:
         if phases[0] == "P":

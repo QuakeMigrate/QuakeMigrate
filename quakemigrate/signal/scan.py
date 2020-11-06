@@ -94,7 +94,9 @@ class QuakeScan:
     run : :class:`~quakemigrate.io.Run` object
         Light class encapsulating i/o path information for a given run.
     scan_rate : int, optional
-        Desired sampling rate of scan. Default: 50 Hz.
+        Sampling rate at which the 4-D coalescence map will be calculated.
+        Currently fixed to be the same as the onset function sampling rate (not
+        user-configurable).
     threads : int, optional
         The number of threads for the C functions to use on the executing host.
         Default: 1 thread.
@@ -192,7 +194,7 @@ class QuakeScan:
         self.threads = kwargs.get("threads", 1)
         self.n_cores = kwargs.get("n_cores")  # DEPRECATING
         self.sampling_rate = kwargs.get("sampling_rate")  # DEPRECATING
-        self.scan_rate = kwargs.get("scan_rate", 50)
+        self.scan_rate = self.onset.sampling_rate
 
         # Magnitudes
         mags = kwargs.get("mags")
@@ -480,7 +482,7 @@ class QuakeScan:
         # --- Calculate continuous coalescence within 3-D volume ---
         onsets = self.onset.calculate_onsets(data)
         try:
-            traveltimes = self.lut.serve_traveltimes(self.scan_rate,
+            traveltimes = self.lut.serve_traveltimes(self.onset.sampling_rate,
                                                      data.availability)
         except KeyError as e:
             msg = (f"Attempting to migrate phases {self.onset.phases}; but "
@@ -488,8 +490,11 @@ class QuakeScan:
                    "create a new lookup table with phases="
                    f"{self.onset.phases}")
             raise util.LUTPhasesException(msg)
-        fsmp = util.time2sample(self.pre_pad, self.scan_rate)
-        lsmp = util.time2sample(self.post_pad, self.scan_rate)
+        # Here fsmp and lsmp are used to calculate the length of map4d from the
+        # shape of the onset functions --> need to use onset sampling_rate, not
+        # scan rate.
+        fsmp = util.time2sample(self.pre_pad, self.onset.sampling_rate)
+        lsmp = util.time2sample(self.post_pad, self.onset.sampling_rate)
         avail = np.sum([value for _, value in data.availability.items()])
         map4d = migrate(onsets, traveltimes, fsmp, lsmp, avail, self.threads)
 
@@ -941,6 +946,24 @@ class QuakeScan:
 
         return mask
 
+    # --- Deprecation/Future handling ---
+    @property
+    def scan_rate(self):
+        """Get scan_rate"""
+        return self._scan_rate
+
+    @scan_rate.setter
+    def scan_rate(self, value):
+        if value is None:
+            return
+        elif value == self.onset.sampling_rate:
+            self._scan_rate = value
+            return
+        print("Warning: Parameter not yet user-configurable. Currently ")
+        print("the scan sampling rate must be the same as the onset sampling ")
+        print(f"rate, which you have set to {self.scan_rate} Hz. Please ")
+        print("contact the QuakeMigrate developers for further info.")
+
     @property
     def sampling_rate(self):
         """Get sampling_rate"""
@@ -950,12 +973,11 @@ class QuakeScan:
     def sampling_rate(self, value):
         if value is None:
             return
-        print("FutureWarning: Parameter name has changed - continuing.")
-        print("To remove this message, change:")
-        print("\t'sampling_rate' -> 'scan_rate'")
-        self.scan_rate = value
+        print("Warning: Parameter name has changed - continuing. Currently ")
+        print("the scan sampling rate must be the same as the onset sampling ")
+        print(f"rate, which you have set to {self.scan_rate} Hz. Please ")
+        print("contact the QuakeMigrate developers for further info.")
 
-    # --- Deprecation/Future handling ---
     @property
     def time_step(self):
         """Handler for deprecated attribute name 'time_step'"""

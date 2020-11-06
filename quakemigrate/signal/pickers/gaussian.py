@@ -58,7 +58,6 @@ class GaussianPicker(PhasePicker):
 
         self.onset = onset
         self.pick_threshold = kwargs.get("pick_threshold", 1.0)
-        self.sampling_rate = None
         self.plot_picks = kwargs.get("plot_picks", False)
 
         if "fraction_tt" in kwargs.keys():
@@ -108,7 +107,6 @@ class GaussianPicker(PhasePicker):
 
         # Onsets are recalculated without logging
         _ = self.onset.calculate_onsets(event.data, log=False)
-        self.sampling_rate = self.onset.sampling_rate
 
         if self._fraction_tt is None:
             fraction_tt = lut.fraction_tt
@@ -199,11 +197,11 @@ class GaussianPicker(PhasePicker):
         """
 
         arrival_idx = util.time2sample(event.otime + tt - event.data.starttime,
-                                       self.sampling_rate)
+                                       self.onset.sampling_rate)
 
         # Add length of marginal window to this and convert to index
         samples = util.time2sample(tt * fraction_tt + event.marginal_window,
-                                   self.sampling_rate)
+                                   self.onset.sampling_rate)
 
         return [arrival_idx - samples, arrival_idx, arrival_idx + samples]
 
@@ -332,7 +330,7 @@ class GaussianPicker(PhasePicker):
             padded_peak_idxs = [window[0] + p for p in padded_peak_idxs]
             logging.debug(f"\t\t    padded_peak_idxmin: {padded_peak_idxs[0]},"
                           f" padded_peak_idxmax: {padded_peak_idxs[1]}")
-            x_data = np.arange(*padded_peak_idxs) / self.sampling_rate
+            x_data = np.arange(*padded_peak_idxs) / self.onset.sampling_rate
             y_data = onset[padded_peak_idxs[0]:padded_peak_idxs[1]]
         except util.NoOnsetPeak as e:
             logging.debug(e.msg)
@@ -344,8 +342,9 @@ class GaussianPicker(PhasePicker):
         #   mean   = time of max value
         #   sigma  = data half-range
         p0 = [max(y_data),
-              (padded_peak_idxs[0] + np.argmax(y_data)) / self.sampling_rate,
-              halfwidth / self.sampling_rate]
+              (padded_peak_idxs[0] + \
+              np.argmax(y_data)) / self.onset.sampling_rate,
+              halfwidth / self.onset.sampling_rate]
         try:
             popt, _ = curve_fit(util.gaussian_1d, x_data, y_data, p0)
         except (ValueError, RuntimeError) as e:
@@ -368,7 +367,7 @@ class GaussianPicker(PhasePicker):
         sigma = np.absolute(popt[2])
 
         # Check pick mean is within the pick window.
-        if not window[0] < popt[1] * self.sampling_rate < window[2]:
+        if not window[0] < popt[1] * self.onset.sampling_rate < window[2]:
             logging.debug("\t\t    Pick mean out of bounds - continuing.")
             return self._pick_failure(threshold)
 

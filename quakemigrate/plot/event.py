@@ -16,7 +16,8 @@ import quakemigrate.util as util
 
 
 @util.timeit("info")
-def event_summary(run, event, marginal_coalescence, lut, xy_files=None):
+def event_summary(run, event, marginal_coalescence, lut, phases,
+                  xy_files=None):
     """
     Plots an event summary illustrating the locate results: slices through the
     marginalised coalescence with the location estimates (best-fitting spline
@@ -36,6 +37,8 @@ def event_summary(run, event, marginal_coalescence, lut, xy_files=None):
     lut : :class:`~quakemigrate.lut.LUT` object
         Contains the traveltime lookup tables for seismic phases, computed for
         some pre-defined velocity model.
+    phases : list of str
+        List of phases used for onset function calculation / migration.
     xy_files : str, optional
         Path to comma-separated value file (.csv) containing a series of
         coordinate files to plot. Columns: ["File", "Color", "Linewidth",
@@ -69,7 +72,7 @@ def event_summary(run, event, marginal_coalescence, lut, xy_files=None):
 
     # --- Plot LUT, waveform gather, and max coalescence trace ---
     lut.plot(fig, (9, 15), slices, event.hypocentre, "white")
-    _plot_waveform_gather(fig.axes[0], lut, event, idx_max)
+    _plot_waveform_gather(fig.axes[0], lut, phases, event, idx_max)
     _plot_coalescence_trace(fig.axes[1], event)
 
     # --- Plot xy files on map ---
@@ -127,7 +130,7 @@ WAVEFORM_COLOURS2 = ["#33a02c", "#b2df8a", "#1f78b4"]
 PICK_COLOURS = ["#F03B20", "#3182BD"]
 
 
-def _plot_waveform_gather(ax, lut, event, idx):
+def _plot_waveform_gather(ax, lut, phases, event, idx):
     """
     Utility function to bring all aspects of plotting the waveform gather into
     one place.
@@ -139,6 +142,8 @@ def _plot_waveform_gather(ax, lut, event, idx):
     lut : :class:`~quakemigrate.lut.LUT` object
         Contains the traveltime lookup tables for seismic phases, computed for
         some pre-defined velocity model.
+    phases : list of str
+        List of phases used for onset function calculation / migration.
     event : :class:`~quakemigrate.io.Event` object
         Light class encapsulating signal, onset, and location information
         for a given event.
@@ -149,7 +154,7 @@ def _plot_waveform_gather(ax, lut, event, idx):
 
     # --- Predicted traveltimes ---
     traveltimes = np.array([lut.traveltime_to(phase, idx)
-                            for phase in lut.phases])
+                            for phase in phases])
     arrivals = [[(event.otime + tt).datetime for tt in tt_f]
                 for tt_f in traveltimes]
 
@@ -157,7 +162,12 @@ def _plot_waveform_gather(ax, lut, event, idx):
                       - len(arrivals[0])) * 2
     s = (ax.get_window_extent().height / (max(range_order)+1) * 1.2) ** 2
 
-    for arrival, c, phase in zip(arrivals, PICK_COLOURS, lut.phases):
+    # Handle single-phase plotting
+    pick_colours = PICK_COLOURS
+    if len(phases) == 1:
+        if phases[0] == "S":
+            pick_colours = [PICK_COLOURS[1]]
+    for arrival, c, phase in zip(arrivals, pick_colours, phases):
         ax.scatter(arrival, range_order, s=s, c=c, marker="|", zorder=5,
                    lw=1.5, label=f"Modelled {phase}")
 

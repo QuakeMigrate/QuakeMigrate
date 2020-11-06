@@ -439,7 +439,8 @@ class QuakeScan:
 
             if self.plot_event_summary:
                 event_summary(self.run, event, marginalised_coalescence,
-                              self.lut, xy_files=self.xy_files)
+                              self.lut, self.onset.phases,
+                              xy_files=self.xy_files)
 
             if self.plot_event_video:
                 logging.info("Support for event videos coming soon.")

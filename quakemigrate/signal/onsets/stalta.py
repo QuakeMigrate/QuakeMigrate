@@ -151,6 +151,11 @@ class STALTAOnset(Onset):
 
     Attributes
     ----------
+    phases : list of str
+        Which phases to calculate onset functions for. This will determine
+        which phases are used for migration/picking. The selected phases
+        must be present in the travel-time look-up table to be used for
+        these purposes.
     bandpass_filters : dict of [float, float, int]
         Butterworth bandpass filter specification - keys are phases.
         [lowpass (Hz), highpass (Hz), corners*]
@@ -162,7 +167,7 @@ class STALTAOnset(Onset):
         Number of channels to be used to calculate the onset function for each
         phase. Keys are phases.
     sta_lta_windows : dict of [float, float]
-        Short-term average (STA) and Long-term average (LTA) window lengths - 
+        Short-term average (STA) and Long-term average (LTA) window lengths -
         keys are phases. [STA, LTA] (both in seconds)
     all_channels : bool
         If True, only calculate an onset function when all requested channels
@@ -180,7 +185,7 @@ class STALTAOnset(Onset):
         to be used for onset function calculation. This is a subtly different
         test to `allow_gaps`; data can be continuous within the timespan, but
         not span the whole period. Data will be treated as described in
-        `allow_gaps`. 
+        `allow_gaps`.
     position : str, optional
         Compute centred STA/LTA (STA window is preceded by LTA window;
         value is assigned to end of LTA window / start of STA window) or
@@ -213,6 +218,7 @@ class STALTAOnset(Onset):
         super().__init__(**kwargs)
 
         self.position = kwargs.get("position", "classic")
+        self.phases = kwargs.get("phases", ["P", "S"])
         self.bandpass_filters = kwargs.get("bandpass_filters",
                                            {"P": [2.0, 16.0, 2],
                                             "S": [2.0, 16.0, 2]})
@@ -237,7 +243,8 @@ class STALTAOnset(Onset):
         """Return short summary string of the Onset object."""
 
         out = (f"\tOnset parameters - using the {self.position} STA/LTA onset"
-               f"\n\t\tData sampling rate = {self.sampling_rate} Hz\n")
+               f"\n\t\tOnset function sampling rate = {self.sampling_rate} Hz"
+               f"\n\t\tPhase(s) = {self.phases}\n")
         for phase, filt in self.bandpass_filters.items():
             out += f"\n\t\t{phase} bandpass filter  = {filt} (Hz, Hz, -)"
         out += "\n"
@@ -247,7 +254,7 @@ class STALTAOnset(Onset):
 
         return out
 
-    def calculate_onsets(self, data, phases=["P", "S"], log=True):
+    def calculate_onsets(self, data, log=True):
         """
         Returns a stacked pair of onset (characteristic) functions for the
         requested phases.
@@ -256,8 +263,6 @@ class STALTAOnset(Onset):
         ----------
         data : :class:`~quakemigrate.io.data.WaveformData` object
             Light class encapsulating data returned by an archive query.
-        phases : list of str
-            Specify the phases to use for the onset calculation.
         log : bool
             Calculate log(onset) if True, otherwise calculate the raw onset.
 
@@ -278,7 +283,7 @@ class STALTAOnset(Onset):
         data.filtered_waveforms = Stream()
 
         # Loop through phases, pre-process data, and calculate onsets.
-        for phase in phases:
+        for phase in self.phases:
             # Select traces based on channel map for this phase
             phase_waveforms = data.waveforms.select(
                 channel=self.channel_maps[phase])
@@ -309,7 +314,7 @@ class STALTAOnset(Onset):
 
                 # If no data available, skip
                 if available == 0:
-                    logging.debug(f"\t\tNo {phase} onset for {station}.")
+                    logging.info(f"\t\tNo {phase} onset for {station}.")
                     continue
 
                 # Check that all channels met the availability critera. If

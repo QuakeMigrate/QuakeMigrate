@@ -483,7 +483,7 @@ class WaveformData:
                                         " to check all channels meet the "
                                         "availability criteria.")
                     elif len(availability) == n_channels:
-                            available = 1
+                        available = 1
                 else:
                     available = 1
             elif not all_channels \

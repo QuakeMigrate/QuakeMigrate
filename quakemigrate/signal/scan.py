@@ -342,7 +342,7 @@ class QuakeScan:
         n_steps = int(np.ceil((endtime - starttime) / self.timestep))
         availability_cols = np.array([[f"{stat}.{ph}" for stat
                                        in self.archive.stations]
-                                      for ph in self.lut.phases]).flatten()
+                                      for ph in self.onset.phases]).flatten()
         availability = pd.DataFrame(index=range(n_steps),
                                     columns=availability_cols)
 
@@ -477,9 +477,16 @@ class QuakeScan:
         """
 
         # --- Calculate continuous coalescence within 3-D volume ---
-        onsets = self.onset.calculate_onsets(data, self.lut.phases)
-        traveltimes = self.lut.serve_traveltimes(self.scan_rate,
-                                                 data.availability)
+        onsets = self.onset.calculate_onsets(data)
+        try:
+            traveltimes = self.lut.serve_traveltimes(self.scan_rate,
+                                                     data.availability)
+        except KeyError as e:
+            msg = (f"Attempting to migrate phases {self.onset.phases}; but "
+                   f"traveltimes for {e} not found in the LUT. Please "
+                   "create a new lookup table with phases="
+                   f"{self.onset.phases}")
+            raise util.LUTPhasesException(msg)
         fsmp = util.time2sample(self.pre_pad, self.scan_rate)
         lsmp = util.time2sample(self.post_pad, self.scan_rate)
         avail = np.sum([value for _, value in data.availability.items()])

@@ -107,7 +107,7 @@ class GaussianPicker(PhasePicker):
         """
 
         # Onsets are recalculated without logging
-        _ = self.onset.calculate_onsets(event.data, lut.phases, log=False)
+        _ = self.onset.calculate_onsets(event.data, log=False)
         self.sampling_rate = self.onset.sampling_rate
 
         if self._fraction_tt is None:
@@ -479,7 +479,7 @@ class GaussianPicker(PhasePicker):
         station. The search window to make a phase pick is displayed, along
         with the dynamic pick threshold (defined as a percentile of the
         background noise level), the phase pick time and its uncertainty (if
-        made) and the Gaussian fit to the characteristic function.
+        made) and the Gaussian fit to the onset function.
 
         Parameters
         ----------
@@ -509,11 +509,11 @@ class GaussianPicker(PhasePicker):
         if not bool(signal):
             return
         stpicks = picks[picks["Station"] == station].reset_index(drop=True)
-        window = event.picks["pick_windows"][station]
+        windows = event.picks["pick_windows"][station]
 
         # Call subroutine to plot basic phase pick figure
         fig = pick_summary(event, station, signal, stpicks, onsets,
-                           traveltimes, window)
+                           traveltimes, windows)
 
         # --- Gaussian fits ---
         axes = fig.axes

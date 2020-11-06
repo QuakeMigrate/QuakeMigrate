@@ -515,40 +515,6 @@ class GaussianPicker(PhasePicker):
         fig = pick_summary(event, station, signal, stpicks, onsets,
                            traveltimes, windows)
 
-        # --- Gaussian fits ---
-        axes = fig.axes
-        phases = [phase for phase, _ in onsets.items()]
-        onsets = [onset for _, onset in onsets.items()]
-        for j, (ax, ph) in enumerate(zip(axes[3:5], phases)):
-            gau = event.picks["gaussfits"][station][ph]
-            win = window[ph]
-
-            # Plot threshold
-            thresh = gau["PickThreshold"]
-            norm = max(onsets[j][win[0]:win[2]+1])
-            ax.axhline(thresh / norm, label="Pick threshold")
-            axes[5].text(0.05+j*0.5, 0.25, f"Threshold: {thresh:5.3f}",
-                         ha="left", va="center", fontsize=18)
-
-            # Check pick has been made
-            if not gau["PickValue"] == -1:
-                yy = util.gaussian_1d(gau["xdata"], gau["popt"][0],
-                                      gau["popt"][1], gau["popt"][2])
-                dt = [x.datetime for x in gau["xdata_dt"]]
-                ax.plot(dt, yy / norm)
-
-        # --- Picking windows ---
-        # Generate plottable timestamps for data
-        times = signal[0].times(type="matplotlib")
-        for j, ax in enumerate(axes[:5]):
-            win = window[phases[0]] if j % 3 == 0 else window[phases[-1]]
-            clr = "#F03B20" if j % 3 == 0 else "#3182BD"
-            ax.fill_betweenx([-1.1, 1.1], times[win[0]], times[win[2]],
-                             alpha=0.2, color=clr, label="Picking window")
-
-        for ax in axes[3:5]:
-            ax.legend(fontsize=14)
-
         fstem = f"{event.uid}_{station}"
         file = (fpath / fstem).with_suffix(".pdf")
         plt.savefig(file)

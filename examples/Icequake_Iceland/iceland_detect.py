@@ -4,8 +4,8 @@ Detect stage for the Iceland icequake example.
 
 """
 
+from quakemigrate import QuakeScan
 from quakemigrate.io import Archive, read_lut, read_stations
-from quakemigrate.signal import QuakeScan
 from quakemigrate.signal.onsets import STALTAOnset
 
 # --- i/o paths ---
@@ -30,18 +30,20 @@ archive = Archive(archive_path=data_in, stations=stations,
 lut = read_lut(lut_file=lut_out)
 
 # --- Create new Onset ---
-onset = STALTAOnset(position="classic")
-onset.p_bp_filter = [10, 125, 4]
-onset.s_bp_filter = [10, 125, 4]
-onset.p_onset_win = [0.01, 0.25]
-onset.s_onset_win = [0.05, 0.5]
+onset = STALTAOnset(position="classic", sampling_rate=500)
+onset.bandpass_filters = {
+    "P": [10, 125, 4],
+    "S": [10, 125, 4]}
+onset.sta_lta_windows = {
+    "P": [0.01, 0.25],
+    "S": [0.05, 0.5]}
 
 # --- Create new QuakeScan ---
 scan = QuakeScan(archive, lut, onset=onset, run_path=run_path,
                  run_name=run_name, log=True, loglevel="info")
 
 # --- Set detect parameters ---
-scan.sampling_rate = 500
+scan.scan_rate = 500
 scan.timestep = 0.75
 scan.threads = 12
 

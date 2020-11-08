@@ -15,6 +15,7 @@ import sys
 import time
 from datetime import datetime
 from functools import wraps
+from itertools import tee
 
 import matplotlib.ticker as ticker
 import numpy as np
@@ -276,6 +277,69 @@ def wa_response(convert='DIS2DIS', obspy_def=True):
     return woodanderson
 
 
+def resample(stream, sampling_rate, resample, upfactor):
+    """
+    Resample the stream to the specified sampling rate.
+
+    By default, this function will only perform decimation of the data. If
+    necessary, and if the user specifies `resample = True` and an upfactor
+    to upsample by `upfactor = int`, data can also be upsampled and then,
+    if necessary, subsequently decimated to achieve the desired sampling
+    rate.
+
+    For example, for raw input data sampled at a mix of 40, 50 and 100 Hz,
+    to achieve a unified sampling rate of 50 Hz, the user would have to
+    specify an upfactor of 5; 40 Hz x 5 = 200 Hz, which can then be
+    decimated to 50 Hz.
+
+    NOTE: data will be detrended and a cosine taper applied before
+    decimation, in order to avoid edge effects when applying the lowpass
+    filter.
+
+    Parameters
+    ----------
+    stream : `obspy.Stream` object
+        Contains list of `obspy.Trace` objects to be decimated / resampled.
+    resample : bool
+        If true, perform resampling of data which cannot be decimated
+        directly to the desired sampling rate.
+    upfactor : int or None
+        Factor by which to upsample the data to enable it to be decimated
+        to the desired sampling rate, e.g. 40Hz -> 50Hz requires
+        upfactor = 5.
+
+    Returns
+    -------
+    stream : `obspy.Stream` object
+        Contains list of resampled `obspy.Trace` objects at the chosen
+        sampling rate `sr`.
+
+    """
+
+    for trace in stream:
+        trace_sampling_rate = trace.stats.sampling_rate
+        if sampling_rate != trace_sampling_rate:
+            if (trace_sampling_rate % sampling_rate) == 0:
+                stream.remove(trace)
+                trace = decimate(trace, sampling_rate)
+                stream += trace
+            elif resample and upfactor is not None:
+                # Check the upsampled sampling rate can be decimated to sr
+                if int(trace_sampling_rate * upfactor) % sampling_rate != 0:
+                    raise BadUpfactorException(trace)
+                stream.remove(trace)
+                trace = upsample(trace, upfactor)
+                if trace_sampling_rate != sampling_rate:
+                    trace = decimate(trace, sampling_rate)
+                stream += trace
+            else:
+                logging.info("Mismatched sampling rates - cannot decimate "
+                             "data - to resample data, set .resample "
+                             "= True and choose a suitable upfactor")
+
+    return stream
+
+
 def decimate(trace, sr):
     """
     Decimate a trace to achieve the desired sampling rate, sr.
@@ -349,6 +413,14 @@ def upsample(trace, upfactor):
     out.stats.sampling_rate = int(upfactor * trace.stats.sampling_rate)
 
     return out
+
+
+def pairwise(iterable):
+    """Utility to iterate over an iterable pairwise."""
+
+    a, b = tee(iterable)
+    next(b, None)
+    return zip(a, b)
 
 
 def timeit(*args_, **kwargs_):
@@ -480,6 +552,19 @@ class ChannelNameException(Exception):
         super().__init__(msg)
 
 
+class NoOnsetPeak(Exception):
+    """
+    Custom exception to handle case when no values in the onset function exceed
+    the threshold used for picking.
+
+    """
+
+    def __init__(self, threshold):
+        self.msg = ("\t\t    No onset signal exceeding threshold "
+                    f"({threshold:5.3f}) - continuing.")
+        super().__init__(self.msg)
+
+
 class BadUpfactorException(Exception):
     """
     Custom exception to handle case when the chosen upfactor does not create a
@@ -517,6 +602,18 @@ class PickerTypeError(Exception):
     def __init__(self):
         msg = ("PickerTypeError: The PhasePicker object you have created does "
                "not inherit from the required base class - see manual.")
+        super().__init__(msg)
+
+
+class LUTPhasesException(Exception):
+    """
+    Custom exception to handle the case when the look-up table does not
+    contain the traveltimes for the phases necessary for a given function.
+
+    """
+
+    def __init__(self, message):
+        msg = (f"LUTPhasesException: {message}")
         super().__init__(msg)
 
 

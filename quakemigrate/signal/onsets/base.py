@@ -39,13 +39,18 @@ class Onset(ABC):
     -------
     calculate_onsets()
         Generate onset functions that represent seismic phase arrivals
+    pad(timespan)
+        Create appropriate padding to include the taper.
 
     """
 
     def __init__(self, **kwargs):
         """Instantiate the Onset object."""
 
-        self.sampling_rate = kwargs.get("sampling_rate", 50)
+        self.sampling_rate = kwargs.get("sampling_rate")
+        if self.sampling_rate is None:
+            raise ValueError("Must specify 'sampling_rate' for any Onset.")
+
         self._pre_pad = 0
         self._post_pad = 0
 

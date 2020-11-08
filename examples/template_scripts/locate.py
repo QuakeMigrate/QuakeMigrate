@@ -8,8 +8,8 @@ For more details, please see the manual and read the docs.
 
 from obspy.core import AttribDict
 
+from quakemigrate import QuakeScan
 from quakemigrate.io import Archive, read_lut, read_response_inv, read_stations
-from quakemigrate.signal import QuakeScan
 from quakemigrate.signal.onsets import STALTAOnset
 from quakemigrate.signal.pickers import GaussianPicker
 from quakemigrate.signal.local_mag import LocalMag
@@ -50,11 +50,13 @@ lut = read_lut(lut_file=lut_file)
 # lut = lut.decimate([1, 1, 1])
 
 # --- Create new Onset function ---
-onset = STALTAOnset(position="centred")
-onset.p_bp_filter = [2, 9.9, 2]
-onset.s_bp_filter = [2, 9.9, 2]
-onset.p_onset_win = [0.2, 1.5]
-onset.s_onset_win = [0.2, 1.5]
+onset = STALTAOnset(position="centred", sampling_rate=20)
+onset.bandpass_filters = {
+    "P": [2, 9.9, 2],
+    "S": [2, 9.9, 2]}
+onset.sta_lta_windows = {
+    "P": [0.2, 1.5],
+    "S": [0.2, 1.5]}
 
 # --- Create new PhasePicker ---
 # For a complete list of parameters and guidance on how to choose them, please
@@ -65,8 +67,7 @@ gausspicker_onset.s_bp_filter = [2, 9.9, 2]
 gausspicker_onset.p_onset_win = [0.2, 1.5]
 gausspicker_onset.s_onset_win = [0.2, 1.5]
 
-picker = GaussianPicker(onset=gausspicker_onset, marginal_window=1)
-picker.plot_picks = True
+picker = GaussianPicker(onset=gausspicker_onset, plot_picks=True)
 
 # --- Create new LocalMag object ---
 # All parameters are optional: see the documentation for a complete guide.
@@ -82,7 +83,7 @@ amp_params.remove_full_response = False
 # built-in options, or specify your own function. All other parameters are
 # optional - see the documentation for a complete guide.
 mag_params = AttribDict()
-mag_params.A0 = "Hutton-Boore" # NOTE: REQUIRED PARAMETER!
+mag_params.A0 = "Hutton-Boore"  # NOTE: REQUIRED PARAMETER!
 mag_params.use_hyp_dist = False
 mag_params.amp_feature = "S_amp"
 mag_params.station_corrections = {}

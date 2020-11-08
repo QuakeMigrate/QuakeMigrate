@@ -6,8 +6,8 @@ For more details, please see the manual and read the docs.
 
 """
 
+from quakemigrate import QuakeScan
 from quakemigrate.io import Archive, read_lut, read_stations
-from quakemigrate.signal import QuakeScan
 from quakemigrate.signal.onsets import STALTAOnset
 
 # --- i/o paths ---
@@ -42,11 +42,13 @@ lut = read_lut(lut_file=lut_file)
 lut = lut.decimate([5, 5, 4])
 
 # --- Create new Onset ---
-onset = STALTAOnset(position="classic")
-onset.p_bp_filter = [2, 9.9, 2]
-onset.s_bp_filter = [2, 9.9, 2]
-onset.p_onset_win = [0.2, 1.5]
-onset.s_onset_win = [0.2, 1.5]
+onset = STALTAOnset(position="classic", sampling_rate=20)
+onset.bandpass_filters = {
+    "P": [2, 9.9, 2],
+    "S": [2, 9.9, 2]}
+onset.sta_lta_windows = {
+    "P": [0.2, 1.5],
+    "S": [0.2, 1.5]}
 
 # --- Create new QuakeScan ---
 scan = QuakeScan(archive, lut, onset=onset, run_path=run_path,

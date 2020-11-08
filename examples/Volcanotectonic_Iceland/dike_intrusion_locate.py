@@ -62,7 +62,7 @@ mags = LocalMag(amp_params=amp_params, mag_params=mag_params,
 lut = read_lut(lut_file=lut_file)
 
 # --- Create new Onset ---
-onset = STALTAOnset(position="centred")
+onset = STALTAOnset(position="centred", sampling_rate=50)
 onset.p_bp_filter = [2, 16, 2]
 onset.s_bp_filter = [2, 16, 2]
 onset.p_onset_win = [0.2, 1.0]

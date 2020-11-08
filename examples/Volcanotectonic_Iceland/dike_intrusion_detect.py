@@ -39,7 +39,7 @@ lut = read_lut(lut_file=lut_file)
 lut.decimate([2, 2, 2], inplace=True)
 
 # --- Create new Onset ---
-onset = STALTAOnset(position="classic")
+onset = STALTAOnset(position="classic", sampling_rate=50)
 onset.p_bp_filter = [2, 16, 2]
 onset.s_bp_filter = [2, 16, 2]
 onset.p_onset_win = [0.2, 1.0]

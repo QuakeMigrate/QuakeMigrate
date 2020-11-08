@@ -4,8 +4,8 @@ Locate stage for the Iceland icequake example.
 
 """
 
+from quakemigrate import QuakeScan
 from quakemigrate.io import Archive, read_lut, read_stations
-from quakemigrate.signal import QuakeScan
 from quakemigrate.signal.onsets import STALTAOnset
 from quakemigrate.signal.pickers import GaussianPicker
 
@@ -31,16 +31,17 @@ archive = Archive(archive_path=data_in, stations=stations,
 lut = read_lut(lut_file=lut_out)
 
 # --- Create new Onset ---
-onset = STALTAOnset(position="centred")
-onset.p_bp_filter = [10, 125, 4]
-onset.s_bp_filter = [10, 125, 4]
-onset.p_onset_win = [0.01, 0.25]
-onset.s_onset_win = [0.05, 0.5]
+onset = STALTAOnset(position="centred", sampling_rate=500)
+onset.bandpass_filters = {
+    "P": [10, 125, 4],
+    "S": [10, 125, 4]}
+onset.sta_lta_windows = {
+    "P": [0.01, 0.25],
+    "S": [0.05, 0.5]}
 
 # --- Create new PhasePicker ---
-picker = GaussianPicker(onset=onset)
-picker.marginal_window = 1.
-picker.plot_picks = True
+picker = GaussianPicker(onset=onset, plot_picks=True)
+picker.sampling_rate = 500
 
 # --- Create new QuakeScan ---
 scan = QuakeScan(archive, lut, onset=onset, picker=picker,
@@ -52,7 +53,7 @@ scan = QuakeScan(archive, lut, onset=onset, picker=picker,
 # see the manual and read the docs.
 scan.marginal_window = 1.
 scan.threads = 12
-scan.sampling_rate = 500
+scan.scan_rate = 500
 
 # --- Toggle plotting options ---
 scan.plot_event_video = False

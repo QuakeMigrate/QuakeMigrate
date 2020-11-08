@@ -26,6 +26,8 @@ EVENT_FILE_COLS = ["EventID", "DT", "X", "Y", "Z", "COA", "COA_NORM",
                    "COV_ErrX", "COV_ErrY", "COV_ErrZ",
                    "TRIG_COA", "DEC_COA", "DEC_COA_NORM"]
 
+XYZ, ERR_XYZ = ["X", "Y", "Z"], ["ErrX", "ErrY", "ErrZ"]
+
 
 class Event:
     """
@@ -35,10 +37,10 @@ class Event:
 
     Parameters
     ----------
-    triggered_event : `pandas.Series` object
-        Contains information on the event output by the trigger stage.
     marginal_window : float
         Estimate of the uncertainty in the earthquake origin time.
+    triggered_event : `pandas.Series` object, optional
+        Contains information on the event output by the trigger stage.
 
     Attributes
     ----------
@@ -59,9 +61,6 @@ class Event:
         Z : `numpy.ndarray` of floats, shape(nsamples)
             Z coordinate of maximum coalescence through time in input
             projection space.
-    coa_time : `obspy.UTCDateTime` object
-        The peak coalescence time of the triggered event from the (decimated)
-        coalescence output by detect.
     hypocentre : `numpy.ndarray` of floats
         Geographical coordinates of the instantaneous event hypocentre.
     locations : dict
@@ -93,6 +92,9 @@ class Event:
             The peak coalescence value.
         DEC_COA_NORM : float
             The peak normalised coalescence value.
+    trigger_time : `obspy.UTCDateTime` object
+        The peak coalescence time of the triggered event from the (decimated)
+        coalescence output by detect.
     uid : str
         A unique identifier for the event based on the peak coalescence time.
 
@@ -124,32 +126,20 @@ class Event:
 
     """
 
-    def __init__(self, triggered_event, marginal_window):
+    def __init__(self, marginal_window, triggered_event=None):
         """Instantiate the Event object."""
 
-        self.coa_time = triggered_event["CoaTime"]
-        self.uid = triggered_event["EventID"]
         self.marginal_window = marginal_window
 
-        try:
-            self.trigger_info = {"TRIG_COA": triggered_event["TRIG_COA"],
-                                 "DEC_COA": triggered_event["COA"],
-                                 "DEC_COA_NORM": triggered_event["COA_NORM"]}
-        except KeyError:
-            # --- Backwards compatibility ---
-            try:
-                self.trigger_info = {"TRIG_COA": triggered_event["COA_V"],
-                                     "DEC_COA": triggered_event["COA"],
-                                     "DEC_COA_NORM": \
-                                         triggered_event["COA_NORM"]}
-            except KeyError:
-                self.trigger_info = {"TRIG_COA": triggered_event["COA_V"],
-                                     "DEC_COA": np.nan,
-                                     "DEC_COA_NORM": np.nan}
+        if triggered_event is not None:
+            self.uid = triggered_event["EventID"]
+            self.trigger_time = triggered_event["CoaTime"]
+            self.trigger_info = self._parse_triggered_event(triggered_event)
 
         self.data = None
         self.coa_data = None
         self.map4d = None
+        self.otime = None
         self.locations = {}
         self.picks = {}
         self.localmag = {}
@@ -197,6 +187,8 @@ class Event:
                                       "Y": coord[:, 1],
                                       "Z": coord[:, 2]})
         self.map4d = map4d
+        idxmax = self.coa_data["COA"].astype(float).idxmax()
+        self.otime = self.coa_data.iloc[idxmax]["DT"]
 
     def add_covariance_location(self, xyz, xyz_unc):
         """
@@ -252,7 +244,7 @@ class Event:
 
         """
 
-        self.locations["spline"] = dict(zip(["X", "Y", "Z"], xyz))
+        self.locations["spline"] = dict(zip(XYZ, xyz))
 
     def add_picks(self, pick_df, **kwargs):
         """
@@ -331,7 +323,8 @@ class Event:
 
         window_start = self.otime - self.marginal_window
         window_end = self.otime + self.marginal_window
-        cond = (self.coa_time > window_start) and (self.coa_time < window_end)
+        cond = (self.trigger_time > window_start
+                and self.trigger_time < window_end)
         if not cond:
             logging.info(f"\tEvent {self.uid} is outside marginal window.")
             logging.info("\tDefine more realistic error - the marginal "
@@ -345,7 +338,7 @@ class Event:
     def mw_times(self, sampling_rate):
         """
         Utility function to generate timestamps between `data.starttime` and
-        `data.endtime`, with a sample size of `data.sample_size`
+        `data.endtime`, with a sample size of 1 / `sampling_rate`.
 
         Returns
         -------
@@ -355,9 +348,10 @@ class Event:
         """
 
         # Utilise the .times() method of `obspy.Trace` objects
-        tr = Trace(header={"npts": 4*self.marginal_window*sampling_rate + 1,
-                           "sampling_rate": sampling_rate,
-                           "starttime": self.coa_time - 2*self.marginal_window})
+        tr = Trace(header={
+            "npts": 4 * self.marginal_window * sampling_rate + 1,
+            "sampling_rate": sampling_rate,
+            "starttime": self.trigger_time - 2 * self.marginal_window})
         return tr.times(type="utcdatetime")
 
     def trim2window(self):
@@ -375,6 +369,9 @@ class Event:
                                 self.coa_data.index[0]:self.coa_data.index[-1]]
         self.coa_data.reset_index(drop=True, inplace=True)
 
+        idxmax = self.coa_data["COA"].astype(float).idxmax()
+        self.otime = self.coa_data.iloc[idxmax]["DT"]
+
     def write(self, run, lut):
         """
         Write event. to a .event file.
@@ -383,6 +380,9 @@ class Event:
         ----------
         run : :class:`~quakemigrate.io.Run` object
             Light class encapsulating i/o path information for a given run.
+        lut : :class:`~quakemigrate.lut.LUT` object
+            Contains the traveltime lookup tables for seismic phases, computed
+            for some pre-defined velocity model.
 
         """
 
@@ -394,10 +394,10 @@ class Event:
 
         # Rename keys for locations; do not output covariance loc (just err)
         loc = self.locations["spline"]
-        gau = dict((f"GAU_{key}", value) \
-            for (key, value) in self.locations["gaussian"].items())
-        cov = dict((f"COV_{key}", value) \
-            for (key, value) in list(self.locations["covariance"].items())[3:])
+        gau = dict((f"GAU_{key}", value) for (key, value)
+                   in self.locations["gaussian"].items())
+        cov = dict((f"COV_{key}", value) for (key, value)
+                   in list(self.locations["covariance"].items())[3:])
         out = {**out, **loc, **gau, **cov}
 
         if self.localmag.get("ML") is not None:
@@ -413,7 +413,7 @@ class Event:
                                               na_action="ignore")
 
         # Set floating point precision for locations & loc uncertainties
-        for axis_precision, axis in zip(lut.precision, ["X", "Y", "Z"]):
+        for axis_precision, axis in zip(lut.precision, XYZ):
             # Sort out which columns to format
             cols = [axis, f"GAU_{axis}"]
             if axis == "Z":
@@ -456,9 +456,11 @@ class Event:
 
         hypocentre = self.locations[method]
 
-        ev_loc = np.array([hypocentre[k] for k in ["X", "Y", "Z"]])
+        ev_loc = np.array([hypocentre[k] for k in XYZ])
 
         return ev_loc
+
+    hypocentre = property(get_hypocentre)
 
     def get_loc_uncertainty(self, method="gaussian"):
         """
@@ -479,11 +481,9 @@ class Event:
 
         loc = self.locations[method]
 
-        ev_loc_unc = np.array([loc[k] for k in ["ErrX", "ErrY", "ErrZ"]])
+        ev_loc_unc = np.array([loc[k] for k in ERR_XYZ])
 
         return ev_loc_unc
-
-    hypocentre = property(get_hypocentre)
 
     loc_uncertainty = property(get_loc_uncertainty)
 
@@ -505,8 +505,31 @@ class Event:
 
         return dict(zip(keys, max_coa[keys].values))
 
-    @property
-    def otime(self):
-        """Get the origin time based on the peak coalescence."""
-        idxmax = self.coa_data["COA"].astype(float).idxmax()
-        return self.coa_data.iloc[idxmax]["DT"]
+    def _parse_triggered_event(self, event_data):
+        """
+        Parse the information from a triggered event `pandas.Series` object
+        into the Event object.
+
+        Parameters
+        ----------
+        event_data : `~pandas.Series` object
+            Contains information on the event output by the trigger stage.
+
+        """
+
+        try:
+            trigger_info = {"TRIG_COA": event_data["TRIG_COA"],
+                            "DEC_COA": event_data["COA"],
+                            "DEC_COA_NORM": event_data["COA_NORM"]}
+        except KeyError:
+            # --- Backwards compatibility ---
+            try:
+                trigger_info = {"TRIG_COA": event_data["COA_V"],
+                                "DEC_COA": event_data["COA"],
+                                "DEC_COA_NORM": event_data["COA_NORM"]}
+            except KeyError:
+                trigger_info = {"TRIG_COA": event_data["COA_V"],
+                                "DEC_COA": np.nan,
+                                "DEC_COA_NORM": np.nan}
+
+        return trigger_info

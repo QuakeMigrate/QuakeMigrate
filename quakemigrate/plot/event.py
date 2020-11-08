@@ -22,7 +22,8 @@ import quakemigrate.util as util
 
 
 @util.timeit("info")
-def event_summary(run, event, marginal_coalescence, lut, xy_files=None):
+def event_summary(run, event, marginal_coalescence, lut, phases,
+                  xy_files=None):
     """
     Plots an event summary illustrating the locate results: slices through the
     marginalised coalescence with the location estimates (best-fitting spline
@@ -42,6 +43,8 @@ def event_summary(run, event, marginal_coalescence, lut, xy_files=None):
     lut : :class:`~quakemigrate.lut.LUT` object
         Contains the traveltime lookup tables for seismic phases, computed for
         some pre-defined velocity model.
+    phases : list of str
+        List of phases used for onset function calculation / migration.
     xy_files : str, optional
         Path to comma-separated value file (.csv) containing a series of
         coordinate files to plot. Columns: ["File", "Color", "Linewidth",
@@ -77,7 +80,7 @@ def event_summary(run, event, marginal_coalescence, lut, xy_files=None):
 
     # --- Plot LUT, waveform gather, and max coalescence trace ---
     lut.plot(fig, (9, 15), slices, event.hypocentre, "white")
-    _plot_waveform_gather(fig.axes[0], lut, event, idx_max)
+    _plot_waveform_gather(fig.axes[0], lut, phases, event, idx_max)
     _plot_coalescence_trace(fig.axes[1], event)
 
     # --- Plot xy files on map ---
@@ -135,7 +138,7 @@ WAVEFORM_COLOURS2 = ["#33a02c", "#b2df8a", "#1f78b4"]
 PICK_COLOURS = ["#F03B20", "#3182BD"]
 
 
-def _plot_waveform_gather(ax, lut, event, idx):
+def _plot_waveform_gather(ax, lut, phases, event, idx):
     """
     Utility function to bring all aspects of plotting the waveform gather into
     one place.
@@ -147,6 +150,8 @@ def _plot_waveform_gather(ax, lut, event, idx):
     lut : :class:`~quakemigrate.lut.LUT` object
         Contains the traveltime lookup tables for seismic phases, computed for
         some pre-defined velocity model.
+    phases : list of str
+        List of phases used for onset function calculation / migration.
     event : :class:`~quakemigrate.io.Event` object
         Light class encapsulating signal, onset, and location information
         for a given event.
@@ -156,30 +161,41 @@ def _plot_waveform_gather(ax, lut, event, idx):
     """
 
     # --- Predicted traveltimes ---
-    ttpf, ttsf = [lut.traveltime_to(phase, idx) for phase in ["P", "S"]]
-    ttp = [(event.otime + tt).datetime for tt in ttpf]
-    tts = [(event.otime + tt).datetime for tt in ttsf]
-    range_order = abs(np.argsort(np.argsort(ttp)) - len(ttp)) * 2
+    traveltimes = np.array([lut.traveltime_to(phase, idx)
+                            for phase in phases])
+    arrivals = [[(event.otime + tt).datetime for tt in tt_f]
+                for tt_f in traveltimes]
+
+    range_order = abs(np.argsort(np.argsort(arrivals[0]))
+                      - len(arrivals[0])) * 2
     s = (ax.get_window_extent().height / (max(range_order)+1) * 1.2) ** 2
-    max_tts = max(ttsf)
-    for tt, c, phase in zip([ttp, tts], PICK_COLOURS, "PS"):
-        ax.scatter(tt, range_order, s=s, c=c, marker="|", zorder=5, lw=1.5,
-                   label=f"Modelled {phase}")
+
+    # Handle single-phase plotting
+    pick_colours = PICK_COLOURS
+    if len(phases) == 1:
+        if phases[0] == "S":
+            pick_colours = [PICK_COLOURS[1]]
+    for arrival, c, phase in zip(arrivals, pick_colours, phases):
+        ax.scatter(arrival, range_order, s=s, c=c, marker="|", zorder=5,
+                   lw=1.5, label=f"Modelled {phase}")
 
     # --- Waveforms ---
-    times_utc = event.data.times(type="UTCDateTime")
-    mint, maxt = event.otime - 0.1, event.otime + max_tts*1.5
+    times_utc = event.data.filtered_waveforms[0].times(type="UTCDateTime")
+    mint, maxt = event.otime - 0.1, event.otime + np.max(traveltimes)*1.5
     mint_i, maxt_i = [np.argmin(abs(times_utc - t)) for t in (mint, maxt)]
-    times_plot = event.data.times(type="matplotlib")[mint_i:maxt_i]
-    for i, signal in enumerate(np.rollaxis(event.data.filtered_signal, 1)):
-        for data, c, comp in zip(signal[::-1], WAVEFORM_COLOURS1,
-                                 "ZNE"):
-            if not data.any():
+    times_plot = event.data.filtered_waveforms[0].times(type="matplotlib")[mint_i:maxt_i]
+    for i, station in enumerate(event.data.stations):
+        waveforms = event.data.filtered_waveforms.select(station=station)
+        for c, comp in zip(WAVEFORM_COLOURS1, ["Z", "[N,1]", "[E,2]"]):
+            data = waveforms.select(component=comp)
+            if not bool(data):
                 continue
-            data[mint_i:]
+            comp = data[0].stats.component
+            data = data[0].data
 
             # Get station specific range for norm factor
-            stat_maxt = event.otime + ttsf[i]*1.5
+            stat_maxt = event.otime + max(traveltimes[:, i])*1.5
+
             norm = max(abs(data[mint_i:np.argmin(abs(times_utc - stat_maxt))]))
 
             y = data[mint_i:maxt_i] / norm + range_order[i]

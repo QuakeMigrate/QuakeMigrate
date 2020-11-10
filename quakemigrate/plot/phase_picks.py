@@ -67,6 +67,7 @@ def pick_summary(event, station, signal, picks, onsets, ttimes, windows):
     axes[0].set_yticklabels([])
     axes[0].yaxis.set_ticks_position('none')
     axes[0].set_title("P phase", fontsize=22, fontweight="bold")
+    axes[3].set_xlabel("DateTime", fontsize=14)
 
     # Share S-pick x-axes and set title
     for ax in axes[1:3]:
@@ -75,6 +76,7 @@ def pick_summary(event, station, signal, picks, onsets, ttimes, windows):
         ax.set_yticklabels([])
         ax.yaxis.set_ticks_position('none')
     axes[1].set_title("S phase", fontsize=22, fontweight="bold")
+    axes[4].set_xlabel("DateTime", fontsize=14)
 
     # Add axis for text info
     text = fig.add_subplot(3, 2, 1)

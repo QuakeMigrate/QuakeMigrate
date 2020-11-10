@@ -208,6 +208,7 @@ def setup_package():
         "install_requires": install_requires,
         "extras_require": get_extras_require(),
         "zip_safe": False,
+        "cmdclass": {"build_ext": CustomBuildExt},
         "packages": ["quakemigrate",
                      "quakemigrate.core",
                      "quakemigrate.export",

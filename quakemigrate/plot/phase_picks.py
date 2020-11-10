@@ -234,7 +234,7 @@ def pick_summary(event, station, signal, picks, onsets, ttimes, windows):
         if ind > 2:
             axes[ind].legend(fontsize=16, loc="upper right")
 
-    fig.tight_layout(pad=4, w_pad=4)
+    fig.tight_layout(pad=1)
     plt.subplots_adjust(hspace=0)
 
     return fig

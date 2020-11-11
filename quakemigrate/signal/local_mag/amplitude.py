@@ -551,16 +551,25 @@ class Amplitude:
 
         """
 
-        p_pick, s_pick = self._get_picks(station, event)
+        p_pick, s_pick, picked = self._get_picks(station, event)
 
-        picked = True
         for pick, phase in [[p_pick, "P"], [s_pick, "S"]]:
-            if not isinstance(pick, UTCDateTime) and pick == "-1":
-                picked = False
-                if phase == "P":
+            if not isinstance(pick, UTCDateTime):
+                if pick == "-1":
+                    if phase == "P":
+                        p_pick = event.otime + p_ttimes[i]
+                    else:
+                        s_pick = event.otime + s_ttimes[i]
+                # If there was no onset available for one phase, the pick for
+                # the other may not have been checked to ensure it was made
+                # before/after the modelled arrival time for the other phase.
+                # So use modelled arrival time for both phases.
+                elif pick == f"No {phase} onset":
+                    logging.debug(f"No onset available when picking {phase} on "
+                                  f"{station}. Using modelled arrival times.")
                     p_pick = event.otime + p_ttimes[i]
-                else:
                     s_pick = event.otime + s_ttimes[i]
+                    break
 
         # Check p_pick is before s_pick
         try:
@@ -610,27 +619,36 @@ class Amplitude:
         s_pick : `obspy.UTCDateTime` object or "-1"
             S pick time. Autopick time if available, otherwise ModelledTime
             calculated by the autpicker.
+        picked : bool
+            Whether at least one phase was picked by the auto-picker.
 
         """
 
         picks = event.picks["df"]
         picks = picks.loc[picks["Station"] == station]
+        picked = False
 
         if len(picks) > 0:
             try:
                 p_pick = picks.loc[picks["Phase"] == "P"]["PickTime"].iloc[0]
                 p_pick = UTCDateTime(str(p_pick))
-            except (IndexError, ValueError):  # UTCDateTime("-1") -> ValueError
+                picked = True
+            except IndexError:
+                p_pick = "No P onset"
+            except ValueError:  # UTCDateTime("-1") -> ValueError
                 p_pick = "-1"
             try:
                 s_pick = picks.loc[picks["Phase"] == "S"]["PickTime"].iloc[0]
                 s_pick = UTCDateTime(str(s_pick))
-            except (IndexError, ValueError):  # UTCDateTime("-1") -> ValueError
+                picked = True
+            except IndexError:
+                s_pick = "No S onset"
+            except ValueError:  # UTCDateTime("-1") -> ValueError
                 s_pick = "-1"
         else:
             p_pick = s_pick = "-1"
 
-        return p_pick, s_pick
+        return p_pick, s_pick, picked
 
     def _measure_signal_amps(self, amps, tr, windows, filter_sos=None):
         """

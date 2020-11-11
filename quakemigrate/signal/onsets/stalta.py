@@ -123,6 +123,7 @@ def pre_process(stream, sampling_rate, resample, upfactor, filter_):
 
     """
 
+    logging.debug(stream.__str__(extended=True))
     # Resample the data here
     resampled_stream = util.resample(stream, sampling_rate, resample, upfactor)
 
@@ -185,13 +186,16 @@ class STALTAOnset(Onset):
         Gappy data will be detrended, tapered and filtered, then gaps padded
         with zeros. This should help mitigate the expected spikes as data
         goes on- and off-line, but will not eliminate it. Onset functions for
-        periods with no data will be filled with zeros.
+        periods with no data will be filled with ~ zeros (smallest possible
+        float, to avoid floating point errors). NOTE: This feature is
+        experimental and still under development.
     full_timespan : bool
         If False, allow data which doesn't cover the full timespan requested
         to be used for onset function calculation. This is a subtly different
-        test to `allow_gaps`; data can be continuous within the timespan, but
-        not span the whole period. Data will be treated as described in
-        `allow_gaps`.
+        test to `allow_gaps`; data must be continuous within the timespan, but
+        may not span the whole period. Data will be treated as described in
+        `allow_gaps`. NOTE: This feature is experimental and still under
+        development.
     position : str, optional
         Compute centred STA/LTA (STA window is preceded by LTA window;
         value is assigned to end of LTA window / start of STA window) or
@@ -330,13 +334,22 @@ class STALTAOnset(Onset):
                         to_remove = waveforms.select(id=key)
                         [waveforms.remove(tr) for tr in to_remove]
 
-                # Pad with zeros so onset will be the correct length. Note:
-                # this will only have an effect if allow_gaps=True or
+                # Pad with tiny floats so onset will be the correct length.
+                # Note: this will only have an effect if allow_gaps=True or
                 # full_timespan=False. Otherwise, there will be no gaps to pad.
                 if self.allow_gaps or not self.full_timespan:
+                    # Square root to avoid floating point errors when value
+                    # is squared to compute the energy trace
+                    tiny = np.sqrt(np.finfo(float).tiny)
+                    # Apply another taper to remove transients from filtering -
+                    # this is within the pre- and post-pad for continuous data
+                    waveforms.taper(type="cosine", max_percentage=0.05)
+                    # Fill gaps
+                    waveforms.merge(method=1, fill_value=tiny)
+                    # Pad start/end
                     waveforms.trim(starttime=data.starttime,
                                    endtime=data.endtime, pad=True,
-                                   fill_value=0)
+                                   fill_value=tiny)
 
                 # Calculate onset and add to WaveForm data object; add filtered
                 # waveforms that have passed the availability check to

@@ -449,6 +449,7 @@ class WaveformData:
 
         availability = {}
         available = 0
+        timespan = self.endtime - self.starttime
 
         # Check if any channels in stream
         if bool(st):
@@ -471,10 +472,10 @@ class WaveformData:
                         continue
                 # Check data covers full timespan (if requested)
                 if full_timespan:
+                    n_samples = timespan * st_id[0].stats.sampling_rate + 1
                     if len(st_id) > 1:
                         continue
-                    elif st_id[0].stats.starttime != self.starttime or \
-                        st_id[0].stats.endtime != self.endtime:
+                    elif st_id[0].stats.npts < n_samples:
                         continue
                 # If passed all tests, set availability to 1
                 availability[tr_id] = 1

@@ -22,14 +22,15 @@ import quakemigrate.util as util
 
 
 @util.timeit("info")
-def event_summary(run, event, marginal_coalescence, lut, phases,
-                  xy_files=None):
+def event_summary(run, event, marginalised_coa_map, lut, xy_files=None):
     """
     Plots an event summary illustrating the locate results: slices through the
-    marginalised coalescence with the location estimates (best-fitting spline
-    to interpolated coalescence; Gaussian fit; covariance fit) and associated
-    uncertainties; a gather of the filtered station data, sorted by distance
-    from the event; and the maximum coalescence through time.
+    marginalised coalescence map with the best location estimate (peak of
+    interpolated spline fitted to 3-D coalescence map) and uncertainty ellipse
+    from gaussian fit to gaussian-smoothed 3-D coalescence map. Plus a waveform
+    gather of the pre-processed waveform data used to calculate the onset
+    functions (sorted by distance from the event), and a plot of the maximum
+    value of the 4-D coalescence function through time.
 
     Parameters
     ----------
@@ -38,13 +39,11 @@ def event_summary(run, event, marginal_coalescence, lut, phases,
     event : :class:`~quakemigrate.io.Event` object
         Light class encapsulating signal, onset, and location information
         for a given event.
-    marginal_coalescence : `~numpy.ndarray` of `~numpy.double`
+    marginalised_coa_map : `~numpy.ndarray` of `~numpy.double`
         Marginalised 3-D coalescence map, shape(nx, ny, nz).
     lut : :class:`~quakemigrate.lut.LUT` object
         Contains the traveltime lookup tables for seismic phases, computed for
         some pre-defined velocity model.
-    phases : list of str
-        List of phases used for onset function calculation / migration.
     xy_files : str, optional
         Path to comma-separated value file (.csv) containing a series of
         coordinate files to plot. Columns: ["File", "Color", "Linewidth",
@@ -62,7 +61,7 @@ def event_summary(run, event, marginal_coalescence, lut, phases,
     logging.info("\tPlotting event summary figure...")
 
     # Extract indices and grid coordinates of maximum coalescence
-    coa_map = np.ma.masked_invalid(marginal_coalescence)
+    coa_map = np.ma.masked_invalid(marginalised_coa_map)
     idx_max = np.column_stack(np.where(coa_map == np.nanmax(coa_map)))[0]
     slices = [coa_map[:, :, idx_max[2]],
               coa_map[:, idx_max[1], :],
@@ -80,7 +79,7 @@ def event_summary(run, event, marginal_coalescence, lut, phases,
 
     # --- Plot LUT, waveform gather, and max coalescence trace ---
     lut.plot(fig, (9, 15), slices, event.hypocentre, "white")
-    _plot_waveform_gather(fig.axes[0], lut, phases, event, idx_max)
+    _plot_waveform_gather(fig.axes[0], lut, event, idx_max)
     _plot_coalescence_trace(fig.axes[1], event)
 
     # --- Plot xy files on map ---
@@ -138,7 +137,7 @@ WAVEFORM_COLOURS2 = ["#33a02c", "#b2df8a", "#1f78b4"]
 PICK_COLOURS = ["#F03B20", "#3182BD"]
 
 
-def _plot_waveform_gather(ax, lut, phases, event, idx):
+def _plot_waveform_gather(ax, lut, event, idx):
     """
     Utility function to bring all aspects of plotting the waveform gather into
     one place.
@@ -150,8 +149,6 @@ def _plot_waveform_gather(ax, lut, phases, event, idx):
     lut : :class:`~quakemigrate.lut.LUT` object
         Contains the traveltime lookup tables for seismic phases, computed for
         some pre-defined velocity model.
-    phases : list of str
-        List of phases used for onset function calculation / migration.
     event : :class:`~quakemigrate.io.Event` object
         Light class encapsulating signal, onset, and location information
         for a given event.
@@ -159,6 +156,8 @@ def _plot_waveform_gather(ax, lut, phases, event, idx):
         Marginalised 3-D coalescence map, shape(nx, ny, nz).
 
     """
+
+    phases = event.onset_data.phases
 
     # --- Predicted traveltimes ---
     traveltimes = np.array([lut.traveltime_to(phase, idx)
@@ -173,34 +172,42 @@ def _plot_waveform_gather(ax, lut, phases, event, idx):
     # Handle single-phase plotting
     pick_colours = PICK_COLOURS
     if len(phases) == 1:
-        if phases[0] == "S":
-            pick_colours = [PICK_COLOURS[1]]
+        if phases[0] == "P":
+            pick_colours = [PICK_COLOURS[0]]
     for arrival, c, phase in zip(arrivals, pick_colours, phases):
         ax.scatter(arrival, range_order, s=s, c=c, marker="|", zorder=5,
                    lw=1.5, label=f"Modelled {phase}")
 
     # --- Waveforms ---
-    times_utc = event.data.filtered_waveforms[0].times(type="UTCDateTime")
-    mint, maxt = event.otime - 0.1, event.otime + np.max(traveltimes)*1.5
+    waveforms = event.onset_data.filtered_waveforms
+    # Min and max times to plot
+    mint = event.otime - 0.1
+    maxt = min(event.otime + np.max(traveltimes)*1.5, event.data.endtime)
+    # Convert to indices -- will still be the same for sub-sample shifts
+    times_utc = waveforms[0].times("UTCDateTime")
     mint_i, maxt_i = [np.argmin(abs(times_utc - t)) for t in (mint, maxt)]
-    times_plot = event.data.filtered_waveforms[0].times(type="matplotlib")[mint_i:maxt_i]
+    # Loop through stations
     for i, station in enumerate(event.data.stations):
-        waveforms = event.data.filtered_waveforms.select(station=station)
+        stn_waveforms = waveforms.select(station=station)
         for c, comp in zip(WAVEFORM_COLOURS1, ["Z", "[N,1]", "[E,2]"]):
-            data = waveforms.select(component=comp)
-            if not bool(data):
+            st = stn_waveforms.select(component=comp)
+            if not bool(st):
                 continue
-            comp = data[0].stats.component
-            data = data[0].data
+            tr = st[0]
+            comp = tr.stats.component
+            data = tr.data
 
             # Get station specific range for norm factor
             stat_maxt = event.otime + max(traveltimes[:, i])*1.5
-
             norm = max(abs(data[mint_i:np.argmin(abs(times_utc - stat_maxt))]))
 
+            # Generate times for plotting
+            times = tr.times("matplotlib")[mint_i:maxt_i]
+
+            #Plot
             y = data[mint_i:maxt_i] / norm + range_order[i]
             label = f"{comp} component" if i == 0 else None
-            ax.plot(times_plot, y, c=c, lw=0.3, label=label, alpha=0.85)
+            ax.plot(times, y, c=c, lw=0.3, label=label, alpha=0.85)
 
     # --- Limits, annotations, and axis formatting ---
     ax.set_xlim([mint.datetime, maxt.datetime])

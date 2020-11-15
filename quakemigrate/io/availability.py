@@ -74,7 +74,7 @@ def _handle_old_structure(availability_in_file, permanent_conversion=False):
     availability files (with column names simply the station) to the new style
     (with separate columns for each station/phase combination). This uses the
     knowledge that an availability of '1' in the old style meant that all data
-    was available (e.g. <station>.P and <station>.S available).
+    was available (e.g. <station>_P and <station>_S available).
 
     This is only done if the file was in the old format - otherwise it just
     returns the original, unaltered dataframe.
@@ -96,7 +96,7 @@ def _handle_old_structure(availability_in_file, permanent_conversion=False):
 
     availability_in = pd.read_csv(availability_in_file, index_col=0)
 
-    cols = [col_names.split(".") for col_names in availability_in.columns]
+    cols = [col_names.split("_") for col_names in availability_in.columns]
 
     # Check if station + phase are already in the column names
     if len(cols[0]) == 2:
@@ -107,7 +107,7 @@ def _handle_old_structure(availability_in_file, permanent_conversion=False):
                  "converting...")
     for phase in "PS":
         for stat in cols:
-            new_key = f"{stat[0]}.{phase}"
+            new_key = f"{stat[0]}_{phase}"
             availability_out[new_key] = availability_in[stat[0]].values
     availability_out.index = availability_in.index
 

@@ -503,7 +503,7 @@ class LUT(Grid3D):
             Samples per second used in the scan run.
         availability : dict, optional
             Dict of stations and phases for which to serve traveltime lookup
-            tables.
+            tables: keys "station_phase".
 
         Returns
         -------
@@ -519,7 +519,7 @@ class LUT(Grid3D):
         else:
             traveltimes = []
             for key, available in availability.items():
-                station, phase = key.split(".")
+                station, phase = key.split("_")
                 if available == 1:
                     try:
                         traveltimes.append(self[station][phase])

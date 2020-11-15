@@ -184,7 +184,7 @@ def _plot_station_availability(ax, availability, endtime):
     """
 
     # Get list of phases from station availability dataframe
-    phases = sorted(set([col_name.split(".")[1] for col_name in \
+    phases = sorted(set([col_name.split("_")[1] for col_name in \
         availability.columns]))
     logging.debug(f"\t\t    Found phases: {phases}")
 

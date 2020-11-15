@@ -157,7 +157,7 @@ class OnsetData:
         that have passed the quality control criteria, at a unified sampling
         rate - see `sampling_rate`.
     availability : dict
-        Dictionary with keys "station.phase", containing 1's or 0's
+        Dictionary with keys "station_phase", containing 1's or 0's
         corresponding to whether an onset function is available for that
         station and phase - determined by data availability and quality checks.
     starttime : `obspy.UTCDateTime` object

@@ -353,7 +353,7 @@ class QuakeScan:
 
         self.pre_pad, self.post_pad = self.onset.pad(self.timestep)
         n_steps = int(np.ceil((endtime - starttime) / self.timestep))
-        availability_cols = np.array([[f"{stat}.{ph}" for stat
+        availability_cols = np.array([[f"{stat}_{ph}" for stat
                                        in self.archive.stations]
                                       for ph in self.onset.phases]).flatten()
         availability = pd.DataFrame(index=range(n_steps),

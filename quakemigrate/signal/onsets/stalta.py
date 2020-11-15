@@ -328,7 +328,7 @@ class STALTAOnset(Onset):
                     n_channels=self.channel_counts[phase],
                     allow_gaps=self.allow_gaps,
                     full_timespan=self.full_timespan)
-                availability[f"{station}.{phase}"] = available
+                availability[f"{station}_{phase}"] = available
 
                 # If no data available, skip
                 if available == 0:

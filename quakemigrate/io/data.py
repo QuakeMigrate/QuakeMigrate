@@ -219,23 +219,27 @@ class Archive:
             # Make copy of raw waveforms to output if requested
             data.raw_waveforms = st.copy()
 
-            # Re-populate st with only stations in station file, and only
-            # data between start and end time needed for QuakeScan
-            st_selected = Stream()
-            for station in self.stations:
-                st_selected += st.select(station=station)
-            st = st_selected.copy()
-            for tr in st:
-                tr.trim(starttime=starttime, endtime=endtime)
-                if not bool(tr):
-                    st.remove(tr)
-            del st_selected
+            if self.read_all_stations:
+               # Re-populate st with only stations in station file
+                st_selected = Stream()
+                for station in self.stations:
+                    st_selected += st.select(station=station)
+                st = st_selected.copy()
+                del st_selected
+
+            if pre_pad != 0. or post_pad != 0.:
+                # Trim data between start and end time
+                for tr in st:
+                    tr.trim(starttime=starttime, endtime=endtime)
+                    if not bool(tr):
+                        st.remove(tr)
 
             # Test if the stream is completely empty
             # (see __nonzero__ for `obspy.Stream` object)
             if not bool(st):
                 raise util.DataGapException
 
+            # Add cleaned stream to `waveforms`
             data.waveforms = st
 
         except StopIteration:

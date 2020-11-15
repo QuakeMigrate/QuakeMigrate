@@ -18,39 +18,40 @@ import numpy as np
 import quakemigrate.util as util
 
 
-def pick_summary(event, station, signal, picks, onsets, ttimes, windows):
+def pick_summary(event, station, waveforms, picks, onsets, ttimes, windows):
     """
-    Plot figure showing the filtered traces for each data component and the
-    characteristic functions calculated from them (P and S) for each
-    station. The search window to make a phase pick is displayed, along
-    with the dynamic pick threshold (defined as a percentile of the
-    background noise level), the phase pick time and its uncertainty (if
-    made) and the Gaussian fit to the characteristic function.
+    Plot a figure showing the pre-processed traces for each data component and
+    the onset functions calculated from them for each phase. The search window
+    to make a phase pick is displayed, along with the dynamic pick threshold,
+    the phase pick time and its uncertainty (if made) and the Gaussian fit to
+    the onset function.
 
     Parameters
     ----------
-    event : str
-        Unique identifier for the event.
+    event : :class:`~quakemigrate.io.event.Event` object
+        Light class to encapsulate information about an event, including origin
+        time, location and waveform data.
     station : str
         Station code.
-    signal : `numpy.ndarray` of int
-        Seismic data for the Z N and E components.
-    picks : pandas DataFrame object
+    waveforms : `obspy.Stream` object
+        Filtered seismic data used to calculate the onset functions.
+    picks : `pandas.DataFrame` object
         Phase pick times with columns ["Name", "Phase", "ModelledTime",
         "PickTime", "PickError", "SNR"]
         Each row contains the phase pick from one station/phase.
-    onsets : `numpy.ndarray` of float
-        Onset functions for each seismic phase, shape(nstations, nsamples).
-    ttimes : list, [int, int]
-        Modelled phase travel times.
-    windows : dict of list, [int, int]
+    onsets : dict of {str: `numpy.ndarray`}
+        Keys are phases. Onset functions for each seismic phase.
+    ttimes : list of float
+        Modelled traveltimes from the event hypocentre to the station
+        for each phase to be plotted.
+    windows : dict of list, [int, int, int]
         Keys are phase. Indices specifying the window within which the pick was
-        made.
+        made [start, modelled_arrival, end].
 
     Returns
     -------
     fig : `matplotlib.Figure` object
-        Figure showing basic phase picking information.
+        Figure showing phase picking information.
 
     """
 
@@ -85,8 +86,8 @@ def pick_summary(event, station, signal, picks, onsets, ttimes, windows):
 
     # --- Grab event information once ---
     otime = event.otime
-    times = signal[0].times(type="utcdatetime")
-    mpl_times = signal[0].times(type="matplotlib")
+    times = waveforms[0].times(type="utcdatetime")
+    dtimes = [x.datetime for x in times]
 
     phases = [phase for phase, _ in onsets.items()]
     onsets = [onset for _, onset in onsets.items()]
@@ -115,13 +116,12 @@ def pick_summary(event, station, signal, picks, onsets, ttimes, windows):
         max_idx = len(times) - 1
 
     # --- Plot waveforms ---
-    times = [x.datetime for x in times]
     for i, (ax, comp) in enumerate(zip(axes[:3], ["Z", "[N,1]", "[E,2]"])):
-        tr = signal.select(component=comp)
+        tr = waveforms.select(component=comp)
         if not bool(tr):
             continue
         y = tr[0].data
-        ax.plot(times[min_idx:max_idx+1], y[min_idx:max_idx+1], c="k", lw=0.5,
+        ax.plot(dtimes[min_idx:max_idx+1], y[min_idx:max_idx+1], c="k", lw=0.5,
                 zorder=1)
         # Add label (SEED id)
         ax.text(0.015, 0.95, f"{tr[0].id}", transform=ax.transAxes,
@@ -143,7 +143,7 @@ def pick_summary(event, station, signal, picks, onsets, ttimes, windows):
     for i, (ax, ph) in enumerate(zip(axes[n:5], phases)):
         # Plot onset functions
         y = onsets[i]
-        ax.plot(times[min_idx:max_idx+1], y[min_idx:max_idx+1], c="k", lw=0.5,
+        ax.plot(dtimes[min_idx:max_idx+1], y[min_idx:max_idx+1], c="k", lw=0.5,
                 zorder=1)
 
         # Plot labels
@@ -192,16 +192,15 @@ def pick_summary(event, station, signal, picks, onsets, ttimes, windows):
         ax.axvline(model_pick.datetime, alpha=0.9, c="k",
                    label=f"Modelled {ph} arrival")
         # Plot event origin time if it is on plot:
-        if mpl_times[min_idx] < otime.matplotlib_date:
-            ax.axvline(event.otime.datetime, c="green",
-                       label="Event origin time")
+        if times[min_idx] < otime:
+            ax.axvline(otime.datetime, c="green", label="Event origin time")
         # Plot pick windows
         win = windows[phases[0]] if ind % 3 == 0 else windows[phases[-1]]
         clr = colors[0] if ind % 3 == 0 else colors[-1]
-        ax.axvspan(mpl_times[win[0]], mpl_times[win[2]], alpha=0.2, color=clr,
+        ax.axvspan(dtimes[win[0]], dtimes[win[2]], alpha=0.2, color=clr,
                    label="Picking window")
         # Set xlim
-        ax.set_xlim(mpl_times[min_idx], mpl_times[max_idx])
+        ax.set_xlim(dtimes[min_idx], dtimes[max_idx])
 
     # --- Plot picks and summary information ---
     for i, pick in picks.iterrows():

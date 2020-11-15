@@ -365,9 +365,11 @@ class QuakeScan:
 
             try:
                 data = self.archive.read_waveform_data(w_beg, w_end)
-                coalescence.append(
-                    *self._compute(data), self.lut.unit_conversion_factor)
-                availability.loc[i] = data.availability
+                time, max_coa, max_coa_n, coord, onset_data = \
+                    self._compute(data)
+                coalescence.append(time, max_coa, max_coa_n, coord,
+                                   self.lut.unit_conversion_factor)
+                availability.loc[i] = onset_data.availability
             except util.ArchiveEmptyException as e:
                 coalescence.empty(starttime, self.timestep, i, e.msg,
                                   self.lut.unit_conversion_factor)
@@ -421,7 +423,7 @@ class QuakeScan:
                 event.add_waveform_data(
                     self._read_event_waveform_data(w_beg, w_end))
                 logging.info("\tComputing 4-D coalescence function...")
-                event.add_coalescence(  # pylint: disable=E1120
+                event.add_compute_output(  # pylint: disable=E1120
                     *self._compute(event.data, event))
             except util.ArchiveEmptyException as e:
                 logging.info(e.msg)
@@ -438,7 +440,7 @@ class QuakeScan:
                 continue
 
             logging.info("\tDetermining event location and uncertainty...")
-            marginalised_coalescence = self._calculate_location(event)
+            marginalised_coa_map = self._calculate_location(event)
 
             logging.info("\tMaking phase picks...")
             event, _ = self.picker.pick_phases(event, self.lut, self.run)
@@ -450,9 +452,8 @@ class QuakeScan:
             event.write(self.run, self.lut)
 
             if self.plot_event_summary:
-                event_summary(self.run, event, marginalised_coalescence,
-                              self.lut, self.onset.phases,
-                              xy_files=self.xy_files)
+                event_summary(self.run, event, marginalised_coa_map,
+                              self.lut, xy_files=self.xy_files)
 
             if self.plot_event_video:
                 logging.info("Support for event videos coming soon.")
@@ -460,7 +461,7 @@ class QuakeScan:
             if self.write_cut_waveforms:
                 write_cut_waveforms(self.run, event, self.cut_waveform_format)
 
-            del event, marginalised_coalescence
+            del event, marginalised_coa_map
             logging.info(util.log_spacer)
 
     @util.timeit("info")
@@ -490,22 +491,22 @@ class QuakeScan:
         """
 
         # --- Calculate continuous coalescence within 3-D volume ---
-        onsets = self.onset.calculate_onsets(data)
+        onsets, onset_data = self.onset.calculate_onsets(data)
         try:
-            traveltimes = self.lut.serve_traveltimes(self.onset.sampling_rate,
-                                                     data.availability)
+            traveltimes = self.lut.serve_traveltimes(onset_data.sampling_rate,
+                                                     onset_data.availability)
         except KeyError as e:
-            msg = (f"Attempting to migrate phases {self.onset.phases}; but "
+            msg = (f"Attempting to migrate phases {onset_data.phases}; but "
                    f"traveltimes for {e} not found in the LUT. Please "
                    "create a new lookup table with phases="
-                   f"{self.onset.phases}")
+                   f"{onset_data.phases}")
             raise util.LUTPhasesException(msg)
         # Here fsmp and lsmp are used to calculate the length of map4d from the
         # shape of the onset functions --> need to use onset sampling_rate, not
         # scan rate.
-        fsmp = util.time2sample(self.pre_pad, self.onset.sampling_rate)
-        lsmp = util.time2sample(self.post_pad, self.onset.sampling_rate)
-        avail = np.sum([value for _, value in data.availability.items()])
+        fsmp = util.time2sample(self.pre_pad, onset_data.sampling_rate)
+        lsmp = util.time2sample(self.post_pad, onset_data.sampling_rate)
+        avail = np.sum([value for _, value in onset_data.availability.items()])
         map4d = migrate(onsets, traveltimes, fsmp, lsmp, avail, self.threads)
 
         # --- Find continuous peak coalescence in 3-D volume ---
@@ -515,10 +516,10 @@ class QuakeScan:
         if self.run.stage == "detect":
             del map4d
             time = data.starttime + self.pre_pad
-            return time, max_coa, max_coa_n, coord
+            return time, max_coa, max_coa_n, coord, onset_data
         else:
             times = event.mw_times(self.scan_rate)
-            return times, max_coa, max_coa_n, coord, map4d
+            return times, max_coa, max_coa_n, coord, map4d, onset_data
 
     @util.timeit("info")
     def _read_event_waveform_data(self, w_beg, w_end):

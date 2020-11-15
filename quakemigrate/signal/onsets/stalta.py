@@ -18,14 +18,14 @@ from obspy import Stream
 from obspy.signal.trigger import classic_sta_lta
 
 import quakemigrate.util as util
-from .base import Onset
+from .base import Onset, OnsetData
 
 
 def sta_lta_centred(a, nsta, nlta):
     """
-    Calculates the ratio of the average signal in a short-term (signal) window
+    Calculates the ratio of the average of a^2 in a short-term (signal) window
     to a preceding long-term (noise) window. STA/LTA value is assigned to the
-    end of the LTA / start of the STA.
+    end of the LTA / one sample before the start of the STA.
 
     Parameters
     ----------
@@ -39,9 +39,9 @@ def sta_lta_centred(a, nsta, nlta):
     Returns
     -------
     sta / lta : array-like
-        Ratio of short term average window to a preceding long term average
-        window. STA/LTA value is assigned to end of LTA window / start of STA
-        window -- "centred"
+        Ratio of a^2 in a short term average window to a preceding long term
+        average window. STA/LTA value is assigned to end of LTA window / one
+        sample before the start of STA window -- "centred".
 
     """
 
@@ -77,19 +77,19 @@ def pre_process(stream, sampling_rate, resample, upfactor, filter_):
     built-in obspy functions.
 
     By default, data with mismatched sampling rates will only be decimated.
-    If necessary, and if the user specifies `resample = True` and an
-    upfactor to upsample by `upfactor = int` for the waveform archive, data
+    If necessary, and if the user has specified `resample = True` and an
+    `upfactor` to upsample by `upfactor = int` for the waveform archive, data
     can also be upsampled and then, if necessary, subsequently decimated to
     achieve the desired sampling rate.
 
     For example, for raw input data sampled at a mix of 40, 50 and 100 Hz,
     to achieve a unified sampling rate of 50 Hz, the user would have to
-    specify an upfactor of 5; 40 Hz x 5 = 200 Hz, which can then be
+    specify an `upfactor` of 5; 40 Hz x 5 = 200 Hz, which can then be
     decimated to 50 Hz.
 
     NOTE: data will be detrended and a cosine taper applied before
     decimation, in order to avoid edge effects when applying the lowpass
-    filter.
+    filter. See :func:`~quakemigrate.util.resample`
 
     Parameters
     ----------
@@ -99,13 +99,15 @@ def pre_process(stream, sampling_rate, resample, upfactor, filter_):
         Desired sampling rate for data to be used to calculate onset. This will
         be achieved by resampling the raw waveform data. By default, only
         decimation will be applied, but data can also be upsampled if
-        specified by the user when creating the Archive object.
+        specified by the user when creating the
+        :class:`quakemigrate.io.data.Archive` object.
     resample : bool, optional
         If true, perform resampling of data which cannot be decimated directly
-        to the desired sampling rate.
+        to the desired sampling rate. See :func:`~quakemigrate.util.resample`
     upfactor : int, optional
         Factor by which to upsample the data to enable it to be decimated to
         the desired sampling rate, e.g. 40Hz -> 50Hz requires upfactor = 5.
+        See :func:`~quakemigrate.util.resample`
     filter_ : list
         Filter specifications, as [lowcut (Hz), highcut (Hz), order]. NOTE -
         two-pass filter effectively doubles the number of corners (order).
@@ -119,7 +121,7 @@ def pre_process(stream, sampling_rate, resample, upfactor, filter_):
     ------
     NyquistException
         If the high-cut filter specified for the bandpass filter is higher than
-        the Nyquist frequency of the `Waveform.signal` data.
+        the Nyquist frequency of the `sampling_rate`.
 
     """
 
@@ -168,8 +170,8 @@ class STALTAOnset(Onset):
         [lowpass (Hz), highpass (Hz), corners*]
         *NOTE: two-pass filter effectively doubles the number of corners.
     channel_maps : dict of str
-        Data component maps - keys are phases. These are passed into the ObsPy
-        stream.select method.
+        Data component maps - keys are phases. These are passed into the
+        :meth:`ObsPy.stream.select` method.
     channel_counts : dict of int
         Number of channels to be used to calculate the onset function for each
         phase. Keys are phases.
@@ -187,7 +189,7 @@ class STALTAOnset(Onset):
         with zeros. This should help mitigate the expected spikes as data
         goes on- and off-line, but will not eliminate it. Onset functions for
         periods with no data will be filled with ~ zeros (smallest possible
-        float, to avoid floating point errors). NOTE: This feature is
+        float, to avoid divide by zero errors). NOTE: This feature is
         experimental and still under development.
     full_timespan : bool
         If False, allow data which doesn't cover the full timespan requested
@@ -266,8 +268,15 @@ class STALTAOnset(Onset):
 
     def calculate_onsets(self, data, log=True):
         """
-        Returns a stacked pair of onset (characteristic) functions for the
-        requested phases.
+        Calculate onset functions for the requested stations and phases.
+
+        Returns a stacked array of onset functions for the requested phases,
+        and an :class:`~quakemigrate.signal.onsets.base.OnsetData` object
+        containing all outputs from the onset function calculation: a dict of
+        the onset functions, a Stream containing the pre-processed input
+        waveforms, and a dict of availability info describing which of the
+        requested onset functions could be calculated (depending on data
+        availability and data quality checks).
 
         Parameters
         ----------
@@ -279,18 +288,17 @@ class STALTAOnset(Onset):
         Returns
         -------
         onsets : `numpy.ndarray` of float
-            Stacked onset functions served up to the scanner.
-        stations : list of str
-            Available stations, used to request the correct traveltime lookup
-            tables.
+            Stacked onset functions served up for migration,
+            shape(nonsets, nsamples).
+        onset_data : :class:`~quakemigrate.signal.onsets.base.OnsetData` object
+            Light class encapsulating data generated during onset calculation.
 
         """
 
-        availability = {}
         onsets = []
-        # Set data.filtered_waveforms to empty stream; otherwise data
-        # generated here will be appended to what is already there.
-        data.filtered_waveforms = Stream()
+        onsets_dict = {}
+        filtered_waveforms = Stream()
+        availability = {}
 
         # Loop through phases, pre-process data, and calculate onsets.
         for phase in self.phases:
@@ -306,14 +314,14 @@ class STALTAOnset(Onset):
             # Pre-process the data. The ObsPy functions operate by trace, so
             # will not break on gappy data (we haven't checked availability
             # yet)
-            filtered_waveforms = pre_process(
+            filtered_phase_waveforms = pre_process(
                 phase_waveforms, self.sampling_rate, data.resample,
                 data.upfactor, self.bandpass_filters[phase])
 
             # Loop through stations, check data availability for this phase,
             # and store this info, filtered waveforms and calculated onsets
             for station in data.stations:
-                waveforms = filtered_waveforms.select(station=station)
+                waveforms = filtered_phase_waveforms.select(station=station)
 
                 available, av_dict = data.check_availability(waveforms,
                     all_channels=self.all_channels,
@@ -354,17 +362,20 @@ class STALTAOnset(Onset):
                 # Calculate onset and add to WaveForm data object; add filtered
                 # waveforms that have passed the availability check to
                 # WaveformData.filtered_waveforms
-                data.onsets.setdefault(station, {}).update(
+                onsets_dict.setdefault(station, {}).update(
                     {phase: self._onset(waveforms, stw, ltw, log)})
-                onsets.append(data.onsets[station][phase])
-                data.filtered_waveforms += waveforms
+                onsets.append(onsets_dict[station][phase])
+                filtered_waveforms += waveforms
 
-        logging.debug(data.filtered_waveforms.__str__(extended=True))
+        logging.debug(filtered_waveforms.__str__(extended=True))
 
-        # Add availability info to WaveformData object.
-        data.availability = availability
+        onsets = np.stack(onsets, axis=0)
+        onset_data = OnsetData(onsets_dict, self.phases, self.channel_maps,
+                               filtered_waveforms, availability,
+                               data.starttime, data.endtime,
+                               self.sampling_rate)
 
-        return np.stack(onsets, axis=0)
+        return onsets, onset_data
 
     def _onset(self, stream, stw, ltw, log):
         """
@@ -375,7 +386,8 @@ class STALTAOnset(Onset):
         Parameters
         ----------
         stream : `~obspy.Stream` object
-            Stream containing the pre-processed data to calculate the onset.
+            Stream containing the pre-processed data from which to calculate
+            the onset function.
         stw : int
             Number of samples in the short-term window.
         ltw : int

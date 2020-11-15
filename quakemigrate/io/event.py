@@ -32,97 +32,123 @@ XYZ, ERR_XYZ = ["X", "Y", "Z"], ["ErrX", "ErrY", "ErrZ"]
 class Event:
     """
     Light class to encapsulate information about an event, including waveform
-    data (raw, filtered, unfiltered), coalescence information, locations and
-    origin times, picks, magnitudes.
+    data, onset data (and pre-processed waveforms), coalescence information,
+    origin time, locations, picks, magnitudes.
 
     Parameters
     ----------
     marginal_window : float
-        Estimate of the uncertainty in the earthquake origin time.
+        Estimate of the uncertainty in the event origin time; time window
+        over which the 4-D coalescence image is marginalised around the peak
+        coalescence time (event origin time) to produce the 3-D coalescence
+        map.
     triggered_event : `pandas.Series` object, optional
-        Contains information on the event output by the trigger stage.
+        Contains information on the candidate event identified by
+        :func:`~quakemigrate.signal.trigger.Trigger.trigger`
 
     Attributes
     ----------
     coa_data : `pandas.DataFrame` object
-        Event coalescence data computed during locate.
+        Event coalescence data computed during locate.\n
         DT : `numpy.ndarray` of `obspy.UTCDateTime` objects, shape(nsamples)
-            Timestamp of first sample of coalescence data.
+            Timestamps for the coalescence data.
         COA : `numpy.ndarray` of floats, shape(nsamples)
-            Coalescence value through time.
+            Max coalescence value in the grid at each timestep.
         COA_NORM : `numpy.ndarray` of floats, shape(nsamples)
-            Normalised coalescence value through time.
+            Normalised max coalescence value in the grid at each timestep.
         X : `numpy.ndarray` of floats, shape(nsamples)
-            X coordinate of maximum coalescence through time in input
-            projection space.
+            X coordinate of maximum coalescence value in the grid at each
+            timestep, in input (geographic) projection coordinates.
         Y : `numpy.ndarray` of floats, shape(nsamples)
-            Y coordinate of maximum coalescence through time in input
-            projection space.
+            Y coordinate of maximum coalescence value in the grid at each
+            timestep, in input (geographic) projection coordinates.
         Z : `numpy.ndarray` of floats, shape(nsamples)
-            Z coordinate of maximum coalescence through time in input
-            projection space.
+            Z coordinate of maximum coalescence value in the grid at each
+            timestep, in input (geographic) projection coordinates.
+    data : :class:`~quakemigrate.io.data.WaveformData` object
+        Light class encapsulating waveform data returned from an archive query.
     hypocentre : `numpy.ndarray` of floats
-        Geographical coordinates of the instantaneous event hypocentre.
+        [X, Y, Z]; Geographical coordinates of the event hypocentre (default is
+        interpolated peak of a spline function fitted to the marginalised 3-D
+        coalescence map).
     locations : dict
-        Information on the various locations and reported uncertainties.
+        Information on the various locations and reported uncertainties.\n
         spline : dict
-            The location of the maximum coalescence in the marginalised
-            grid, interpolated using a 3-D spline. If no spline fit was able to
-            be made, it is just the location in the original grid.
+            The location of the peak coalescence value in the marginalised 3-D
+            coalescence map, interpolated using a 3-D spline. If no spline fit
+            was able to be made, it is just the gridded peak location.
         gaussian : dict
             The location and uncertainty as determined by fitting a 3-D
-            Gaussian to the coalescence in a small region around the maximum
-            coalescence in the marginalised grid.
+            Gaussian to the marginalised 3-D coalescence map in a small region
+            around the (gridded) peak coalescence location.
         covariance : dict
             The location and uncertainty as determined by calculating the
             covariance of the coalescence values in X, Y, and Z above some
-            percentile.
-    map4d : `numpy.ndarry`, shape(nx, ny, nz, nsamp), optional
-        4-D coalescence map.
+            percentile of the max coalescence value in the marginalised 3-D
+            coalescence map.
+    map4d : `numpy.ndarray`, shape(nx, ny, nz, nsamp), optional
+        4-D coalescence map generated in
+        :func:`~quakemigrate.signal.scan.QuakeScan.locate`.
     max_coalescence : dict
-        Dictionary containing the timestamps of the maximum coalescence, the
-        coalescence values, and the normalised coalescence values.
+        Dictionary containing the raw and normalised maximum coalescence values
+        in the 3-D grid at the timestamp corresponding to the instantaneous
+        (non-marginalised) maximum coalescence value in the 4-D grid (i.e.
+        the event origin time).
+    onset_data : :class:`~quakemigrate.signal.onsets.base.OnsetData` object
+        Light class encapsulating data generated during onset calculation.
     otime : `obspy.UTCDateTime` object
-        Timestamp of the instantaneous peak in the coalescence function.
+        Timestamp of the instantaneous peak in the 4-D coalescence function
+        generated in :func:`~quakemigrate.signal.scan.QuakeScan.locate` - best
+        estimate of the event origin time.
     trigger_info : dict
-        Other useful information about the triggered event to be fed forward.
+        Useful information about the triggered event to be fed forward.\n
         TRIG_COA : float
-            The peak value of the coalescence stream used to trigger.
+            The peak value of the coalescence stream used to trigger the event.
         DEC_COA : float
-            The peak coalescence value.
+            The coalescence value of the "raw" maximum coalsecence stream
+            at the `trigger_time`.
         DEC_COA_NORM : float
-            The peak normalised coalescence value.
+            The coalescence value of the normalised maximum coalsecence stream
+            at the `trigger_time`.
     trigger_time : `obspy.UTCDateTime` object
-        The peak coalescence time of the triggered event from the (decimated)
-        coalescence output by detect.
+        The time of the peak in the continuous coalescence stream (output by
+        detect) corresponding to the triggered event.
     uid : str
-        A unique identifier for the event based on the peak coalescence time.
+        A unique identifier for the event based on the event trigger time.
 
     Methods
     -------
-    add_coalescence(times, max_coa, max_coa_n, coord, map4d)
-        Add values returned by QuakeScan._compute to the event.
+    add_compute_output(times, max_coa, max_coa_n, coord, map4d, onset_data)
+        Add values returned by
+        :func:`~quakemigrate.signal.scan.QuakeScan._compute` to the event.
     add_covariance_location(xyz, xyz_unc)
         Add the covariance location and uncertainty to the event.
     add_gaussian_location(xyz, xyz_unc)
         Add the gaussian location and uncertainty to the event.
     add_spline_location(xyz)
-        Add the splined location to the event.
+        Add the spline-interpolated location to the event.
     add_picks(pick_df)
         Add phase picks to the event.
     add_local_magnitude(mag, mag_err, mag_r2)
         Add local magnitude to the event.
+    add_waveform_data(data)
+        Add waveform data read from the archive to the event (as a
+        :class:`~quakemigrate.io.data.WaveformData` object).
     in_marginal_window(marginal_window)
         Simple test to see if event is within the marginal window around the
-        triggered event time.
+        event origin time (time of max instantaneous coalescence value).
     mw_times(marginal_window, sampling_rate)
-        Generates timestamps for data in the marginal window.
+        Generates timestamps for data in the window around the event trigger
+        scanned by :func:`~quakemigrate.signal.scan.QuakeScan._compute`;
+        `trigger_time` +/- 2*`marginal_window`.
     trim2window(marginal_window)
-        Trim the coalescence data and map4d to the marginal window.
+        Trim the coalescence data and `map4d` to the marginal window about the
+        event origin time.
     write(run)
         Output the event to a .event file.
     get_hypocentre(method)
-        Get the event hypocentre estimate calculated by a specific method.
+        Get the event hypocentre estimate calculated by a specific method;
+        {"gaussian", "covariance", "spline"}.
 
     """
 
@@ -139,6 +165,7 @@ class Event:
         self.data = None
         self.coa_data = None
         self.map4d = None
+        self.onset_data = None
         self.otime = None
         self.locations = {}
         self.picks = {}
@@ -146,37 +173,44 @@ class Event:
 
     def add_waveform_data(self, data):
         """
-        Add waveform data in the form of a WaveformData object.
+        Add waveform data in the form of a
+        :class:`~quakemigrate.io.data.WaveformData` object.
 
         Parameters
         ----------
         data : :class:`~quakemigrate.io.data.WaveformData` object
-            Contains raw cut waveforms, signal data (at a unified sample rate,
-            prepared for use in scan), station availability info, onset
-            functions calculated from the signal data, pre_processed filtered
-            waveforms, et cetera.
+            Contains cut waveforms - `raw_waveforms` may be for all stations
+            in the archive, and include an additional pre- and post-pad;
+            `waveforms` contains data only for the stations and time period
+            required for migration.
 
         """
 
         self.data = data
 
-    def add_coalescence(self, times, max_coa, max_coa_n, coord, map4d):
+    def add_compute_output(self, times, max_coa, max_coa_n, coord, map4d,
+                           onset_data):
         """
-        Append output of _compute from locate() to `obspy.Stream` object.
+        Append outputs of compute to the Event object. This includes time
+        series of the maximum coalescence values in the 3-D grid at each
+        timestep, and their locations, the full 4-D coalescence map, and the
+        onset data generated for migration.
 
         Parameters
         ----------
         times : `numpy.ndarray` of `obspy.UTCDateTime` objects, shape(nsamples)
-            Timestamp of first sample of coalescence data.
+            Timestamps for the coalescence data.
         max_coa : `numpy.ndarray` of floats, shape(nsamples)
-            Coalescence value through time.
+            Max coalescence value in the grid at each timestep.
         max_coa_n : `numpy.ndarray` of floats, shape(nsamples)
-            Normalised coalescence value through time.
-        coord : `numpy.ndarray` of floats, shape(nsamples)
-            Location of maximum coalescence through time in input projection
-            space.
-        map4d : `numpy.ndarry`, shape(nx, ny, nz, nsamp), optional
+            Normalised max coalescence value in the grid at each timestep.
+        coord : `numpy.ndarray` of floats, shape(nsamples, 3)
+            [x, y, z] Location of maximum coalescence in the grid at each
+            timestep, in input (geographic) projection coordinates
+        map4d : `numpy.ndarry`, shape(nx, ny, nz, nsamp)
             4-D coalescence map.
+        onset_data : :class:`~quakemigrate.signal.onsets.base.OnsetData` object
+            Light class encapsulating data generated during onset calculation.
 
         """
 
@@ -190,6 +224,8 @@ class Event:
         idxmax = self.coa_data["COA"].astype(float).idxmax()
         self.otime = self.coa_data.iloc[idxmax]["DT"]
 
+        self.onset_data = onset_data
+
     def add_covariance_location(self, xyz, xyz_unc):
         """
         Add the location determined by calculating the 3-D covariance of the
@@ -197,10 +233,11 @@ class Event:
 
         Parameters
         ----------
-        xyz : `numpy.ndarray' of floats, shape(3)
+        xyz : `numpy.ndarray` of floats, shape(3)
             Geographical coordinates (lon/lat/depth) of covariance location.
         xyz_unc : `numpy.ndarray' of floats, shape(3)
-            One sigma uncertainties on the covariance location (in m).
+            One sigma uncertainties on the covariance location (units
+            determined by the LUT projection units).
 
         """
 
@@ -218,10 +255,11 @@ class Event:
 
         Parameters
         ----------
-        xyz : `numpy.ndarray' of floats, shape(3)
+        xyz : `numpy.ndarray` of floats, shape(3)
             Geographical coordinates (lon/lat/depth) of Gaussian location.
         xyz_unc : `numpy.ndarray' of floats, shape(3)
-            One sigma uncertainties on the Gaussian location (in m).
+            One sigma uncertainties on the Gaussian location (units determined
+            by the LUT projection units).
 
         """
 
@@ -239,7 +277,7 @@ class Event:
 
         Parameters
         ----------
-        xyz : `numpy.ndarray' of floats, shape(3)
+        xyz : `numpy.ndarray` of floats, shape(3)
             Geographical coordinates (lon/lat/depth) of best-fitting location.
 
         """
@@ -257,22 +295,23 @@ class Event:
             ["Name", "Phase", "ModelledTime", "PickTime", "PickError", "SNR"]
             Each row contains the phase pick from one station/phase.
 
-        For GaussianPicker:
-            gaussfits : dict
-                {station : phase{gaussian_fit_params}}
-                gaussian fit params: {"popt": popt,
-                                      "xdata": x_data,
-                                      "xdata_dt": x_data_dt,
-                                      "PickValue": max_onset,
-                                      "PickThreshold": threshold}
-            pick_windows : dict
-                {station : phase{window}}
-                window: [min_time, max_time]
-            pick_threshold : float
-                float (between 0 and 1)
-                Picks will only be made if the onset function exceeds this
-                percentile of the noise level (average amplitude of onset
-                function outside pick windows).
+        **kwargs
+            For :class:`~quakemigrate.signal.pickers.gaussian.GaussianPicker`:\n
+                gaussfits : dict of dicts
+                    Keys "station"["phase"], each containing:\n
+                        "popt" : popt
+                        "xdata" : x_data
+                        "xdata_dt" : x_data_dt
+                        "PickValue" : max_onset
+                        "PickThreshold" : threshold
+                pick_windows : dict
+                    {station : phase{window}}\n
+                    window: [min_time, modelled_arrival, max_time] - all ints,
+                    referring to indices of the onset function.
+                pick_threshold : float
+                    Picks will only be made if the onset function exceeds this
+                    percentile of the noise level (average amplitude of onset
+                    function outside pick windows).
 
         """
 
@@ -337,13 +376,14 @@ class Event:
 
     def mw_times(self, sampling_rate):
         """
-        Utility function to generate timestamps between `data.starttime` and
-        `data.endtime`, with a sample size of 1 / `sampling_rate`.
+        Utility function to generate timestamps for the time period around the
+        trigger time for which the 4-D coalescence function is calculated in
+        :func:`~quakemigrate.signal.scan.QuakeScan._compute`.
 
         Returns
         -------
-        times : `numpy.ndarray`, shape(nsamples)
-            Timestamps for the timeseries data.
+        times : `numpy.ndarray` of `obspy.UTCDateTime`, shape(nsamples)
+            Timestamps for time range `trigger_time` +/- 2 * `marginal_window`.
 
         """
 
@@ -374,13 +414,13 @@ class Event:
 
     def write(self, run, lut):
         """
-        Write event. to a .event file.
+        Write event to a .event file.
 
         Parameters
         ----------
-        run : :class:`~quakemigrate.io.Run` object
+        run : :class:`~quakemigrate.io.core.Run` object
             Light class encapsulating i/o path information for a given run.
-        lut : :class:`~quakemigrate.lut.LUT` object
+        lut : :class:`~quakemigrate.lut.lut.LUT` object
             Contains the traveltime lookup tables for seismic phases, computed
             for some pre-defined velocity model.
 
@@ -431,7 +471,7 @@ class Event:
         if self.localmag.get("ML") is not None:
             for col in ["ML", "ML_Err", "ML_r2"]:
                 event_df[col] = event_df[col].map(lambda x: f"{x:.3g}",
-                                                  na_action="ignores")
+                                                  na_action="ignore")
 
         fstem = f"{self.uid}"
         file = (fpath / fstem).with_suffix(".event")
@@ -439,7 +479,7 @@ class Event:
 
     def get_hypocentre(self, method="spline"):
         """
-        Get an estimate of the hypocentral location.
+        Get an estimate of the event hypocentre location.
 
         Parameters
         ----------
@@ -448,9 +488,9 @@ class Event:
 
         Returns
         -------
-        ev_loc : ndarray of floats
+        ev_loc : `numpy.ndarray` of floats
             [x_coordinate, y_coordinate, z_coordinate] of event hypocentre, in
-            the global coordinate system.
+            the global (geographic) coordinate system.
 
         """
 
@@ -473,9 +513,9 @@ class Event:
 
         Returns
         -------
-        ev_loc_unc : ndarray of floats
-            [x_uncertainty, y_uncertainty, z_uncertainty] of event hypocentre,
-            in metres.
+        ev_loc_unc : `numpy.ndarray` of floats
+            [x_uncertainty, y_uncertainty, z_uncertainty] of event hypocentre;
+            units are determined by the LUT projection units.
 
         """
 

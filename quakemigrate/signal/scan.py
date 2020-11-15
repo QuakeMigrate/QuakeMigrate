@@ -177,6 +177,9 @@ class QuakeScan:
             raise util.OnsetTypeError
         self.onset.post_pad = lut.max_traveltime
 
+        self.pre_pad = 0.
+        self.post_pad = 0.
+
         # --- Set up i/o ---
         self.run = Run(run_path, run_name, kwargs.get("run_subname", ""),
                        loglevel=kwargs.get("loglevel", "info"))

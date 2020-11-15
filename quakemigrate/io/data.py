@@ -14,7 +14,7 @@ from itertools import chain
 import logging
 import pathlib
 
-from obspy import read, Stream, Trace, UTCDateTime
+from obspy import read, Stream, UTCDateTime
 
 import quakemigrate.util as util
 
@@ -24,10 +24,12 @@ class Archive:
     The Archive class handles the reading of archived waveform data.
 
     It is capable of handling any regular archive structure. Requests to read
-    waveform data are served up as a `quakemigrate.data.WaveformData` object.
+    waveform data are served up as a
+    :class:`~quakemigrate.io.data.WaveformData` object.
 
-    If provided, a response inventory provided for the archive will be stored
-    with the waveform data for response removal, if needed.
+    If provided, a response inventory for the archive will be stored with the
+    waveform data for response removal, if needed (e.g. for local magnitude
+    calculation, or to output real cut waveforms).
 
     By default, data with mismatched sampling rates will only be decimated.
     If necessary, and if the user specifies `resample = True` and an
@@ -38,21 +40,19 @@ class Archive:
     For example, for raw input data sampled at a mix of 40, 50 and 100 Hz,
     to achieve a unified sampling rate of 50 Hz, the user would have to
     specify an upfactor of 5; 40 Hz x 5 = 200 Hz, which can then be
-    decimated to 50 Hz.
-
-    NOTE: data will be detrended and a cosine taper applied before
-    decimation, in order to avoid edge effects when applying the lowpass
-    filter.
+    decimated to 50 Hz - see :func:`~quakemigrate.util.resample`.
 
     Parameters
     ----------
     archive_path : str
-        Location of seismic data archive: e.g.: ./DATA_ARCHIVE.
+        Location of seismic data archive: e.g.: "./DATA_ARCHIVE".
     stations : `pandas.DataFrame` object
         Station information.
-        Columns ["Latitude", "Longitude", "Elevation", "Name"]
+        Columns ["Latitude", "Longitude", "Elevation", "Name"]. See
+        :func:`~quakemigrate.io.core.read_stations`
     archive_format : str, optional
-        Sets path type for different archive formats.
+        Sets directory structure and file naming format for different archive
+        formats. See :func:`~quakemigrate.io.data.Archive.path_structure`
     kwargs : **dict
         See Archive Attributes for details.
 
@@ -63,29 +63,27 @@ class Archive:
     stations : `pandas.Series` object
         Series object containing station names.
     format : str
-        File naming format of data archive.
+        Directory structure and file naming format of data archive.
     read_all_stations : bool, optional
         If True, read all stations in archive for that time period. Else, only
         read specified stations.
     resample : bool, optional
         If true, perform resampling of data which cannot be decimated directly
-        to the desired sampling rate.
+        to the desired sampling rate. See :func:`~quakemigrate.util.resample`
     response_inv : `obspy.Inventory` object, optional
         ObsPy response inventory for this waveform archive, containing
         response information for each channel of each station of each network.
     upfactor : int, optional
         Factor by which to upsample the data to enable it to be decimated to
         the desired sampling rate, e.g. 40Hz -> 50Hz requires upfactor = 5.
+        See :func:`~quakemigrate.util.resample`
 
     Methods
     -------
-    path_structure(path_type="YEAR/JD/STATION")
-        Set the file naming format of the data archive.
+    path_structure(archive_format, channels="*")
+        Set the directory structure and file naming format of the data archive.
     read_waveform_data(starttime, endtime, sampling_rate)
-        Read in all waveform data between two times, decimate / resample if
-        required to reach desired sampling rate. Return all raw data as an
-        obspy Stream object and processed data for specified stations as an
-        array for use by QuakeScan to calculate onset functions for migration.
+        Read in waveform data between two times.
 
     """
 
@@ -122,19 +120,23 @@ class Archive:
 
     def path_structure(self, archive_format="YEAR/JD/STATION", channels="*"):
         """
-        Define the path structure of the data archive.
+        Define the directory structure and file naming format of the data
+        archive.
 
         Parameters
         ----------
         archive_format : str, optional
-            Sets path type for different archive formats.
+            Directory structure and file naming format of the data archive.
+            This may be the name of a generic archive format (e.g. SeisComp3),
+            or one of a selection of additional formats built into
+            QuakeMigrate.
         channels : str, optional
             Channel codes to include. E.g. channels="[B,H]H*". (Default "*")
 
         Raises
         ------
         ArchivePathStructureError
-            If the archive_format specified by the user is not a valid option.
+            If the `archive_format` specified by the user is not a valid option.
 
         """
 
@@ -158,31 +160,32 @@ class Archive:
 
     def read_waveform_data(self, starttime, endtime, pre_pad=0., post_pad=0.):
         """
-        Read in the waveform data for all stations in the archive between two
-        times.
+        Read in waveform data from the archive between two times.
 
-        Supports all formats currently supported by ObsPy, including: "MSEED"
-        (default), "SAC", "SEGY", "GSE2" .
+        Supports all formats currently supported by ObsPy, including: "MSEED",
+        "SAC", "SEGY", "GSE2" .
+
+        Optionally, read data with some pre- and post-pad, and for all stations
+        in the archive - this will be stored in `data.raw_waveforms`, while
+        `data.waveforms` will contain only data for selected stations between
+        `starttime` and `endtime`.
 
         Parameters
         ----------
-        starttime : `obspy.UTCDateTime` object, optional
+        starttime : `obspy.UTCDateTime` object
             Timestamp from which to read waveform data.
-        endtime : `obspy.UTCDateTime` object, optional
+        endtime : `obspy.UTCDateTime` object
             Timestamp up to which to read waveform data.
         pre_pad : float, optional
-            Additional pre pad of data to cut based on user-defined pre_cut
-            parameter. Defaults to none: pre_pad calculated in QuakeScan will
-            be used (included in starttime).
+            Additional pre pad of data to read. Defaults to 0.
         post_pad : float, optional
-            Additional post pad of data to cut based on user-defined post_cut
-            parameter. Defaults to none: post_pad calculated in QuakeScan will
-            be used (included in endtime).
+            Additional post pad of data to read. Defaults to 0.
 
         Returns
         -------
         data : :class:`~quakemigrate.io.data.WaveformData` object
-            Object containing the archived data that satisfies the query.
+            Object containing the waveform data read from the archive that
+            satisfies the query.
 
         """
 
@@ -229,13 +232,10 @@ class Archive:
             del st_selected
 
             # Test if the stream is completely empty
-            # (see __nonzero__ for obspy Stream object)
+            # (see __nonzero__ for `obspy.Stream` object)
             if not bool(st):
                 raise util.DataGapException
 
-            # Pass stream to be processed and added to data.signal. This
-            # processing includes resampling and determining the availability
-            # of the desired stations.
             data.waveforms = st
 
         except StopIteration:
@@ -297,10 +297,9 @@ class WaveformData:
     The WaveformData class encapsulates the waveform data returned by an
     Archive query.
 
-    It also provides a framework in which to store processed and/or
-    filtered data generated during onset function calculation, and a number
-    of utility functions. These include removing instrument response and
-    checking data availability.
+    It also provides a number of utility functions. These include removing
+    instrument response and checking data availability against a flexible set
+    of data quality criteria.
 
     Parameters
     ----------
@@ -311,23 +310,23 @@ class WaveformData:
     stations : `pandas.Series` object, optional
         Series object containing station names.
     read_all_stations : bool, optional
-        If True, raw_waveforms contain all stations in archive for that time
+        If True, `raw_waveforms` contain all stations in archive for that time
         period. Else, only selected stations will be included.
     resample : bool, optional
         If true, allow resampling of data which cannot be decimated directly
-        to the desired sampling rate.
+        to the desired sampling rate. See :func:`~quakemigrate.util.resample`
+        Default: False
     upfactor : int, optional
         Factor by which to upsample the data to enable it to be decimated to
         the desired sampling rate, e.g. 40Hz -> 50Hz requires upfactor = 5.
+        See :func:`~quakemigrate.util.resample`
     response_inv : `obspy.Inventory` object, optional
-        ObsPy response inventory for this waveform archive, containing
-        response information for each channel of each station of each network.
+        ObsPy response inventory for this waveform data, containing response
+        information for each channel of each station of each network.
     pre_pad : float, optional
-        Additional pre pad of data cut based on user-defined pre_cut
-        parameter.
+        Additional pre pad of data included in `raw_waveforms`.
     post_pad : float, optional
-        Additional post pad of data cut based on user-defined post_cut
-        parameter.
+        Additional post pad of data included in `raw_waveforms`.
 
     Attributes
     ----------
@@ -338,30 +337,21 @@ class WaveformData:
     stations : `pandas.Series` object
         Series object containing station names.
     read_all_stations : bool
-        If True, raw_waveforms contain all stations in archive for that time
+        If True, `raw_waveforms` contain all stations in archive for that time
         period. Else, only selected stations will be included.
     raw_waveforms : `obspy.Stream` object
-        Raw seismic data found and read in from the archive within the
-        specified time period. This may be for all stations in the archive,
-        or only those specified by the user. See `read_all_stations`.
-    waveforms : `obspy.Stream` objexct
-        Seismic data found and read in from the archive within the specified
-        time period from the specified list of stations.
-    filtered_waveforms : `obspy.Stream` object
-        Filtered and/or resampled and otherwise processed seismic data
-        generated during onset function generation. This may have been further
-        sorted based on additional quality control criteria.
+        Raw seismic data read in from the archive. This may be for all stations
+        in the archive, or only those specified by the user. See
+        `read_all_stations`. It may also cover the time period between
+        `starttime` and `endtime`, or feature an additional pre- and post-pad.
+        See `pre_pad` and `post_pad`.
+    waveforms : `obspy.Stream` object
+        Seismic data read in from the archive for the specified list of
+        stations, between `starttime` and `endtime`.
     pre_pad : float
-        Additional pre pad of data cut based on user-defined pre_cut
-        parameter.
+        Additional pre pad of data included in `raw_waveforms`.
     post_pad : float
-        Additional post pad of data cut based on user-defined post_cut
-        parameter.
-    availability : dict
-        Dictionary with keys "station.phase", containing 1's or 0's
-        corresponding to whether data is available to calculate an onset
-        function according to the criteria set out (trace availability,
-        sampling frequency, presence of gaps, etc.)
+        Additional post pad of data included in `raw_waveforms`.
 
     Methods
     -------
@@ -370,9 +360,6 @@ class WaveformData:
     get_wa_waveform(trace, **response_removal_params)
         Calculate the Wood-Anderson corrected waveform for a `obspy.Trace`
         object.
-    times
-        Utility function to generate the corresponding timestamps for the
-        waveform and coalescence data.
 
     Raises
     ------
@@ -399,20 +386,18 @@ class WaveformData:
 
         self.raw_waveforms = None
         self.waveforms = Stream()
-        self.filtered_waveforms = Stream()
-        self.onsets = {}
-        self.availability = None
         self.wa_waveforms = None
 
     def check_availability(self, st, all_channels=False, n_channels=None,
                            allow_gaps=False, full_timespan=True):
         """
-        Check waveform availability against data quality criteria. There are a
-        number of hard-coded checks: for whether any data is present; for
-        whether the data is a flatline (all samples have the same value); and
-        for whether the data contains overlaps. There are a selection of
-        additional optional checks which can be specified according to the
-        onset function / user preference.
+        Check waveform availability against data quality criteria.
+
+        There are a number of hard-coded checks: for whether any data is
+        present; for whether the data is a flatline (all samples have the same
+        value); and for whether the data contains overlaps. There are a
+        selection of additional optional checks which can be specified
+        according to the onset function / user preference.
 
         Parameters
         ----------

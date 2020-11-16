@@ -128,10 +128,8 @@ def pick_summary(event, station, waveforms, picks, onsets, ttimes, windows):
                 bbox=dict(boxstyle="round", fc="w", alpha=0.8), va="top",
                 ha="left", fontsize=18, zorder=2)
         # Set ylim
-        y_min = min(y[min_win_idx:max_win_idx+1])
-        y_max = max(y[min_win_idx:max_win_idx+1])
-        ax.set_ylim(ymin=(y_min - 0.1 * abs(y_min)),
-                    ymax=(y_max + 0.1 * abs(y_max)))
+        y_max = max(abs(y[min_win_idx:max_win_idx+1]))
+        ax.set_ylim(ymin=-1.1*y_max, ymax=1.1*y_max)
 
     # --- Plot onset functions ---
     # Handle case where only S phase is used

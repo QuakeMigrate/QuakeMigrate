@@ -99,7 +99,18 @@ def event_summary(run, event, marginalised_coa_map, lut, xy_files=None):
     text = plt.subplot2grid((9, 15), (0, 0), colspan=8, rowspan=2, fig=fig)
     _plot_text_summary(text, lut, event)
 
-    fig.axes[0].legend(fontsize=14, loc=1, framealpha=1, markerscale=0.5)
+    # Deal with repeating labels in waveform gather legend; combine labels for
+    # ["N", "1"], ["E", "2"]
+    handles, labels = fig.axes[0].get_legend_handles_labels()
+    for cp1, cp2 in [("N", "1"), ("E", "2")]:
+        if all(x in labels for x in [f"{cp1} component",
+                                     f"{cp2} component"]):
+            labels = [f"{cp2}, {cp1} component" if x == f"{cp1} component" \
+                or x == f"{cp2} component" else x for x in labels]
+    by_label = dict(zip(labels, handles))
+
+    fig.axes[0].legend(by_label.values(), by_label.keys(), fontsize=14, loc=1,
+                       framealpha=1, markerscale=0.5)
     fig.axes[1].legend(fontsize=14, loc=1, framealpha=1)
     fig.axes[2].legend(fontsize=14)
     fig.tight_layout(pad=1, h_pad=0)
@@ -206,7 +217,7 @@ def _plot_waveform_gather(ax, lut, event, idx):
 
             #Plot
             y = data[mint_i:maxt_i] / norm + range_order[i]
-            label = f"{comp} component" if i == 0 else None
+            label = f"{comp} component"
             ax.plot(times, y, c=c, lw=0.3, label=label, alpha=0.85)
 
     # --- Limits, annotations, and axis formatting ---

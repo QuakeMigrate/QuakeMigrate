@@ -538,6 +538,10 @@ class LUT(Grid3D):
             The seismic phase to lookup.
         ijk : array-like
             Grid indices for which to serve traveltime.
+        station : str or list-like (of str), optional
+            Station or stations for which to serve traveltimes. Can be str
+            (for a single station) or list / `pandas.Series` object for
+            multiple.
 
         Returns
         -------
@@ -550,8 +554,10 @@ class LUT(Grid3D):
 
         if station is None:
             traveltimes = self._serve_traveltimes([phase])
-        else:
+        elif isinstance(station, str):
             traveltimes = self._serve_traveltimes([phase], [station])
+        else:
+            traveltimes = self._serve_traveltimes([phase], station)
 
         interpolator = RegularGridInterpolator(grid, traveltimes,
                                                bounds_error=False,
@@ -567,7 +573,7 @@ class LUT(Grid3D):
         ----------
         phases : list of str
             List of phases for which to serve traveltime lookup tables.
-        stations : list of str, optional
+        stations : list-like of str, optional
             List of stations for which to serve traveltime lookup tables.
 
         Returns

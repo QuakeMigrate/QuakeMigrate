@@ -169,9 +169,10 @@ def _plot_waveform_gather(ax, lut, event, idx):
     """
 
     phases = event.onset_data.phases
+    stations = event.data.stations
 
     # --- Predicted traveltimes ---
-    traveltimes = np.array([lut.traveltime_to(phase, idx)
+    traveltimes = np.array([lut.traveltime_to(phase, idx, stations)
                             for phase in phases])
     arrivals = [[(event.otime + tt).datetime for tt in tt_f]
                 for tt_f in traveltimes]
@@ -198,7 +199,7 @@ def _plot_waveform_gather(ax, lut, event, idx):
     times_utc = waveforms[0].times("UTCDateTime")
     mint_i, maxt_i = [np.argmin(abs(times_utc - t)) for t in (mint, maxt)]
     # Loop through stations
-    for i, station in enumerate(event.data.stations):
+    for i, station in enumerate(stations):
         stn_waveforms = waveforms.select(station=station)
         for c, comp in zip(WAVEFORM_COLOURS1, ["Z", "[N,1]", "[E,2]"]):
             st = stn_waveforms.select(component=comp)
@@ -225,7 +226,7 @@ def _plot_waveform_gather(ax, lut, event, idx):
     ax.set_ylim([0, max(range_order)+2])
     ax.xaxis.set_major_formatter(util.DateFormatter("%H:%M:%S.{ms}", 2))
     ax.yaxis.set_ticks(range_order)
-    ax.yaxis.set_ticklabels(event.data.stations, fontsize=14)
+    ax.yaxis.set_ticklabels(stations, fontsize=14)
 
 
 def _plot_coalescence_trace(ax, event):

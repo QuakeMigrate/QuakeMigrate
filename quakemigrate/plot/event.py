@@ -103,10 +103,9 @@ def event_summary(run, event, marginalised_coa_map, lut, xy_files=None):
     # ["N", "1"], ["E", "2"]
     handles, labels = fig.axes[0].get_legend_handles_labels()
     for cp1, cp2 in [("N", "1"), ("E", "2")]:
-        if all(x in labels for x in [f"{cp1} component",
-                                     f"{cp2} component"]):
-            labels = [f"{cp2}, {cp1} component" if x == f"{cp1} component" \
-                or x == f"{cp2} component" else x for x in labels]
+        if all(x in labels for x in [f"{cp1} component", f"{cp2} component"]):
+            labels = [f"{cp2}, {cp1} component" if x == f"{cp1} component"
+                      or x == f"{cp2} component" else x for x in labels]
     by_label = dict(zip(labels, handles))
 
     fig.axes[0].legend(by_label.values(), by_label.keys(), fontsize=14, loc=1,
@@ -198,7 +197,6 @@ def _plot_waveform_gather(ax, lut, event, idx):
     # Convert to indices -- will still be the same for sub-sample shifts
     times_utc = waveforms[0].times("UTCDateTime")
     mint_i, maxt_i = [np.argmin(abs(times_utc - t)) for t in (mint, maxt)]
-    # Loop through stations
     for i, station in enumerate(stations):
         stn_waveforms = waveforms.select(station=station)
         for c, comp in zip(WAVEFORM_COLOURS1, ["Z", "[N,1]", "[E,2]"]):
@@ -216,7 +214,7 @@ def _plot_waveform_gather(ax, lut, event, idx):
             # Generate times for plotting
             times = tr.times("matplotlib")[mint_i:maxt_i]
 
-            #Plot
+            # Trim to plot limits, normalise, shift by range, then plot
             y = data[mint_i:maxt_i] / norm + range_order[i]
             label = f"{comp} component"
             ax.plot(times, y, c=c, lw=0.3, label=label, alpha=0.85)

@@ -34,8 +34,12 @@ grid_spec.grid_proj = gproj
 grid_spec.coord_proj = cproj
 
 # --- Homogeneous LUT generation ---
+# P & S
 lut = compute_traveltimes(grid_spec, stations, method="homogeneous", vp=5.0,
                           vs=3.0, log=True, save_file=lut_file)
+# Just P (similar for just S - use `vs` keyword)
+lut = compute_traveltimes(grid_spec, stations, method="homogeneous", vp=5.0,
+                          log=True, save_file=lut_file)
 
 # --- skfmm LUT generation ---
 lut = compute_traveltimes(grid_spec, stations, method="1dfmm", vmod=vmod,

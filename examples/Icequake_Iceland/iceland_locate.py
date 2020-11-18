@@ -4,6 +4,14 @@ Locate stage for the Iceland icequake example.
 
 """
 
+# Stop numpy using all available threads (these environment variables must be
+# set before numpy is imported for the first time).
+import os
+os.environ.update(OMP_NUM_THREADS="1",
+                  OPENBLAS_NUM_THREADS="1",
+                  NUMEXPR_NUM_THREADS="1",
+                  MKL_NUM_THREADS="1")
+
 from quakemigrate import QuakeScan
 from quakemigrate.io import Archive, read_lut, read_stations
 from quakemigrate.signal.onsets import STALTAOnset
@@ -41,7 +49,8 @@ onset.sta_lta_windows = {
 
 # --- Create new PhasePicker ---
 picker = GaussianPicker(onset=onset, plot_picks=True)
-picker.sampling_rate = 500
+picker.marginal_window = 1.
+picker.plot_picks = True
 
 # --- Create new QuakeScan ---
 scan = QuakeScan(archive, lut, onset=onset, picker=picker,
@@ -53,7 +62,7 @@ scan = QuakeScan(archive, lut, onset=onset, picker=picker,
 # see the manual and read the docs.
 scan.marginal_window = 1.
 scan.threads = 12
-scan.scan_rate = 500
+scan.sampling_rate = 500
 
 # --- Toggle plotting options ---
 scan.plot_event_video = False

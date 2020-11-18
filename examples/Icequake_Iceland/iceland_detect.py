@@ -4,6 +4,14 @@ Detect stage for the Iceland icequake example.
 
 """
 
+# Stop numpy using all available threads (these environment variables must be
+# set before numpy is imported for the first time).
+import os
+os.environ.update(OMP_NUM_THREADS="1",
+                  OPENBLAS_NUM_THREADS="1",
+                  NUMEXPR_NUM_THREADS="1",
+                  MKL_NUM_THREADS="1")
+
 from quakemigrate import QuakeScan
 from quakemigrate.io import Archive, read_lut, read_stations
 from quakemigrate.signal.onsets import STALTAOnset
@@ -43,7 +51,7 @@ scan = QuakeScan(archive, lut, onset=onset, run_path=run_path,
                  run_name=run_name, log=True, loglevel="info")
 
 # --- Set detect parameters ---
-scan.scan_rate = 500
+scan.sampling_rate = 500
 scan.timestep = 0.75
 scan.threads = 12
 

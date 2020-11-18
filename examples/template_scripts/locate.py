@@ -6,6 +6,14 @@ For more details, please see the manual and read the docs.
 
 """
 
+# Stop numpy using all available threads (these environment variables must be
+# set before numpy is imported for the first time).
+import os
+os.environ.update(OMP_NUM_THREADS="1",
+                  OPENBLAS_NUM_THREADS="1",
+                  NUMEXPR_NUM_THREADS="1",
+                  MKL_NUM_THREADS="1")
+
 from obspy.core import AttribDict
 
 from quakemigrate import QuakeScan
@@ -61,11 +69,13 @@ onset.sta_lta_windows = {
 # --- Create new PhasePicker ---
 # For a complete list of parameters and guidance on how to choose them, please
 # see the manual and read the docs.
-gausspicker_onset = STALTAOnset(position="centred")
-gausspicker_onset.p_bp_filter = [2, 9.9, 2]
-gausspicker_onset.s_bp_filter = [2, 9.9, 2]
-gausspicker_onset.p_onset_win = [0.2, 1.5]
-gausspicker_onset.s_onset_win = [0.2, 1.5]
+gausspicker_onset = STALTAOnset(position="centred", sampling_rate=20)
+gausspicker_onset.bandpass_filters = {
+    "P": [2, 9.9, 2],
+    "S": [2, 9.9, 2]}
+gausspicker_onset.sta_lta_windows = {
+    "P": [0.2, 1.5],
+    "S": [0.2, 1.5]}
 
 picker = GaussianPicker(onset=gausspicker_onset, plot_picks=True)
 

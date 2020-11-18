@@ -6,6 +6,14 @@ For more details, please see the manual and read the docs.
 
 """
 
+# Stop numpy using all available threads (these environment variables must be
+# set before numpy is imported for the first time).
+import os
+os.environ.update(OMP_NUM_THREADS="1",
+                  OPENBLAS_NUM_THREADS="1",
+                  NUMEXPR_NUM_THREADS="1",
+                  MKL_NUM_THREADS="1")
+
 from quakemigrate import QuakeScan
 from quakemigrate.io import Archive, read_lut, read_stations
 from quakemigrate.signal.onsets import STALTAOnset

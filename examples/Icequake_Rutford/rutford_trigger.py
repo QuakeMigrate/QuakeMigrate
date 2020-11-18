@@ -4,6 +4,14 @@ Trigger stage for the Rutford icequake example.
 
 """
 
+# Stop numpy using all available threads (these environment variables must be
+# set before numpy is imported for the first time).
+import os
+os.environ.update(OMP_NUM_THREADS="1",
+                  OPENBLAS_NUM_THREADS="1",
+                  NUMEXPR_NUM_THREADS="1",
+                  MKL_NUM_THREADS="1")
+
 from quakemigrate import Trigger
 from quakemigrate.io import read_lut
 
@@ -40,4 +48,4 @@ trig.static_threshold = 2.75
 # trig.mad_multiplier = 8.
 
 # --- Run trigger ---
-trig.trigger(starttime, endtime, savefig=False)
+trig.trigger(starttime, endtime, savefig=True)

@@ -163,6 +163,7 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
         fstem = f"{run.name}_{starttime.year}_{starttime.julday:03d}_Trigger"
         file = (fpath / fstem).with_suffix(".pdf")
         plt.savefig(str(file))
+        plt.close(fig)
     else:
         plt.show()
 

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-This script will run the locate stage of QuakeMigrate.
+This script demonstrates how to run the locate stage of QuakeMigrate.
 
 For more details, please see the manual and read the docs.
 
@@ -59,6 +59,7 @@ lut = read_lut(lut_file=lut_file)
 
 # --- Create new Onset function ---
 onset = STALTAOnset(position="centred", sampling_rate=20)
+onset.phases = ["P", "S"]
 onset.bandpass_filters = {
     "P": [2, 9.9, 2],
     "S": [2, 9.9, 2]}
@@ -70,6 +71,7 @@ onset.sta_lta_windows = {
 # For a complete list of parameters and guidance on how to choose them, please
 # see the manual and read the docs.
 gausspicker_onset = STALTAOnset(position="centred", sampling_rate=20)
+gausspicker_onset.phases = ["P", "S"]
 gausspicker_onset.bandpass_filters = {
     "P": [2, 9.9, 2],
     "S": [2, 9.9, 2]}
@@ -77,7 +79,8 @@ gausspicker_onset.sta_lta_windows = {
     "P": [0.2, 1.5],
     "S": [0.2, 1.5]}
 
-picker = GaussianPicker(onset=gausspicker_onset, plot_picks=True)
+picker = GaussianPicker(onset=gausspicker_onset)
+picker.plot_picks = True
 
 # --- Create new LocalMag object ---
 # All parameters are optional: see the documentation for a complete guide.
@@ -106,19 +109,23 @@ mags = LocalMag(amp_params=amp_params, mag_params=mag_params)
 mags.plot_amplitudes = True
 
 # --- Create new QuakeScan ---
-scan = QuakeScan(archive, lut, onset=onset, picker=picker, run_path=run_path,
-                 run_name=run_name, log=True, mags=mags, loglevel="info")
+# If you do not want to calculate local magnitudes, specify `mags=None`
+scan = QuakeScan(archive, lut, onset=onset, picker=picker, mags=mags,
+                 run_path=run_path, run_name=run_name, log=True,
+                 loglevel="info")
 
 # --- Set locate parameters ---
 # For a complete list of parameters and guidance on how to choose them, please
 # see the manual and read the docs.
 scan.marginal_window = 1
-scan.sampling_rate = 20
 scan.threads = 12
 
 # --- Toggle plotting options ---
-scan.plot_event_video = False
 scan.plot_event_summary = True
+# It is possible to supply xy files to enhance and give context to the
+# event summary map plots. See the volcano-tectonic example from Iceland
+# for details.
+# scan.xy_files = "/path/to/xy_csv"
 
 # --- Toggle writing of cut waveforms ---
 scan.write_cut_waveforms = True

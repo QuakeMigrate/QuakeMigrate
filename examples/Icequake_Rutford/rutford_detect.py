@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Detect stage for the Rutford icequake example.
+This script runs the detect stage for the Rutford icequake example.
 
 """
 
@@ -39,6 +39,7 @@ lut = read_lut(lut_file=lut_out)
 
 # --- Create new Onset ---
 onset = STALTAOnset(position="classic", sampling_rate=1000)
+onset.phases = ["P", "S"]
 onset.bandpass_filters = {
     "P": [20, 200, 4],
     "S": [10, 125, 4]}
@@ -51,7 +52,6 @@ scan = QuakeScan(archive, lut, onset=onset, run_path=run_path,
                  run_name=run_name, log=True, loglevel="info")
 
 # --- Set detect parameters ---
-scan.sampling_rate = 1000
 scan.timestep = 0.75
 scan.threads = 12
 

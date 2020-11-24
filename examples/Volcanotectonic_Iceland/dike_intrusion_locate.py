@@ -63,14 +63,16 @@ lut = read_lut(lut_file=lut_file)
 
 # --- Create new Onset ---
 onset = STALTAOnset(position="centred", sampling_rate=50)
-onset.p_bp_filter = [2, 16, 2]
-onset.s_bp_filter = [2, 16, 2]
-onset.p_onset_win = [0.2, 1.0]
-onset.s_onset_win = [0.2, 1.0]
+onset.phases = ["P", "S"]
+onset.bandpass_filters = {
+    "P": [2, 16, 2],
+    "S": [2, 16, 2]}
+onset.sta_lta_windows = {
+    "P": [0.2, 1.0],
+    "S": [0.2, 1.0]}
 
 # --- Create new PhasePicker ---
 picker = GaussianPicker(onset=onset)
-picker.marginal_window = 1.0
 picker.plot_picks = True
 
 # --- Create new QuakeScan ---
@@ -83,10 +85,8 @@ scan = QuakeScan(archive, lut, onset=onset, picker=picker, mags=mags,
 # see the manual and read the docs.
 scan.marginal_window = 1.0
 scan.threads = 12
-scan.sampling_rate = 50
 
 # --- Toggle plotting options ---
-scan.plot_event_video = False
 scan.plot_event_summary = True
 scan.xy_files = "./inputs/XY_FILES/dike_xyfiles.csv"
 

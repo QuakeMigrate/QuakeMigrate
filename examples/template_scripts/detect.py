@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-This script will run the detect stage of QuakeMigrate.
+This script demonstrates how to run the detect stage of QuakeMigrate.
 
 For more details, please see the manual and read the docs.
 
@@ -47,10 +47,11 @@ archive = Archive(archive_path=archive_path, stations=stations,
 lut = read_lut(lut_file=lut_file)
 
 # --- Decimate the lookup table ---
-lut = lut.decimate([5, 5, 4])
+lut = lut.decimate([2, 2, 2])
 
 # --- Create new Onset ---
 onset = STALTAOnset(position="classic", sampling_rate=20)
+onset.phases = ["P", "S"]
 onset.bandpass_filters = {
     "P": [2, 9.9, 2],
     "S": [2, 9.9, 2]}
@@ -65,7 +66,6 @@ scan = QuakeScan(archive, lut, onset=onset, run_path=run_path,
 # --- Set detect parameters ---
 # For a complete list of parameters and guidance on how to choose them, please
 # see the manual and read the docs.
-scan.sampling_rate = 20
 scan.timestep = 120.
 scan.threads = 12
 

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Trigger stage for the Iceland icequake example.
+This script runs the trigger stage for the Iceland icequake example.
 
 """
 

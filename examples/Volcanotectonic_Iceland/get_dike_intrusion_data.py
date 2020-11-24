@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-This script will download the waveform data and instrument response inventory
-from IRIS (in miniSEED and STATIONXML formats, respectively) for the Iceland
-dike intrusion example.
+This script will download the waveform data and an instrument response
+inventory from IRIS (in miniSEED and STATIONXML formats, respectively)
+for the Iceland dike intrusion example.
 
 """
 

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Locate stage for the Rutford icequake example.
+This script runs the locate stage for the Rutford icequake example.
 
 """
 
@@ -40,6 +40,7 @@ lut = read_lut(lut_file=lut_out)
 
 # --- Create new Onset ---
 onset = STALTAOnset(position="centred", sampling_rate=1000)
+onset.phases = ["P", "S"]
 onset.bandpass_filters = {
     "P": [20, 200, 4],
     "S": [10, 125, 4]}
@@ -49,7 +50,6 @@ onset.sta_lta_windows = {
 
 # --- Create new PhasePicker ---
 picker = GaussianPicker(onset=onset)
-picker.marginal_window = 0.1
 picker.plot_picks = True
 
 # --- Create new QuakeScan ---
@@ -62,10 +62,8 @@ scan = QuakeScan(archive, lut, onset=onset, picker=picker,
 # see the manual and read the docs.
 scan.marginal_window = 0.1
 scan.threads = 12
-scan.sampling_rate = 1000
 
 # --- Toggle plotting options ---
-scan.plot_event_video = False
 scan.plot_event_summary = True
 
 # --- Toggle writing of waveforms ---

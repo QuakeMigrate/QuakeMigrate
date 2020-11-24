@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-This script will run the trigger stage of QuakeMigrate.
+This script demonstrates how to run the trigger stage of QuakeMigrate.
 
 For more details, please see the manual and read the docs.
 
@@ -50,6 +50,9 @@ trig.static_threshold = 1.75
 # trig.mad_multiplier = 8.
 
 # --- Toggle plotting options ---
+# It is possible to supply xy files to enhance and give context to the
+# trigger summary map plots. See the volcano-tectonic example from Iceland
+# for details.
 # trig.xy_files = "/path/to/xy_csv"
 
 # --- Run trigger ---

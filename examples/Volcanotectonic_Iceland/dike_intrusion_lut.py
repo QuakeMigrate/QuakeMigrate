@@ -38,4 +38,4 @@ grid_spec.coord_proj = cproj
 
 # --- 1-D velocity model LUT generation (using NonLinLoc 1-D Sweep) ---
 lut = compute_traveltimes(grid_spec, stations, method="1dsweep", vmod=vmodel,
-                          log=True, save_file=lut_out)
+                          phases=["P", "S"], log=True, save_file=lut_out)

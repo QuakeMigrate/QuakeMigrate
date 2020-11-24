@@ -197,7 +197,8 @@ class Trigger:
             raise util.InvalidThresholdMethodException
         self.marginal_window = kwargs.get("marginal_window", 2.)
         self.min_event_interval = kwargs.get("min_event_interval", 4.)
-        self.minimum_repeat = kwargs.get("minimum_repeat", 4.)
+        if kwargs.get("minimum_repeat"):
+            self.minimum_repeat = kwargs.get("minimum_repeat")
         self.normalise_coalescence = kwargs.get("normalise_coalescence", False)
         self.pad = kwargs.get("pad", 120.)
 

@@ -16,6 +16,7 @@ import pickle
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import pyproj
 from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 from scipy.interpolate import RegularGridInterpolator
@@ -467,6 +468,8 @@ class LUT(Grid3D):
             if lut_file is not None:
                 self.load(lut_file)
 
+        self.station_data = pd.DataFrame()
+
     def __str__(self):
         """Return short summary string of the lookup table object."""
 
@@ -638,7 +641,8 @@ class LUT(Grid3D):
                   "your lookup table to the new-style\nusing "
                   "`quakemigrate.lut.update_lut`.")
 
-    def plot(self, fig, gs, slices=None, hypocentre=None, station_clr="k"):
+    def plot(self, fig, gs, slices=None, hypocentre=None, station_clr="k",
+             station_list=None):
         """
         Plot the lookup table for a particular station.
 
@@ -654,6 +658,9 @@ class LUT(Grid3D):
             Event hypocentre - will add cross-hair to plot.
         station_clr : str, optional
             Plot the stations with a particular colour.
+        station_list : list-like of str, optional
+            List of stations from the LUT to plot - useful if only a subset
+            have been selected to be used in e.g. locate.
 
         """
 
@@ -709,16 +716,21 @@ class LUT(Grid3D):
                              fontsize=14)
 
         # --- Plot stations ---
-        xy.scatter(self.station_data.Longitude.values,
-                   self.station_data.Latitude.values,
+        if station_list is not None:
+            station_data = \
+                self.station_data[self.station_data["Name"].isin(station_list)]
+        else:
+            station_data = self.station_data
+        xy.scatter(station_data.Longitude.values,
+                   station_data.Latitude.values,
                    s=15, marker="^", zorder=20, c=station_clr)
-        xz.scatter(self.station_data.Longitude.values,
-                   self.station_data.Elevation.values,
+        xz.scatter(station_data.Longitude.values,
+                   station_data.Elevation.values,
                    s=15, marker="^", zorder=20, c=station_clr)
-        yz.scatter(self.station_data.Elevation.values,
-                   self.station_data.Latitude.values,
+        yz.scatter(station_data.Elevation.values,
+                   station_data.Latitude.values,
                    s=15, marker="<", zorder=20, c=station_clr)
-        for i, row in self.station_data.iterrows():
+        for i, row in station_data.iterrows():
             xy.annotate(row["Name"], [row.Longitude, row.Latitude], zorder=20,
                         c=station_clr, clip_on=True)
 

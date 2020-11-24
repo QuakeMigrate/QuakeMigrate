@@ -78,7 +78,8 @@ def event_summary(run, event, marginalised_coa_map, lut, xy_files=None):
     fig.add_subplot(coa_spec)
 
     # --- Plot LUT, waveform gather, and max coalescence trace ---
-    lut.plot(fig, (9, 15), slices, event.hypocentre, "white")
+    lut.plot(fig, (9, 15), slices, event.hypocentre, "white",
+             event.data.stations)
     _plot_waveform_gather(fig.axes[0], lut, event, idx_max)
     _plot_coalescence_trace(fig.axes[1], event)
 

@@ -159,6 +159,11 @@ class Trigger:
         treated as a comment - this can be used to include references. See the
         Volcanotectonic_Iceland example XY_files for a template.\n
         .. note:: Do not include a header line in either file.
+    plot_all_stns : bool, optional
+        If true, plot all stations used for detect. Otherwise, only plot
+        stations which for which some data was available during the trigger
+        time window. NOTE: if no station availability data is found, all
+        stations in the LUT will be plotted. (Default: True)
 
     Methods
     -------
@@ -204,6 +209,7 @@ class Trigger:
 
         # --- Plotting parameters ---
         self.xy_files = kwargs.get("xy_files")
+        self.plot_all_stns = kwargs.get("plot_all_stns", True)
 
     def __str__(self):
         """Return short summary string of the Trigger object."""
@@ -319,7 +325,8 @@ class Trigger:
                         self.marginal_window, self.min_event_interval,
                         threshold, self.normalise_coalescence, self.lut,
                         data, region, savefig, discarded,
-                        xy_files=self.xy_files)
+                        xy_files=self.xy_files,
+                        plot_all_stns=self.plot_all_stns)
 
     @util.timeit()
     def _get_threshold(self, scandata, sampling_rate):

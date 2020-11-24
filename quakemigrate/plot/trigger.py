@@ -25,7 +25,7 @@ import quakemigrate.util as util
 def trigger_summary(events, starttime, endtime, run, marginal_window,
                     min_event_interval, detection_threshold,
                     normalise_coalescence, lut, data, region, savefig,
-                    discarded_events, xy_files=None):
+                    discarded_events, xy_files=None, plot_all_stns=True):
     """
     Plots the data from a .scanmseed file with annotations illustrating the
     trigger results: event triggers and marginal windows on the coalescence
@@ -77,6 +77,11 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
         treated as a comment - this can be used to include references. See the
         Volcanotectonic_Iceland example XY_files for a template.\n
         .. note:: Do not include a header line in either file.
+    plot_all_stns : bool, optional
+        If true, plot all stations used for detect. Otherwise, only plot
+        stations which for which some data was available during the trigger
+        time window. NOTE: if no station availability data is found, all
+        stations in the LUT will be plotted. (Default, True)
 
     """
 
@@ -91,38 +96,51 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
         ax.set_xlim([starttime.datetime, endtime.datetime])
 
     # --- Plot LUT, coalescence traces, and station availability ---
-    lut.plot(fig, gs)
-    axes = fig.axes
-    for ax in axes[:2]:
-        ax.get_shared_x_axes().join(ax, axes[2])
-    _plot_coalescence(axes[0], dt, data.COA.values, "Maximum coalescence")
-    _plot_coalescence(axes[1], dt, data.COA_N.values,
+    for ax in fig.axes[:2]:
+        ax.get_shared_x_axes().join(ax, fig.axes[2])
+    _plot_coalescence(fig.axes[0], dt, data.COA.values, "Maximum coalescence")
+    _plot_coalescence(fig.axes[1], dt, data.COA_N.values,
                       "Normalised maximum coalescence")
     try:
         availability = read_availability(run, starttime, endtime)
-        _plot_station_availability(axes[2], availability, endtime)
+        _plot_station_availability(fig.axes[2], availability, endtime)
     except util.NoStationAvailabilityDataException as e:
         logging.info(e)
+        availability = None
+
+    # Use station availability to work out which stations to plot
+    if availability is not None:
+        station_list = []
+        if not plot_all_stns:
+            for col, ava in availability.iteritems():
+                if np.any(ava == 1):
+                    station_list.append(col.split("_")[0])
+        else:
+            station_list = [col.split("_")[0] for col in availability.columns]
+        station_list = list(set(sorted(station_list)))
+        lut.plot(fig, gs, station_list=station_list)
+    else:
+        lut.plot(fig, gs)
 
     # --- Plot xy files on map ---
     _plot_xy_files(xy_files, fig.axes[3])
 
     # --- Plot trigger region (if any) ---
     if region is not None:
-        _plot_trigger_region(axes[3:], region)
-        _plot_event_windows(axes[:2], discarded_events, marginal_window,
+        _plot_trigger_region(fig.axes[3:], region)
+        _plot_event_windows(fig.axes[:2], discarded_events, marginal_window,
                             discarded=True)
         _plot_event_scatter(fig, discarded_events, discarded=True)
 
 
     # --- Plot event scatter on LUT and windows on coalescence traces ---
     if events is not None:
-        _plot_event_windows(axes[:2], events, marginal_window)
+        _plot_event_windows(fig.axes[:2], events, marginal_window)
         _plot_event_scatter(fig, events)
 
         # Add trigger threshold to the correct coalescence trace
         ax_i = 1 if normalise_coalescence else 0
-        axes[ax_i].step(dt, detection_threshold, where="mid", c="g",
+        fig.axes[ax_i].step(dt, detection_threshold, where="mid", c="g",
                         label="Detection threshold")
 
     # --- Write summary information ---
@@ -370,7 +388,8 @@ def _plot_event_windows(axes, events, marginal_window, discarded=False):
                 ax.axvline(event["CoaTime"].datetime, lw=0.01, alpha=0.4,
                            color="grey")
             else:
-                ax.axvspan(min_dt, mw_stt, label=lab1, alpha=0.2, color="#F03B20")
+                ax.axvspan(min_dt, mw_stt, label=lab1, alpha=0.2,
+                           color="#F03B20")
                 ax.axvspan(mw_end, max_dt, alpha=0.2, color="#F03B20")
                 ax.axvspan(mw_stt, mw_end, label=lab2, alpha=0.2,
                            color="#3182BD")

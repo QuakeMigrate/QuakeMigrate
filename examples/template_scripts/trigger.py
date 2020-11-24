@@ -54,6 +54,7 @@ trig.static_threshold = 1.75
 # trigger summary map plots. See the volcano-tectonic example from Iceland
 # for details.
 # trig.xy_files = "/path/to/xy_csv"
+# trig.plot_all_stns = False
 
 # --- Run trigger ---
 # NOTE: It is possible to specify an optional spatial filter to restrict the

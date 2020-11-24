@@ -707,6 +707,8 @@ class Amplitude:
 
         """
 
+        filter_gain = None
+
         # Loop over windows, cut data and measure amplitude
         for k, (start_time, end_time) in enumerate(windows):
             window = tr.slice(start_time, end_time)
@@ -732,7 +734,6 @@ class Amplitude:
 
             # Correct for filter gain at approximate frequency of
             # measured amplitude
-            filter_gain = None
             if self.bandpass_filter or self.highpass_filter:
                 _, filter_gain = sosfreqz(filter_sos, worN=[approx_freq],
                                           fs=tr.stats.sampling_rate)
@@ -891,22 +892,27 @@ class Amplitude:
         noise_end = p_start
 
         noise = tr.slice(noise_start, noise_end)
-        noise.detrend("linear")
-
-        # Use standard deviation in noise window as an estimate of the
-        # background noise amplitude *in millimetres*
-        if method == "RMS":
-            noise_amp = np.sqrt(np.mean(np.square(noise.data))) * 1000.
-        elif method == "STD":
-            noise_amp = np.std(noise.data) * 1000.
+        if not bool(noise) or noise.data.max() == noise.data.min():
+            logging.warning("Noise window doesn't contain any data for trace "
+                            f"{noise.id}")
+            noise_amp = np.nan
         else:
-            raise NotImplementedError("Only 'RMS' and 'STD' are available "
-                                      "currently. Please contact the "
-                                      "QuakeMigrate developers.")
+            noise.detrend("linear")
 
-        if self.bandpass_filter or self.highpass_filter:
-            # NOTE: uses the gain at the approx_freq of the last amplitude
-            # measured; S-wave signal window.
-            noise_amp /= np.abs(filter_gain[0])
+            # Use standard deviation in noise window as an estimate of the
+            # background noise amplitude *in millimetres*
+            if method == "RMS":
+                noise_amp = np.sqrt(np.mean(np.square(noise.data))) * 1000.
+            elif method == "STD":
+                noise_amp = np.std(noise.data) * 1000.
+            else:
+                raise NotImplementedError("Only 'RMS' and 'STD' are available "
+                                          "currently. Please contact the "
+                                          "QuakeMigrate developers.")
+
+            if self.bandpass_filter or self.highpass_filter and filter_gain:
+                # NOTE: uses the gain at the approx_freq of the last amplitude
+                # measured; S-wave signal window.
+                noise_amp /= np.abs(filter_gain[0])
 
         return noise_amp

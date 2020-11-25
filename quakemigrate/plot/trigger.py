@@ -25,7 +25,7 @@ import quakemigrate.util as util
 def trigger_summary(events, starttime, endtime, run, marginal_window,
                     min_event_interval, detection_threshold,
                     normalise_coalescence, lut, data, region, savefig,
-                    discarded_events, xy_files=None):
+                    discarded_events, xy_files=None, plot_all_stns=True):
     """
     Plots the data from a .scanmseed file with annotations illustrating the
     trigger results: event triggers and marginal windows on the coalescence
@@ -77,6 +77,11 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
         treated as a comment - this can be used to include references. See the
         Volcanotectonic_Iceland example XY_files for a template.\n
         .. note:: Do not include a header line in either file.
+    plot_all_stns : bool, optional
+        If true, plot all stations used for detect. Otherwise, only plot
+        stations which for which some data was available during the trigger
+        time window. NOTE: if no station availability data is found, all
+        stations in the LUT will be plotted. (Default, True)
 
     """
 
@@ -91,39 +96,51 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
         ax.set_xlim([starttime.datetime, endtime.datetime])
 
     # --- Plot LUT, coalescence traces, and station availability ---
-    lut.plot(fig, gs)
-    axes = fig.axes
-    for ax in axes[:2]:
-        ax.get_shared_x_axes().join(ax, axes[2])
-    # for ax, data, label in zip(fig.axes[:2], )
-    _plot_coalescence(axes[0], dt, data.COA.values, "Maximum coalescence")
-    _plot_coalescence(axes[1], dt, data.COA_N.values,
+    for ax in fig.axes[:2]:
+        ax.get_shared_x_axes().join(ax, fig.axes[2])
+    _plot_coalescence(fig.axes[0], dt, data.COA.values, "Maximum coalescence")
+    _plot_coalescence(fig.axes[1], dt, data.COA_N.values,
                       "Normalised maximum coalescence")
     try:
         availability = read_availability(run, starttime, endtime)
-        _plot_station_availability(axes[2], availability, endtime)
+        _plot_station_availability(fig.axes[2], availability, endtime)
     except util.NoStationAvailabilityDataException as e:
         logging.info(e)
+        availability = None
+
+    # Use station availability to work out which stations to plot
+    if availability is not None:
+        station_list = []
+        if not plot_all_stns:
+            for col, ava in availability.iteritems():
+                if np.any(ava == 1):
+                    station_list.append(col.split("_")[0])
+        else:
+            station_list = [col.split("_")[0] for col in availability.columns]
+        station_list = list(set(sorted(station_list)))
+        lut.plot(fig, gs, station_list=station_list)
+    else:
+        lut.plot(fig, gs)
 
     # --- Plot xy files on map ---
     _plot_xy_files(xy_files, fig.axes[3])
 
     # --- Plot trigger region (if any) ---
     if region is not None:
-        _plot_trigger_region(axes[3:], region)
-        _plot_event_windows(axes[:2], discarded_events, marginal_window,
+        _plot_trigger_region(fig.axes[3:], region)
+        _plot_event_windows(fig.axes[:2], discarded_events, marginal_window,
                             discarded=True)
         _plot_event_scatter(fig, discarded_events, discarded=True)
 
 
     # --- Plot event scatter on LUT and windows on coalescence traces ---
     if events is not None:
-        _plot_event_windows(axes[:2], events, marginal_window)
+        _plot_event_windows(fig.axes[:2], events, marginal_window)
         _plot_event_scatter(fig, events)
 
         # Add trigger threshold to the correct coalescence trace
         ax_i = 1 if normalise_coalescence else 0
-        axes[ax_i].step(dt, detection_threshold, where="mid", c="g",
+        fig.axes[ax_i].step(dt, detection_threshold, where="mid", c="g",
                         label="Detection threshold")
 
     # --- Write summary information ---
@@ -164,6 +181,7 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
         fstem = f"{run.name}_{starttime.year}_{starttime.julday:03d}_Trigger"
         file = (fpath / fstem).with_suffix(".pdf")
         plt.savefig(str(file))
+        plt.close(fig)
     else:
         plt.show()
 
@@ -184,21 +202,67 @@ def _plot_station_availability(ax, availability, endtime):
 
     """
 
-    available = availability.sum(axis=1).astype(int)
-    times = list(pd.to_datetime(available.index))
+    # Get list of phases from station availability dataframe
+    phases = sorted(set([col_name.split("_")[1] for col_name in \
+        availability.columns]))
+    logging.debug(f"\t\t    Found phases: {phases}")
 
-    # Handle last step
-    available = available.values
-    available = np.append(available, [available[-1]])
-    times.append(endtime.datetime)
-    ax.step(times, available, c="green", where="post")
+    # Sort out plotting options based on the number of phases
+    if len(phases) > 2:
+        logging.warning("\t\t    Only P and/or S are currently supported! "
+                        "Plotting by station only.")
+        phases = ["*"]
+        colours = ["green"]
+        divideby = len(phases)
+    elif len(phases) == 1:
+        if phases[0] == "P":
+            colours = ["#F03B20"]
+        else:
+            colours = ["#3182BD"]
+    elif (availability.filter(like=f".{phases[0]}").values == \
+        availability.filter(like=f".{phases[1]}").values).all():
+        logging.info("\t\t    Station availability is identical for both "
+                     "phases; plotting by station only.")
+        divideby = len(phases)
+        phases = ["*"]
+        colours = ["green"]
+    else:
+        colours = ["#F03B20", "#3182BD"]
 
+    # Loop through phases and plot
+    max_ava = []
+    min_ava = []
+    for phase, colour in zip(phases, colours):
+        ph_availability = availability.filter(regex=f".{phase}$")
+
+        available = ph_availability.sum(axis=1).astype(int)
+        times = list(pd.to_datetime(available.index))
+
+        # If plotting by station, divide by # of phases
+        if phases[0] == "*":
+            # This can lead to incorrect value (e.g. if 2 / 3 phases are
+            # available for a station). But not important enough to faff with.
+            available = (available / divideby).astype(int)
+
+        # Handle last step
+        available = available.values
+        available = np.append(available, [available[-1]])
+        times.append(endtime.datetime)
+        ax.step(times, available, c=colour, where="post", label=phase)
+
+        max_ava.append(max(available))
+        min_ava.append(min(available))
+
+    # Plot formatting
     _add_plot_tag(ax, "Station availability")
-    ax.set_ylim([int(min(available)*0.8), int(max(available)*1.1)])
-    ax.set_yticks(range(int(min(available)*0.8), int(max(available)*1.1)+1))
+    ax.set_ylim([int(min(min_ava)*0.8), np.int(np.ceil(max(max_ava)*1.1))])
+    ax.set_yticks(range(int(min(min_ava)*0.8),
+                        np.int(np.ceil(max(max_ava)*1.1))+1))
     ax.xaxis.set_major_formatter(util.DateFormatter("%H:%M:%S.{ms}", 2))
     ax.set_xlabel("DateTime", fontsize=14)
     ax.set_ylabel("Available stations", fontsize=14)
+    if phases[0] != "*":
+        ax.legend(loc=1, fontsize=14, framealpha=0.85).set_zorder(20)
 
 
 def _plot_coalescence(ax, dt, data, label):
@@ -324,7 +388,8 @@ def _plot_event_windows(axes, events, marginal_window, discarded=False):
                 ax.axvline(event["CoaTime"].datetime, lw=0.01, alpha=0.4,
                            color="grey")
             else:
-                ax.axvspan(min_dt, mw_stt, label=lab1, alpha=0.2, color="#F03B20")
+                ax.axvspan(min_dt, mw_stt, label=lab1, alpha=0.2,
+                           color="#F03B20")
                 ax.axvspan(mw_end, max_dt, alpha=0.2, color="#F03B20")
                 ax.axvspan(mw_stt, mw_end, label=lab2, alpha=0.2,
                            color="#3182BD")

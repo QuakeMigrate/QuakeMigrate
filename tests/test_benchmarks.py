@@ -15,7 +15,7 @@ from quakemigrate.io import read_lut
 
 
 examples = ["Icequake_Iceland", "Volcanotectonic_Iceland"]
-e_path = pathlib.Path(__file__).parent.parent / "examples"
+e_path = pathlib.Path(__file__).resolve().parent.parent / "examples"
 b_path = e_path / "benchmarks"
 t_path = e_path / "{}" / "outputs" / "runs" / "example_run"
 
@@ -140,6 +140,7 @@ class TestExamples(unittest.TestCase):
                 print("\t   ...passed!")
             except IndexError:
                 print("\t   ...no amplitude files found!")
+
 
 if __name__ == "__main__":
     unittest.main()

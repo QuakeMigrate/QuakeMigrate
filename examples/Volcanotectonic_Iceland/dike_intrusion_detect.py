@@ -39,18 +39,20 @@ lut = read_lut(lut_file=lut_file)
 lut.decimate([2, 2, 2], inplace=True)
 
 # --- Create new Onset ---
-onset = STALTAOnset(position="classic")
-onset.p_bp_filter = [2, 16, 2]
-onset.s_bp_filter = [2, 16, 2]
-onset.p_onset_win = [0.2, 1.0]
-onset.s_onset_win = [0.2, 1.0]
+onset = STALTAOnset(position="classic", sampling_rate=50)
+onset.phases = ["P", "S"]
+onset.bandpass_filters = {
+    "P": [2, 16, 2],
+    "S": [2, 16, 2]}
+onset.sta_lta_windows = {
+    "P": [0.2, 1.0],
+    "S": [0.2, 1.0]}
 
 # --- Create new QuakeScan ---
 scan = QuakeScan(archive, lut, onset=onset, run_path=run_path,
                  run_name=run_name, log=True, loglevel="info")
 
 # --- Set detect parameters ---
-scan.sampling_rate = 50
 scan.timestep = 300.
 scan.threads = 12
 

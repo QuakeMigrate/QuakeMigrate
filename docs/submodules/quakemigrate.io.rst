@@ -46,6 +46,14 @@ quakemigrate.io.data
     :undoc-members:
     :show-inheritance:
 
+quakemigrate.io.event
+--------------------
+
+.. automodule:: quakemigrate.io.event
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 quakemigrate.io.scanmseed
 -------------------------
 

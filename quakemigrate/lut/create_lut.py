@@ -24,7 +24,8 @@ import quakemigrate.util as util
 from .lut import LUT
 
 
-def read_nlloc(path, stations, phases=["P", "S"], fraction_tt=0.1, log=False):
+def read_nlloc(path, stations, phases=["P", "S"], fraction_tt=0.1,
+               save_file=None, log=False):
     """
     Read in a traveltime lookup table that is saved in the NonLinLoc format.
 
@@ -39,6 +40,8 @@ def read_nlloc(path, stations, phases=["P", "S"], fraction_tt=0.1, log=False):
     fraction_tt : float, optional
         An estimate of the uncertainty in the velocity model as a function of
         a fraction of the traveltime. (Default 0.1 == 10%)
+    save_file : str, optional
+        Path to location to save pickled lookup table.
     log : bool, optional
         Toggle for logging - default is to only print information to stdout.
         If True, will also create a log file.
@@ -92,6 +95,9 @@ def read_nlloc(path, stations, phases=["P", "S"], fraction_tt=0.1, log=False):
     lut.station_data = stations
     lut.phases = phases
 
+    if save_file is not None:
+        lut.save(save_file)
+
     return lut
 
 
@@ -123,7 +129,7 @@ def compute_traveltimes(grid_spec, stations, method, phases=["P", "S"],
     fraction_tt : float, optional
         An estimate of the uncertainty in the velocity model as a function of
         a fraction of the traveltime. (Default 0.1 == 10%)
-    filename : str, optional
+    save_file : str, optional
         Path to location to save pickled lookup table.
     log : bool, optional
         Toggle for logging - default is to only print information to stdout.
@@ -499,18 +505,18 @@ def _read_nlloc(fname, ignore_proj=False):
     fname : str
         Path to file containing NonLinLoc traveltime lookup tables, without
         the extension.
-    ignore_proj : bool (optional)
-        Flag to suppress the "No projection specified message".
+    ignore_proj : bool, optional
+        Flag to suppress the "No projection specified" message.
 
     Returns
     -------
-    traveltimes : array-like
-        Traveltimes for the station.
-    transform : array of `pyproj.Proj` objects
-        Array containing the grid and coordinate projections, respectively.
     gridspec : array-like
         Details on the NonLinLoc grid specification. Contains the number of
         nodes, the grid origin and the node spacings.
+    transform : array of `pyproj.Proj` objects
+        Array containing the grid and coordinate projections, respectively.
+    traveltimes : array-like
+        Traveltimes for the station.
 
     """
 
@@ -697,7 +703,7 @@ def _vmodel_string(vmodel, block_model, phase):
 
 def _velocity_gradient(i, vmodel, phase):
     """
-    Calculate the gradient of the velocity model between two layers.
+    Calculate the linear gradient of the velocity model between two layers.
 
     Parameters
     ----------
@@ -714,7 +720,7 @@ def _velocity_gradient(i, vmodel, phase):
     Returns
     -------
     dvdx : float
-        Velocity gradients for the block model.
+        Velocity gradients for the linear gradient model.
 
     """
 

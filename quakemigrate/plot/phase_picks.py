@@ -10,42 +10,48 @@ Module to produce a summary plot for the phase picking.
 
 """
 
+import logging
+
 import matplotlib.pyplot as plt
 import numpy as np
 
+import quakemigrate.util as util
 
-def pick_summary(event, station, signal, picks, onsets, ttimes, window):
+
+def pick_summary(event, station, waveforms, picks, onsets, ttimes, windows):
     """
-    Plot figure showing the filtered traces for each data component and the
-    characteristic functions calculated from them (P and S) for each
-    station. The search window to make a phase pick is displayed, along
-    with the dynamic pick threshold (defined as a percentile of the
-    background noise level), the phase pick time and its uncertainty (if
-    made) and the Gaussian fit to the characteristic function.
+    Plot a figure showing the pre-processed traces for each data component and
+    the onset functions calculated from them for each phase. The search window
+    to make a phase pick is displayed, along with the dynamic pick threshold,
+    the phase pick time and its uncertainty (if made) and the Gaussian fit to
+    the onset function.
 
     Parameters
     ----------
-    event : str
-        Unique identifier for the event.
+    event : :class:`~quakemigrate.io.event.Event` object
+        Light class to encapsulate information about an event, including origin
+        time, location and waveform data.
     station : str
         Station code.
-    signal : `numpy.ndarray` of int
-        Seismic data for the Z N and E components.
-    picks : pandas DataFrame object
+    waveforms : `obspy.Stream` object
+        Filtered seismic data used to calculate the onset functions.
+    picks : `pandas.DataFrame` object
         Phase pick times with columns ["Name", "Phase", "ModelledTime",
         "PickTime", "PickError", "SNR"]
         Each row contains the phase pick from one station/phase.
-    onsets : `numpy.ndarray` of float
-        Onset functions for each seismic phase, shape(nstations, nsamples).
-    ttimes : list, [int, int]
-        Modelled phase travel times.
-    window : list, [int, int]
-        Indices specifying the window within which the pick was made.
+    onsets : dict of {str: `numpy.ndarray`}
+        Keys are phases. Onset functions for each seismic phase.
+    ttimes : list of float
+        Modelled traveltimes from the event hypocentre to the station
+        for each phase to be plotted.
+    windows : dict of list, [int, int, int]
+        Keys are phase. Indices specifying the window within which the pick was
+        made [start, modelled_arrival, end].
 
     Returns
     -------
     fig : `matplotlib.Figure` object
-        Figure showing basic phase picking information.
+        Figure showing phase picking information.
 
     """
 
@@ -54,7 +60,6 @@ def pick_summary(event, station, signal, picks, onsets, ttimes, window):
     # Create plot axes, ordering: [Z data, N data, E data, P onset, S onset]
     for i in [2, 1, 3, 4, 5]:
         ax = fig.add_subplot(3, 2, i+1)
-        ax.set_ylim([-1.1, 1.1])
     axes = fig.axes
 
     # Share P-pick x-axes and set title
@@ -63,6 +68,7 @@ def pick_summary(event, station, signal, picks, onsets, ttimes, window):
     axes[0].set_yticklabels([])
     axes[0].yaxis.set_ticks_position('none')
     axes[0].set_title("P phase", fontsize=22, fontweight="bold")
+    axes[3].set_xlabel("DateTime", fontsize=14)
 
     # Share S-pick x-axes and set title
     for ax in axes[1:3]:
@@ -71,59 +77,130 @@ def pick_summary(event, station, signal, picks, onsets, ttimes, window):
         ax.set_yticklabels([])
         ax.yaxis.set_ticks_position('none')
     axes[1].set_title("S phase", fontsize=22, fontweight="bold")
+    axes[4].set_xlabel("DateTime", fontsize=14)
+
+    # Add axis for text info
+    text = fig.add_subplot(3, 2, 1)
+    text.text(0.5, 0.8, f"Event: {event.uid}\nStation: {station}", ha="center",
+              va="center", fontsize=22, fontweight="bold")
 
     # --- Grab event information once ---
     otime = event.otime
-    times = event.data.times(type="utcdatetime")
+    times = waveforms[0].times(type="utcdatetime")
+    dtimes = [x.datetime for x in times]
 
-    # --- Plot data signal ---
-    # Trim data to just around phase picks
+    phases = [phase for phase, _ in onsets.items()]
+    onsets = [onset for _, onset in onsets.items()]
+
+    # --- Calculate plotting window ---
+    # Estimate suitable windows based on ttimes
     min_t = otime + 0.5 * ttimes[0]
-    max_t = otime + 1.5 * ttimes[1]
-
-    # Find indices for window in which to get normalising factor, then plot
+    max_t = otime + 1.5 * ttimes[-1]
     min_t_idx = np.argmin([abs(t - min_t) for t in times])
     max_t_idx = np.argmin([abs(t - max_t) for t in times])
-    times = event.data.times(type="matplotlib")
-    for i, ax in enumerate(axes[:3]):
-        # Funky maths to assign the signal data to correct axes
-        y = signal[(i+2) % 3, :]
-        # Get normalising factor within window
-        norm = np.max(abs(y[min_t_idx:max_t_idx+1]))
-        ax.plot(times, y / norm, c="k", lw=0.5, zorder=1)
-    for i, (ax, ph) in enumerate(zip(axes[3:], ["P", "S"])):
+
+    # Estimate suitable windows based on windows (10 sample pad is arbitrary)
+    min_win_idx = np.min([v[0] for v in windows.values()]) - 10
+    max_win_idx = np.max([v[-1] for v in windows.values()]) + 10
+    # Take min and max
+    min_idx = min(min_t_idx, min_win_idx)
+    max_idx = max(max_t_idx, max_win_idx)
+    # Ensure min and max are within length of trace
+    if min_idx < 0:
+        logging.debug(f"Min index is before start of trace for station "
+                      f"{station}! {min_idx}")
+        min_idx = 0
+    if max_idx >= len(times):
+        logging.debug(f"Max index is after end of trace for station "
+                      f"{station}! {max_idx} / {len(times)}")
+        max_idx = len(times) - 1
+
+    # --- Plot waveforms ---
+    for i, (ax, comp) in enumerate(zip(axes[:3], ["Z", "[N,1]", "[E,2]"])):
+        tr = waveforms.select(component=comp)
+        if not bool(tr):
+            continue
+        y = tr[0].data
+        ax.plot(dtimes[min_idx:max_idx+1], y[min_idx:max_idx+1], c="k", lw=0.5,
+                zorder=1)
+        # Add label (SEED id)
+        ax.text(0.015, 0.95, f"{tr[0].id}", transform=ax.transAxes,
+                bbox=dict(boxstyle="round", fc="w", alpha=0.8), va="top",
+                ha="left", fontsize=18, zorder=2)
+        # Set ylim
+        y_max = max(abs(y[min_win_idx:max_win_idx+1]))
+        ax.set_ylim(ymin=-1.1*y_max, ymax=1.1*y_max)
+
+    # --- Plot onset functions ---
+    # Handle case where only S phase is used
+    n = 3
+    if len(phases) == 1 and phases[0] == "S":
+        n += 1
+
+    # Loop through all relevant onset function axes
+    for i, (ax, ph) in enumerate(zip(axes[n:5], phases)):
+        # Plot onset functions
         y = onsets[i]
-        win = window[ph]
-        # Get normalising factor within window
-        norm = np.max(abs(y[win[0]:win[1]+1]))
-        ax.plot(times, y / norm, c="k", lw=0.5, zorder=1)
+        ax.plot(dtimes[min_idx:max_idx+1], y[min_idx:max_idx+1], c="k", lw=0.5,
+                zorder=1)
 
-    for ax in axes:
-        ax.set_xlim([min_t.datetime, max_t.datetime])
+        # Plot labels
+        ax.text(0.015, 0.95, f"{ph} onset", transform=ax.transAxes,
+                bbox=dict(boxstyle="round", fc="w", alpha=0.8), va="top",
+                ha="left", fontsize=18, zorder=2)
 
-    # --- Plot labels and fix limits ---
-    shift = (max_t - min_t) * 0.01  # Fractional shift for text label
-    for comp, ax in zip(["Z", "N", "E"], axes[:3]):
-        ax.text((min_t + shift).datetime, 0.9, f"{station}.BH{comp}",
-                ha="left", va="center", zorder=2, fontsize=18)
-        ax.set_ylim([-1.1, 1.1])
-        ax.set_yticks(np.arange(-1, 1.5, 0.5))
-    for ph, ax in zip(["P", "S"], axes[3:]):
-        ax.text((min_t + shift).datetime, 1., f"{ph} onset", ha="left",
-                va="center", zorder=2, fontsize=18)
-        ax.set_ylim([-0.1, 1.1])
-        ax.set_yticks(np.arange(0., 1.2, 0.2))
+        # Plot threshold
+        gau = event.picks["gaussfits"][station][ph]
+        thresh = gau["PickThreshold"]
+        ax.axhline(thresh, label="Pick threshold")
+        text.text(0.05+i*0.5, 0.2, f"Threshold: {thresh:5.3f}", ha="left",
+                  va="center", fontsize=18)
+
+        # Plot gaussian fit to onset function
+        if not gau["PickValue"] == -1:
+            yy = util.gaussian_1d(gau["xdata"], gau["popt"][0],
+                                  gau["popt"][1], gau["popt"][2])
+            dt = [x.datetime for x in gau["xdata_dt"]]
+            ax.plot(dt, yy)
+
+        # Set ylim
+        win = windows[ph]
+        onset_max = max(onsets[i][win[0]:win[2]+1])
+        y_max = max(onset_max, thresh)
+        ax.set_ylim(0, y_max*1.1)
 
     # --- Plot predicted arrival times ---
-    for i, ax in enumerate(axes):
-        model_pick = otime + ttimes[0] if i % 3 == 0 else otime + ttimes[1]
+    # Handle case where only a single phase is used
+    ax_ind = range(5)
+    colors = ["#F03B20", "#3182BD"]
+    if len(phases) == 1:
+        if phases[0] == "P":
+            ax_ind = [0, 3]
+            colors = [colors[0]]
+        else:
+            ax_ind = [1, 2, 4]
+            colors = [colors[1]]
+
+    # Loop through all relevant axes
+    for ind in ax_ind:
+        ax = axes[ind]
+        # Plot model picks
+        model_pick = otime + ttimes[0] if ind % 3 == 0 else otime + ttimes[-1]
+        ph = phases[0] if ind % 3 == 0 else phases[-1]
         ax.axvline(model_pick.datetime, alpha=0.9, c="k",
-                   label="Modelled pick time")
+                   label=f"Modelled {ph} arrival")
+        # Plot event origin time if it is on plot:
+        if times[min_idx] < otime:
+            ax.axvline(otime.datetime, c="green", label="Event origin time")
+        # Plot pick windows
+        win = windows[phases[0]] if ind % 3 == 0 else windows[phases[-1]]
+        clr = colors[0] if ind % 3 == 0 else colors[-1]
+        ax.axvspan(dtimes[win[0]], dtimes[win[2]], alpha=0.2, color=clr,
+                   label="Picking window")
+        # Set xlim
+        ax.set_xlim(dtimes[min_idx], dtimes[max_idx])
 
     # --- Plot picks and summary information ---
-    text = fig.add_subplot(3, 2, 1)
-    text.text(0.5, 0.8, f"Event: {event.uid}\nStation: {station}",
-              ha="center", va="center", fontsize=22, fontweight="bold")
     for i, pick in picks.iterrows():
         # Pick lines
         if pick["Phase"] == "P":
@@ -131,23 +208,32 @@ def pick_summary(event, station, signal, picks, onsets, ttimes, window):
         else:
             c1, c2 = "gray", "#3182BD"
         if pick["PickTime"] != -1:
-            for j, ax in enumerate(axes):
-                clr = c1 if j % 3 == 0 else c2
+            for ind in ax_ind:
+                ax = axes[ind]
+                clr = c1 if ind % 3 == 0 else c2
                 _plot_phase_pick(ax, pick, clr)
-
+        # Calculate residual:
+        if pick.PickTime == -1:
+            resid = -1
+        else:
+            resid = pick.PickTime - pick.ModelledTime
         # Summary text
         text.text(0.1+i*0.5, 0.6, f"{pick.Phase} phase", ha="center",
                   va="center", fontsize=20, fontweight="bold")
         pick_info = (f"Pick time: {pick.PickTime}\n"
                      f"Pick error: {pick.PickError:5.3f} s\n"
-                     f"Pick SNR: {pick.SNR:5.3f}")
-        text.text(0.05+i*0.5, 0.45, pick_info, ha="left", va="center",
+                     f"Pick SNR: {pick.SNR:5.3f}\n"
+                     f"Pick residual: {resid:5.3f} s")
+        text.text(0.05+i*0.5, 0.4, pick_info, ha="left", va="center",
                   fontsize=18)
     text.set_axis_off()
 
-    for ax in axes[3:5]:
-        ax.legend()
-    fig.tight_layout(pad=1, w_pad=0)
+    # Add legend
+    for ind in ax_ind:
+        if ind > 2:
+            axes[ind].legend(fontsize=16, loc="upper right")
+
+    fig.tight_layout(pad=1)
     plt.subplots_adjust(hspace=0)
 
     return fig

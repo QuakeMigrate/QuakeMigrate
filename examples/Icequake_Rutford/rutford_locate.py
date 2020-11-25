@@ -1,11 +1,19 @@
 # -*- coding: utf-8 -*-
 """
-Locate stage for the Rutford icequake example.
+This script runs the locate stage for the Rutford icequake example.
 
 """
 
+# Stop numpy using all available threads (these environment variables must be
+# set before numpy is imported for the first time).
+import os
+os.environ.update(OMP_NUM_THREADS="1",
+                  OPENBLAS_NUM_THREADS="1",
+                  NUMEXPR_NUM_THREADS="1",
+                  MKL_NUM_THREADS="1")
+
+from quakemigrate import QuakeScan
 from quakemigrate.io import Archive, read_lut, read_stations
-from quakemigrate.signal import QuakeScan
 from quakemigrate.signal.onsets import STALTAOnset
 from quakemigrate.signal.pickers import GaussianPicker
 
@@ -31,15 +39,17 @@ archive = Archive(archive_path=data_in, stations=stations,
 lut = read_lut(lut_file=lut_out)
 
 # --- Create new Onset ---
-onset = STALTAOnset(position="centred")
-onset.p_bp_filter = [20, 200, 4]
-onset.s_bp_filter = [10, 125, 4]
-onset.p_onset_win = [0.01, 0.25]
-onset.s_onset_win = [0.05, 0.5]
+onset = STALTAOnset(position="centred", sampling_rate=1000)
+onset.phases = ["P", "S"]
+onset.bandpass_filters = {
+    "P": [20, 200, 4],
+    "S": [10, 125, 4]}
+onset.sta_lta_windows = {
+    "P": [0.01, 0.25],
+    "S": [0.05, 0.5]}
 
 # --- Create new PhasePicker ---
 picker = GaussianPicker(onset=onset)
-picker.marginal_window = 0.1
 picker.plot_picks = True
 
 # --- Create new QuakeScan ---
@@ -52,10 +62,8 @@ scan = QuakeScan(archive, lut, onset=onset, picker=picker,
 # see the manual and read the docs.
 scan.marginal_window = 0.1
 scan.threads = 12
-scan.sampling_rate = 1000
 
 # --- Toggle plotting options ---
-scan.plot_event_video = False
 scan.plot_event_summary = True
 
 # --- Toggle writing of waveforms ---

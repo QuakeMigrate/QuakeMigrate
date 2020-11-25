@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-This script will create travel-time lookup tables for QuakeMigrate.
+This script demonstrates how to generate traveltime look-up tables (LUT's) for
+QuakeMigrate.
 
 """
 
@@ -34,16 +35,24 @@ grid_spec.grid_proj = gproj
 grid_spec.coord_proj = cproj
 
 # --- Homogeneous LUT generation ---
-lut = compute_traveltimes(grid_spec, stations, method="homogeneous", vp=5.0,
-                          vs=3.0, log=True, save_file=lut_file)
+# P & S
+lut = compute_traveltimes(grid_spec, stations, method="homogeneous",
+                          phases=["P", "S"], vp=5.0, vs=3.0, log=True,
+                          save_file=lut_file)
+# Just P
+lut = compute_traveltimes(grid_spec, stations, method="homogeneous",
+                          phases=["P"], vp=5.0, log=True, save_file=lut_file)
 
 # --- skfmm LUT generation ---
+# For P & S you must specify a velocity model with both P and S velocities.
 lut = compute_traveltimes(grid_spec, stations, method="1dfmm", vmod=vmod,
-                          log=True, save_file=lut_file)
+                          phases=["P", "S"], log=True, save_file=lut_file)
 
 # --- NLLoc sweep LUT generation ---
+# For P & S you must specify a velocity model with both P and S velocities.
 lut = compute_traveltimes(grid_spec, stations, method="1dsweep", vmod=vmod,
-                          block_model=True, log=True, save_file=lut_file)
+                          phases=["P", "S"], block_model=False, log=True,
+                          save_file=lut_file)
 
 # --- Read NLLoc lookup tables ---
 lut = read_nlloc("/path/to/nlloc_files", stations, log=True,

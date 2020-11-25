@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Creation of LUT for the Rutford icequake example.
+This script generates the traveltime look-up table (LUT) for the Rutford
+icequake example.
 
 """
 
@@ -31,5 +32,6 @@ grid_spec.grid_proj = gproj
 grid_spec.coord_proj = cproj
 
 # --- Homogeneous LUT generation ---
-lut = compute_traveltimes(grid_spec, stations, method="homogeneous", vp=3.841,
-                          vs=1.970, log=True, save_file=lut_out)
+lut = compute_traveltimes(grid_spec, stations, method="homogeneous",
+                          phases=["P", "S"], vp=3.841, vs=1.970, log=True,
+                          save_file=lut_out)

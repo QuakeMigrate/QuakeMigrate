@@ -38,10 +38,10 @@ def migrate(onsets, traveltimes, first_idx, last_idx, available, threads):
     Parameters
     ----------
     onsets : `numpy.ndarry` of float
-        Onset functions for each seismic phase, shape(nstations, nsamples).
+        Onset functions for each seismic phase, shape(nonsets, nsamples).
     traveltimes : `numpy.ndarry` of int
-        Grids of seismic phase traveltimes converted to an integer multiple of
-        the sampling rate, shape(nx, ny, nz, nstations).
+        Grids of seismic phase traveltimes, converted to an integer multiple of
+        the sampling rate, shape(nx, ny, nz, nonsets).
     first_idx : int
         Index of first sample in array from which to scan.
     last_idx : int

@@ -1,11 +1,19 @@
 # -*- coding: utf-8 -*-
 """
-Trigger stage for the Iceland icequake example.
+This script runs the trigger stage for the Iceland icequake example.
 
 """
 
+# Stop numpy using all available threads (these environment variables must be
+# set before numpy is imported for the first time).
+import os
+os.environ.update(OMP_NUM_THREADS="1",
+                  OPENBLAS_NUM_THREADS="1",
+                  NUMEXPR_NUM_THREADS="1",
+                  MKL_NUM_THREADS="1")
+
+from quakemigrate import Trigger
 from quakemigrate.io import read_lut
-from quakemigrate.signal import Trigger
 
 # --- i/o paths ---
 lut_file = "./outputs/lut/example.LUT"

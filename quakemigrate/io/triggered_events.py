@@ -60,6 +60,8 @@ def read_triggered_events(run, **kwargs):
             else:
                 logging.info(f"\n\t    Cannot find file: {fstem}")
             readstart += 86400
+        if len(trigger_files) == 0:
+            raise util.NoTriggerFilesFound
         events = pd.concat((pd.read_csv(f) for f in trigger_files),
                            ignore_index=True)
 
@@ -68,6 +70,10 @@ def read_triggered_events(run, **kwargs):
     if starttime is not None and endtime is not None:
         events = events[(events["CoaTime"] >= starttime) &
                         (events["CoaTime"] <= endtime)]
+
+    if len(events) == 0:
+        logging.info("\n\t    No triggered events found! Check your trigger "
+                     "output files.\n")
 
     return events.reset_index()
 

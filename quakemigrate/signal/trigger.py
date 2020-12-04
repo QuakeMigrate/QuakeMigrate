@@ -157,8 +157,15 @@ class Trigger:
         the coordinates to be plotted. E.g:
         "/home/user/volcano_outlines.csv,black,0.5,-". Each .csv coordinate
         file should contain coordinates only, with columns: ["Longitude",
-        "Latitude"]. E.g.: "-17.5,64.8".
+        "Latitude"]. E.g.: "-17.5,64.8". Lines pre-pended with ``#`` will be
+        treated as a comment - this can be used to include references. See the
+        Volcanotectonic_Iceland example XY_files for a template.\n
         .. note:: Do not include a header line in either file.
+    plot_all_stns : bool, optional
+        If true, plot all stations used for detect. Otherwise, only plot
+        stations which for which some data was available during the trigger
+        time window. NOTE: if no station availability data is found, all
+        stations in the LUT will be plotted. (Default: True)
 
     Methods
     -------
@@ -197,13 +204,15 @@ class Trigger:
             raise util.InvalidThresholdMethodException
         self.marginal_window = kwargs.get("marginal_window", 2.)
         self.min_event_interval = kwargs.get("min_event_interval", 4.)
-        self.minimum_repeat = kwargs.get("minimum_repeat", 4.)
+        if kwargs.get("minimum_repeat"):
+            self.minimum_repeat = kwargs.get("minimum_repeat")
         self.normalise_coalescence = kwargs.get("normalise_coalescence", False)
         self.pad = kwargs.get("pad", 120.)
 
         # --- Plotting toggles and parameters ---
         self.plot_trigger_summary = kwargs.get("plot_trigger_summary", True)
         self.xy_files = kwargs.get("xy_files")
+        self.plot_all_stns = kwargs.get("plot_all_stns", True)
 
     def __str__(self):
         """Return short summary string of the Trigger object."""
@@ -308,6 +317,7 @@ class Trigger:
             refined_events = self._refine_candidates(candidate_events)
             events = self._filter_events(refined_events, batchstart, batchend,
                                          region)
+            discarded = refined_events[~refined_events.isin(events)].dropna()
             logging.info(f"\n\t\t{len(events)} event(s) triggered within the "
                          f"specified region between {batchstart} \n\t\tand "
                          f"{batchend}")
@@ -319,8 +329,10 @@ class Trigger:
             trigger_summary(events, batchstart, batchend, self.run,
                             self.marginal_window, self.min_event_interval,
                             threshold, self.normalise_coalescence, self.lut,
-                            data, region=region, interactive=interactive_plot,
-                            xy_files=self.xy_files)
+                            data, region, discarded,
+                            interactive=interactive_plot,
+                            xy_files=self.xy_files,
+                            plot_all_stns=self.plot_all_stns)
 
     @util.timeit()
     def _get_threshold(self, scandata, sampling_rate):

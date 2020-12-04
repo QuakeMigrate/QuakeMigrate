@@ -1,10 +1,18 @@
 # -*- coding: utf-8 -*-
 """
-This script will run the trigger stage of QuakeMigrate.
+This script demonstrates how to run the trigger stage of QuakeMigrate.
 
 For more details, please see the manual and read the docs.
 
 """
+
+# Stop numpy using all available threads (these environment variables must be
+# set before numpy is imported for the first time).
+import os
+os.environ.update(OMP_NUM_THREADS="1",
+                  OPENBLAS_NUM_THREADS="1",
+                  NUMEXPR_NUM_THREADS="1",
+                  MKL_NUM_THREADS="1")
 
 from quakemigrate.io import read_lut
 from quakemigrate.signal import Trigger
@@ -43,6 +51,16 @@ trig.static_threshold = 1.75
 
 # --- Toggle plotting options ---
 trig.plot_trigger_summary = True
+# It is possible to supply xy files to enhance and give context to the
+# trigger summary map plots. See the volcano-tectonic example from Iceland
+# for details.
+# trig.xy_files = "/path/to/xy_csv"
+# trig.plot_all_stns = False
 
 # --- Run trigger ---
+# NOTE: It is possible to specify an optional spatial filter to restrict the
+# triggered events to a geographic region. Only candidate events that fall
+# within this geographic area will be retained. This is useful for removing
+# clear artefacts; for example at the very edges of the grid. See the
+# volcano-tectonic example from Iceland for details.
 trig.trigger(starttime, endtime, interactive_plot=True)

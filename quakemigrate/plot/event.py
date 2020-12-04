@@ -22,13 +22,15 @@ import quakemigrate.util as util
 
 
 @util.timeit("info")
-def event_summary(run, event, marginal_coalescence, lut, xy_files=None):
+def event_summary(run, event, marginalised_coa_map, lut, xy_files=None):
     """
     Plots an event summary illustrating the locate results: slices through the
-    marginalised coalescence with the location estimates (best-fitting spline
-    to interpolated coalescence; Gaussian fit; covariance fit) and associated
-    uncertainties; a gather of the filtered station data, sorted by distance
-    from the event; and the maximum coalescence through time.
+    marginalised coalescence map with the best location estimate (peak of
+    interpolated spline fitted to 3-D coalescence map) and uncertainty ellipse
+    from gaussian fit to gaussian-smoothed 3-D coalescence map. Plus a waveform
+    gather of the pre-processed waveform data used to calculate the onset
+    functions (sorted by distance from the event), and a plot of the maximum
+    value of the 4-D coalescence function through time.
 
     Parameters
     ----------
@@ -37,7 +39,7 @@ def event_summary(run, event, marginal_coalescence, lut, xy_files=None):
     event : :class:`~quakemigrate.io.Event` object
         Light class encapsulating signal, onset, and location information
         for a given event.
-    marginal_coalescence : `~numpy.ndarray` of `~numpy.double`
+    marginalised_coa_map : `~numpy.ndarray` of `~numpy.double`
         Marginalised 3-D coalescence map, shape(nx, ny, nz).
     lut : :class:`~quakemigrate.lut.LUT` object
         Contains the traveltime lookup tables for seismic phases, computed for
@@ -49,7 +51,9 @@ def event_summary(run, event, marginal_coalescence, lut, xy_files=None):
         the coordinates to be plotted. E.g:
         "/home/user/volcano_outlines.csv,black,0.5,-". Each .csv coordinate
         file should contain coordinates only, with columns: ["Longitude",
-        "Latitude"]. E.g.: "-17.5,64.8".
+        "Latitude"]. E.g.: "-17.5,64.8". Lines pre-pended with ``#`` will be
+        treated as a comment - this can be used to include references. See the
+        Volcanotectonic_Iceland example XY_files for a template.\n
         .. note:: Do not include a header line in either file.
 
     """
@@ -57,7 +61,7 @@ def event_summary(run, event, marginal_coalescence, lut, xy_files=None):
     logging.info("\tPlotting event summary figure...")
 
     # Extract indices and grid coordinates of maximum coalescence
-    coa_map = np.ma.masked_invalid(marginal_coalescence)
+    coa_map = np.ma.masked_invalid(marginalised_coa_map)
     idx_max = np.column_stack(np.where(coa_map == np.nanmax(coa_map)))[0]
     slices = [coa_map[:, :, idx_max[2]],
               coa_map[:, idx_max[1], :],
@@ -74,7 +78,8 @@ def event_summary(run, event, marginal_coalescence, lut, xy_files=None):
     fig.add_subplot(coa_spec)
 
     # --- Plot LUT, waveform gather, and max coalescence trace ---
-    lut.plot(fig, (9, 15), slices, event.hypocentre, "white")
+    lut.plot(fig, (9, 15), slices, event.hypocentre, "white",
+             event.data.stations)
     _plot_waveform_gather(fig.axes[0], lut, event, idx_max)
     _plot_coalescence_trace(fig.axes[1], event)
 
@@ -95,7 +100,17 @@ def event_summary(run, event, marginal_coalescence, lut, xy_files=None):
     text = plt.subplot2grid((9, 15), (0, 0), colspan=8, rowspan=2, fig=fig)
     _plot_text_summary(text, lut, event)
 
-    fig.axes[0].legend(fontsize=14, loc=1, framealpha=1, markerscale=0.5)
+    # Deal with repeating labels in waveform gather legend; combine labels for
+    # ["N", "1"], ["E", "2"]
+    handles, labels = fig.axes[0].get_legend_handles_labels()
+    for cp1, cp2 in [("N", "1"), ("E", "2")]:
+        if all(x in labels for x in [f"{cp1} component", f"{cp2} component"]):
+            labels = [f"{cp2}, {cp1} component" if x == f"{cp1} component"
+                      or x == f"{cp2} component" else x for x in labels]
+    by_label = dict(zip(labels, handles))
+
+    fig.axes[0].legend(by_label.values(), by_label.keys(), fontsize=14, loc=1,
+                       framealpha=1, markerscale=0.5)
     fig.axes[1].legend(fontsize=14, loc=1, framealpha=1)
     fig.axes[2].legend(fontsize=14)
     fig.tight_layout(pad=1, h_pad=0)
@@ -153,43 +168,64 @@ def _plot_waveform_gather(ax, lut, event, idx):
 
     """
 
+    phases = event.onset_data.phases
+    stations = event.data.stations
+
     # --- Predicted traveltimes ---
-    ttpf, ttsf = [lut.traveltime_to(phase, idx) for phase in ["P", "S"]]
-    ttp = [(event.otime + tt).datetime for tt in ttpf]
-    tts = [(event.otime + tt).datetime for tt in ttsf]
-    range_order = abs(np.argsort(np.argsort(ttp)) - len(ttp)) * 2
+    traveltimes = np.array([lut.traveltime_to(phase, idx, stations)
+                            for phase in phases])
+    arrivals = [[(event.otime + tt).datetime for tt in tt_f]
+                for tt_f in traveltimes]
+
+    range_order = abs(np.argsort(np.argsort(arrivals[0]))
+                      - len(arrivals[0])) * 2
     s = (ax.get_window_extent().height / (max(range_order)+1) * 1.2) ** 2
-    max_tts = max(ttsf)
-    for tt, c, phase in zip([ttp, tts], PICK_COLOURS, "PS"):
-        ax.scatter(tt, range_order, s=s, c=c, marker="|", zorder=5, lw=1.5,
-                   label=f"Modelled {phase}")
+
+    # Handle single-phase plotting
+    pick_colours = PICK_COLOURS
+    if len(phases) == 1:
+        if phases[0] == "P":
+            pick_colours = [PICK_COLOURS[0]]
+    for arrival, c, phase in zip(arrivals, pick_colours, phases):
+        ax.scatter(arrival, range_order, s=s, c=c, marker="|", zorder=5,
+                   lw=1.5, label=f"Modelled {phase}")
 
     # --- Waveforms ---
-    times_utc = event.data.times(type="UTCDateTime")
-    mint, maxt = event.otime - 0.1, event.otime + max_tts*1.5
+    waveforms = event.onset_data.filtered_waveforms
+    # Min and max times to plot
+    mint = event.otime - 0.1
+    maxt = min(event.otime + np.max(traveltimes)*1.5, event.data.endtime)
+    # Convert to indices -- will still be the same for sub-sample shifts
+    times_utc = waveforms[0].times("UTCDateTime")
     mint_i, maxt_i = [np.argmin(abs(times_utc - t)) for t in (mint, maxt)]
-    times_plot = event.data.times(type="matplotlib")[mint_i:maxt_i]
-    for i, signal in enumerate(np.rollaxis(event.data.filtered_signal, 1)):
-        for data, c, comp in zip(signal[::-1], WAVEFORM_COLOURS1,
-                                 "ZNE"):
-            if not data.any():
+    for i, station in enumerate(stations):
+        stn_waveforms = waveforms.select(station=station)
+        for c, comp in zip(WAVEFORM_COLOURS1, ["Z", "[N,1]", "[E,2]"]):
+            st = stn_waveforms.select(component=comp)
+            if not bool(st):
                 continue
-            data[mint_i:]
+            tr = st[0]
+            comp = tr.stats.component
+            data = tr.data
 
             # Get station specific range for norm factor
-            stat_maxt = event.otime + ttsf[i]*1.5
+            stat_maxt = event.otime + max(traveltimes[:, i])*1.5
             norm = max(abs(data[mint_i:np.argmin(abs(times_utc - stat_maxt))]))
 
+            # Generate times for plotting
+            times = tr.times("matplotlib")[mint_i:maxt_i]
+
+            # Trim to plot limits, normalise, shift by range, then plot
             y = data[mint_i:maxt_i] / norm + range_order[i]
-            label = f"{comp} component" if i == 0 else None
-            ax.plot(times_plot, y, c=c, lw=0.3, label=label, alpha=0.85)
+            label = f"{comp} component"
+            ax.plot(times, y, c=c, lw=0.3, label=label, alpha=0.85)
 
     # --- Limits, annotations, and axis formatting ---
     ax.set_xlim([mint.datetime, maxt.datetime])
     ax.set_ylim([0, max(range_order)+2])
     ax.xaxis.set_major_formatter(util.DateFormatter("%H:%M:%S.{ms}", 2))
     ax.yaxis.set_ticks(range_order)
-    ax.yaxis.set_ticklabels(event.data.stations, fontsize=14)
+    ax.yaxis.set_ticklabels(stations, fontsize=14)
 
 
 def _plot_coalescence_trace(ax, event):
@@ -320,6 +356,10 @@ def _plot_xy_files(xy_files, ax):
     Each specified xy file should contain coordinates only, with columns:
     ["Longitude", "Latitude"]. E.g.: "-17.5,64.8".
 
+    Lines pre-pended with `#` will be treated as a comment - this can be used
+    to include references. See the Volcanotectonic_Iceland example XY_files for
+    a template.\n
+
     .. note:: Do not include a header line in either file.
 
     Parameters
@@ -336,10 +376,10 @@ def _plot_xy_files(xy_files, ax):
         xy_files = pd.read_csv(xy_files,
                                names=["File", "Color",
                                       "Linewidth", "Linestyle"],
-                               header=None)
+                               header=None, comment="#")
         for _, f in xy_files.iterrows():
             xy_file = pd.read_csv(f["File"], names=["Longitude", "Latitude"],
-                                  header=None)
+                                  header=None, comment="#")
             ax.plot(xy_file["Longitude"].values, xy_file["Latitude"].values,
                     ls=f["Linestyle"], lw=f["Linewidth"],
                     c=f["Color"])

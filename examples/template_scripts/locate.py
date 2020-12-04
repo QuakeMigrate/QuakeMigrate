@@ -1,15 +1,23 @@
 # -*- coding: utf-8 -*-
 """
-This script will run the locate stage of QuakeMigrate.
+This script demonstrates how to run the locate stage of QuakeMigrate.
 
 For more details, please see the manual and read the docs.
 
 """
 
+# Stop numpy using all available threads (these environment variables must be
+# set before numpy is imported for the first time).
+import os
+os.environ.update(OMP_NUM_THREADS="1",
+                  OPENBLAS_NUM_THREADS="1",
+                  NUMEXPR_NUM_THREADS="1",
+                  MKL_NUM_THREADS="1")
+
 from obspy.core import AttribDict
 
+from quakemigrate import QuakeScan
 from quakemigrate.io import Archive, read_lut, read_response_inv, read_stations
-from quakemigrate.signal import QuakeScan
 from quakemigrate.signal.onsets import STALTAOnset
 from quakemigrate.signal.pickers import GaussianPicker
 from quakemigrate.signal.local_mag import LocalMag
@@ -50,22 +58,28 @@ lut = read_lut(lut_file=lut_file)
 # lut = lut.decimate([1, 1, 1])
 
 # --- Create new Onset function ---
-onset = STALTAOnset(position="centred")
-onset.p_bp_filter = [2, 9.9, 2]
-onset.s_bp_filter = [2, 9.9, 2]
-onset.p_onset_win = [0.2, 1.5]
-onset.s_onset_win = [0.2, 1.5]
+onset = STALTAOnset(position="centred", sampling_rate=20)
+onset.phases = ["P", "S"]
+onset.bandpass_filters = {
+    "P": [2, 9.9, 2],
+    "S": [2, 9.9, 2]}
+onset.sta_lta_windows = {
+    "P": [0.2, 1.5],
+    "S": [0.2, 1.5]}
 
 # --- Create new PhasePicker ---
 # For a complete list of parameters and guidance on how to choose them, please
 # see the manual and read the docs.
-gausspicker_onset = STALTAOnset(position="centred")
-gausspicker_onset.p_bp_filter = [2, 9.9, 2]
-gausspicker_onset.s_bp_filter = [2, 9.9, 2]
-gausspicker_onset.p_onset_win = [0.2, 1.5]
-gausspicker_onset.s_onset_win = [0.2, 1.5]
+gausspicker_onset = STALTAOnset(position="centred", sampling_rate=20)
+gausspicker_onset.phases = ["P", "S"]
+gausspicker_onset.bandpass_filters = {
+    "P": [2, 9.9, 2],
+    "S": [2, 9.9, 2]}
+gausspicker_onset.sta_lta_windows = {
+    "P": [0.2, 1.5],
+    "S": [0.2, 1.5]}
 
-picker = GaussianPicker(onset=gausspicker_onset, marginal_window=1)
+picker = GaussianPicker(onset=gausspicker_onset)
 picker.plot_picks = True
 
 # --- Create new LocalMag object ---
@@ -82,7 +96,7 @@ amp_params.remove_full_response = False
 # built-in options, or specify your own function. All other parameters are
 # optional - see the documentation for a complete guide.
 mag_params = AttribDict()
-mag_params.A0 = "Hutton-Boore" # NOTE: REQUIRED PARAMETER!
+mag_params.A0 = "Hutton-Boore"  # NOTE: REQUIRED PARAMETER!
 mag_params.use_hyp_dist = False
 mag_params.amp_feature = "S_amp"
 mag_params.station_corrections = {}
@@ -95,19 +109,23 @@ mags = LocalMag(amp_params=amp_params, mag_params=mag_params)
 mags.plot_amplitudes = True
 
 # --- Create new QuakeScan ---
-scan = QuakeScan(archive, lut, onset=onset, picker=picker, run_path=run_path,
-                 run_name=run_name, log=True, mags=mags, loglevel="info")
+# If you do not want to calculate local magnitudes, specify `mags=None`
+scan = QuakeScan(archive, lut, onset=onset, picker=picker, mags=mags,
+                 run_path=run_path, run_name=run_name, log=True,
+                 loglevel="info")
 
 # --- Set locate parameters ---
 # For a complete list of parameters and guidance on how to choose them, please
 # see the manual and read the docs.
 scan.marginal_window = 1
-scan.sampling_rate = 20
 scan.threads = 12
 
 # --- Toggle plotting options ---
-scan.plot_event_video = False
 scan.plot_event_summary = True
+# It is possible to supply xy files to enhance and give context to the
+# event summary map plots. See the volcano-tectonic example from Iceland
+# for details.
+# scan.xy_files = "/path/to/xy_csv"
 
 # --- Toggle writing of cut waveforms ---
 scan.write_cut_waveforms = True

@@ -24,8 +24,8 @@ import quakemigrate.util as util
 @util.timeit("info")
 def trigger_summary(events, starttime, endtime, run, marginal_window,
                     min_event_interval, detection_threshold,
-                    normalise_coalescence, lut, data, region, interactive,
-                    xy_files=None):
+                    normalise_coalescence, lut, data, region, discarded_events,
+                    interactive, xy_files=None, plot_all_stns=True):
     """
     Plots the data from a .scanmseed file with annotations illustrating the
     trigger results: event triggers and marginal windows on the coalescence
@@ -60,6 +60,10 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
         "X", "Y", "Z"]
     region : list
         Geographical region within which earthquakes have been triggered.
+    discarded_events : `pandas.DataFrame`
+        Discarded triggered events information, columns: ["EventID", "CoaTime",
+        "TRIG_COA", "COA_X", "COA_Y", "COA_Z", "MinTime", "MaxTime", "COA",
+        "COA_NORM"].
     interactive : bool
         Toggles the ability to live interact with the trigger plot.
     xy_files : str, optional
@@ -69,8 +73,15 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
         the coordinates to be plotted. E.g:
         "/home/user/volcano_outlines.csv,black,0.5,-". Each .csv coordinate
         file should contain coordinates only, with columns: ["Longitude",
-        "Latitude"]. E.g.: "-17.5,64.8".
+        "Latitude"]. E.g.: "-17.5,64.8". Lines pre-pended with ``#`` will be
+        treated as a comment - this can be used to include references. See the
+        Volcanotectonic_Iceland example XY_files for a template.\n
         .. note:: Do not include a header line in either file.
+    plot_all_stns : bool, optional
+        If true, plot all stations used for detect. Otherwise, only plot
+        stations which for which some data was available during the trigger
+        time window. NOTE: if no station availability data is found, all
+        stations in the LUT will be plotted. (Default, True)
 
     """
 
@@ -85,31 +96,51 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
         ax.set_xlim([starttime.datetime, endtime.datetime])
 
     # --- Plot LUT, coalescence traces, and station availability ---
-    lut.plot(fig, gs)
-    axes = fig.axes
-    for ax in axes[:2]:
-        ax.get_shared_x_axes().join(ax, axes[2])
-    # for ax, data, label in zip(fig.axes[:2], )
-    _plot_coalescence(axes[0], dt, data.COA.values, "Maximum coalescence")
-    _plot_coalescence(axes[1], dt, data.COA_N.values,
+    for ax in fig.axes[:2]:
+        ax.get_shared_x_axes().join(ax, fig.axes[2])
+    _plot_coalescence(fig.axes[0], dt, data.COA.values, "Maximum coalescence")
+    _plot_coalescence(fig.axes[1], dt, data.COA_N.values,
                       "Normalised maximum coalescence")
     try:
         availability = read_availability(run, starttime, endtime)
-        _plot_station_availability(axes[2], availability, endtime)
+        _plot_station_availability(fig.axes[2], availability, endtime)
     except util.NoStationAvailabilityDataException as e:
         logging.info(e)
+        availability = None
+
+    # Use station availability to work out which stations to plot
+    if availability is not None:
+        station_list = []
+        if not plot_all_stns:
+            for col, ava in availability.iteritems():
+                if np.any(ava == 1):
+                    station_list.append(col.split("_")[0])
+        else:
+            station_list = [col.split("_")[0] for col in availability.columns]
+        station_list = list(set(sorted(station_list)))
+        lut.plot(fig, gs, station_list=station_list)
+    else:
+        lut.plot(fig, gs)
 
     # --- Plot xy files on map ---
     _plot_xy_files(xy_files, fig.axes[3])
 
+    # --- Plot trigger region (if any) ---
+    if region is not None:
+        _plot_trigger_region(fig.axes[3:], region)
+        _plot_event_windows(fig.axes[:2], discarded_events, marginal_window,
+                            discarded=True)
+        _plot_event_scatter(fig, discarded_events, discarded=True)
+
+
     # --- Plot event scatter on LUT and windows on coalescence traces ---
     if events is not None:
-        _plot_event_windows(axes[:2], events, marginal_window)
+        _plot_event_windows(fig.axes[:2], events, marginal_window)
         _plot_event_scatter(fig, events)
 
         # Add trigger threshold to the correct coalescence trace
         ax_i = 1 if normalise_coalescence else 0
-        axes[ax_i].step(dt, detection_threshold, where="mid", c="g",
+        fig.axes[ax_i].step(dt, detection_threshold, where="mid", c="g",
                         label="Detection threshold")
 
     # --- Write summary information ---
@@ -143,7 +174,7 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
                            / fig.get_size_inches()[0])
     fig.axes[5].set_position([new_yz_left, xy_bottom, new_yz_width, xy_height])
 
-    # Save figure or open interactive matplotlib window
+    # Save figure
     fpath = run.path / "trigger" / run.subname / "summaries"
     fpath.mkdir(exist_ok=True, parents=True)
     fstem = f"{run.name}_{starttime.year}_{starttime.julday:03d}_Trigger"
@@ -172,21 +203,67 @@ def _plot_station_availability(ax, availability, endtime):
 
     """
 
-    available = availability.sum(axis=1).astype(int)
-    times = list(pd.to_datetime(available.index))
+    # Get list of phases from station availability dataframe
+    phases = sorted(set([col_name.split("_")[1] for col_name in \
+        availability.columns]))
+    logging.debug(f"\t\t    Found phases: {phases}")
 
-    # Handle last step
-    available = available.values
-    available = np.append(available, [available[-1]])
-    times.append(endtime.datetime)
-    ax.step(times, available, c="green", where="post")
+    # Sort out plotting options based on the number of phases
+    if len(phases) > 2:
+        logging.warning("\t\t    Only P and/or S are currently supported! "
+                        "Plotting by station only.")
+        phases = ["*"]
+        colours = ["green"]
+        divideby = len(phases)
+    elif len(phases) == 1:
+        if phases[0] == "P":
+            colours = ["#F03B20"]
+        else:
+            colours = ["#3182BD"]
+    elif (availability.filter(like=f".{phases[0]}").values == \
+        availability.filter(like=f".{phases[1]}").values).all():
+        logging.info("\t\t    Station availability is identical for both "
+                     "phases; plotting by station only.")
+        divideby = len(phases)
+        phases = ["*"]
+        colours = ["green"]
+    else:
+        colours = ["#F03B20", "#3182BD"]
 
+    # Loop through phases and plot
+    max_ava = []
+    min_ava = []
+    for phase, colour in zip(phases, colours):
+        ph_availability = availability.filter(regex=f".{phase}$")
+
+        available = ph_availability.sum(axis=1).astype(int)
+        times = list(pd.to_datetime(available.index))
+
+        # If plotting by station, divide by # of phases
+        if phases[0] == "*":
+            # This can lead to incorrect value (e.g. if 2 / 3 phases are
+            # available for a station). But not important enough to faff with.
+            available = (available / divideby).astype(int)
+
+        # Handle last step
+        available = available.values
+        available = np.append(available, [available[-1]])
+        times.append(endtime.datetime)
+        ax.step(times, available, c=colour, where="post", label=phase)
+
+        max_ava.append(max(available))
+        min_ava.append(min(available))
+
+    # Plot formatting
     _add_plot_tag(ax, "Station availability")
-    ax.set_ylim([int(min(available)*0.8), int(max(available)*1.1)])
-    ax.set_yticks(range(int(min(available)*0.8), int(max(available)*1.1)+1))
+    ax.set_ylim([int(min(min_ava)*0.8), np.int(np.ceil(max(max_ava)*1.1))])
+    ax.set_yticks(range(int(min(min_ava)*0.8),
+                        np.int(np.ceil(max(max_ava)*1.1))+1))
     ax.xaxis.set_major_formatter(util.DateFormatter("%H:%M:%S.{ms}", 2))
     ax.set_xlabel("DateTime", fontsize=14)
     ax.set_ylabel("Available stations", fontsize=14)
+    if phases[0] != "*":
+        ax.legend(loc=1, fontsize=14, framealpha=0.85).set_zorder(20)
 
 
 def _plot_coalescence(ax, dt, data, label):
@@ -231,7 +308,7 @@ def _add_plot_tag(ax, tag):
             zorder=20)
 
 
-def _plot_event_scatter(fig, events):
+def _plot_event_scatter(fig, events, discarded=False):
     """
     Utility function for plotting the triggered events as a scatter on the
     LUT cross-sections.
@@ -242,30 +319,43 @@ def _plot_event_scatter(fig, events):
         Figure containing axes on which to plot event scatter.
     events : `~pandas.DataFrame` object
         Dataframe of triggered events.
+    discarded : bool, optional
+         Whether supplied events are discarded (due to being outside the trigger
+         region, or outside the trigger time window).
 
     """
 
-    # Get bounds for cmap - hack to prevent inconsistent color being assigned
-    # when only a single event has been triggered.
-    vmin, vmax = (events["TRIG_COA"].min() * 0.999,
-                  events["TRIG_COA"].max() * 1.001)
+    if discarded:
+        x, y, z = events[["COA_X", "COA_Y", "COA_Z"]].values.T
+        # Plot on XY
+        fig.axes[3].scatter(x, y, s=50, c="grey")
+        # Plot on XZ
+        fig.axes[4].scatter(x, z, s=50, c="grey")
+        # Plot on YZ
+        fig.axes[5].scatter(z, y, s=50, c="grey")
 
-    # Plotting the scatter of the earthquake locations
-    x, y, z = events["COA_X"], events["COA_Y"], events["COA_Z"]
-    c = events["TRIG_COA"]
-    sc = fig.axes[3].scatter(x, y, s=50, c=c, vmin=vmin, vmax=vmax)
-    fig.axes[4].scatter(x, z, s=50, c=c, vmin=vmin, vmax=vmax)
-    fig.axes[5].scatter(z, y, s=50, c=c, vmin=vmin, vmax=vmax)
+    else:
+        # Get bounds for cmap - hack to prevent inconsistent color being
+        # assigned when only a single event has been triggered.
+        vmin, vmax = (events["TRIG_COA"].min() * 0.999,
+                    events["TRIG_COA"].max() * 1.001)
 
-    # --- Add colourbar ---
-    cax = plt.subplot2grid((9, 18), (7, 5), colspan=2, rowspan=2, fig=fig)
-    cax.set_axis_off()
-    cb = fig.colorbar(sc, ax=cax, orientation="horizontal", fraction=0.8,
-                      aspect=8)
-    cb.ax.set_xlabel("Peak coalescence value", rotation=0, fontsize=14)
+        # Plotting the scatter of the earthquake locations
+        x, y, z = events[["COA_X", "COA_Y", "COA_Z"]].values.T
+        c = events["TRIG_COA"].values
+        sc = fig.axes[3].scatter(x, y, s=50, c=c, vmin=vmin, vmax=vmax)
+        fig.axes[4].scatter(x, z, s=50, c=c, vmin=vmin, vmax=vmax)
+        fig.axes[5].scatter(z, y, s=50, c=c, vmin=vmin, vmax=vmax)
+
+        # --- Add colourbar ---
+        cax = plt.subplot2grid((9, 18), (7, 5), colspan=2, rowspan=2, fig=fig)
+        cax.set_axis_off()
+        cb = fig.colorbar(sc, ax=cax, orientation="horizontal", fraction=0.8,
+                        aspect=8)
+        cb.ax.set_xlabel("Peak coalescence value", rotation=0, fontsize=14)
 
 
-def _plot_event_windows(axes, events, marginal_window):
+def _plot_event_windows(axes, events, marginal_window, discarded=False):
     """
     Utility function for plotting the marginal event window and minimum event
     interval for triggered events.
@@ -278,6 +368,9 @@ def _plot_event_windows(axes, events, marginal_window):
         Dataframe of triggered events.
     marginal_window : float
         Estimate of time error over which to marginalise the coalescence.
+    discarded : bool, optional
+        Whether supplied events are discarded (due to being outside the trigger
+         region, or outside the trigger time window).
 
     """
 
@@ -291,11 +384,18 @@ def _plot_event_windows(axes, events, marginal_window):
         mw_stt = (event["CoaTime"] - marginal_window).datetime
         mw_end = (event["CoaTime"] + marginal_window).datetime
         for ax in axes:
-            ax.axvspan(min_dt, mw_stt, label=lab1, alpha=0.2, color="#F03B20")
-            ax.axvspan(mw_end, max_dt, alpha=0.2, color="#F03B20")
-            ax.axvspan(mw_stt, mw_end, label=lab2, alpha=0.2, color="#3182BD")
-            ax.axvline(event["CoaTime"].datetime, label=lab3, lw=0.01,
-                       alpha=0.4)
+            if discarded:
+                ax.axvspan(min_dt, max_dt, alpha=0.2, color="grey")
+                ax.axvline(event["CoaTime"].datetime, lw=0.01, alpha=0.4,
+                           color="grey")
+            else:
+                ax.axvspan(min_dt, mw_stt, label=lab1, alpha=0.2,
+                           color="#F03B20")
+                ax.axvspan(mw_end, max_dt, alpha=0.2, color="#F03B20")
+                ax.axvspan(mw_stt, mw_end, label=lab2, alpha=0.2,
+                           color="#3182BD")
+                ax.axvline(event["CoaTime"].datetime, label=lab3, lw=0.01,
+                           alpha=0.4, color="#1F77B4")
 
 
 def _plot_text_summary(ax, events, threshold, marginal_window,
@@ -341,6 +441,39 @@ def _plot_text_summary(ax, events, threshold, marginal_window,
                 ha="center", va="center")
     ax.set_axis_off()
 
+
+def _plot_trigger_region(axes, region):
+    """
+    Utility function for plotting the bounding geographical box used to filter
+    triggered events.
+
+    Parameters
+    ----------
+    axes : list of `~matplotlib.Axes` objects
+        Axes on which to plot the bounding boxes.
+    region : list
+        Geographical region within which earthquakes have been triggered.
+
+    """
+
+    min_x, min_y, min_z, max_x, max_y, max_z = region
+
+    # Plot on XY
+    axes[0].plot([min_x, min_x, max_x, max_x, min_x],
+                 [min_y, max_y, max_y, min_y, min_y],
+                 linestyle="--", color="#238b45", linewidth=1.5)
+
+    # Plot on XZ
+    axes[1].plot([min_x, min_x, max_x, max_x, min_x],
+                 [min_z, max_z, max_z, min_z, min_z],
+                 linestyle="--", color="#238b45", linewidth=1.5)
+
+    # Plot on YZ
+    axes[2].plot([min_z, max_z, max_z, min_z, min_z],
+                 [min_y, min_y, max_y, max_y, min_y],
+                 linestyle="--", color="#238b45", linewidth=1.5)
+
+
 def _plot_xy_files(xy_files, ax):
     """
     Plot xy files supplied by user.
@@ -352,6 +485,10 @@ def _plot_xy_files(xy_files, ax):
 
     Each specified xy file should contain coordinates only, with columns:
     ["Longitude", "Latitude"]. E.g.: "-17.5,64.8".
+
+    Lines pre-pended with `#` will be treated as a comment - this can be used
+    to include references. See the Volcanotectonic_Iceland example XY_files for
+    a template.\n
 
     .. note:: Do not include a header line in either file.
 
@@ -369,11 +506,11 @@ def _plot_xy_files(xy_files, ax):
         xy_files = pd.read_csv(xy_files,
                                names=["File", "Color",
                                       "Linewidth", "Linestyle"],
-                               header=None)
+                               header=None, comment="#")
         for _, f in xy_files.iterrows():
             xy_file = pd.read_csv(f["File"], names=["Longitude",
                                                     "Latitude"],
-                                  header=None)
+                                  header=None, comment="#")
             ax.plot(xy_file["Longitude"], xy_file["Latitude"],
                     ls=f["Linestyle"], lw=f["Linewidth"],
                     c=f["Color"])

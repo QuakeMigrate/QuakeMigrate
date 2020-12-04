@@ -151,7 +151,12 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
     _plot_text_summary(text, events, detection_threshold, marginal_window,
                        min_event_interval, normalise_coalescence)
 
-    fig.axes[ax_i].legend(loc=1, fontsize=14, framealpha=0.85).set_zorder(20)
+    # --- Handle legend for coalescence trace plot ---
+    handles, labels = fig.axes[ax_i].get_legend_handles_labels()
+    uniq_labels = dict(zip(labels, handles))
+    fig.axes[ax_i].legend(uniq_labels.values(), uniq_labels.keys(), loc=1,
+                          fontsize=14, framealpha=0.85).set_zorder(20)
+
     fig.tight_layout(pad=1, h_pad=0)
     plt.subplots_adjust(wspace=0.3, hspace=0.3)
 
@@ -374,11 +379,7 @@ def _plot_event_windows(axes, events, marginal_window, discarded=False):
 
     """
 
-    for i, event in events.iterrows():
-        lab1 = "Minimum event interval" if i == 0 else ""
-        lab2 = "Marginal window" if i == 0 else ""
-        lab3 = "Triggered event" if i == 0 else ""
-
+    for _, event in events.iterrows():
         min_dt = event["MinTime"].datetime
         max_dt = event["MaxTime"].datetime
         mw_stt = (event["CoaTime"] - marginal_window).datetime
@@ -389,13 +390,13 @@ def _plot_event_windows(axes, events, marginal_window, discarded=False):
                 ax.axvline(event["CoaTime"].datetime, lw=0.01, alpha=0.4,
                            color="grey")
             else:
-                ax.axvspan(min_dt, mw_stt, label=lab1, alpha=0.2,
-                           color="#F03B20")
+                ax.axvspan(min_dt, mw_stt, label="Minimum event interval",
+                           alpha=0.2, color="#F03B20")
                 ax.axvspan(mw_end, max_dt, alpha=0.2, color="#F03B20")
-                ax.axvspan(mw_stt, mw_end, label=lab2, alpha=0.2,
+                ax.axvspan(mw_stt, mw_end, label="Marginal window", alpha=0.2,
                            color="#3182BD")
-                ax.axvline(event["CoaTime"].datetime, label=lab3, lw=0.01,
-                           alpha=0.4, color="#1F77B4")
+                ax.axvline(event["CoaTime"].datetime, label="Triggered event",
+                           lw=0.01, alpha=0.4, color="#1F77B4")
 
 
 def _plot_text_summary(ax, events, threshold, marginal_window,

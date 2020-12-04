@@ -48,4 +48,4 @@ trig.static_threshold = 1.8
 # trig.mad_multiplier = 8.
 
 # --- Run trigger ---
-trig.trigger(starttime, endtime, interactive_plot=True)
+trig.trigger(starttime, endtime, interactive_plot=False)

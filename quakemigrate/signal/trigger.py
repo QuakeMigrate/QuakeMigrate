@@ -233,7 +233,7 @@ class Trigger:
 
         return out
 
-    def trigger(self, starttime, endtime, region=None, interactive_plot=True):
+    def trigger(self, starttime, endtime, region=None, interactive_plot=False):
         """
         Trigger candidate earthquakes from decimated scan data.
 
@@ -250,7 +250,7 @@ class Trigger:
             Units are longitude / latitude / metres (in positive-down frame).
         interactive_plot : bool, optional
             Toggles the ability to live interact with the trigger plot. Default
-            is true.
+            is False.
 
         Raises
         ------

@@ -63,4 +63,4 @@ trig.plot_trigger_summary = True
 # within this geographic area will be retained. This is useful for removing
 # clear artefacts; for example at the very edges of the grid. See the
 # volcano-tectonic example from Iceland for details.
-trig.trigger(starttime, endtime, interactive_plot=True)
+trig.trigger(starttime, endtime, interactive_plot=False)

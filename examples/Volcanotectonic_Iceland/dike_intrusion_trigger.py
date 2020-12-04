@@ -48,6 +48,7 @@ trig.static_threshold = 1.45
 # trig.mad_multiplier = 5.
 
 # --- Toggle plotting options ---
+trig.plot_trigger_summary = True
 trig.xy_files = "./inputs/XY_FILES/dike_xyfiles.csv"
 
 # --- Run trigger ---
@@ -55,5 +56,5 @@ trig.xy_files = "./inputs/XY_FILES/dike_xyfiles.csv"
 # filter for the triggered events. Only candidate events that fall within this
 # geographic area will be retained. This is useful for removing clear
 # artefacts; for example at the very edges of the grid.
-trig.trigger(starttime, endtime, savefig=True,
+trig.trigger(starttime, endtime, interactive_plot=False,
              region=[-17.15, 64.72, 0.0, -16.65, 64.93, 14.0])

@@ -50,6 +50,7 @@ trig.static_threshold = 1.75
 # trig.mad_multiplier = 8.
 
 # --- Toggle plotting options ---
+trig.plot_trigger_summary = True
 # It is possible to supply xy files to enhance and give context to the
 # trigger summary map plots. See the volcano-tectonic example from Iceland
 # for details.
@@ -62,4 +63,4 @@ trig.static_threshold = 1.75
 # within this geographic area will be retained. This is useful for removing
 # clear artefacts; for example at the very edges of the grid. See the
 # volcano-tectonic example from Iceland for details.
-trig.trigger(starttime, endtime, savefig=True)
+trig.trigger(starttime, endtime, interactive_plot=False)

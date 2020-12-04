@@ -24,8 +24,8 @@ import quakemigrate.util as util
 @util.timeit("info")
 def trigger_summary(events, starttime, endtime, run, marginal_window,
                     min_event_interval, detection_threshold,
-                    normalise_coalescence, lut, data, region, savefig,
-                    discarded_events, xy_files=None, plot_all_stns=True):
+                    normalise_coalescence, lut, data, region, discarded_events,
+                    interactive, xy_files=None, plot_all_stns=True):
     """
     Plots the data from a .scanmseed file with annotations illustrating the
     trigger results: event triggers and marginal windows on the coalescence
@@ -60,12 +60,12 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
         "X", "Y", "Z"]
     region : list
         Geographical region within which earthquakes have been triggered.
-    savefig : bool
-        Output the plot as a file. The plot is shown by default, and not saved.
     discarded_events : `pandas.DataFrame`
         Discarded triggered events information, columns: ["EventID", "CoaTime",
         "TRIG_COA", "COA_X", "COA_Y", "COA_Z", "MinTime", "MaxTime", "COA",
         "COA_NORM"].
+    interactive : bool
+        Toggles the ability to live interact with the trigger plot.
     xy_files : str, optional
         Path to comma-separated value file (.csv) containing a series of
         coordinate files to plot. Columns: ["File", "Color", "Linewidth",
@@ -151,7 +151,12 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
     _plot_text_summary(text, events, detection_threshold, marginal_window,
                        min_event_interval, normalise_coalescence)
 
-    fig.axes[ax_i].legend(loc=1, fontsize=14, framealpha=0.85).set_zorder(20)
+    # --- Handle legend for coalescence trace plot ---
+    handles, labels = fig.axes[ax_i].get_legend_handles_labels()
+    uniq_labels = dict(zip(labels, handles))
+    fig.axes[ax_i].legend(uniq_labels.values(), uniq_labels.keys(), loc=1,
+                          fontsize=14, framealpha=0.85).set_zorder(20)
+
     fig.tight_layout(pad=1, h_pad=0)
     plt.subplots_adjust(wspace=0.3, hspace=0.3)
 
@@ -174,16 +179,17 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
                            / fig.get_size_inches()[0])
     fig.axes[5].set_position([new_yz_left, xy_bottom, new_yz_width, xy_height])
 
-    # Save figure or open interactive matplotlib window
-    if savefig:
-        fpath = run.path / "trigger" / run.subname / "summaries"
-        fpath.mkdir(exist_ok=True, parents=True)
-        fstem = f"{run.name}_{starttime.year}_{starttime.julday:03d}_Trigger"
-        file = (fpath / fstem).with_suffix(".pdf")
-        plt.savefig(str(file))
-        plt.close(fig)
-    else:
+    # Save figure
+    fpath = run.path / "trigger" / run.subname / "summaries"
+    fpath.mkdir(exist_ok=True, parents=True)
+    fstem = f"{run.name}_{starttime.year}_{starttime.julday:03d}_Trigger"
+    file = (fpath / fstem).with_suffix(".pdf")
+    plt.savefig(str(file))
+
+    if interactive:
         plt.show()
+
+    plt.close(fig)
 
 
 def _plot_station_availability(ax, availability, endtime):
@@ -373,11 +379,7 @@ def _plot_event_windows(axes, events, marginal_window, discarded=False):
 
     """
 
-    for i, event in events.iterrows():
-        lab1 = "Minimum event interval" if i == 0 else ""
-        lab2 = "Marginal window" if i == 0 else ""
-        lab3 = "Triggered event" if i == 0 else ""
-
+    for _, event in events.iterrows():
         min_dt = event["MinTime"].datetime
         max_dt = event["MaxTime"].datetime
         mw_stt = (event["CoaTime"] - marginal_window).datetime
@@ -388,13 +390,13 @@ def _plot_event_windows(axes, events, marginal_window, discarded=False):
                 ax.axvline(event["CoaTime"].datetime, lw=0.01, alpha=0.4,
                            color="grey")
             else:
-                ax.axvspan(min_dt, mw_stt, label=lab1, alpha=0.2,
-                           color="#F03B20")
+                ax.axvspan(min_dt, mw_stt, label="Minimum event interval",
+                           alpha=0.2, color="#F03B20")
                 ax.axvspan(mw_end, max_dt, alpha=0.2, color="#F03B20")
-                ax.axvspan(mw_stt, mw_end, label=lab2, alpha=0.2,
+                ax.axvspan(mw_stt, mw_end, label="Marginal window", alpha=0.2,
                            color="#3182BD")
-                ax.axvline(event["CoaTime"].datetime, label=lab3, lw=0.01,
-                           alpha=0.4, color="#1F77B4")
+                ax.axvline(event["CoaTime"].datetime, label="Triggered event",
+                           lw=0.01, alpha=0.4, color="#1F77B4")
 
 
 def _plot_text_summary(ax, events, threshold, marginal_window,

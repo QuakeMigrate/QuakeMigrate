@@ -23,7 +23,7 @@ POLARITIES = {"c": "positive", "u": "positive", "d": "negative"}
 POLARITIES_REVERSE = {"positive": "u", "negative": "d"}
 
 
-def nlloc_obs(event, filename):
+def nlloc_obs(event, filename, autopick=True):
     """
     Write a NonLinLoc Phase file from an obspy Catalog object.
 
@@ -31,12 +31,20 @@ def nlloc_obs(event, filename):
     ----------
     event : obspy Catalog object
         Contains information on a single event.
-
     filename : str
         Name of NonLinLoc phase file.
+    autopick : bool, optional
+        Whether to read the autopicks or the modelled arrival times. Default:
+        True.
 
     """
+
     info = []
+
+    if autopick:
+        method = "autopick"
+    else:
+        method = "modelled"
 
     if not isinstance(event, Event):
         msg = ("Writing NonLinLoc Phase file is only supported for Catalogs "
@@ -48,6 +56,8 @@ def nlloc_obs(event, filename):
            "{:7.4f} GAU {:9.2e} {:9.2e} {:9.2e} {:9.2e} {:9.2e}")
 
     for pick in event.picks:
+        if pick.method_id != method:
+            continue
         wid = pick.waveform_id
         station = wid.station_code or "?"
         component = wid.channel_code and wid.channel_code[-1].upper() or "?"

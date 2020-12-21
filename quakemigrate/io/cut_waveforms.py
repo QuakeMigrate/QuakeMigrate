@@ -44,10 +44,10 @@ def write_cut_waveforms(run, event, file_format, pre_cut=0., post_cut=0.):
         File format to write waveform data to. Options are all file formats
         supported by obspy, including: "MSEED" (default), "SAC", "SEGY",
         "GSE2"
-    pre_cut : float, optional
+    pre_cut : float or None, optional
         Specify how long before the event origin time to cut the waveform
         data from
-    post_cut : float, optional
+    post_cut : float or None, optional
         Specify how long after the event origin time to cut the waveform
         data to
 
@@ -60,10 +60,11 @@ def write_cut_waveforms(run, event, file_format, pre_cut=0., post_cut=0.):
 
     st = event.data.raw_waveforms
 
-    if pre_cut != 0.:
+    # "If pre_cut" catches both 0. and None
+    if pre_cut:
         for tr in st.traces:
             tr.trim(starttime=event.otime - pre_cut)
-    if post_cut != 0.:
+    if post_cut:
         for tr in st.traces:
             tr.trim(endtime=event.otime + post_cut)
 

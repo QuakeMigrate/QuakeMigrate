@@ -262,9 +262,11 @@ class Amplitude:
         # Get start of earliest possible noise window and end of latest
         # possible signal window
         max_tt = lut.max_traveltime
-        tr_start = event.otime - event.marginal_window - self.noise_window
-        tr_end = event.otime + event.marginal_window + \
-            (1. + lut.fraction_tt) * max_tt + self.signal_window
+        pre_pad, post_pad = self.pad(event.marginal_window, max_tt,
+                                     lut.fraction_tt)
+        tr_start = event.otime - pre_pad
+        tr_end = event.otime + post_pad
+        logging.debug(f"{tr_start}, {tr_end}, {event.otime}")
 
         # Loop through stations, calculating amplitude info
         for i, station_data in lut.station_data.iterrows():
@@ -281,6 +283,9 @@ class Amplitude:
 
             # Read in raw waveforms
             st = event.data.raw_waveforms.select(station=station)
+            # Trim to padding window to ensure taper does not encroach on the
+            # noise or signal window.
+            st.trim(starttime=tr_start, endtime=tr_end)
 
             for j, comp in enumerate(["[E,2]", "[N,1]", "Z"]):
                 amps = amps_template.copy()
@@ -916,3 +921,46 @@ class Amplitude:
                 noise_amp /= np.abs(filter_gain[0])
 
         return noise_amp
+
+    def pad(self, marginal_window, max_tt, fraction_tt):
+        """
+        Calculate padding, including an allowance for the taper applied when
+        filtering / removing instrument response, to ensure the noise and
+        signal window amplitude measurements are not affected by the taper.
+
+        Parameters
+        ----------
+        marginal_window : float
+            Half-width of window centred on the maximum coalescence time of the
+            event over which the 4-D coalescence function is marginalised. Used
+            here as an estimate of the origin time uncertainity when
+            calculating the signal windows.
+        max_tt : float
+            Maximum traveltime in the look-up table.
+        fraction_tt : float
+            An estimate of the uncertainty in the velocity model as a function
+            of a fraction of the traveltime. (Default 0.1 == 10%)
+
+        Returns
+        -------
+        pre_pad : float
+            Time window by which to pre-pad the data when reading from the
+            waveform archive.
+        post_pad : float
+            Time window by which to post-pad the data when reading from the
+            waveform archive.
+
+        """
+
+        pre_pad = self.noise_window + marginal_window
+        logging.debug(f"Raw pre-pad: {pre_pad}")
+        post_pad = self.signal_window + max_tt * (1 + fraction_tt) \
+            + marginal_window
+        logging.debug(f"Raw post-pad: {post_pad}")
+
+        timespan = pre_pad + post_pad
+        pre_pad += np.ceil(timespan*0.06)
+        post_pad += np.ceil(timespan*0.06)
+        logging.debug(f"Final pre-pad: {pre_pad}, final post-pad: {post_pad}")
+
+        return pre_pad, post_pad

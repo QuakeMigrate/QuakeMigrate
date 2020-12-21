@@ -282,7 +282,7 @@ class Amplitude:
                              np.nan, np.nan, np.nan, np.nan, False]
 
             # Read in raw waveforms
-            st = event.data.raw_waveforms.select(station=station)
+            st = event.data.raw_waveforms.select(station=station).copy()
             # Trim to padding window to ensure taper does not encroach on the
             # noise or signal window.
             st.trim(starttime=tr_start, endtime=tr_end)

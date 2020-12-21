@@ -462,7 +462,9 @@ class QuakeScan:
                 logging.info("Support for event videos coming soon.")
 
             if self.write_cut_waveforms:
-                write_cut_waveforms(self.run, event, self.cut_waveform_format)
+                write_cut_waveforms(self.run, event, self.cut_waveform_format,
+                                    pre_cut=self.pre_cut,
+                                    post_cut=self.post_cut)
 
             del event, marginalised_coa_map
             logging.info(util.log_spacer)

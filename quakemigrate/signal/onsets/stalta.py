@@ -327,7 +327,9 @@ class STALTAOnset(Onset):
                     all_channels=self.all_channels,
                     n_channels=self.channel_counts[phase],
                     allow_gaps=self.allow_gaps,
-                    full_timespan=self.full_timespan)
+                    full_timespan=self.full_timespan,
+                    check_sampling_rate=True,
+                    sampling_rate=self.sampling_rate)
                 availability[f"{station}_{phase}"] = available
 
                 # If no data available, skip
@@ -357,7 +359,7 @@ class STALTAOnset(Onset):
                     # Pad start/end
                     waveforms.trim(starttime=data.starttime,
                                    endtime=data.endtime, pad=True,
-                                   fill_value=tiny)
+                                   fill_value=tiny, nearest_sample=True)
 
                 # Calculate onset and add to WaveForm data object; add filtered
                 # waveforms that have passed the availability check to

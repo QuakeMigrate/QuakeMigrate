@@ -82,7 +82,7 @@ class Archive:
     -------
     path_structure(archive_format, channels="*")
         Set the directory structure and file naming format of the data archive.
-    read_waveform_data(starttime, endtime, sampling_rate)
+    read_waveform_data(starttime, endtime)
         Read in waveform data between two times.
 
     """
@@ -393,7 +393,8 @@ class WaveformData:
         self.wa_waveforms = None
 
     def check_availability(self, st, all_channels=False, n_channels=None,
-                           allow_gaps=False, full_timespan=True):
+                           allow_gaps=False, full_timespan=True,
+                           check_sampling_rate=False, sampling_rate=None):
         """
         Check waveform availability against data quality criteria.
 
@@ -419,6 +420,11 @@ class WaveformData:
         full_timespan : bool, optional
             Whether to ensure the data covers the entire timespan requested;
             note that this implicitly requires that there be no gaps.
+        check_sampling_rate : bool, optional
+            Check that all channels are at the desired sampling rate.
+        sampling_rate : float, optional
+            If `check_sampling_rate=True`, this argument is required to specify
+            the sampling rate that the data should be at.
 
         Returns
         -------
@@ -443,7 +449,7 @@ class WaveformData:
         # Check if any channels in stream
         if bool(st):
             # Loop through channels with unique SEED id's
-            for tr_id in sorted([tr.id for tr in st]):
+            for tr_id in sorted(set([tr.id for tr in st])):
                 st_id = st.select(id=tr_id)
                 availability[tr_id] = 0
 
@@ -459,7 +465,19 @@ class WaveformData:
                     gaps = st_id.get_gaps()  # Overlaps already dealt with
                     if len(gaps) != 0:
                         continue
-                # Check data covers full timespan (if requested)
+                # Check sampling rate
+                if check_sampling_rate:
+                    if not sampling_rate:
+                        raise TypeError("Please specify sampling_rate if you "
+                                        "wish to check all channels are at the"
+                                        " correct sampling rate.")
+                    if any(tr.stats.sampling_rate != sampling_rate \
+                        for tr in st_id):
+                        continue
+                # Check data covers full timespan (if requested) - this
+                # strictly checks the *timespan*, so uses the trace sampling
+                # rate as provided. To check that as well, use
+                # `check_sampling_rate=True` and specify a sampling rate.
                 if full_timespan:
                     n_samples = timespan * st_id[0].stats.sampling_rate + 1
                     if len(st_id) > 1:

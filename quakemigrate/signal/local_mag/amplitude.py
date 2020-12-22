@@ -193,10 +193,10 @@ class Amplitude:
 
         Parameters
         ----------
-        event : :class:`~quakemigrate.io.Event` object
-            Light class encapsulating waveform data, onset, pick and location
-            information for a given event.
-        lut : :class:`~quakemigrate.lut.LUT` object
+        event : :class:`~quakemigrate.io.event.Event` object
+            Light class encapsulating waveform data, onset data, pick and
+            location information for a given event.
+        lut : :class:`~quakemigrate.lut.lut.LUT` object
             Contains the traveltime lookup tables for seismic phases, computed
             for some pre-defined velocity model.
 
@@ -204,7 +204,7 @@ class Amplitude:
         -------
         amplitudes : `pandas.DataFrame` object
             P- and S-wave amplitude measurements for each component of each
-            station in the station file.
+            station in the look-up table.
             Columns:
                 epi_dist : float
                     Epicentral distance between the station and the event
@@ -230,7 +230,7 @@ class Amplitude:
                     As for P.
                 Noise_amp : float
                     An estimate of the signal amplitude in the noise window. In
-                    millimetres.
+                    millimetres. See `noise_measure` parameter.
                 is_picked : bool
                     Whether at least one of the phase arrivals was picked by
                     the autopicker.
@@ -268,7 +268,7 @@ class Amplitude:
         tr_end = event.otime + post_pad
         logging.debug(f"{tr_start}, {tr_end}, {event.otime}")
 
-        # Loop through stations, calculating amplitude info
+        # Loop through stations in LUT, calculating amplitude info
         for i, station_data in lut.station_data.iterrows():
             station = station_data["Name"]
 
@@ -281,7 +281,7 @@ class Amplitude:
             amps_template = ["", epi_dist, z_dist, np.nan, np.nan, np.nan,
                              np.nan, np.nan, np.nan, np.nan, False]
 
-            # Read in raw waveforms
+            # Read in raw waveforms -- work on a copy!!
             st = event.data.raw_waveforms.select(station=station).copy()
             # Trim to padding window to ensure taper does not encroach on the
             # noise or signal window.
@@ -411,7 +411,7 @@ class Amplitude:
             try:
                 filter_sos = self._bandpass_filter(tr)
             except util.NyquistException as e:
-                logging.warning(f"\t{e}Applying a high-pass filter instead...")
+                logging.warning(f"\t{e} Applying a high-pass filter instead..")
                 filter_sos = self._highpass_filter(tr)
         else:
             filter_sos = self._highpass_filter(tr)
@@ -531,7 +531,7 @@ class Amplitude:
             Station name.
         i : int
             Iterator variable.
-        event : :class:`~quakemigrate.io.Event` object
+        event : :class:`~quakemigrate.io.event.Event` object
             Light class encapsulating signal, onset, pick and location
             information for a given event.
         p_ttimes : array-like
@@ -590,6 +590,7 @@ class Amplitude:
         s_end = s_pick + event.marginal_window + s_ttimes[i] * fraction_tt + \
             self.signal_window
 
+        # Check for overlaps
         if s_start < p_end:
             if p_end < s_pick:
                 windows = [[p_start, p_end],
@@ -605,8 +606,9 @@ class Amplitude:
 
     def _get_picks(self, station, event):
         """
-        Get picks from this station for this event. If no phase picks are
-        found, or if no pick was found, -1 is returned.
+        Get picks from this station for this event. If no phase picks is
+        found, -1 is returned. If no picks at all are found, "No <phase> onset"
+        is returned.
 
         Parameters
         ----------
@@ -664,9 +666,9 @@ class Amplitude:
         Performs a linear detrend across the window before measuring
         amplitudes.
 
-        NOTE: signal amplitudes are converted to *millimetres*. This may have
-        to be adjusted depending on the chosen formulation of the local
-        magnitude attenuation function.
+        NOTE: signal amplitudes are converted to *millimetres*. This may mean
+        the formulation of the local magnitude attenuation function being used
+        needs to be adjusted (if obtained from elsewhere).
 
         Parameters
         ----------
@@ -761,8 +763,7 @@ class Amplitude:
 
         NOTE: Returns *half* the maximum peak-to-trough amplitude, as this is
         what the measurement of local magnitude is defined from.
-        NOTE: Units are nanometres; this may have to be adjusted based on the
-        chosen formulation of the local magnitude attenuation function.
+        NOTE: Units are *nanometres*.
 
         Parameters
         ----------

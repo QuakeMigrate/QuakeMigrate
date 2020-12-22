@@ -207,7 +207,8 @@ class Archive:
                 try:
                     read_start = starttime - pre_pad
                     read_end = endtime + post_pad
-                    st += read(file, starttime=read_start, endtime=read_end)
+                    st += read(file, starttime=read_start, endtime=read_end,
+                               nearest_sample=True)
                 except TypeError:
                     logging.info(f"File not compatible with ObsPy - {file}")
                     continue
@@ -230,7 +231,8 @@ class Archive:
             if pre_pad != 0. or post_pad != 0.:
                 # Trim data between start and end time
                 for tr in st:
-                    tr.trim(starttime=starttime, endtime=endtime)
+                    tr.trim(starttime=starttime, endtime=endtime,
+                            nearest_sample=True)
                     if not bool(tr):
                         st.remove(tr)
 
@@ -308,9 +310,9 @@ class WaveformData:
     Parameters
     ----------
     starttime : `obspy.UTCDateTime` object
-        Timestamp of first sample of waveform data.
+        Timestamp of first sample of waveform data requested from the archive.
     endtime : `obspy.UTCDateTime` object
-        Timestamp of last sample of waveform data.
+        Timestamp of last sample of waveform data requested from the archive.
     stations : `pandas.Series` object, optional
         Series object containing station names.
     read_all_stations : bool, optional
@@ -335,9 +337,9 @@ class WaveformData:
     Attributes
     ----------
     starttime : `obspy.UTCDateTime` object
-        Timestamp of first sample of waveform data.
+        Timestamp of first sample of waveform data requested from the archive.
     endtime : `obspy.UTCDateTime` object
-        Timestamp of last sample of waveform data.
+        Timestamp of last sample of waveform data requested from the archive.
     stations : `pandas.Series` object
         Series object containing station names.
     read_all_stations : bool

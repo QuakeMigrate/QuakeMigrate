@@ -592,12 +592,9 @@ class Amplitude:
 
         # Check for overlaps
         if s_start < p_end:
-            if p_end < s_pick:
-                windows = [[p_start, p_end],
-                           [p_end, s_end]]
-            else:
-                windows = [[p_start, s_pick - event.marginal_window / 2],
-                           [s_pick - event.marginal_window / 2, s_end]]
+            mid_time = p_end + (s_start - p_end) / 2
+            windows = [[p_start, mid_time],
+                       [mid_time, s_end]]
         else:
             windows = [[p_start, s_start],
                        [s_start, s_end]]

@@ -396,7 +396,8 @@ class WaveformData:
 
     def check_availability(self, st, all_channels=False, n_channels=None,
                            allow_gaps=False, full_timespan=True,
-                           check_sampling_rate=False, sampling_rate=None):
+                           check_sampling_rate=False, sampling_rate=None,
+                           check_start_end_times=False):
         """
         Check waveform availability against data quality criteria.
 
@@ -421,12 +422,17 @@ class WaveformData:
             Whether to allow gaps.
         full_timespan : bool, optional
             Whether to ensure the data covers the entire timespan requested;
-            note that this implicitly requires that there be no gaps.
+            note that this implicitly requires that there be no gaps. Checks
+            the number of samples in the trace, not the start and end times;
+            for that see `check_start_end_times`.
         check_sampling_rate : bool, optional
             Check that all channels are at the desired sampling rate.
         sampling_rate : float, optional
             If `check_sampling_rate=True`, this argument is required to specify
             the sampling rate that the data should be at.
+        check_start_end_times : bool, optional
+            A stricter alternative to `full_timespan`; checks that the first
+            and last sample of the trace have exactly the requested timestamps.
 
         Returns
         -------
@@ -486,6 +492,14 @@ class WaveformData:
                         continue
                     elif st_id[0].stats.npts < n_samples:
                         continue
+                # Check start and end times of trace are exactly correct
+                if check_start_end_times:
+                    if len(st_id) > 1:
+                        continue
+                    elif st_id[0].stats.starttime != self.starttime or \
+                        st_id[0].stats.endtime != self.endtime:
+                        continue
+
                 # If passed all tests, set availability to 1
                 availability[tr_id] = 1
 

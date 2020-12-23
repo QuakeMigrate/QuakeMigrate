@@ -70,7 +70,8 @@ def sta_lta_centred(a, nsta, nlta):
     return sta / lta
 
 
-def pre_process(stream, sampling_rate, resample, upfactor, filter_):
+def pre_process(stream, sampling_rate, resample, upfactor, filter_,
+                starttime, endtime):
     """
     Resample raw seismic data, detrend and apply cosine taper and zero
     phase-shift Butterworth band-pass filter; all carried out using the
@@ -126,8 +127,10 @@ def pre_process(stream, sampling_rate, resample, upfactor, filter_):
     """
 
     logging.debug(stream.__str__(extended=True))
+    logging.debug(f"Resample={resample}, Upfactor={upfactor}")
     # Resample the data here
-    resampled_stream = util.resample(stream, sampling_rate, resample, upfactor)
+    resampled_stream = util.resample(stream, sampling_rate, resample, upfactor,
+                                     starttime, endtime)
 
     # Grab filter info
     lowcut, highcut, order = filter_
@@ -316,7 +319,8 @@ class STALTAOnset(Onset):
             # yet)
             filtered_phase_waveforms = pre_process(
                 phase_waveforms, self.sampling_rate, data.resample,
-                data.upfactor, self.bandpass_filters[phase])
+                data.upfactor, self.bandpass_filters[phase],
+                data.starttime, data.endtime)
 
             # Loop through stations, check data availability for this phase,
             # and store this info, filtered waveforms and calculated onsets
@@ -356,10 +360,13 @@ class STALTAOnset(Onset):
                     waveforms.taper(type="cosine", max_percentage=0.05)
                     # Fill gaps
                     waveforms.merge(method=1, fill_value=tiny)
-                    # Pad start/end
-                    waveforms.trim(starttime=data.starttime,
-                                   endtime=data.endtime, pad=True,
-                                   fill_value=tiny, nearest_sample=True)
+                    # Pad start/end; delta of +/-0.00001 is to avoid
+                    # occasional obspy weirdness. `nearest_sample` is
+                    # appropriate as data is at uniform sampling rate with
+                    # off-sample data corrected by util.shift_to_sample()
+                    waveforms.trim(starttime=data.starttime-0.00001,
+                                   endtime=data.endtime+0.00001, pad=True,
+                                   fill_value=tiny, nearest_sample=False)
 
                 # Calculate onset and add to WaveForm data object; add filtered
                 # waveforms that have passed the availability check to

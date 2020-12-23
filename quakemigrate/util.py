@@ -342,9 +342,9 @@ def shift_to_sample(stream, interpolate=False):
     return stream
 
 
-def resample(stream, sampling_rate, resample, upfactor):
+def resample(stream, sampling_rate, resample, upfactor, starttime, endtime):
     """
-    Resample the stream to the specified sampling rate.
+    Resample data in an `obspy.Stream` object to the specified sampling rate.
 
     By default, this function will only perform decimation of the data. If
     necessary, and if the user specifies `resample = True` and an upfactor
@@ -356,6 +356,10 @@ def resample(stream, sampling_rate, resample, upfactor):
     to achieve a unified sampling rate of 50 Hz, the user would have to
     specify an upfactor of 5; 40 Hz x 5 = 200 Hz, which can then be
     decimated to 50 Hz.
+
+    NOTE: assumes any data with off-sample timing has been corrected with
+    :func:`~quakemigrate.util.shift_to_sample`. If not, the resulting traces
+    may not all contain the correct number of samples.
 
     NOTE: data will be detrended and a cosine taper applied before
     decimation, in order to avoid edge effects when applying the lowpass
@@ -381,6 +385,9 @@ def resample(stream, sampling_rate, resample, upfactor):
 
     """
 
+    # Work on a copy of the stream
+    stream = stream.copy()
+
     for trace in stream:
         trace_sampling_rate = trace.stats.sampling_rate
         if sampling_rate != trace_sampling_rate:
@@ -393,14 +400,21 @@ def resample(stream, sampling_rate, resample, upfactor):
                 if int(trace_sampling_rate * upfactor) % sampling_rate != 0:
                     raise BadUpfactorException(trace)
                 stream.remove(trace)
-                trace = upsample(trace, upfactor)
+                trace = upsample(trace, upfactor, starttime, endtime)
                 if trace_sampling_rate != sampling_rate:
                     trace = decimate(trace, sampling_rate)
                 stream += trace
             else:
                 logging.info("Mismatched sampling rates - cannot decimate "
-                             "data - to resample data, set .resample "
-                             "= True and choose a suitable upfactor")
+                             f"data from\n\t{trace}.\n..to resample data, set "
+                             "resample = True and choose a suitable upfactor")
+
+    # Trim as a general safety net. NOTE: here we are using
+    # nearest_sample=False, as all data in the stream should now be at the
+    # desired sampling rate, and with any off-sample data having had it's
+    # timing shifted.
+    stream.trim(starttime=starttime-0.00001, endtime=endtime+0.00001,
+                nearest_sample=False)
 
     return stream
 
@@ -444,10 +458,15 @@ def decimate(trace, sampling_rate):
     return trace
 
 
-def upsample(trace, upfactor):
+def upsample(trace, upfactor, starttime, endtime):
     """
     Upsample a data stream by a given factor, prior to decimation. The
-    upsampling is done using a linear interpolation.
+    upsampling is carried out by linear interpolation.
+
+    NOTE: assumes any data with off-sample timing has been corrected with
+    :func:`~quakemigrate.util.shift_to_sample`. If not, the resulting traces
+    may not all contain the correct number of samples (and desired start
+    and end times).
 
     Parameters
     ----------
@@ -464,18 +483,61 @@ def upsample(trace, upfactor):
     """
 
     data = trace.data
-    dnew = np.zeros(len(data)*upfactor - (upfactor - 1))
+    # Fenceposts
+    dnew = np.zeros((len(data) - 1) * upfactor + 1)
     dnew[::upfactor] = data
     for i in range(1, upfactor):
         dnew[i::upfactor] = float(i)/upfactor*data[1:] \
                         + float(upfactor - i)/upfactor*data[:-1]
 
+    # Check if start needs pad - if so pad with constant value (start value
+    # of original trace). Use inequality here to only apply padding to data at
+    # the start and end of the requested time window; not for other traces
+    # floating in the middle (in the case that there are gaps).
+    if 0. < trace.stats.starttime - starttime < trace.stats.delta:
+        logging.debug(f"Mismatched starttimes: {trace.stats.starttime}, "
+                      f"{starttime}")
+        # Calculate how many additional samples are needed
+        start_pad = np.round((trace.stats.starttime - starttime) \
+            * trace.stats.sampling_rate * upfactor)
+        logging.debug(f"Start pad = {start_pad}")
+        # Add padding data (constant value)
+        start_fill = np.full(np.int(start_pad), trace.data[0], dtype=int)
+        dnew = np.append(start_fill, dnew)
+        # Calculate new starttime of trace
+        new_starttime = trace.stats.starttime - start_pad \
+            / (trace.stats.sampling_rate * upfactor)
+        logging.debug(f"New starttime = {new_starttime}")
+    else:
+        new_starttime = trace.stats.starttime
+
+    # Ditto for end of trace
+    if 0. < endtime - trace.stats.endtime < trace.stats.delta:
+        logging.debug(f"Mismatched endtimes: {trace.stats.endtime}, {endtime}")
+        # Calculate how many additional samples are needed
+        end_pad = np.round((endtime - trace.stats.endtime) \
+            * trace.stats.sampling_rate * upfactor)
+        logging.debug(f"End pad = {end_pad}")
+        # Add padding data (constant value)
+        end_fill = np.full(np.int(end_pad), trace.data[-1], dtype=int)
+        dnew = np.append(dnew, end_fill)
+
     out = Trace()
     out.data = dnew
-    out.stats = trace.stats
+    out.stats = trace.stats.copy()
     out.stats.npts = len(out.data)
-    out.stats.starttime = trace.stats.starttime
+    out.stats.starttime = new_starttime
     out.stats.sampling_rate = int(upfactor * trace.stats.sampling_rate)
+    logging.debug(f"Raw upsampled trace:\n\t{out}")
+
+    # Trim to remove additional padding left from reading with
+    # nearest_sample=True at a variety of sampling rates.
+    # NOTE: here we are using nearest_sample=False, as all data in the stream
+    # should now be at a *multiple* of the desired sampling rate, and with any
+    # off-sample data having had it's timing shifted.
+    out.trim(starttime=starttime-0.00001, endtime=endtime+0.00001,
+             nearest_sample=False)
+    logging.debug(f"Trimmed upsampled trace:\n\t{out}")
 
     return out
 

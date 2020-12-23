@@ -277,6 +277,71 @@ def wa_response(convert='DIS2DIS', obspy_def=True):
     return woodanderson
 
 
+def shift_to_sample(stream, interpolate=False):
+    """
+    Check whether any data in an `obspy.Stream` object is "off-sample" - i.e.
+    the data timestamps are *not* an integer number of samples after midnight.
+    If so, shift data to be "on-sample".
+
+    This can either be done by shifting the timestamps by a sub-sample time
+    interval, or interpolating the trace to the "on-sample" timestamps. The
+    latter has the benefit that it will not affect the timing of the data, but
+    will require additional computation time and some inevitable edge effects -
+    though for onset calculation these should be contained within the pad
+    windows. If you are using a sampling rate < 10 Hz, contact the QuakeMigrate
+    developers.
+
+    Parameters
+    ----------
+    stream : `obspy.Stream` object
+        Contains list of `obspy.Trace` objects for which to check the timing.
+    interpolate : bool, optional
+        Whether to interpolate the data to correct the "off-sample" timing.
+        Otherwise, the metadata will simply be altered to shift the timestamps
+        "on-sample"; this will lead to a sub-sample timing offset.
+
+    Returns
+    -------
+    stream : `obspy.Stream` object
+        Waveform data with all timestamps "on-sample".
+
+    """
+
+    # work on a copy
+    stream = stream.copy()
+
+    for tr in stream:
+        # Check if microsecond is divisible by sampling rate; only guaranteed
+        # to work for sampling rates of 1 Hz or less
+        delta = tr.stats.starttime.microsecond \
+            % (1e6 / tr.stats.sampling_rate)
+        if delta == 0:
+            if tr.stats.sampling_rate < 1.:
+                logging.warning(f"Trace\n\t{tr}\nhas a sampling rate less than"
+                                " 1 Hz, so off-sample data might not be "
+                                "corrected!")
+            continue
+        else:
+            # Calculate time shift to closest "on-sample" timestamp
+            time_shift = round(delta / 1e6 * tr.stats.sampling_rate) \
+                / tr.stats.sampling_rate - delta / 1e6
+            if not interpolate:
+                logging.info(f"Trace\n\t{tr}\nhas off-sample data. Applying "
+                             f"{time_shift:+f} s shift to timing.")
+                tr.stats.starttime += time_shift
+                logging.debug(f"Shifted trace: {tr}")
+            else:
+                logging.info(f"Trace\n\t{tr}\nhas off-sample data. "
+                             f"Interpolating to apply a {time_shift:+f} s "
+                             "shift to timing.")
+                new_starttime = tr.stats.starttime + time_shift
+                tr.interpolate(sampling_rate=tr.stats.sampling_rate,
+                               method="lanczos", a=20, starttime=new_starttime)
+                logging.debug(f"Interpolated tr:\n\t{tr}")
+
+    return stream
+
+
 def resample(stream, sampling_rate, resample, upfactor):
     """
     Resample the stream to the specified sampling rate.
@@ -340,19 +405,19 @@ def resample(stream, sampling_rate, resample, upfactor):
     return stream
 
 
-def decimate(trace, sr):
+def decimate(trace, sampling_rate):
     """
     Decimate a trace to achieve the desired sampling rate, sr.
 
     NOTE: data will be detrended and a cosine taper applied before
     decimation, in order to avoid edge effects when applying the lowpass
-    filter.
+    filter before decimating.
 
     Parameters:
     -----------
     trace : `obspy.Trace` object
         Trace to be decimated.
-    sr : int
+    sampling_rate : int
         Output sampling rate.
 
     Returns:
@@ -370,10 +435,10 @@ def decimate(trace, sr):
     trace.detrend('demean')
     trace.taper(type='cosine', max_percentage=0.05)
 
-    # Zero-phase lowpass filter at Nyquist frequency
-    trace.filter("lowpass", freq=float(sr) / 2.000001, corners=2,
+    # Zero-phase Butterworth-lowpass filter at Nyquist frequency
+    trace.filter("lowpass", freq=float(sampling_rate) / 2.000001, corners=2,
                  zerophase=True)
-    trace.decimate(factor=int(trace.stats.sampling_rate / sr),
+    trace.decimate(factor=int(trace.stats.sampling_rate / sampling_rate),
                    strict_length=False, no_filter=True)
 
     return trace

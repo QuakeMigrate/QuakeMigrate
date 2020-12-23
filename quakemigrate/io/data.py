@@ -77,6 +77,12 @@ class Archive:
         Factor by which to upsample the data to enable it to be decimated to
         the desired sampling rate, e.g. 40Hz -> 50Hz requires upfactor = 5.
         See :func:`~quakemigrate.util.resample`
+    interpolate : bool, optional
+        If data is timestamped "off-sample" (i.e. a non-integer number of
+        samples after midnight), whether to interpolate the data to apply the
+        necessary correction. Default behaviour is to just alter the metadata,
+        resulting in a sub-sample timing offset. See
+        :func:`~quakemigrate.util.shift_to_sample`.
 
     Methods
     -------
@@ -102,6 +108,7 @@ class Archive:
         self.response_inv = kwargs.get("response_inv")
         self.resample = kwargs.get("resample", False)
         self.upfactor = kwargs.get("upfactor")
+        self.interpolate = kwargs.get("interpolate", False)
 
     def __str__(self):
         """Returns a short summary string of the Archive object."""
@@ -219,6 +226,12 @@ class Archive:
 
             # Make copy of raw waveforms to output if requested
             data.raw_waveforms = st.copy()
+
+            # Ensure data is timestamped "on-sample" (i.e. an integer number
+            # of samples after midnight). Otherwise the data will be implicitly
+            # shifted when it is used to calculate the onset function /
+            # migrated.
+            st = util.shift_to_sample(st, interpolate=self.interpolate)
 
             if self.read_all_stations:
                # Re-populate st with only stations in station file

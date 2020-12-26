@@ -603,7 +603,7 @@ class Amplitude:
 
     def _get_picks(self, station, event):
         """
-        Get picks from this station for this event. If no phase picks is
+        Get picks from this station for this event. If no phase pick is
         found, -1 is returned. If no picks at all are found, "No <phase> onset"
         is returned.
 

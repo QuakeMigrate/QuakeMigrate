@@ -270,7 +270,9 @@ class GaussianPicker(PhasePicker):
         onset_noise = onset.copy()
         for _, window in windows.items():
             onset_noise[window[0]:window[2]] = -1
-        onset_noise = onset_noise[onset_noise > -1]
+        # Remove data during pick windows, and data set to 1 (in onset function
+        # taper pad windows)
+        onset_noise = onset_noise[onset_noise > 1]
 
         noise_threshold = np.percentile(onset_noise, self.pick_threshold * 100)
 

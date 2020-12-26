@@ -189,6 +189,10 @@ class Archive:
 
         """
 
+        # Ensure pre-pad and post-pad are not negative.
+        pre_pad = max(0., pre_pad)
+        post_pad = max(0., post_pad)
+
         data = WaveformData(starttime=starttime, endtime=endtime,
                             stations=self.stations,
                             read_all_stations=self.read_all_stations,

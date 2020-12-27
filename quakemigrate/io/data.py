@@ -77,12 +77,18 @@ class Archive:
         Factor by which to upsample the data to enable it to be decimated to
         the desired sampling rate, e.g. 40Hz -> 50Hz requires upfactor = 5.
         See :func:`~quakemigrate.util.resample`
+    interpolate : bool, optional
+        If data is timestamped "off-sample" (i.e. a non-integer number of
+        samples after midnight), whether to interpolate the data to apply the
+        necessary correction. Default behaviour is to just alter the metadata,
+        resulting in a sub-sample timing offset. See
+        :func:`~quakemigrate.util.shift_to_sample`.
 
     Methods
     -------
     path_structure(archive_format, channels="*")
         Set the directory structure and file naming format of the data archive.
-    read_waveform_data(starttime, endtime, sampling_rate)
+    read_waveform_data(starttime, endtime)
         Read in waveform data between two times.
 
     """
@@ -102,6 +108,7 @@ class Archive:
         self.response_inv = kwargs.get("response_inv")
         self.resample = kwargs.get("resample", False)
         self.upfactor = kwargs.get("upfactor")
+        self.interpolate = kwargs.get("interpolate", False)
 
     def __str__(self):
         """Returns a short summary string of the Archive object."""
@@ -211,7 +218,8 @@ class Archive:
                 try:
                     read_start = starttime - pre_pad
                     read_end = endtime + post_pad
-                    st += read(file, starttime=read_start, endtime=read_end)
+                    st += read(file, starttime=read_start, endtime=read_end,
+                               nearest_sample=True)
                 except TypeError:
                     logging.info(f"File not compatible with ObsPy - {file}")
                     continue
@@ -222,6 +230,12 @@ class Archive:
 
             # Make copy of raw waveforms to output if requested
             data.raw_waveforms = st.copy()
+
+            # Ensure data is timestamped "on-sample" (i.e. an integer number
+            # of samples after midnight). Otherwise the data will be implicitly
+            # shifted when it is used to calculate the onset function /
+            # migrated.
+            st = util.shift_to_sample(st, interpolate=self.interpolate)
 
             if self.read_all_stations:
                # Re-populate st with only stations in station file
@@ -234,7 +248,8 @@ class Archive:
             if pre_pad != 0. or post_pad != 0.:
                 # Trim data between start and end time
                 for tr in st:
-                    tr.trim(starttime=starttime, endtime=endtime)
+                    tr.trim(starttime=starttime, endtime=endtime,
+                            nearest_sample=True)
                     if not bool(tr):
                         st.remove(tr)
 
@@ -312,9 +327,9 @@ class WaveformData:
     Parameters
     ----------
     starttime : `obspy.UTCDateTime` object
-        Timestamp of first sample of waveform data.
+        Timestamp of first sample of waveform data requested from the archive.
     endtime : `obspy.UTCDateTime` object
-        Timestamp of last sample of waveform data.
+        Timestamp of last sample of waveform data requested from the archive.
     stations : `pandas.Series` object, optional
         Series object containing station names.
     read_all_stations : bool, optional
@@ -339,9 +354,9 @@ class WaveformData:
     Attributes
     ----------
     starttime : `obspy.UTCDateTime` object
-        Timestamp of first sample of waveform data.
+        Timestamp of first sample of waveform data requested from the archive.
     endtime : `obspy.UTCDateTime` object
-        Timestamp of last sample of waveform data.
+        Timestamp of last sample of waveform data requested from the archive.
     stations : `pandas.Series` object
         Series object containing station names.
     read_all_stations : bool
@@ -397,7 +412,9 @@ class WaveformData:
         self.wa_waveforms = None
 
     def check_availability(self, st, all_channels=False, n_channels=None,
-                           allow_gaps=False, full_timespan=True):
+                           allow_gaps=False, full_timespan=True,
+                           check_sampling_rate=False, sampling_rate=None,
+                           check_start_end_times=False):
         """
         Check waveform availability against data quality criteria.
 
@@ -422,7 +439,17 @@ class WaveformData:
             Whether to allow gaps.
         full_timespan : bool, optional
             Whether to ensure the data covers the entire timespan requested;
-            note that this implicitly requires that there be no gaps.
+            note that this implicitly requires that there be no gaps. Checks
+            the number of samples in the trace, not the start and end times;
+            for that see `check_start_end_times`.
+        check_sampling_rate : bool, optional
+            Check that all channels are at the desired sampling rate.
+        sampling_rate : float, optional
+            If `check_sampling_rate=True`, this argument is required to specify
+            the sampling rate that the data should be at.
+        check_start_end_times : bool, optional
+            A stricter alternative to `full_timespan`; checks that the first
+            and last sample of the trace have exactly the requested timestamps.
 
         Returns
         -------
@@ -447,7 +474,7 @@ class WaveformData:
         # Check if any channels in stream
         if bool(st):
             # Loop through channels with unique SEED id's
-            for tr_id in sorted([tr.id for tr in st]):
+            for tr_id in sorted(set([tr.id for tr in st])):
                 st_id = st.select(id=tr_id)
                 availability[tr_id] = 0
 
@@ -463,13 +490,33 @@ class WaveformData:
                     gaps = st_id.get_gaps()  # Overlaps already dealt with
                     if len(gaps) != 0:
                         continue
-                # Check data covers full timespan (if requested)
+                # Check sampling rate
+                if check_sampling_rate:
+                    if not sampling_rate:
+                        raise TypeError("Please specify sampling_rate if you "
+                                        "wish to check all channels are at the"
+                                        " correct sampling rate.")
+                    if any(tr.stats.sampling_rate != sampling_rate \
+                        for tr in st_id):
+                        continue
+                # Check data covers full timespan (if requested) - this
+                # strictly checks the *timespan*, so uses the trace sampling
+                # rate as provided. To check that as well, use
+                # `check_sampling_rate=True` and specify a sampling rate.
                 if full_timespan:
                     n_samples = timespan * st_id[0].stats.sampling_rate + 1
                     if len(st_id) > 1:
                         continue
                     elif st_id[0].stats.npts < n_samples:
                         continue
+                # Check start and end times of trace are exactly correct
+                if check_start_end_times:
+                    if len(st_id) > 1:
+                        continue
+                    elif st_id[0].stats.starttime != self.starttime or \
+                        st_id[0].stats.endtime != self.endtime:
+                        continue
+
                 # If passed all tests, set availability to 1
                 availability[tr_id] = 1
 

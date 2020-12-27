@@ -334,9 +334,24 @@ def shift_to_sample(stream, interpolate=False):
                 logging.info(f"Trace\n\t{tr}\nhas off-sample data. "
                              f"Interpolating to apply a {time_shift:+f} s "
                              "shift to timing.")
+                # Interpolate can only map between values contained within the
+                # original array. For negative time shift, shift by one sample
+                # so new starttime is within original array, and add constant
+                # value pad after interpolation.
                 new_starttime = tr.stats.starttime + time_shift
+                if time_shift < 0.:
+                    new_starttime += tr.stats.delta
                 tr.interpolate(sampling_rate=tr.stats.sampling_rate,
                                method="lanczos", a=20, starttime=new_starttime)
+                # Add constant-value pad at end if time_shift is positive,
+                # (last sample is dropped when interpolating for positive time
+                # shifts), else at start. If adding at start, also adjust start
+                # time.
+                if time_shift > 0.:
+                    tr.data = np.append(tr.data, tr.data[-1])
+                else:
+                    tr.data = np.append(tr.data[0], tr.data)
+                    tr.stats.starttime -= tr.stats.delta
                 logging.debug(f"Interpolated tr:\n\t{tr}")
 
     return stream

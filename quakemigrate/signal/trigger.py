@@ -21,42 +21,6 @@ from quakemigrate.plot import trigger_summary
 import quakemigrate.util as util
 
 
-def calculate_mad(x, scale=1.4826):
-    """
-    Calculates the Median Absolute Deviation (MAD) of the input array x.
-
-    Parameters
-    ----------
-    x : array-like
-        Coalescence array in.
-    scale : float, optional
-        A scaling factor for the MAD output to make the calculated MAD factor
-        a consistent estimation of the standard deviation of the distribution.
-
-    Returns
-    -------
-    scaled_mad : array-like
-        Array of scaled mean absolute deviation values for the input array, x,
-        scaled to provide an estimation of the standard deviation of the
-        distribution.
-
-    """
-
-    x = np.asarray(x)
-
-    if not x.size:
-        return np.nan
-
-    if np.isnan(np.sum(x)):
-        return np.nan
-
-    # Calculate median and mad values:
-    med = np.apply_over_axes(np.median, x, 0)
-    mad = np.median(np.abs(x - med), axis=0)
-
-    return scale * mad
-
-
 def chunks2trace(a, new_shape):
     """
     Create a trace filled with chunks of the same value.
@@ -362,7 +326,8 @@ class Trigger:
             chunks = np.split(scandata.values, breaks)
 
             # Calculate the mad and median values
-            mad_values = np.asarray([calculate_mad(chunk) for chunk in chunks])
+            mad_values = \
+                np.asarray([util.calculate_mad(chunk) for chunk in chunks])
             median_values = np.asarray([np.median(chunk) for chunk in chunks])
             mad_trace = chunks2trace(mad_values, (len(chunks), len(chunks[0])))
             median_trace = chunks2trace(median_values, (len(chunks),

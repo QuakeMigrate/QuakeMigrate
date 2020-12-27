@@ -171,6 +171,42 @@ def time2sample(time, sampling_rate):
     return int(round(time*int(sampling_rate)))
 
 
+def calculate_mad(x, scale=1.4826):
+    """
+    Calculates the Median Absolute Deviation (MAD) of the input array x.
+
+    Parameters
+    ----------
+    x : array-like
+        Coalescence array in.
+    scale : float, optional
+        A scaling factor for the MAD output to make the calculated MAD factor
+        a consistent estimation of the standard deviation of the distribution.
+
+    Returns
+    -------
+    scaled_mad : array-like
+        Array of scaled mean absolute deviation values for the input array, x,
+        scaled to provide an estimation of the standard deviation of the
+        distribution.
+
+    """
+
+    x = np.asarray(x)
+
+    if not x.size:
+        return np.nan
+
+    if np.isnan(np.sum(x)):
+        return np.nan
+
+    # Calculate median and mad values:
+    med = np.apply_over_axes(np.median, x, 0)
+    mad = np.median(np.abs(x - med), axis=0)
+
+    return scale * mad
+
+
 class DateFormatter(ticker.Formatter):
     """
     Extend the `matplotlib.ticker.Formatter` class to allow for millisecond

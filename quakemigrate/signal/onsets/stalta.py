@@ -21,7 +21,7 @@ import quakemigrate.util as util
 from .base import Onset, OnsetData
 
 
-def sta_lta_centred(a, nsta, nlta):
+def sta_lta_centred(signal, nsta, nlta):
     """
     Calculates the ratio of the average of a^2 in a short-term (signal) window
     to a preceding long-term (noise) window. STA/LTA value is assigned to the
@@ -29,7 +29,7 @@ def sta_lta_centred(a, nsta, nlta):
 
     Parameters
     ----------
-    a : array-like
+    signal : array-like
         Signal array
     nsta : int
         Number of samples in short-term window
@@ -46,7 +46,7 @@ def sta_lta_centred(a, nsta, nlta):
     """
 
     # Cumulative sum to calculate moving average
-    sta = np.cumsum(a ** 2)
+    sta = np.cumsum(signal ** 2)
     sta = np.require(sta, dtype=np.float)
     lta = sta.copy()
 
@@ -269,7 +269,7 @@ class STALTAOnset(Onset):
 
         return out
 
-    def calculate_onsets(self, data, log=True):
+    def calculate_onsets(self, data, log=True, timespan=None):
         """
         Calculate onset functions for the requested stations and phases.
 
@@ -287,6 +287,12 @@ class STALTAOnset(Onset):
             Light class encapsulating data returned by an archive query.
         log : bool
             Calculate log(onset) if True, otherwise calculate the raw onset.
+        timespan : float or None, optional
+            If the timespan for which the onsets are being generated is
+            provided, this will be used to calculate the tapered window of data
+            at the start and end of the onset function which should be
+            disregarded. This is necessary to accurately set the pick threshold
+            in GaussianPicker, for example.
 
         Returns
         -------
@@ -372,7 +378,7 @@ class STALTAOnset(Onset):
                 # waveforms that have passed the availability check to
                 # WaveformData.filtered_waveforms
                 onsets_dict.setdefault(station, {}).update(
-                    {phase: self._onset(waveforms, stw, ltw, log)})
+                    {phase: self._onset(waveforms, stw, ltw, log, timespan)})
                 onsets.append(onsets_dict[station][phase])
                 filtered_waveforms += waveforms
 
@@ -386,7 +392,7 @@ class STALTAOnset(Onset):
 
         return onsets, onset_data
 
-    def _onset(self, stream, stw, ltw, log):
+    def _onset(self, stream, stw, ltw, log, timespan):
         """
         Generates an onset (characteristic) function. If there are multiple
         components, these are combined as the root-mean-square of the onset
@@ -403,6 +409,10 @@ class STALTAOnset(Onset):
             Number of samples in the long-term window.
         log : bool
             Calculate log(onset) if True, otherwise calculate the raw onset.
+        timespan : float or None
+            If a timespan is provided it will be used to calculate the tapered
+            window of data at the start and end of the onset function which
+            should be disregarded.
 
         Returns
         -------
@@ -416,6 +426,10 @@ class STALTAOnset(Onset):
         elif self.position == "classic":
             onsets = [classic_sta_lta(tr.data, stw, ltw) for tr in stream]
         onsets = np.array(onsets)
+
+        if timespan:
+            onsets = self._trim_taper_pad(onsets, stw, ltw, timespan)
+
         np.clip(1 + onsets, 0.8, np.inf, onsets)
         if log:
             np.log(onsets, onsets)
@@ -424,6 +438,44 @@ class STALTAOnset(Onset):
                         / len(onsets))
 
         return onset
+
+    def _trim_taper_pad(self, onsets, stw, ltw, timespan):
+        """
+        Set the value of the tapered windows at the start and end of the onset
+        function (plus one long-term window and one short-term window,
+        respectively) to 0.
+
+        Parameters
+        ----------
+        onsets : `numpy.ndarray` of float
+            STA/LTA onset function.
+        stw : int
+            Number of samples in the short-term window.
+        ltw : int
+            Number of samples in the long-term window.
+        timespan : float
+            Used to calculate the tapered window of data at the start and end
+            of the onset function which should be disregarded.
+
+        Returns
+        -------
+        onsets : `numpy.ndarray` of float
+            STA/LTA onset function, with the value in the tapered regions of
+            data set to 0.
+
+        """
+
+        # Calculate duration of taper pre- and post-pad and convert to samples
+        pre_pad, _ = self.pad(timespan)
+        # Taper pre- and post-pad are identical - just calculate one
+        taper_pad = util.time2sample(pre_pad - self.pre_pad,
+                                     self.sampling_rate)
+
+        for onset in onsets:
+            onset[:(taper_pad + ltw - 1)] = 0
+            onset[-(stw + taper_pad):] = 0
+
+        return onsets
 
     def gaussian_halfwidth(self, phase):
         """

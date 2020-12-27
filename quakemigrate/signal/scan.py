@@ -462,7 +462,9 @@ class QuakeScan:
                 logging.info("Support for event videos coming soon.")
 
             if self.write_cut_waveforms:
-                write_cut_waveforms(self.run, event, self.cut_waveform_format)
+                write_cut_waveforms(self.run, event, self.cut_waveform_format,
+                                    pre_cut=self.pre_cut,
+                                    post_cut=self.post_cut)
 
             del event, marginalised_coa_map
             logging.info(util.log_spacer)
@@ -546,56 +548,27 @@ class QuakeScan:
         # Extra pre- and post-pad default to 0.
         pre_pad = post_pad = 0.
 
-        if self.pre_cut or self.mags is not None:
-            if self.mags is not None and self.pre_cut:
-                pre_cut = max(
-                    self.mags.amp.noise_window + self.marginal_window,
-                    self.pre_cut)
-                logging.debug(f"{pre_cut}")
-            elif self.mags is not None:
-                pre_cut = self.mags.amp.noise_window + self.marginal_window
-                logging.debug((f"{self.mags.amp.noise_window}, "
-                               f"{self.marginal_window}, {pre_cut}"))
-            else:
-                pre_cut = self.pre_cut
-            # only subtract 1*marginal_window so if the event otime moves by
-            # this much the selected pre_cut can still be applied
-            pre_pad = pre_cut - self.marginal_window - self.pre_pad
-            if pre_pad < 0:
-                if self.pre_cut:
-                    msg = (f"\t\tWarning: specified pre_cut {self.pre_cut} is"
-                           "shorter than default pre_pad\n"
-                           f"\t\t\tCutting from pre_pad = {self.pre_pad}")
-                    logging.info(msg)
-                pre_pad = 0.
+        # If calculating magnitudes, read in padding required for amplitude
+        # measurements.
+        if self.mags:
+            pre_pad, post_pad = self.mags.amp.pad(
+                self.marginal_window,
+                self.lut.max_traveltime,
+                self.lut.fraction_tt)
 
-        if self.post_cut or self.mags is not None:
-            if self.mags is not None and self.post_cut:
-                post_cut = max(((1 + self.lut.fraction_tt) *
-                                self.lut.max_traveltime + self.marginal_window
-                                + self.mags.amp.signal_window), self.post_cut)
-                logging.debug(f"{post_cut}")
-            elif self.mags is not None:
-                post_cut = ((1 + self.lut.fraction_tt) *
-                            self.lut.max_traveltime + self.marginal_window +
-                            self.mags.amp.signal_window)
-                logging.debug((f"{(1 + self.lut.fraction_tt)}, "
-                               f"{self.lut.max_traveltime}, "
-                               f"{self.marginal_window}, "
-                               f"{self.mags.amp.signal_window}"))
-                logging.debug(f"{post_cut}")
-            else:
-                post_cut = self.post_cut
-            # only subtract 1*marginal_window so if the event otime moves by
-            # this much the selected post_cut can still be applied
-            post_pad = post_cut - self.marginal_window - self.post_pad
-            if post_pad < 0:
-                if self.post_cut:
-                    msg = (f"\t\tWarning: specified post_cut {self.post_cut} "
-                           "is shorter than default post_pad\n"
-                           f"t\t\tCutting to post_pad = {self.post_pad}")
-                    logging.info(msg)
-                post_pad = 0.
+        # If a specific pre / post cut has been requested by the user,
+        # check which is bigger.
+        if self.pre_cut:
+            pre_pad = max(pre_pad, self.pre_cut)
+        if self.post_cut:
+            post_pad = max(post_pad, self.post_cut)
+
+        # Trim the pre_pad and post_pad to avoid cutting more data than we
+        # need; only subtract 1*marginal_window so that if the event otime
+        # moves by this much (the maximum allowed) from the triggered event
+        # time, we still have the correct window of data to apply the pre_cut.
+        pre_pad = max(0., pre_pad - self.marginal_window - self.pre_pad)
+        post_pad = max(0., post_pad - self.marginal_window - self.post_pad)
 
         logging.debug(f"{w_beg}, {w_end}, {pre_pad}, {post_pad}")
         return self.archive.read_waveform_data(w_beg, w_end, pre_pad, post_pad)

@@ -362,12 +362,6 @@ class GaussianPicker(PhasePicker):
         onset_signal = onset[window[0]:window[2]]
         logging.debug(f"\t\t    win_min: {window[0]}, win_max: {window[2]}")
 
-        # Calculate the pick threshold: either user-specified percentile of
-        # data outside pick windows, or 88th percentile within the relevant
-        # pick window (whichever is bigger).
-        signal_threshold = np.percentile(onset_signal, 88)
-        threshold = np.max([pick_threshold, signal_threshold])
-
         # Identify the peak in the windowed onset that exceeds this threshold
         # AND contains the maximum value in the window (i.e. the 'true' peak).
         try:

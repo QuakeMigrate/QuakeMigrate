@@ -38,10 +38,19 @@ class GaussianPicker(PhasePicker):
             "GAU_S" : array-like
                 Numpy array stack of Gaussian pick info (each as a dict)
                 for S phase
-    pick_threshold : float
+    threshold_method : {"MAD", "percentile"}
+        Which method to use to calculate the pick threshold; a percentile of
+        the data outside the pick windows (e.g. 0.99 = 99th percentile) or a
+        multiple of the Median Absolute Deviation of the signal outside the
+        pick windows. Default uses the MAD method.
+    percentile_pick_threshold : float, optional
         Picks will only be made if the onset function exceeds this percentile
         of the noise level (amplitude of onset function outside pick
-        windows). Recommended starting value: 1.0
+        windows). (Default: 1.0)
+    mad_pick_threshold : float, optional
+        Picks will only be made if the onset function exceeds its median value
+        plus this multiple of the MAD (calculated from the onset data outside
+        the pick windows). (Default: 8)
     plot_picks : bool
         Toggle plotting of phase picks.
 
@@ -63,7 +72,20 @@ class GaussianPicker(PhasePicker):
         super().__init__(**kwargs)
 
         self.onset = onset
-        self.pick_threshold = kwargs.get("pick_threshold", 1.0)
+
+        # --- Get pick method and threshold ---
+        self.threshold_method = kwargs.get("threshold_method", "MAD")
+        if self.threshold_method == "percentile":
+            self.percentile_pick_threshold = \
+                kwargs.get("percentile_pick_threshold", 1.0)
+        elif self.threshold_method == "MAD":
+            self.mad_pick_threshold = kwargs.get("mad_pick_threshold", 8.0)
+        else:
+            raise util.InvalidPickThresholdMethodException
+        # Handle deprecated `pick_threshold`
+        if kwargs.get("pick_threshold"):
+            self.pick_threshold = kwargs["pick_threshold"]
+
         self.plot_picks = kwargs.get("plot_picks", False)
 
         if "fraction_tt" in kwargs.keys():
@@ -76,8 +98,12 @@ class GaussianPicker(PhasePicker):
     def __str__(self):
         """Returns a short summary string of the GaussianPicker."""
 
-        str_ = ("\tPhase picking by fitting a 1-D Gaussian to onsets\n"
-                f"\t\tPick threshold  = {self.pick_threshold}\n")
+        str_ = "\tPhase picking by fitting a 1-D Gaussian to onsets\n"
+        if self.threshold_method == "percentile":
+            str_ += ("\t\tPercentile threshold  = "
+                     f"{self.percentile_pick_threshold}\n")
+        elif self.threshold_method == "MAD":
+            str_ += f"\t\tMAD multiplier  = {self.mad_pick_threshold}\n"
         if self._fraction_tt is not None:
             str_ += (f"\t\tSearch window   = {self._fraction_tt*100}% of "
                      "traveltime\n")
@@ -144,14 +170,14 @@ class GaussianPicker(PhasePicker):
 
             for phase, onset in onsets.items():
                 # Find threshold from 'noise' part of onset
-                noise_threshold = self._find_noise_threshold(
-                    onset, pick_windows[station])
+                pick_threshold = self._find_pick_threshold(
+                    onset, pick_windows[station], self.threshold_method)
 
                 logging.debug(f"\t\tPicking {phase} at {station}...")
                 fit, *pick = self._fit_gaussian(
                     onset, onset_data.sampling_rate,
                     self.onset.gaussian_halfwidth(phase),
-                    onset_data.starttime, noise_threshold,
+                    onset_data.starttime, pick_threshold,
                     pick_windows[station][phase])
 
                 gaussfits.setdefault(station, {}).update({phase: fit})
@@ -161,8 +187,7 @@ class GaussianPicker(PhasePicker):
                 picks.iloc[idx] = [station, phase, model_time, *pick]
                 idx += 1
 
-        event.add_picks(picks, gaussfits=gaussfits, pick_windows=pick_windows,
-                        pick_threshold=self.pick_threshold)
+        event.add_picks(picks, gaussfits=gaussfits, pick_windows=pick_windows)
 
         self.write(run, event.uid, picks)
 
@@ -247,10 +272,10 @@ class GaussianPicker(PhasePicker):
         last_idx = windows[phases[-1]][2]
         windows[phases[-1]][2] = samples if last_idx > samples else last_idx
 
-    def _find_noise_threshold(self, onset, windows):
+    def _find_pick_threshold(self, onset, windows, method):
         """
-        Determine a pick threshold as a percentile of the onset data outside
-        the pick windows.
+        Determine a pick threshold from the onset data outside the pick
+        windows.
 
         Parameters
         ----------
@@ -259,11 +284,14 @@ class GaussianPicker(PhasePicker):
         windows : list of int
             Indexes of the lower window bound, the phase arrival, and the upper
             window bound.
+        method : {"percentile", "MAD"}
+            Method used to calculate the pick threshold from the noise data.
 
         Return
         ------
-        noise_threshold : float
-            The threshold based on 'noise'.
+        pick_threshold : float
+            The threshold calculated from the onset data outside the pick
+            windows, according to the specified `method`.
 
         """
 
@@ -274,12 +302,18 @@ class GaussianPicker(PhasePicker):
         # taper pad windows)
         onset_noise = onset_noise[onset_noise > 1]
 
-        noise_threshold = np.percentile(onset_noise, self.pick_threshold * 100)
+        if method == "percentile":
+            pick_threshold = \
+                np.percentile(onset_noise, self.percentile_pick_threshold * 100)
+        elif method == "MAD":
+            med = np.median(onset_noise)
+            mad = util.calculate_mad(onset_noise)
+            pick_threshold = med + (mad * self.mad_pick_threshold)
 
-        return noise_threshold
+        return pick_threshold
 
     def _fit_gaussian(self, onset, sampling_rate, halfwidth, starttime,
-                      noise_threshold, window):
+                      pick_threshold, window):
         """
         Fit a Gaussian to the onset function in order to make a time pick with
         an associated uncertainty.
@@ -301,7 +335,7 @@ class GaussianPicker(PhasePicker):
             of the onset function parameters.
         starttime : `obspy.UTCDateTime` object
             Timestamp for first sample of the onset function.
-        noise_threshold : float
+        pick_threshold : float
             Value above which to threshold data based on noise.
         window : list of int, [start, arrival, end]
             Indices for the window start, modelled phase arrival, and window
@@ -314,7 +348,7 @@ class GaussianPicker(PhasePicker):
                                       "xdata": x_data,
                                       "xdata_dt": x_data_dt,
                                       "PickValue": max_onset,
-                                      "PickThreshold": threshold}
+                                      "PickThreshold": pick_threshold}
         max_onset : float
             Amplitude of Gaussian fit to onset function, i.e. the SNR.
         sigma : float
@@ -328,16 +362,10 @@ class GaussianPicker(PhasePicker):
         onset_signal = onset[window[0]:window[2]]
         logging.debug(f"\t\t    win_min: {window[0]}, win_max: {window[2]}")
 
-        # Calculate the pick threshold: either user-specified percentile of
-        # data outside pick windows, or 88th percentile within the relevant
-        # pick window (whichever is bigger).
-        signal_threshold = np.percentile(onset_signal, 88)
-        threshold = np.max([noise_threshold, signal_threshold])
-
         # Identify the peak in the windowed onset that exceeds this threshold
         # AND contains the maximum value in the window (i.e. the 'true' peak).
         try:
-            peak_idxs = self._find_peak(onset_signal, threshold)
+            peak_idxs = self._find_peak(onset_signal, pick_threshold)
             # add an extra sample either side for the curve fitting. This makes
             # the fitting more stable, and guarantees at least 3 samples -->
             # avoids an under-constrained optimisation (3 fitting params).
@@ -349,7 +377,7 @@ class GaussianPicker(PhasePicker):
             y_data = onset[padded_peak_idxs[0]:padded_peak_idxs[1]]
         except util.NoOnsetPeak as e:
             logging.debug(e.msg)
-            return self._pick_failure(threshold)
+            return self._pick_failure(pick_threshold)
 
         # Try to fit a 1-D Gaussian
         # Initial parameters (p0) are:
@@ -370,7 +398,7 @@ class GaussianPicker(PhasePicker):
             # default in scan.py.
             logging.debug(f"\t\t    Failed curve_fit:\n{e}\n\t\t    "
                           "Continuing...")
-            return self._pick_failure(threshold)
+            return self._pick_failure(pick_threshold)
         except TypeError as e:
             logging.debug("\t\t    Failed curve_fit - too few input data?"
                           f"{e}\n\t\t    Continuing...")
@@ -384,30 +412,31 @@ class GaussianPicker(PhasePicker):
         # Check pick mean is within the pick window.
         if not window[0] < popt[1] * sampling_rate < window[2]:
             logging.debug("\t\t    Pick mean out of bounds - continuing.")
-            return self._pick_failure(threshold)
+            return self._pick_failure(pick_threshold)
 
         gaussian_fit = {"popt": popt,
                         "xdata": x_data,
                         "xdata_dt": np.array([starttime + x for x in x_data]),
                         "PickValue": max_onset,
-                        "PickThreshold": threshold}
+                        "PickThreshold": pick_threshold}
 
         return gaussian_fit, mean, sigma, max_onset
 
-    def _pick_failure(self, threshold):
+    def _pick_failure(self, pick_threshold):
         """
         Short utility function to produce the default values when a pick cannot
         be made.
 
         Parameters
         ----------
-        threshold : float
-            Threshold value for onset data.
+        pick_threshold : float
+            Pick threshold value for onset data.
 
         Returns
         -------
         gaussian_fit : dictionary
-            The default Gaussian fit dictionary, with relevant threshold value.
+            The default Gaussian fit dictionary, with relevant pick threshold
+            value.
         max_onset : int
             A default of -1 value to indicate failure.
         sigma : int
@@ -418,12 +447,12 @@ class GaussianPicker(PhasePicker):
         """
 
         gaussian_fit = self.DEFAULT_GAUSSIAN_FIT.copy()
-        gaussian_fit["PickThreshold"] = threshold
+        gaussian_fit["PickThreshold"] = pick_threshold
         mean = sigma = max_onset = -1
 
         return gaussian_fit, mean, sigma, max_onset
 
-    def _find_peak(self, windowed_onset, threshold):
+    def _find_peak(self, windowed_onset, pick_threshold):
         """
         Identify peaks, if any, within the windowed onset that exceed the
         specified threshold value. Of those peaks, this function seeks the one
@@ -442,7 +471,7 @@ class GaussianPicker(PhasePicker):
         ----------
         windowed_onset : `numpy.ndarray` of `numpy.double`
             The onset function within the picking window.
-        threshold : float
+        pick_threshold : float
             Value above which to search for peaks in the onset data.
 
         Returns
@@ -455,13 +484,14 @@ class GaussianPicker(PhasePicker):
         Raises
         ------
         util.NoOnsetPeak
-            If no onset data, or only a single sample, exceeds the threshold.
+            If no onset data, or only a single sample, exceeds the pick
+            threshold.
 
         """
 
-        exceedence = np.where(windowed_onset > threshold)[0]
+        exceedence = np.where(windowed_onset > pick_threshold)[0]
         if len(exceedence) == 0:
-            raise util.NoOnsetPeak(threshold)
+            raise util.NoOnsetPeak(pick_threshold)
 
         # Identify all peaks - there are possibly multiple distinct periods
         # of data that exceed the threshold. The following command simply seeks
@@ -477,7 +507,7 @@ class GaussianPicker(PhasePicker):
 
         # Check if there is more than a single sample above the threshold
         if len(peaks[i]) < 2:
-            raise util.NoOnsetPeak(threshold)
+            raise util.NoOnsetPeak(pick_threshold)
 
         # Grab the peak and return the start/end index values. NOTE: + 1 is
         # required so that the last sample is included when slicing by index
@@ -491,9 +521,8 @@ class GaussianPicker(PhasePicker):
         Plot figure showing the filtered traces for each data component and the
         onset functions calculated from them (P and/or S) for each station. The
         search window to make a phase pick is displayed, along with the dynamic
-        pick threshold (defined as a percentile of the background noise level),
-        the phase pick time and its uncertainty (if made) and the Gaussian fit
-        to the onset function.
+        pick threshold, the phase pick time and its uncertainty (if made) and
+        the Gaussian fit to the onset function.
 
         Parameters
         ----------
@@ -546,3 +575,14 @@ class GaussianPicker(PhasePicker):
         print("FutureWarning: Fraction of traveltime attribute has moved to "
               "lookup table.\n Overriding...")
         self._fraction_tt = value
+
+    @property
+    def pick_threshold(self):
+        """Handler for deprecated attribute 'pick_threshold'"""
+
+    @pick_threshold.setter
+    def pick_threshold(self, value):
+        raise AttributeError("The 'pick_threshold' attribute has been "
+                             "deprecated. Select a threshold method from "
+                             "'percentile' or 'MAD', and see the docs for "
+                             "the syntax for the appropriate threshold.")

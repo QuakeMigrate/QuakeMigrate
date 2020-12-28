@@ -171,6 +171,42 @@ def time2sample(time, sampling_rate):
     return int(round(time*int(sampling_rate)))
 
 
+def calculate_mad(x, scale=1.4826):
+    """
+    Calculates the Median Absolute Deviation (MAD) of the input array x.
+
+    Parameters
+    ----------
+    x : array-like
+        Input data.
+    scale : float, optional
+        A scaling factor for the MAD output to make the calculated MAD factor
+        a consistent estimation of the standard deviation of the distribution.
+
+    Returns
+    -------
+    scaled_mad : array-like
+        Array of scaled mean absolute deviation values for the input array, x,
+        scaled to provide an estimation of the standard deviation of the
+        distribution.
+
+    """
+
+    x = np.asarray(x)
+
+    if not x.size:
+        return np.nan
+
+    if np.isnan(np.sum(x)):
+        return np.nan
+
+    # Calculate median and mad values:
+    med = np.apply_over_axes(np.median, x, 0)
+    mad = np.median(np.abs(x - med), axis=0)
+
+    return scale * mad
+
+
 class DateFormatter(ticker.Formatter):
     """
     Extend the `matplotlib.ticker.Formatter` class to allow for millisecond
@@ -701,9 +737,9 @@ class NoOnsetPeak(Exception):
 
     """
 
-    def __init__(self, threshold):
-        self.msg = ("\t\t    No onset signal exceeding threshold "
-                    f"({threshold:5.3f}) - continuing.")
+    def __init__(self, pick_threshold):
+        self.msg = ("\t\t    No onset signal exceeding pick threshold "
+                    f"({pick_threshold:5.3f}) - continuing.")
         super().__init__(self.msg)
 
 
@@ -895,14 +931,27 @@ class TimeSpanException(Exception):
         super().__init__(msg)
 
 
-class InvalidThresholdMethodException(Exception):
+class InvalidTriggerThresholdMethodException(Exception):
     """
     Custom exception to handle case when the user has not selected a valid
-    threshold method.
+    trigger threshold method.
 
     """
 
     def __init__(self):
-        msg = ("InvalidThresholdMethodException: Only 'static' or 'dynamic' "
-               "thresholds are supported.")
+        msg = ("InvalidTriggerThresholdMethodException: Only 'static' or "
+               "'dynamic' thresholds are supported.")
+        super().__init__(msg)
+
+
+class InvalidPickThresholdMethodException(Exception):
+    """
+    Custom exception to handle case when the user has not selected a valid
+    pick threshold method.
+
+    """
+
+    def __init__(self):
+        msg = ("InvalidPickThresholdMethodException: Only 'percentile' or "
+               "'MAD' thresholds are supported.")
         super().__init__(msg)

@@ -149,11 +149,11 @@ def pick_summary(event, station, waveforms, picks, onsets, ttimes, windows):
                 bbox=dict(boxstyle="round", fc="w", alpha=0.8), va="top",
                 ha="left", fontsize=18, zorder=2)
 
-        # Plot threshold
+        # Plot pick threshold
         gau = event.picks["gaussfits"][station][ph]
         thresh = gau["PickThreshold"]
         ax.axhline(thresh, label="Pick threshold")
-        text.text(0.05+i*0.5, 0.2, f"Threshold: {thresh:5.3f}", ha="left",
+        text.text(0.05+i*0.5, 0.2, f"Pick threshold: {thresh:5.3f}", ha="left",
                   va="center", fontsize=18)
 
         # Plot gaussian fit to onset function

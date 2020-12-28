@@ -38,11 +38,11 @@ class GaussianPicker(PhasePicker):
             "GAU_S" : array-like
                 Numpy array stack of Gaussian pick info (each as a dict)
                 for S phase
-    threshold_method : {"percentile", "MAD"}
+    threshold_method : {"MAD", "percentile"}
         Which method to use to calculate the pick threshold; a percentile of
         the data outside the pick windows (e.g. 0.99 = 99th percentile) or a
         multiple of the Median Absolute Deviation of the signal outside the
-        pick windows.
+        pick windows. Default uses the MAD method.
     percentile_pick_threshold : float, optional
         Picks will only be made if the onset function exceeds this percentile
         of the noise level (amplitude of onset function outside pick

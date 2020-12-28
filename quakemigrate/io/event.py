@@ -308,10 +308,6 @@ class Event:
                     {station : phase{window}}\n
                     window: [min_time, modelled_arrival, max_time] - all ints,
                     referring to indices of the onset function.
-                pick_threshold : float
-                    Picks will only be made if the onset function exceeds this
-                    percentile of the noise level (average amplitude of onset
-                    function outside pick windows).
 
         """
 

@@ -178,7 +178,7 @@ def calculate_mad(x, scale=1.4826):
     Parameters
     ----------
     x : array-like
-        Coalescence array in.
+        Input data.
     scale : float, optional
         A scaling factor for the MAD output to make the calculated MAD factor
         a consistent estimation of the standard deviation of the distribution.
@@ -934,11 +934,24 @@ class TimeSpanException(Exception):
 class InvalidThresholdMethodException(Exception):
     """
     Custom exception to handle case when the user has not selected a valid
-    threshold method.
+    trigger threshold method.
 
     """
 
     def __init__(self):
         msg = ("InvalidThresholdMethodException: Only 'static' or 'dynamic' "
+               "thresholds are supported.")
+        super().__init__(msg)
+
+
+class InvalidPickThresholdMethodException(Exception):
+    """
+    Custom exception to handle case when the user has not selected a valid
+    pick threshold method.
+
+    """
+
+    def __init__(self):
+        msg = ("InvalidThresholdMethodException: Only 'percentile' or 'MAD' "
                "thresholds are supported.")
         super().__init__(msg)

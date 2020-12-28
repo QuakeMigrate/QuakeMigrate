@@ -74,7 +74,7 @@ class GaussianPicker(PhasePicker):
         self.onset = onset
 
         # --- Get pick method and threshold ---
-        self.threshold_method = kwargs.get("threshold_method", "percentile")
+        self.threshold_method = kwargs.get("threshold_method", "MAD")
         if self.threshold_method == "percentile":
             self.percentile_pick_threshold = \
                 kwargs.get("percentile_pick_threshold", 1.0)

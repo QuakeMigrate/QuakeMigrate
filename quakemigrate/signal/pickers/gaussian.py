@@ -579,7 +579,6 @@ class GaussianPicker(PhasePicker):
     @property
     def pick_threshold(self):
         """Handler for deprecated attribute 'pick_threshold'"""
-        return self._pick_threshold
 
     @pick_threshold.setter
     def pick_threshold(self, value):

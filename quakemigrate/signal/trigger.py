@@ -140,7 +140,7 @@ class Trigger:
     ------
     ValueError
         If `min_event_interval` < 2 * `marginal_window`.
-    InvalidThresholdMethodException
+    InvalidTriggerThresholdMethodException
         If an invalid threshold method is passed in by the user.
     TimeSpanException
         If the user supplies a starttime that is after the endtime.
@@ -165,7 +165,7 @@ class Trigger:
             self.mad_window_length = kwargs.get("mad_window_length", 3600.)
             self.mad_multiplier = kwargs.get("mad_multiplier", 1.)
         else:
-            raise util.InvalidThresholdMethodException
+            raise util.InvalidTriggerThresholdMethodException
         self.marginal_window = kwargs.get("marginal_window", 2.)
         self.min_event_interval = kwargs.get("min_event_interval", 4.)
         if kwargs.get("minimum_repeat"):

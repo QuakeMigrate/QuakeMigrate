@@ -737,9 +737,9 @@ class NoOnsetPeak(Exception):
 
     """
 
-    def __init__(self, threshold):
-        self.msg = ("\t\t    No onset signal exceeding threshold "
-                    f"({threshold:5.3f}) - continuing.")
+    def __init__(self, pick_threshold):
+        self.msg = ("\t\t    No onset signal exceeding pick threshold "
+                    f"({pick_threshold:5.3f}) - continuing.")
         super().__init__(self.msg)
 
 
@@ -931,7 +931,7 @@ class TimeSpanException(Exception):
         super().__init__(msg)
 
 
-class InvalidThresholdMethodException(Exception):
+class InvalidTriggerThresholdMethodException(Exception):
     """
     Custom exception to handle case when the user has not selected a valid
     trigger threshold method.
@@ -939,8 +939,8 @@ class InvalidThresholdMethodException(Exception):
     """
 
     def __init__(self):
-        msg = ("InvalidThresholdMethodException: Only 'static' or 'dynamic' "
-               "thresholds are supported.")
+        msg = ("InvalidTriggerThresholdMethodException: Only 'static' or "
+               "'dynamic' thresholds are supported.")
         super().__init__(msg)
 
 
@@ -952,6 +952,6 @@ class InvalidPickThresholdMethodException(Exception):
     """
 
     def __init__(self):
-        msg = ("InvalidThresholdMethodException: Only 'percentile' or 'MAD' "
-               "thresholds are supported.")
+        msg = ("InvalidPickThresholdMethodException: Only 'percentile' or "
+               "'MAD' thresholds are supported.")
         super().__init__(msg)

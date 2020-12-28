@@ -170,14 +170,14 @@ class GaussianPicker(PhasePicker):
 
             for phase, onset in onsets.items():
                 # Find threshold from 'noise' part of onset
-                noise_threshold = self._find_noise_threshold(
+                pick_threshold = self._find_pick_threshold(
                     onset, pick_windows[station], self.threshold_method)
 
                 logging.debug(f"\t\tPicking {phase} at {station}...")
                 fit, *pick = self._fit_gaussian(
                     onset, onset_data.sampling_rate,
                     self.onset.gaussian_halfwidth(phase),
-                    onset_data.starttime, noise_threshold,
+                    onset_data.starttime, pick_threshold,
                     pick_windows[station][phase])
 
                 gaussfits.setdefault(station, {}).update({phase: fit})
@@ -272,7 +272,7 @@ class GaussianPicker(PhasePicker):
         last_idx = windows[phases[-1]][2]
         windows[phases[-1]][2] = samples if last_idx > samples else last_idx
 
-    def _find_noise_threshold(self, onset, windows, method):
+    def _find_pick_threshold(self, onset, windows, method):
         """
         Determine a pick threshold from the onset data outside the pick
         windows.
@@ -289,7 +289,7 @@ class GaussianPicker(PhasePicker):
 
         Return
         ------
-        noise_threshold : float
+        pick_threshold : float
             The threshold calculated from the onset data outside the pick
             windows, according to the specified `method`.
 
@@ -303,17 +303,17 @@ class GaussianPicker(PhasePicker):
         onset_noise = onset_noise[onset_noise > 1]
 
         if method == "percentile":
-            noise_threshold = \
+            pick_threshold = \
                 np.percentile(onset_noise, self.percentile_pick_threshold * 100)
         elif method == "MAD":
             med = np.median(onset_noise)
             mad = util.calculate_mad(onset_noise)
-            noise_threshold = med + (mad * self.mad_pick_threshold)
+            pick_threshold = med + (mad * self.mad_pick_threshold)
 
-        return noise_threshold
+        return pick_threshold
 
     def _fit_gaussian(self, onset, sampling_rate, halfwidth, starttime,
-                      noise_threshold, window):
+                      pick_threshold, window):
         """
         Fit a Gaussian to the onset function in order to make a time pick with
         an associated uncertainty.
@@ -335,7 +335,7 @@ class GaussianPicker(PhasePicker):
             of the onset function parameters.
         starttime : `obspy.UTCDateTime` object
             Timestamp for first sample of the onset function.
-        noise_threshold : float
+        pick_threshold : float
             Value above which to threshold data based on noise.
         window : list of int, [start, arrival, end]
             Indices for the window start, modelled phase arrival, and window
@@ -366,7 +366,7 @@ class GaussianPicker(PhasePicker):
         # data outside pick windows, or 88th percentile within the relevant
         # pick window (whichever is bigger).
         signal_threshold = np.percentile(onset_signal, 88)
-        threshold = np.max([noise_threshold, signal_threshold])
+        threshold = np.max([pick_threshold, signal_threshold])
 
         # Identify the peak in the windowed onset that exceeds this threshold
         # AND contains the maximum value in the window (i.e. the 'true' peak).

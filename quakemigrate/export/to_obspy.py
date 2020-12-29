@@ -234,7 +234,7 @@ def _read_single_event(event_file, locate_dir, units, local_mag_ph):
                 amp = Amplitude()
                 if pd.isna(ampsline[phase]):
                     continue
-                amp.generic_amplitude = ampsline[phase] / 1000 # mm to m
+                amp.generic_amplitude = ampsline[phase] / 1000  # mm to m
                 amp.generic_amplitude_errors.uncertainty = noise_amp
                 amp.unit = "m"
                 amp.type = "AML"
@@ -247,6 +247,16 @@ def _read_single_event(event_file, locate_dir, units, local_mag_ph):
                 # amp.filter_id = ?
                 amp.magnitude_hint = "ML"
                 amp.evaluation_mode = "automatic"
+                amp.extra = AttribDict()
+                try:
+                    amp.extra.filter_gain = {
+                        "value": ampsline[f"{phase[0]}_filter_gain"],
+                        "namespace": ns}
+                    amp.extra.avg_amp = {
+                        "value": ampsline[f"{phase[0]}_avg_amp"] / 1000,  # m
+                        "namespace": ns}
+                except KeyError:
+                    pass
 
                 if phase[0] == local_mag_ph and not pd.isna(ampsline["ML"]):
                     i += 1

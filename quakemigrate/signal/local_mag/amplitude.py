@@ -883,11 +883,6 @@ class Amplitude:
             An estimate of the signal amplitude in the noise window. In
             millimetres.
 
-        Raises
-        ------
-        NotImplementedError
-            For measurement methods other than {"RMS", "STD"}.
-
         """
 
         p_start = windows[0][0]
@@ -904,17 +899,7 @@ class Amplitude:
             noise_amp = np.nan
         else:
             noise.detrend("linear")
-
-            # Use standard deviation in noise window as an estimate of the
-            # background noise amplitude *in millimetres*
-            if method == "RMS":
-                noise_amp = np.sqrt(np.mean(np.square(noise.data))) * 1000.
-            elif method == "STD":
-                noise_amp = np.std(noise.data) * 1000.
-            else:
-                raise NotImplementedError("Only 'RMS' and 'STD' are available "
-                                          "currently. Please contact the "
-                                          "QuakeMigrate developers.")
+            noise_amp = self._average_amplitude(noise, method)
 
             if self.bandpass_filter or self.highpass_filter and filter_gain:
                 # NOTE: uses the gain at the approx_freq of the last amplitude
@@ -922,6 +907,48 @@ class Amplitude:
                 noise_amp /= np.abs(filter_gain[0])
 
         return noise_amp
+
+    def _average_amplitude(self, trace, method):
+        """
+        Measure the average amplitude of a trace.
+
+        NOTE: returns amplitude in *millimetres*.
+
+        Parameters
+        ----------
+        trace : `obspy.Trace` object
+            Trace from which to measure the amplitude (corrected to
+            displacement in units of nanometres).
+        method : {"RMS", "STD"}
+            The method by which to measure the average amplitude of the signal:
+            root-mean-square or standard deviation of the signal.
+            (Default "RMS").
+
+        Returns
+        -------
+        amp : float
+            Average amplitude of the trace (in millimetres).
+
+        Raises
+        ------
+        NotImplementedError
+            For measurement methods other than {"RMS", "STD"}.
+
+        """
+
+        if method == "RMS":
+            amp = np.sqrt(np.mean(np.square(trace.data)))
+        elif method == "STD":
+            amp = np.std(trace.data)
+        else:
+            raise NotImplementedError("Only 'RMS' and 'STD' are "
+                                      "available currently. Please contact the"
+                                      " QuakeMigrate developers.")
+
+        # Convert to *millimetres*
+        amp *= 1000.
+
+        return amp
 
     def pad(self, marginal_window, max_tt, fraction_tt):
         """

@@ -446,8 +446,13 @@ class Magnitude:
         else:
             dist_err = epi_err
 
-        all_amps = magnitudes[self.amp_feature].values * self.amp_multiplier
-        noise_amps = magnitudes["Noise_amp"].values * self.amp_multiplier
+        all_amps = magnitudes[self.amp_feature].values * self.amp_multiplier \
+                    * np.power(10, magnitudes["Station_Correction"])
+        noise_amps = magnitudes["Noise_amp"].values * self.amp_multiplier \
+                    * np.power(10, magnitudes["Station_Correction"])
+        filter_gains = magnitudes[f"{self.amp_feature[0]}_filter_gain"]
+        if not filter_gains.isnull().values.any():
+            noise_amps /= filter_gains
 
         dist = magnitudes["Dist"]
 

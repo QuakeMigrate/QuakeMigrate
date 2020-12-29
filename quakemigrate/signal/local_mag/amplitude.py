@@ -595,8 +595,11 @@ class Amplitude:
             mid_time = p_end + (s_start - p_end) / 2
             windows = [[p_start, mid_time],
                        [mid_time, s_end]]
-        else:
+        elif s_start - p_end < self.signal_window:
             windows = [[p_start, s_start],
+                       [s_start, s_end]]
+        else:
+            windows = [[p_start, p_end + self.signal_window],
                        [s_start, s_end]]
 
         return windows, picked

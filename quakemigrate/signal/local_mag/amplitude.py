@@ -17,7 +17,7 @@ import numpy as np
 from obspy import UTCDateTime
 from obspy.geodetics.base import gps2dist_azimuth
 import pandas as pd
-from scipy.signal import find_peaks, iirfilter, sosfreqz
+from scipy.signal import find_peaks, iirfilter, sosfreqz, hilbert
 
 import quakemigrate.util as util
 
@@ -61,9 +61,10 @@ class Amplitude:
     noise_window : float
         Length of the time window before the P-wave signal window in which
         to measure the noise amplitude. (Default 5 s)
-    noise_measure : {"RMS", "STD"}
-        Method by which to measure the noise amplitude; root-mean-quare or
-        standard deviation of the signal. (Default "RMS")
+    noise_measure : {"RMS", "STD", "ENV"}
+        Method by which to measure the noise amplitude; root-mean-quare,
+        standard deviation or average amplitude of the envelope of the signal.
+        (Default "RMS")
     loc_method : {"spline", "gaussian", "covariance"}
         Which event location estimate to use. (Default "spline")
     remove_full_response : bool
@@ -858,24 +859,25 @@ class Amplitude:
         Performs a linear detrend across the window before measuring
         amplitudes.
 
-        NOTE: Returns the noise amplitude in millimetres: this may have to be
-        adjusted depending on the chosen formulation of the local magnitude
-        attenuation function.
+        NOTE: Returns the noise amplitude in millimetres: the chosen
+        formulation of the local magnitude attenuation function may have to be
+        adjusted to match these units.
 
         Parameters
         ----------
         tr : `obspy.Trace` object
-            Trace from which to measure the noise amplitude.
+            Trace from which to measure the noise amplitude (corrected to
+            displacement in units of nanometres).
         windows : array-like
             [[P_window_start, P_window_end], [S_window_start, S_window_end]]
         filter_gain : float, optional
             The gain of the filter applied to the trace at the approximate
             frequency of the S-wave p2p signal, if a filter was chosen.
             (Default None)
-        method : {"RMS", "STD"}, optional
+        method : {"RMS", "STD", "ENV"}, optional
             The method by which to measure the amplitude of the signal in the
-            noise window: root-mean-square, or standard deviation.
-            (Default "RMS")
+            noise window: root-mean-square, standard deviation or average
+            amplitude of the envelope of the signal. (Default "RMS")
 
         Returns
         -------
@@ -919,10 +921,10 @@ class Amplitude:
         trace : `obspy.Trace` object
             Trace from which to measure the amplitude (corrected to
             displacement in units of nanometres).
-        method : {"RMS", "STD"}
+        method : {"RMS", "STD", "ENV"}
             The method by which to measure the average amplitude of the signal:
-            root-mean-square or standard deviation of the signal.
-            (Default "RMS").
+            root-mean-square, standard deviation or average amplitude of the
+            envelope of the signal. (Default "RMS").
 
         Returns
         -------
@@ -940,8 +942,10 @@ class Amplitude:
             amp = np.sqrt(np.mean(np.square(trace.data)))
         elif method == "STD":
             amp = np.std(trace.data)
+        elif method == "ENV":
+            amp = np.mean(np.abs(hilbert(trace.data)))
         else:
-            raise NotImplementedError("Only 'RMS' and 'STD' are "
+            raise NotImplementedError("Only 'RMS', 'STD' and 'ENV' are "
                                       "available currently. Please contact the"
                                       " QuakeMigrate developers.")
 

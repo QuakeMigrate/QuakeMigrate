@@ -149,7 +149,7 @@ class Magnitude:
         ----------
         amplitudes : `pandas.DataFrame` object
             P- and S-wave amplitude measurements for each component of each
-            station in the station file.
+            station in the look-up table.
             Columns:
                 epi_dist : float
                     Epicentral distance between the station and the event
@@ -159,23 +159,37 @@ class Magnitude:
                     hypocentre.
                 P_amp : float
                     Half maximum peak-to-trough amplitude in the P signal
-                    window. In *millimetres*.
+                    window. In *millimetres*. Corrected for filter gain, if
+                    applicable.
                 P_freq : float
                     Approximate frequency of the maximum amplitude P-wave
-                    signal. Calculated from the peak-to-trough time of the max
-                    peak-to-trough amplitude.
+                    signal. Calculated from the peak-to-trough time interval of
+                    the max peak-to-trough amplitude.
                 P_time : `obspy.UTCDateTime` object
                     Approximate time of amplitude observation (halfway between
                     peak and trough times).
+                P_avg_amp : float
+                    Average amplitude in the P signal window, measured by the
+                    same method as the Noise_amp (see `noise_measure`) and
+                    corrected for the same filter gain as `P_amp`. In
+                    *millimetres*.
+                P_filter_gain : float or NaN
+                    Filter gain at `P_freq` - which has been corrected for in
+                    the P_amp measurements - if a filter was applied prior to
+                    amplitude measurement; Else NaN.
                 S_amp : float
                     As for P, but in the S wave signal window.
                 S_freq : float
                     As for P.
                 S_time : `obspy.UTCDateTime` object
                     As for P.
+                S_avg_amp : float
+                    As for P.
+                S_filter_gain : float or NaN.
+                    As for P.
                 Noise_amp : float
-                    An estimate of the signal amplitude in the noise window. In
-                    millimetres.
+                    The average signal amplitude in the noise window. In
+                    *millimetres*. See `noise_measure` parameter.
                 is_picked : bool
                     Whether at least one of the phase arrivals was picked by
                     the autopicker.
@@ -187,8 +201,9 @@ class Magnitude:
             The original amplitudes DataFrame, with columns containing the
             calculated magnitude and an associated error now added.
             Columns = ["epi_dist", "z_dist", "P_amp", "P_freq", "P_time",
-                       "S_amp", "S_freq", "S_time", "Noise_amp", "is_picked",
-                       "ML", "ML_Err"]
+                   "P_avg_amp", "P_filter_gain", "S_amp", "S_freq", "S_time",
+                   "S_avg_amp", "S_filter_gain", "Noise_amp", "is_picked",
+                   "ML", "ML_Err"]
             Index = Trace ID (see `obspy.Trace.id`)
             Additional fields:
             ML : float
@@ -209,6 +224,9 @@ class Magnitude:
         trace_ids = amplitudes.index
         amps = amplitudes[self.amp_feature].values * self.amp_multiplier
         noise_amps = amplitudes["Noise_amp"].values * self.amp_multiplier
+        filter_gains = amplitudes[f"{self.amp_feature[0]}_filter_gain"]
+        if not filter_gains.isnull().values.any():
+            noise_amps /= filter_gains
 
         # Remove those amplitudes where the noise is greater than the amplitude
         # and set amplitudes which = 0. to NaN (to avoid logs blowing up).
@@ -247,7 +265,7 @@ class Magnitude:
         ----------
         magnitudes : `pandas.DataFrame`
             Contains P- and S-wave amplitude measurements for each component of
-            each station in the station file, and local magnitude estimates
+            each station in the look-up table, and local magnitude estimates
             calculated from them (output by calculate_magnitudes()). Note that
             the amplitude observations are raw, but the ML estimates derived
             from them include station corrections, if provided.
@@ -260,23 +278,37 @@ class Magnitude:
                     hypocentre.
                 P_amp : float
                     Half maximum peak-to-trough amplitude in the P signal
-                    window. In *millimetres*.
+                    window. In *millimetres*. Corrected for filter gain, if
+                    applicable.
                 P_freq : float
                     Approximate frequency of the maximum amplitude P-wave
-                    signal. Calculated from the peak-to-trough time of the max
-                    peak-to-trough amplitude.
+                    signal. Calculated from the peak-to-trough time interval of
+                    the max peak-to-trough amplitude.
                 P_time : `obspy.UTCDateTime` object
                     Approximate time of amplitude observation (halfway between
                     peak and trough times).
+                P_avg_amp : float
+                    Average amplitude in the P signal window, measured by the
+                    same method as the Noise_amp (see `noise_measure`) and
+                    corrected for the same filter gain as `P_amp`. In
+                    *millimetres*.
+                P_filter_gain : float or NaN
+                    Filter gain at `P_freq` - which has been corrected for in
+                    the P_amp measurements - if a filter was applied prior to
+                    amplitude measurement; Else NaN.
                 S_amp : float
                     As for P, but in the S wave signal window.
                 S_freq : float
                     As for P.
                 S_time : `obspy.UTCDateTime` object
                     As for P.
+                S_avg_amp : float
+                    As for P.
+                S_filter_gain : float or NaN.
+                    As for P.
                 Noise_amp : float
-                    An estimate of the signal amplitude in the noise window. In
-                    millimetres.
+                    The average signal amplitude in the noise window. In
+                    *millimetres*. See `noise_measure` parameter.
                 is_picked : bool
                     Whether at least one of the phase arrivals was picked by
                     the autopicker.
@@ -317,6 +349,11 @@ class Magnitude:
                  self.station_corrections.keys() else 0. for t in
                  magnitudes.index]
         magnitudes["Station_Correction"] = corrs
+
+        # Correct noise amps for filter gain, if applicable
+        filter_gains = magnitudes[f"{self.amp_feature[0]}_filter_gain"]
+        if not filter_gains.isnull().values.any():
+            magnitudes.loc[:, "Noise_amp"] /= filter_gains
 
         # Do filtering
         used_mags, all_mags = self._filter_mags(magnitudes)
@@ -365,14 +402,16 @@ class Magnitude:
         ----------
         magnitudes : `pandas.DataFrame` object
             Contains P- and S-wave amplitude measurements for each component of
-            each station in the station file, and local magnitude estimates
+            each station in the look-up table, and local magnitude estimates
             calculated from them (output by calculate_magnitudes()). Note that
             the amplitude observations are raw, but the ML estimates derived
             from them include station corrections, if provided.
             Columns = ["epi_dist", "z_dist", "P_amp", "P_freq", "P_time",
-                       "S_amp", "S_freq", "S_time", "Noise_amp", "is_picked",
-                       "ML", "ML_Err", "Noise_Filter", "Trace_Filter",
-                       "Station_Filter", "Dist_Filter", "Dist", "Used"]
+                       "P_avg_amp", "P_filter_gain", "S_amp", "S_freq",
+                       "S_time", "S_avg_amp", "S_filter_gain", "Noise_amp",
+                       "is_picked", "ML", "ML_Err"], "Noise_Filter",
+                       "Trace_Filter", "Station_Filter", "Dist_Filter", "Dist",
+                       "Used"]
         event : :class:`~quakemigrate.io.Event` object
             Light class encapsulating waveform data, onset, pick, location and
             local magnitude information for a given event.
@@ -411,9 +450,9 @@ class Magnitude:
         dist_min = dist.min() / 2
         dist_max = dist.max() * 1.5
 
-        fig, ax = amplitudes_summary(magnitudes, self.amp_feature,
-                                     self.amp_multiplier, dist_err, mag_r2,
-                                     noise_measure)
+        _, ax = amplitudes_summary(magnitudes, self.amp_feature,
+                                   self.amp_multiplier, dist_err, mag_r2,
+                                   noise_measure)
 
         # -- Calculate predicted amplitudes from ML & attenuation function --
         # Upper and lower bounds for predicted amplitude from upper/lower
@@ -589,13 +628,14 @@ class Magnitude:
         ----------
         magnitudes : `pandas.DataFrame`
             Contains P- and S-wave amplitude measurements for each component of
-            each station in the station file, and local magnitude estimates
+            each station in the look-up table, and local magnitude estimates
             calculated from them (output by calculate_magnitudes()). Note that
             the amplitude observations are raw, but the ML estimates derived
             from them include station corrections, if provided.
             Columns = ["epi_dist", "z_dist", "P_amp", "P_freq", "P_time",
-                       "S_amp", "S_freq", "S_time", "Noise_amp", "is_picked",
-                       "ML", "ML_Err"]
+                       "P_avg_amp", "P_filter_gain", "S_amp", "S_freq",
+                       "S_time", "S_avg_amp", "S_filter_gain", "Noise_amp",
+                       "is_picked", "ML", "ML_Err"]
 
         Returns
         -------
@@ -698,14 +738,16 @@ class Magnitude:
         ----------
         magnitudes : `pandas.DataFrame` object
             Contains P- and S-wave amplitude measurements for each component of
-            each station in the station file, and local magnitude estimates
+            each station in the look-up table, and local magnitude estimates
             calculated from them (output by calculate_magnitudes()). Note that
             the amplitude observations are raw, but the ML estimates derived
             from them include station corrections, if provided.
             Columns = ["epi_dist", "z_dist", "P_amp", "P_freq", "P_time",
-                       "S_amp", "S_freq", "S_time", "Noise_amp", "is_picked",
-                       "ML", "ML_Err", "Noise_Filter", "Trace_Filter",
-                       "Station_Filter", "Dist_Filter", "Dist", "Used"]
+                       "P_avg_amp", "P_filter_gain", "S_amp", "S_freq",
+                       "S_time", "S_avg_amp", "S_filter_gain", "Noise_amp",
+                       "is_picked", "ML", "ML_Err"], "Noise_Filter",
+                       "Trace_Filter", "Station_Filter", "Dist_Filter", "Dist",
+                       "Used"]
         mean_mag : float or NaN
             Network-averaged local magnitude estimate for the event. Mean (or
             weighted mean) of the magnitude estimates calculated from each

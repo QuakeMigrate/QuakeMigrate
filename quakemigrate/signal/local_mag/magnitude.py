@@ -79,6 +79,11 @@ class Magnitude:
     pick_filter : bool
         Whether to only use stations where at least one phase was picked by
         the autopicker in the mean_magnitude calculation. (Default False)
+    r2_only_used : bool
+        Whether to only use amplitude observations which were used for the mean
+        magnitude calculation when calculating the r-squared statistic for the
+        goodness of fit between the measured and predicted amplitudes. Default:
+        True; False is an experimental feature - use with caution.
 
     Methods
     -------
@@ -116,6 +121,7 @@ class Magnitude:
         self.station_filter = magnitude_params.get("station_filter")
         self.dist_filter = magnitude_params.get("dist_filter", False)
         self.pick_filter = magnitude_params.get("pick_filter", False)
+        self.r2_only_used = magnitude_params.get("r2_only_used", True)
 
     def __str__(self):
         """Return short summary string of the Magnitude object."""
@@ -381,8 +387,9 @@ class Magnitude:
                                / np.sum(weights))
 
         # Pass the *already filtered* magnitudes DataFrame to the
-        # _amp_r_squared function.
-        mag_r_squared = self._amp_r_squared(all_mags, mean_mag, only_used=True)
+        # _mag_r_squared function.
+        mag_r_squared = self._mag_r_squared(all_mags, mean_mag,
+                                            only_used=self.r2_only_used)
 
         return mean_mag, mean_mag_err, mag_r_squared, all_mags
 
@@ -739,7 +746,7 @@ class Magnitude:
 
         return used_mags, magnitudes
 
-    def _amp_r_squared(self, magnitudes, mean_mag, only_used=True):
+    def _mag_r_squared(self, magnitudes, mean_mag, only_used=True):
         """
         Calculate the r-squared statistic for the fit of the amplitudes vs
         distance model predicted by the estimated event magnitude and the
@@ -785,12 +792,46 @@ class Magnitude:
             good fit to the observations, from artefacts, which in general will
             not.
 
+        Raises
+        ------
+        AttributeError
+            If the user selects `only_used=False` but does not specify a noise
+            filter.
+
         """
 
         if only_used:
             # Only keep magnitude estimates which meet all the user-specified
             # filter requirements.
             magnitudes = magnitudes[magnitudes["Used"]]
+        else:
+            # Apply a default set of filters (including some of the
+            # user-specified filters)
+            if self.trace_filter is not None:
+                magnitudes = magnitudes[magnitudes["Trace_Filter"]]
+            if self.station_filter is not None:
+                magnitudes = magnitudes[magnitudes["Station_Filter"]]
+            if self.dist_filter:
+                magnitudes = magnitudes[magnitudes["Dist_Filter"]]
+            # Apply a custom version of the noise filter, in order to keep
+            # observations where the signal would be expected to be above the
+            # noise threshold
+            if self.noise_filter <= 0.:
+                msg = ("Noise filter must be greater than 1 to use custom mag "
+                       "r-squared filtering. Change 'only_used' to True, or "
+                       f"set a noise filter (current = {self.noise_filter}")
+                raise AttributeError(msg)
+            for _, mag in magnitudes[~magnitudes["Noise_Filter"]].iterrows():
+                # Correct noise amp for station correction
+                noise_amp = mag["Noise_amp"] * self.amp_multiplier \
+                    * np.power(10, mag["Station_Correction"])
+                # Calculate predicted amp
+                att = self._get_attenuation(mag["Dist"])
+                predicted_amp = np.power(10, (mean_mag - att))
+                # If predicted amp is more than 5x larger than noise amp, keep
+                # this observation for mag_r2 calculation
+                if predicted_amp / noise_amp < 5:
+                    magnitudes.drop(labels=mag.name)
 
         # Calculate amplitudes -- including station corrections!
         amps = magnitudes[self.amp_feature].values * self.amp_multiplier * \

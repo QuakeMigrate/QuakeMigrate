@@ -462,10 +462,7 @@ class Magnitude:
 
         # Calculated attenuation correction for full range of distances
         distances = np.linspace(dist_min, dist_max, 10000)
-        if callable(self.A0):
-            att = self.A0(distances)
-        else:
-            att = self._logA0(distances)
+        att = self._get_attenuation(distances)
 
         # Calculate predicted amplitude with distance
         predicted_amp = np.power(10, (mag - att))
@@ -542,11 +539,7 @@ class Magnitude:
         corrs = [self.station_corrections[t] if t in
                  self.station_corrections.keys() else 0. for t in trace_ids]
 
-        # Calculate attenuation
-        if callable(self.A0):
-            att = self.A0(dist)
-        else:
-            att = self._logA0(dist)
+        att = self._get_attenuation(dist)
 
         # Calculate magnitudes
         mags = np.log10(amps) + att + np.array(corrs)
@@ -559,6 +552,30 @@ class Magnitude:
         mag_errs = upper_mags - lower_mags
 
         return mags, mag_errs
+
+    def _get_attenuation(self, dist):
+        """
+        Calculate attenuation according to user-provided or built-in logA0
+        attenuation function.
+
+        Parameters
+        ----------
+        dist : float or array-like
+            Distance(s) between source and receiver.
+
+        Returns
+        -------
+        att : float or array-like
+            Attenuation correction factor.
+
+        """
+
+        if callable(self.A0):
+            att = self.A0(dist)
+        else:
+            att = self._logA0(dist)
+
+        return att
 
     def _logA0(self, dist):
         """
@@ -780,12 +797,7 @@ class Magnitude:
             np.power(10, magnitudes["Station_Correction"])
 
         dist = magnitudes["Dist"]
-
-        # Evaluate attenuation at distance of each observation
-        if callable(self.A0):
-            att = self.A0(dist)
-        else:
-            att = self._logA0(dist)
+        att = self._get_attenuation(dist)
 
         # Find variance of log(amplitude) observations -- doing this in log
         # space to linearise the problem (so that r_squared is meaningful)

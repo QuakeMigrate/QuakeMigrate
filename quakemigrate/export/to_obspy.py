@@ -143,10 +143,20 @@ def _read_single_event(event_file, locate_dir, units, local_mag_ph):
 
     # Determine location of cut waveform data - add to event object as a
     # custom extra attribute.
-    mseed = locate_dir / "cut_waveforms" / event_uid
+    mseed = locate_dir / "raw_cut_waveforms" / event_uid
     event.extra.cut_waveforms_file = {
         "value": str(mseed.with_suffix(".m").resolve()),
         "namespace": ns}
+    if (locate_dir / "real_cut_waveforms").exists():
+        mseed = locate_dir / "real_cut_waveforms" / event_uid
+        event.extra.real_cut_waveforms_file = {
+            "value": str(mseed.with_suffix(".m").resolve()),
+            "namespace": ns}
+    if (locate_dir / "wa_cut_waveforms").exists():
+        mseed = locate_dir / "wa_cut_waveforms" / event_uid
+        event.extra.wa_cut_waveforms_file = {
+            "value": str(mseed.with_suffix(".m").resolve()),
+            "namespace": ns}
 
     # Create origin with spline location and set to preferred event origin.
     origin = Origin()

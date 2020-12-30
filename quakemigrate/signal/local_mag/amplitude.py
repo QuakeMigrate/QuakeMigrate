@@ -94,6 +94,9 @@ class Amplitude:
         If both highpass_filter and bandpass_filter are selected, or if the
         user selects to apply a filter but does not provide the relevant
         frequencies.
+    AttributeError
+        If response removal parameters are provided here instead of to the
+        Archive object.
 
     """
 
@@ -136,6 +139,18 @@ class Amplitude:
             msg = ("Both bandpass filter *and* highpass filter selected! "
                    "Please choose one or the other.")
             raise AttributeError(msg)
+
+        # Handle deprecated response removal parameters
+        if any(param in amplitude_params.keys() for param in \
+            ["water_level", "pre_filt", "remove_full_response"]):
+            raise AttributeError("The response removal parameters "
+                                 "('water_level', 'pre_filt', "
+                                 "'remove_full_response') have been moved to "
+                                 "the Archive object. Please specify them "
+                                 "there as e.g. 'archive.water_level = 60.' or"
+                                 " by providing a dictionary of "
+                                 "response_removal parameters - see the "
+                                 "template locate script for guidance.")
 
     def __str__(self):
         """Return short summary string of the Amplitude object."""

@@ -651,9 +651,9 @@ class WaveformData:
                 raise util.ResponseRemovalError(e, tr.id)
 
         try:
-            self.wa_waveforms.append(tr)
+            self.wa_waveforms.append(tr.copy())
         except AttributeError:
             self.wa_waveforms = Stream()
-            self.wa_waveforms.append(tr)
+            self.wa_waveforms.append(tr.copy())
 
         return tr

@@ -680,9 +680,7 @@ class WaveformData:
         else:
             # Use remove_response(), which removes the effect of _all_ response
             # stages, including the FIR stages. Considerably slower.
-            output = "VEL"
-            if not velocity:
-                output = "DISP"
+            output = "VEL" if velocity else "DISP"
 
             try:
                 tr.remove_response(inventory=self.response_inv,

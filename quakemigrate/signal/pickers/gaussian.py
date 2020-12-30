@@ -138,7 +138,7 @@ class GaussianPicker(PhasePicker):
         """
 
         # Onsets are recalculated without logging
-        _, onset_data = self.onset.calculate_onsets(event.data, log=False,
+        _, onset_data = self.onset.calculate_onsets(event.data,
             timespan=4*event.marginal_window)
 
         if self._fraction_tt is None:

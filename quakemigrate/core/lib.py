@@ -67,6 +67,11 @@ def migrate(onsets, traveltimes, first_idx, last_idx, available, threads):
 
     """
 
+    # Take log of onsets; this allows us to calculate the geometric mean as
+    # an arithmetic mean (we then exponentiate within the C function to return
+    # the correct coalescence value)
+    np.log(onsets, onsets)
+
     *grid_dimensions, n_luts = traveltimes.shape
     n_onsets, t_samples = onsets.shape
     n_samples = t_samples - first_idx - last_idx

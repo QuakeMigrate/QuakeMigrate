@@ -269,7 +269,7 @@ class STALTAOnset(Onset):
 
         return out
 
-    def calculate_onsets(self, data, log=True, timespan=None):
+    def calculate_onsets(self, data, timespan=None):
         """
         Calculate onset functions for the requested stations and phases.
 
@@ -285,8 +285,6 @@ class STALTAOnset(Onset):
         ----------
         data : :class:`~quakemigrate.io.data.WaveformData` object
             Light class encapsulating data returned by an archive query.
-        log : bool
-            Calculate log(onset) if True, otherwise calculate the raw onset.
         timespan : float or None, optional
             If the timespan for which the onsets are being generated is
             provided, this will be used to calculate the tapered window of data
@@ -378,7 +376,7 @@ class STALTAOnset(Onset):
                 # waveforms that have passed the availability check to
                 # WaveformData.filtered_waveforms
                 onsets_dict.setdefault(station, {}).update(
-                    {phase: self._onset(waveforms, stw, ltw, log, timespan)})
+                    {phase: self._onset(waveforms, stw, ltw, timespan)})
                 onsets.append(onsets_dict[station][phase])
                 filtered_waveforms += waveforms
 
@@ -392,11 +390,11 @@ class STALTAOnset(Onset):
 
         return onsets, onset_data
 
-    def _onset(self, stream, stw, ltw, log, timespan):
+    def _onset(self, stream, stw, ltw, timespan):
         """
         Generates an onset (characteristic) function. If there are multiple
         components, these are combined as the root-mean-square of the onset
-        functions AFTER taking a log (if requested).
+        functions.
 
         Parameters
         ----------
@@ -407,8 +405,6 @@ class STALTAOnset(Onset):
             Number of samples in the short-term window.
         ltw : int
             Number of samples in the long-term window.
-        log : bool
-            Calculate log(onset) if True, otherwise calculate the raw onset.
         timespan : float or None
             If a timespan is provided it will be used to calculate the tapered
             window of data at the start and end of the onset function which
@@ -431,8 +427,6 @@ class STALTAOnset(Onset):
             onsets = self._trim_taper_pad(onsets, stw, ltw, timespan)
 
         np.clip(1 + onsets, 0.8, np.inf, onsets)
-        if log:
-            np.log(onsets, onsets)
 
         onset = np.sqrt(np.sum([onset ** 2 for onset in onsets], axis=0)
                         / len(onsets))

@@ -121,16 +121,16 @@ class Archive:
         self.interpolate = kwargs.get("interpolate", False)
         # Response removal parameters
         self.response_inv = kwargs.get("response_inv")
-        if self.response_inv:
-            response_removal_params = kwargs.get("response_removal_params", {})
-            if "water_level" not in response_removal_params.keys():
-                msg = ("Warning: 'water level' for instrument correction not "
-                       "specified. Set to default: 60")
-                print(msg)  # Logger not yet spun up
-            self.water_level = response_removal_params.get("water_level", 60.)
-            self.pre_filt = response_removal_params.get("pre_filt")
-            self.remove_full_response = \
-                response_removal_params.get("remove_full_response", False)
+        response_removal_params = kwargs.get("response_removal_params", {})
+        if self.response_inv and \
+            "water_level" not in response_removal_params.keys():
+            msg = ("Warning: 'water level' for instrument correction not "
+                    "specified. Set to default: 60")
+            print(msg)  # Logger not yet spun up
+        self.water_level = response_removal_params.get("water_level", 60.)
+        self.pre_filt = response_removal_params.get("pre_filt")
+        self.remove_full_response = \
+            response_removal_params.get("remove_full_response", False)
 
     def __str__(self, response_only=False):
         """

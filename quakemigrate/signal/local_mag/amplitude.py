@@ -779,16 +779,18 @@ class Amplitude:
 
             # Correct for filter gain at approximate frequency of
             # measured amplitude
+            filter_gain = None
             if self.bandpass_filter or self.highpass_filter:
                 _, filter_gain = sosfreqz(filter_sos, worN=[approx_freq],
                                           fs=tr.stats.sampling_rate)
-                half_amp /= np.abs(filter_gain[0])
-                average_amp /= np.abs(filter_gain[0])
+                filter_gain = np.abs(filter_gain[0])
+                half_amp /= filter_gain
+                average_amp /= filter_gain
 
             # Put in relevant columns for P / S amplitude, approx_freq,
             # p2t_time
             amps[3+k*5:8+k*5] = (half_amp, approx_freq, p2t_time, average_amp,
-                                 np.abs(filter_gain[0]))
+                                 filter_gain)
 
         return amps
 

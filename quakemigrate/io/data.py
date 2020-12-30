@@ -410,6 +410,7 @@ class WaveformData:
         self.raw_waveforms = None
         self.waveforms = Stream()
         self.wa_waveforms = None
+        self.real_waveforms = None
 
     def check_availability(self, st, all_channels=False, n_channels=None,
                            allow_gaps=False, full_timespan=True,
@@ -539,14 +540,108 @@ class WaveformData:
 
         return available, availability
 
-    def get_real_waveforms(self, tr, remove_full_response=False, velocity=True):
+    def get_real_waveform(self, tr, water_level, pre_filt,
+                          remove_full_response=False, velocity=True):
         """
-        Coming soon.
+        Calculate the real waveform for a Trace by removing the instrument
+        response.
+
+        Parameters
+        ----------
+        tr : `obspy.Trace` object
+            Trace containing the waveform for which to remove the instrument
+            response.
+        water_level : float
+            Water-level to be used in the instrument correction.
+        pre_filt : tuple of floats, or None
+            Filter corners describing filter to be applied to the trace before
+            deconvolution. E.g. (0.05, 0.06, 30, 35) (in Hz)
+        remove_full_response : bool, optional
+            Remove all response stages, inc. FIR (st.remove_response()), not
+            just poles-and-zero response stage. Default: False.
+        velocity : bool, optional
+            Output velocity waveform (as opposed to displacement).
+            Default: True.
+
+        Returns
+        -------
+        tr : `obspy.Trace` object
+            Trace with instrument response removed.
+
+        Raises
+        ------
+        AttributeError
+            If no response inventory has been supplied.
+        ResponseNotFoundError
+            If the response information for a trace can't be found in the
+            supplied response inventory.
+        ResponseRemovalError
+            If the deconvolution of the instrument response is unsuccessful.
 
         """
 
-        raise NotImplementedError("Coming soon. Please contact the "
-                                  "QuakeMigrate developers.")
+        if not self.response_inv:
+            raise AttributeError("No response inventory provided!")
+
+        # Copy the Trace before operating on it
+        tr = tr.copy()
+        tr.detrend('linear')
+
+        if not remove_full_response:
+            # Just remove the response encapsulated in the instrument transfer
+            # function (stored as a PolesAndZeros response). NOTE: this does
+            # not account for the effect of the digital FIR filters applied to
+            # the recorded waveforms. However, due to this it is significantly
+            # faster to compute.
+            try:
+                response = self.response_inv.get_response(tr.id,
+                                                          tr.stats.starttime)
+            except Exception as e:
+                raise util.ResponseNotFoundError(str(e), tr.id)
+
+            # Get the instrument transfer function as a PAZ dictionary
+            paz = response.get_paz()
+
+            if not velocity:
+                paz.zeros.extend([0j])
+
+            paz_dict = {'poles': paz.poles,
+                        'zeros': paz.zeros,
+                        'gain': paz.normalization_factor,
+                        'sensitivity': response.instrument_sensitivity.value}
+
+            try:
+                tr.simulate(paz_remove=paz_dict,
+                            pre_filt=pre_filt,
+                            water_level=water_level,
+                            taper=True,
+                            sacsim=True,  # To replicate remove_response()
+                            pitsasim=False)  # To replicate remove_response()
+            except ValueError as e:
+                raise util.ResponseRemovalError(e, tr.id)
+        else:
+            # Use remove_response(), which removes the effect of _all_ response
+            # stages, including the FIR stages. Considerably slower.
+            output = "VEL"
+            if not velocity:
+                output = "DISP"
+
+            try:
+                tr.remove_response(inventory=self.response_inv,
+                                   output=output,
+                                   pre_filt=pre_filt,
+                                   water_level=water_level,
+                                   taper=True)
+            except ValueError as e:
+                raise util.ResponseRemovalError(e, tr.id)
+
+        try:
+            self.real_waveforms.append(tr.copy())
+        except AttributeError:
+            self.real_waveforms = Stream()
+            self.real_waveforms.append(tr.copy())
+
+        return tr
 
     def get_wa_waveform(self, tr, water_level, pre_filt,
                         remove_full_response=False, velocity=False):
@@ -568,87 +663,31 @@ class WaveformData:
             just poles-and-zero response stage. Default: False.
         velocity : bool, optional
             Output velocity waveform, instead of displacement. Default: False.
+            NOTE: all attenuation functions provided within the QM local_mags
+            module are calculated for displacement seismograms.
 
         Returns
         -------
         tr : `obspy.Trace` object
             Trace corrected to Wood-Anderson response.
 
-        Raises
-        ------
-        AttributeError
-            If no response inventory has been supplied.
-        ResponseNotFoundError
-            If the response information for a trace can't be found in the
-            supplied response inventory.
-        ResponseRemovalError
-            If the deconvolution of the instrument response and simulation of
-            the Wood-Anderson response is unsuccessful.
-        NotImplementedError
-            If the user selects velocity=True.
-
         """
-
-        if not self.response_inv:
-            raise AttributeError("No response inventory provided!")
 
         # Copy the Trace before operating on it
         tr = tr.copy()
         tr.detrend('linear')
 
-        if velocity is True:
-            msg = ("Only displacement WA waveforms are currently available. "
-                   "Please contact the QuakeMigrate developers.")
-            raise NotImplementedError(msg)
+        # Remove instrument response
+        tr = self.get_real_waveform(tr, water_level, pre_filt,
+                                    remove_full_response, velocity)
 
-        if not remove_full_response:
-            # Just remove the response encapsulated in the instrument transfer
-            # function (stored as a PolesAndZeros response). NOTE: this does
-            # not account for the effect of the digital FIR filters applied to
-            # the recorded waveforms. However, due to this it is significantly
-            # faster to compute.
-            try:
-                response = self.response_inv.get_response(tr.id,
-                                                          tr.stats.starttime)
-            except Exception as e:
-                raise util.ResponseNotFoundError(str(e), tr.id)
-
-            # Get the instrument transfer function as a PAZ dictionary
-            paz = response.get_paz()
-
-            # if not velocity:
-            paz.zeros.extend([0j])
-            paz_dict = {'poles': paz.poles,
-                        'zeros': paz.zeros,
-                        'gain': paz.normalization_factor,
-                        'sensitivity': response.instrument_sensitivity.value}
-            try:
-                tr.simulate(paz_remove=paz_dict,
-                            pre_filt=pre_filt,
-                            water_level=water_level,
-                            taper=True,
-                            sacsim=True,  # To replicate remove_response()
-                            pitsasim=False,  # To replicate remove_response()
-                            paz_simulate=util.wa_response())
-            except ValueError as e:
-                raise util.ResponseRemovalError(e, tr.id)
-        else:
-            # Use remove_response(), which removes the effect of _all_ response
-            # stages, including the FIR stages. Considerably slower.
-            try:
-                tr.remove_response(inventory=self.response_inv,
-                                   output='DISP',
-                                   pre_filt=pre_filt,
-                                   water_level=water_level,
-                                   taper=True)
-                tr.simulate(paz_simulate=util.wa_response(),
-                            pre_filt=pre_filt,
-                            water_level=water_level,
-                            taper=True,
-                            sacsim=True,  # To replicate remove_response()
-                            pitsasim=False)  # To replicate remove_response()
-            except ValueError as e:
-                raise util.ResponseRemovalError(e, tr.id)
+        # Simulate Wood-Anderson response
+        tr.simulate(paz_simulate=util.wa_response(obspy_def=True),
+                    pre_filt=pre_filt,
+                    water_level=water_level,
+                    taper=True,
+                    sacsim=True,  # To replicate remove_response()
+                    pitsasim=False)  # To replicate remove_response()
 
         try:
             self.wa_waveforms.append(tr.copy())

@@ -322,6 +322,7 @@ class QuakeScan:
         logging.info(self.onset)
         logging.info(self.picker)
         if self.mags is not None:
+            logging.info(self.archive.__str__(response_only=True))
             logging.info(self.mags)
         logging.info(util.log_spacer)
 

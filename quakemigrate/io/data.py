@@ -73,6 +73,16 @@ class Archive:
     response_inv : `obspy.Inventory` object, optional
         ObsPy response inventory for this waveform archive, containing
         response information for each channel of each station of each network.
+    pre_filt : tuple of floats
+        Pre-filter to apply during the instrument response removal. E.g.
+        (0.03, 0.05, 30., 35.) - all in Hz. (Default None)
+    water_level : float
+        Water level to use in instrument response removal. (Default 60.)
+    remove_full_response : bool
+        Whether to remove the full response (including the effect of
+        digital FIR filters) or just the instrument transform function (as
+        defined by the PolesZeros Response Stage). Significantly slower.
+        (Default False)
     upfactor : int, optional
         Factor by which to upsample the data to enable it to be decimated to
         the desired sampling rate, e.g. 40Hz -> 50Hz requires upfactor = 5.
@@ -105,23 +115,63 @@ class Archive:
             self.format = kwargs.get("format")
 
         self.read_all_stations = kwargs.get("read_all_stations", False)
-        self.response_inv = kwargs.get("response_inv")
+        # Resampling parameters
         self.resample = kwargs.get("resample", False)
         self.upfactor = kwargs.get("upfactor")
         self.interpolate = kwargs.get("interpolate", False)
+        # Response removal parameters
+        self.response_inv = kwargs.get("response_inv")
+        if self.response_inv:
+            response_removal_params = kwargs.get("response_removal_params", {})
+            if "water_level" not in response_removal_params.keys():
+                msg = ("Warning: 'water level' for instrument correction not "
+                       "specified. Set to default: 60")
+                print(msg)  # Logger not yet spun up
+            self.water_level = response_removal_params.get("water_level", 60.)
+            self.pre_filt = response_removal_params.get("pre_filt")
+            self.remove_full_response = \
+                response_removal_params.get("remove_full_response", False)
 
-    def __str__(self):
-        """Returns a short summary string of the Archive object."""
+    def __str__(self, response_only=False):
+        """
+        Returns a short summary string of the Archive object.
 
-        out = ("QuakeMigrate Archive object"
-               f"\n\tArchive path\t:\t{self.archive_path}"
-               f"\n\tPath structure\t:\t{self.format}"
-               f"\n\tResampling\t:\t{self.resample}")
-        if self.upfactor:
-            out += f"\n\tUpfactor\t:\t{self.upfactor}"
-        out += "\n\tStations:"
-        for station in self.stations:
-            out += f"\n\t\t{station}"
+        Parameters
+        ----------
+        response_only : bool, optional
+            Whether to just output the a string describing the instrument
+            response parameters.
+
+        Returns
+        -------
+        out : str
+            Summary string.
+
+        """
+
+        if self.response_inv:
+            response_str = ("\tResponse removal parameters:\n"
+                            f"\t\tWater level  = {self.water_level}\n")
+            if self.pre_filt is not None:
+                response_str += f"\t\tPre-filter   = {self.pre_filt} Hz\n"
+            response_str += ("\t\tRemove full response (inc. FIR stages) = "
+                            f"{self.remove_full_response}\n")
+        else:
+            response_str = "\tNo instrument response inventory provided!\n"
+
+        if not response_only:
+            out = ("QuakeMigrate Archive object"
+                    f"\n\tArchive path\t:\t{self.archive_path}"
+                    f"\n\tPath structure\t:\t{self.format}"
+                    f"\n\tResampling\t:\t{self.resample}")
+            if self.upfactor:
+                out += f"\n\tUpfactor\t:\t{self.upfactor}"
+            out += "\n\tStations:"
+            for station in self.stations:
+                out += f"\n\t\t{station}"
+            out += f"\n{response_str}"
+        else:
+            out = response_str
 
         return out
 
@@ -205,6 +255,9 @@ class Archive:
                             read_all_stations=self.read_all_stations,
                             resample=self.resample, upfactor=self.upfactor,
                             response_inv=self.response_inv,
+                            water_level=self.water_level,
+                            pre_filt=self.pre_filt,
+                            remove_full_response=self.remove_full_response,
                             pre_pad=pre_pad, post_pad=post_pad)
 
         files = self._load_from_path(starttime - pre_pad, endtime + post_pad)
@@ -346,6 +399,16 @@ class WaveformData:
     response_inv : `obspy.Inventory` object, optional
         ObsPy response inventory for this waveform data, containing response
         information for each channel of each station of each network.
+    pre_filt : tuple of floats
+        Pre-filter to apply during the instrument response removal. E.g.
+        (0.03, 0.05, 30., 35.) - all in Hz. (Default None)
+    water_level : float
+        Water level to use in instrument response removal. (Default 60.)
+    remove_full_response : bool
+        Whether to remove the full response (including the effect of
+        digital FIR filters) or just the instrument transform function (as
+        defined by the PolesZeros Response Stage). Significantly slower.
+        (Default False)
     pre_pad : float, optional
         Additional pre pad of data included in `raw_waveforms`.
     post_pad : float, optional
@@ -392,6 +455,7 @@ class WaveformData:
     """
 
     def __init__(self, starttime, endtime, stations=None, response_inv=None,
+                 water_level=60., pre_filt=None, remove_full_response=False,
                  read_all_stations=False, resample=False, upfactor=None,
                  pre_pad=0., post_pad=0.):
         """Instantiate the WaveformData object."""
@@ -400,6 +464,9 @@ class WaveformData:
         self.endtime = endtime
         self.stations = stations
         self.response_inv = response_inv
+        self.water_level = water_level
+        self.pre_filt = pre_filt
+        self.remove_full_response = remove_full_response
 
         self.read_all_stations = read_all_stations
         self.resample = resample
@@ -540,8 +607,7 @@ class WaveformData:
 
         return available, availability
 
-    def get_real_waveform(self, tr, water_level, pre_filt,
-                          remove_full_response=False, velocity=True):
+    def get_real_waveform(self, tr, velocity=True):
         """
         Calculate the real waveform for a Trace by removing the instrument
         response.
@@ -551,14 +617,6 @@ class WaveformData:
         tr : `obspy.Trace` object
             Trace containing the waveform for which to remove the instrument
             response.
-        water_level : float
-            Water-level to be used in the instrument correction.
-        pre_filt : tuple of floats, or None
-            Filter corners describing filter to be applied to the trace before
-            deconvolution. E.g. (0.05, 0.06, 30, 35) (in Hz)
-        remove_full_response : bool, optional
-            Remove all response stages, inc. FIR (st.remove_response()), not
-            just poles-and-zero response stage. Default: False.
         velocity : bool, optional
             Output velocity waveform (as opposed to displacement).
             Default: True.
@@ -587,7 +645,7 @@ class WaveformData:
         tr = tr.copy()
         tr.detrend('linear')
 
-        if not remove_full_response:
+        if not self.remove_full_response:
             # Just remove the response encapsulated in the instrument transfer
             # function (stored as a PolesAndZeros response). NOTE: this does
             # not account for the effect of the digital FIR filters applied to
@@ -612,8 +670,8 @@ class WaveformData:
 
             try:
                 tr.simulate(paz_remove=paz_dict,
-                            pre_filt=pre_filt,
-                            water_level=water_level,
+                            pre_filt=self.pre_filt,
+                            water_level=self.water_level,
                             taper=True,
                             sacsim=True,  # To replicate remove_response()
                             pitsasim=False)  # To replicate remove_response()
@@ -629,8 +687,8 @@ class WaveformData:
             try:
                 tr.remove_response(inventory=self.response_inv,
                                    output=output,
-                                   pre_filt=pre_filt,
-                                   water_level=water_level,
+                                   pre_filt=self.pre_filt,
+                                   water_level=self.water_level,
                                    taper=True)
             except ValueError as e:
                 raise util.ResponseRemovalError(e, tr.id)
@@ -643,8 +701,7 @@ class WaveformData:
 
         return tr
 
-    def get_wa_waveform(self, tr, water_level, pre_filt,
-                        remove_full_response=False, velocity=False):
+    def get_wa_waveform(self, tr, velocity=False):
         """
         Calculate simulated Wood Anderson displacement waveform for a Trace.
 
@@ -653,14 +710,6 @@ class WaveformData:
         tr : `obspy.Trace` object
             Trace containing the waveform to be corrected to a Wood-Anderson
             response
-        water_level : float
-            Water-level to be used in the instrument correction.
-        pre_filt : tuple of floats, or None
-            Filter corners describing filter to be applied to the trace before
-            deconvolution. E.g. (0.05, 0.06, 30, 35) (in Hz)
-        remove_full_response : bool, optional
-            Remove all response stages, inc. FIR (st.remove_response()), not
-            just poles-and-zero response stage. Default: False.
         velocity : bool, optional
             Output velocity waveform, instead of displacement. Default: False.
             NOTE: all attenuation functions provided within the QM local_mags
@@ -678,13 +727,12 @@ class WaveformData:
         tr.detrend('linear')
 
         # Remove instrument response
-        tr = self.get_real_waveform(tr, water_level, pre_filt,
-                                    remove_full_response, velocity)
+        tr = self.get_real_waveform(tr, velocity)
 
         # Simulate Wood-Anderson response
         tr.simulate(paz_simulate=util.wa_response(obspy_def=True),
-                    pre_filt=pre_filt,
-                    water_level=water_level,
+                    pre_filt=self.pre_filt,
+                    water_level=self.water_level,
                     taper=True,
                     sacsim=True,  # To replicate remove_response()
                     pitsasim=False)  # To replicate remove_response()

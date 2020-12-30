@@ -15,7 +15,6 @@ import logging
 
 import numpy as np
 from obspy import Stream
-from obspy.signal.trigger import classic_sta_lta
 
 import quakemigrate.util as util
 from .base import Onset, OnsetData
@@ -23,18 +22,18 @@ from .base import Onset, OnsetData
 
 def sta_lta_centred(signal, nsta, nlta):
     """
-    Calculates the ratio of the average of a^2 in a short-term (signal) window
-    to a preceding long-term (noise) window. STA/LTA value is assigned to the
-    end of the LTA / one sample before the start of the STA.
+    Calculates the ratio of the average of signal^2 in a short-term (signal)
+    window to a preceding long-term (noise) window. STA/LTA value is assigned
+    to the end of the LTA / one sample before the start of the STA.
 
     Parameters
     ----------
     signal : array-like
-        Signal array
+        Signal array.
     nsta : int
-        Number of samples in short-term window
+        Number of samples in short-term window.
     nlta : int
-        Number of samples in long-term window
+        Number of samples in long-term window.
 
     Returns
     -------
@@ -58,14 +57,71 @@ def sta_lta_centred(signal, nsta, nlta):
     lta[nlta:] = lta[nlta:] - lta[:-nlta]
     lta /= nlta
 
-    sta[:(nlta - 1)] = 0
-    sta[-nsta:] = 0
+    # Pad with ones (= null result)
+    sta[:(nlta - 1)] = 1
+    lta[:(nlta - 1)] = 1
+    sta[-nsta:] = 1
+    lta[-nsta:] = 1
 
-    # Avoid division by zero by setting zero values to tiny float
+    # Avoid division by zero by setting zero values to tiny float, giving an
+    # STA/LTA of 1 (= null result)
     dtiny = np.finfo(float).tiny
     idx = lta < dtiny
     lta[idx] = dtiny
-    sta[idx] = 0.0
+    sta[idx] = dtiny
+
+    return sta / lta
+
+
+def classic_sta_lta(signal, nsta, nlta):
+    """
+    Computes the standard STA/LTA from a given input array `signal`. The length
+    of the STA window is given by nsta (in samples), nlta is the length of the
+    LTA window (in samples). STA window fully overlaps with the LTA window, and
+    is positioned to the "right" i.e. the end of both of the windows is at the
+    latest point in time; this is where the STA / LTA value is assigned.
+
+    Parameters
+    ----------
+    signal : `~numpy.ndarray`
+        Seismic Trace.
+    nsta : int
+        Length of short time average window in samples.
+    nlta : int
+        Length of long time average window in samples.
+
+    Returns
+    -------
+    sta/lta :`~numpy.ndarray`
+        Characteristic function of the classic (overlapping) STA/LTA.
+
+    """
+
+    # The cumulative sum can be exploited to calculate a moving average (the
+    # cumsum function is quite efficient)
+    sta = np.cumsum(signal ** 2)
+
+    # Convert to float
+    sta = np.require(sta, dtype=np.float)
+
+    # Copy for LTA
+    lta = sta.copy()
+
+    # Compute the STA and the LTA
+    sta[nsta:] = sta[nsta:] - sta[:-nsta]
+    sta /= nsta
+    lta[nlta:] = lta[nlta:] - lta[:-nlta]
+    lta /= nlta
+
+    # Pad with ones (= null result)
+    sta[:nlta - 1] = 1
+
+    # Avoid division by zero by setting zero values to tiny float, giving an
+    # STA/LTA of 1 (= null result)
+    dtiny = np.finfo(0.0).tiny
+    idx = lta < dtiny
+    lta[idx] = dtiny
+    sta[idx] = dtiny
 
     return sta / lta
 

@@ -231,7 +231,7 @@ class Magnitude:
         amps = amplitudes[self.amp_feature].values * self.amp_multiplier
         noise_amps = amplitudes["Noise_amp"].values * self.amp_multiplier
         filter_gains = amplitudes[f"{self.amp_feature[0]}_filter_gain"]
-        if not filter_gains.isnull().values.any():
+        if not filter_gains.isnull().values.all():
             noise_amps /= filter_gains
 
         # Remove those amplitudes where the noise is greater than the amplitude
@@ -358,7 +358,7 @@ class Magnitude:
 
         # Correct noise amps for filter gain, if applicable
         filter_gains = magnitudes[f"{self.amp_feature[0]}_filter_gain"]
-        if not filter_gains.isnull().values.any():
+        if not filter_gains.isnull().values.all():
             magnitudes.loc[:, "Noise_amp"] /= filter_gains
 
         # Do filtering
@@ -448,11 +448,10 @@ class Magnitude:
 
         all_amps = magnitudes[self.amp_feature].values * self.amp_multiplier \
                     * np.power(10, magnitudes["Station_Correction"])
+        # Noise amps have already been corrected for filter gain at the top of
+        # mean_magnitude()
         noise_amps = magnitudes["Noise_amp"].values * self.amp_multiplier \
                     * np.power(10, magnitudes["Station_Correction"])
-        filter_gains = magnitudes[f"{self.amp_feature[0]}_filter_gain"]
-        if not filter_gains.isnull().values.any():
-            noise_amps /= filter_gains
 
         dist = magnitudes["Dist"]
 
@@ -698,6 +697,8 @@ class Magnitude:
         # Apply noise filter.
         if self.noise_filter != 0.:
             amps = magnitudes[self.amp_feature].values
+            # Noise amps have already been corrected for filter gain at the
+            # top of mean_magnitude()
             noise_amps = magnitudes["Noise_amp"].values
             magnitudes["Noise_Filter"] = False
             with np.errstate(invalid="ignore"):

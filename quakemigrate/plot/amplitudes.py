@@ -70,11 +70,10 @@ def amplitudes_summary(magnitudes, amp_feature, amp_multiplier, dist_err,
     ax = fig.add_subplot(111)
 
     # Correct noise amplitudes according to station corrections
+    # Noise amps have already been corrected for filter gain at the top of
+    # mean_magnitude()
     noise_amps = magnitudes["Noise_amp"].values * amp_multiplier \
                     * np.power(10, magnitudes["Station_Correction"])
-    filter_gains = magnitudes[f"{amp_feature[0]}_filter_gain"]
-    if not filter_gains.isnull().values.any():
-        noise_amps /= filter_gains
 
     # Set to loglog scale
     ax.set_xscale('log')

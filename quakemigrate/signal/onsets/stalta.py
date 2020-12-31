@@ -541,7 +541,7 @@ class STALTAOnset(Onset):
         """
         Set the value of the tapered windows at the start and end of the onset
         function (plus one long-term window and one short-term window,
-        respectively) to 0.
+        respectively) to 1.
 
         Parameters
         ----------
@@ -559,7 +559,7 @@ class STALTAOnset(Onset):
         -------
         onsets : `numpy.ndarray` of float
             STA/LTA onset function, with the value in the tapered regions of
-            data set to 0.
+            data set to 1.
 
         """
 
@@ -570,8 +570,8 @@ class STALTAOnset(Onset):
                                      self.sampling_rate)
 
         for onset in onsets:
-            onset[:(taper_pad + ltw - 1)] = 0
-            onset[-(stw + taper_pad):] = 0
+            onset[:(taper_pad + ltw - 1)] = 1
+            onset[-(stw + taper_pad):] = 1
 
         return onsets
 

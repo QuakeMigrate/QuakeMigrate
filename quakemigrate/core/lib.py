@@ -71,7 +71,7 @@ def migrate(onsets, traveltimes, first_idx, last_idx, available, threads):
     # an arithmetic mean (we then exponentiate within the C function to return
     # the correct coalescence value). Clip as a safety check to prevent
     # trying to take log(0)
-    onsets = np.clip(onsets, a_min=0.01)
+    onsets = np.clip(onsets, 0.01, np.inf)
     onsets = np.log(onsets)
 
     *grid_dimensions, n_luts = traveltimes.shape

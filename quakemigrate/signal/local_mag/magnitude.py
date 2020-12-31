@@ -79,6 +79,11 @@ class Magnitude:
     pick_filter : bool
         Whether to only use stations where at least one phase was picked by
         the autopicker in the mean_magnitude calculation. (Default False)
+    r2_only_used : bool
+        Whether to only use amplitude observations which were used for the mean
+        magnitude calculation when calculating the r-squared statistic for the
+        goodness of fit between the measured and predicted amplitudes. Default:
+        True; False is an experimental feature - use with caution.
 
     Methods
     -------
@@ -116,11 +121,12 @@ class Magnitude:
         self.station_filter = magnitude_params.get("station_filter")
         self.dist_filter = magnitude_params.get("dist_filter", False)
         self.pick_filter = magnitude_params.get("pick_filter", False)
+        self.r2_only_used = magnitude_params.get("r2_only_used", True)
 
     def __str__(self):
         """Return short summary string of the Magnitude object."""
 
-        out = ("\t   Magnitude parameters:\n"
+        out = ("\t    Magnitude parameters:\n"
                f"\t\tA0 attenuation function = {self.A0}\n"
                f"\t\tUse hyp distance        = {self.use_hyp_dist}\n"
                f"\t\tAmplitude feature       = {self.amp_feature}\n")
@@ -149,7 +155,7 @@ class Magnitude:
         ----------
         amplitudes : `pandas.DataFrame` object
             P- and S-wave amplitude measurements for each component of each
-            station in the station file.
+            station in the look-up table.
             Columns:
                 epi_dist : float
                     Epicentral distance between the station and the event
@@ -159,23 +165,37 @@ class Magnitude:
                     hypocentre.
                 P_amp : float
                     Half maximum peak-to-trough amplitude in the P signal
-                    window. In *millimetres*.
+                    window. In *millimetres*. Corrected for filter gain, if
+                    applicable.
                 P_freq : float
                     Approximate frequency of the maximum amplitude P-wave
-                    signal. Calculated from the peak-to-trough time of the max
-                    peak-to-trough amplitude.
+                    signal. Calculated from the peak-to-trough time interval of
+                    the max peak-to-trough amplitude.
                 P_time : `obspy.UTCDateTime` object
                     Approximate time of amplitude observation (halfway between
                     peak and trough times).
+                P_avg_amp : float
+                    Average amplitude in the P signal window, measured by the
+                    same method as the Noise_amp (see `noise_measure`) and
+                    corrected for the same filter gain as `P_amp`. In
+                    *millimetres*.
+                P_filter_gain : float or NaN
+                    Filter gain at `P_freq` - which has been corrected for in
+                    the P_amp measurements - if a filter was applied prior to
+                    amplitude measurement; Else NaN.
                 S_amp : float
                     As for P, but in the S wave signal window.
                 S_freq : float
                     As for P.
                 S_time : `obspy.UTCDateTime` object
                     As for P.
+                S_avg_amp : float
+                    As for P.
+                S_filter_gain : float or NaN.
+                    As for P.
                 Noise_amp : float
-                    An estimate of the signal amplitude in the noise window. In
-                    millimetres.
+                    The average signal amplitude in the noise window. In
+                    *millimetres*. See `noise_measure` parameter.
                 is_picked : bool
                     Whether at least one of the phase arrivals was picked by
                     the autopicker.
@@ -187,8 +207,9 @@ class Magnitude:
             The original amplitudes DataFrame, with columns containing the
             calculated magnitude and an associated error now added.
             Columns = ["epi_dist", "z_dist", "P_amp", "P_freq", "P_time",
-                       "S_amp", "S_freq", "S_time", "Noise_amp", "is_picked",
-                       "ML", "ML_Err"]
+                   "P_avg_amp", "P_filter_gain", "S_amp", "S_freq", "S_time",
+                   "S_avg_amp", "S_filter_gain", "Noise_amp", "is_picked",
+                   "ML", "ML_Err"]
             Index = Trace ID (see `obspy.Trace.id`)
             Additional fields:
             ML : float
@@ -209,6 +230,9 @@ class Magnitude:
         trace_ids = amplitudes.index
         amps = amplitudes[self.amp_feature].values * self.amp_multiplier
         noise_amps = amplitudes["Noise_amp"].values * self.amp_multiplier
+        filter_gains = amplitudes[f"{self.amp_feature[0]}_filter_gain"]
+        if not filter_gains.isnull().values.any():
+            noise_amps /= filter_gains
 
         # Remove those amplitudes where the noise is greater than the amplitude
         # and set amplitudes which = 0. to NaN (to avoid logs blowing up).
@@ -247,7 +271,7 @@ class Magnitude:
         ----------
         magnitudes : `pandas.DataFrame`
             Contains P- and S-wave amplitude measurements for each component of
-            each station in the station file, and local magnitude estimates
+            each station in the look-up table, and local magnitude estimates
             calculated from them (output by calculate_magnitudes()). Note that
             the amplitude observations are raw, but the ML estimates derived
             from them include station corrections, if provided.
@@ -260,23 +284,37 @@ class Magnitude:
                     hypocentre.
                 P_amp : float
                     Half maximum peak-to-trough amplitude in the P signal
-                    window. In *millimetres*.
+                    window. In *millimetres*. Corrected for filter gain, if
+                    applicable.
                 P_freq : float
                     Approximate frequency of the maximum amplitude P-wave
-                    signal. Calculated from the peak-to-trough time of the max
-                    peak-to-trough amplitude.
+                    signal. Calculated from the peak-to-trough time interval of
+                    the max peak-to-trough amplitude.
                 P_time : `obspy.UTCDateTime` object
                     Approximate time of amplitude observation (halfway between
                     peak and trough times).
+                P_avg_amp : float
+                    Average amplitude in the P signal window, measured by the
+                    same method as the Noise_amp (see `noise_measure`) and
+                    corrected for the same filter gain as `P_amp`. In
+                    *millimetres*.
+                P_filter_gain : float or NaN
+                    Filter gain at `P_freq` - which has been corrected for in
+                    the P_amp measurements - if a filter was applied prior to
+                    amplitude measurement; Else NaN.
                 S_amp : float
                     As for P, but in the S wave signal window.
                 S_freq : float
                     As for P.
                 S_time : `obspy.UTCDateTime` object
                     As for P.
+                S_avg_amp : float
+                    As for P.
+                S_filter_gain : float or NaN.
+                    As for P.
                 Noise_amp : float
-                    An estimate of the signal amplitude in the noise window. In
-                    millimetres.
+                    The average signal amplitude in the noise window. In
+                    *millimetres*. See `noise_measure` parameter.
                 is_picked : bool
                     Whether at least one of the phase arrivals was picked by
                     the autopicker.
@@ -318,6 +356,11 @@ class Magnitude:
                  magnitudes.index]
         magnitudes["Station_Correction"] = corrs
 
+        # Correct noise amps for filter gain, if applicable
+        filter_gains = magnitudes[f"{self.amp_feature[0]}_filter_gain"]
+        if not filter_gains.isnull().values.any():
+            magnitudes.loc[:, "Noise_amp"] /= filter_gains
+
         # Do filtering
         used_mags, all_mags = self._filter_mags(magnitudes)
 
@@ -344,8 +387,9 @@ class Magnitude:
                                / np.sum(weights))
 
         # Pass the *already filtered* magnitudes DataFrame to the
-        # _amp_r_squared function.
-        mag_r_squared = self._amp_r_squared(all_mags, mean_mag, only_used=True)
+        # _mag_r_squared function.
+        mag_r_squared = self._mag_r_squared(all_mags, mean_mag,
+                                            only_used=self.r2_only_used)
 
         return mean_mag, mean_mag_err, mag_r_squared, all_mags
 
@@ -365,14 +409,16 @@ class Magnitude:
         ----------
         magnitudes : `pandas.DataFrame` object
             Contains P- and S-wave amplitude measurements for each component of
-            each station in the station file, and local magnitude estimates
+            each station in the look-up table, and local magnitude estimates
             calculated from them (output by calculate_magnitudes()). Note that
             the amplitude observations are raw, but the ML estimates derived
             from them include station corrections, if provided.
             Columns = ["epi_dist", "z_dist", "P_amp", "P_freq", "P_time",
-                       "S_amp", "S_freq", "S_time", "Noise_amp", "is_picked",
-                       "ML", "ML_Err", "Noise_Filter", "Trace_Filter",
-                       "Station_Filter", "Dist_Filter", "Dist", "Used"]
+                       "P_avg_amp", "P_filter_gain", "S_amp", "S_freq",
+                       "S_time", "S_avg_amp", "S_filter_gain", "Noise_amp",
+                       "is_picked", "ML", "ML_Err"], "Noise_Filter",
+                       "Trace_Filter", "Station_Filter", "Dist_Filter", "Dist",
+                       "Used"]
         event : :class:`~quakemigrate.io.Event` object
             Light class encapsulating waveform data, onset, pick, location and
             local magnitude information for a given event.
@@ -400,8 +446,13 @@ class Magnitude:
         else:
             dist_err = epi_err
 
-        all_amps = magnitudes[self.amp_feature].values * self.amp_multiplier
-        noise_amps = magnitudes["Noise_amp"].values * self.amp_multiplier
+        all_amps = magnitudes[self.amp_feature].values * self.amp_multiplier \
+                    * np.power(10, magnitudes["Station_Correction"])
+        noise_amps = magnitudes["Noise_amp"].values * self.amp_multiplier \
+                    * np.power(10, magnitudes["Station_Correction"])
+        filter_gains = magnitudes[f"{self.amp_feature[0]}_filter_gain"]
+        if not filter_gains.isnull().values.any():
+            noise_amps /= filter_gains
 
         dist = magnitudes["Dist"]
 
@@ -411,9 +462,9 @@ class Magnitude:
         dist_min = dist.min() / 2
         dist_max = dist.max() * 1.5
 
-        fig, ax = amplitudes_summary(magnitudes, self.amp_feature,
-                                     self.amp_multiplier, dist_err, mag_r2,
-                                     noise_measure)
+        _, ax = amplitudes_summary(magnitudes, self.amp_feature,
+                                   self.amp_multiplier, dist_err, mag_r2,
+                                   noise_measure)
 
         # -- Calculate predicted amplitudes from ML & attenuation function --
         # Upper and lower bounds for predicted amplitude from upper/lower
@@ -423,10 +474,7 @@ class Magnitude:
 
         # Calculated attenuation correction for full range of distances
         distances = np.linspace(dist_min, dist_max, 10000)
-        if callable(self.A0):
-            att = self.A0(distances)
-        else:
-            att = self._logA0(distances)
+        att = self._get_attenuation(distances)
 
         # Calculate predicted amplitude with distance
         predicted_amp = np.power(10, (mag - att))
@@ -503,11 +551,7 @@ class Magnitude:
         corrs = [self.station_corrections[t] if t in
                  self.station_corrections.keys() else 0. for t in trace_ids]
 
-        # Calculate attenuation
-        if callable(self.A0):
-            att = self.A0(dist)
-        else:
-            att = self._logA0(dist)
+        att = self._get_attenuation(dist)
 
         # Calculate magnitudes
         mags = np.log10(amps) + att + np.array(corrs)
@@ -520,6 +564,30 @@ class Magnitude:
         mag_errs = upper_mags - lower_mags
 
         return mags, mag_errs
+
+    def _get_attenuation(self, dist):
+        """
+        Calculate attenuation according to user-provided or built-in logA0
+        attenuation function.
+
+        Parameters
+        ----------
+        dist : float or array-like
+            Distance(s) between source and receiver.
+
+        Returns
+        -------
+        att : float or array-like
+            Attenuation correction factor.
+
+        """
+
+        if callable(self.A0):
+            att = self.A0(dist)
+        else:
+            att = self._logA0(dist)
+
+        return att
 
     def _logA0(self, dist):
         """
@@ -589,13 +657,14 @@ class Magnitude:
         ----------
         magnitudes : `pandas.DataFrame`
             Contains P- and S-wave amplitude measurements for each component of
-            each station in the station file, and local magnitude estimates
+            each station in the look-up table, and local magnitude estimates
             calculated from them (output by calculate_magnitudes()). Note that
             the amplitude observations are raw, but the ML estimates derived
             from them include station corrections, if provided.
             Columns = ["epi_dist", "z_dist", "P_amp", "P_freq", "P_time",
-                       "S_amp", "S_freq", "S_time", "Noise_amp", "is_picked",
-                       "ML", "ML_Err"]
+                       "P_avg_amp", "P_filter_gain", "S_amp", "S_freq",
+                       "S_time", "S_avg_amp", "S_filter_gain", "Noise_amp",
+                       "is_picked", "ML", "ML_Err"]
 
         Returns
         -------
@@ -682,7 +751,7 @@ class Magnitude:
 
         return used_mags, magnitudes
 
-    def _amp_r_squared(self, magnitudes, mean_mag, only_used=True):
+    def _mag_r_squared(self, magnitudes, mean_mag, only_used=True):
         """
         Calculate the r-squared statistic for the fit of the amplitudes vs
         distance model predicted by the estimated event magnitude and the
@@ -698,14 +767,16 @@ class Magnitude:
         ----------
         magnitudes : `pandas.DataFrame` object
             Contains P- and S-wave amplitude measurements for each component of
-            each station in the station file, and local magnitude estimates
+            each station in the look-up table, and local magnitude estimates
             calculated from them (output by calculate_magnitudes()). Note that
             the amplitude observations are raw, but the ML estimates derived
             from them include station corrections, if provided.
             Columns = ["epi_dist", "z_dist", "P_amp", "P_freq", "P_time",
-                       "S_amp", "S_freq", "S_time", "Noise_amp", "is_picked",
-                       "ML", "ML_Err", "Noise_Filter", "Trace_Filter",
-                       "Station_Filter", "Dist_Filter", "Dist", "Used"]
+                       "P_avg_amp", "P_filter_gain", "S_amp", "S_freq",
+                       "S_time", "S_avg_amp", "S_filter_gain", "Noise_amp",
+                       "is_picked", "ML", "ML_Err"], "Noise_Filter",
+                       "Trace_Filter", "Station_Filter", "Dist_Filter", "Dist",
+                       "Used"]
         mean_mag : float or NaN
             Network-averaged local magnitude estimate for the event. Mean (or
             weighted mean) of the magnitude estimates calculated from each
@@ -726,24 +797,53 @@ class Magnitude:
             good fit to the observations, from artefacts, which in general will
             not.
 
+        Raises
+        ------
+        AttributeError
+            If the user selects `only_used=False` but does not specify a noise
+            filter.
+
         """
 
         if only_used:
             # Only keep magnitude estimates which meet all the user-specified
             # filter requirements.
             magnitudes = magnitudes[magnitudes["Used"]]
+        else:
+            # Apply a default set of filters (including some of the
+            # user-specified filters)
+            if self.trace_filter is not None:
+                magnitudes = magnitudes[magnitudes["Trace_Filter"]]
+            if self.station_filter is not None:
+                magnitudes = magnitudes[magnitudes["Station_Filter"]]
+            if self.dist_filter:
+                magnitudes = magnitudes[magnitudes["Dist_Filter"]]
+            # Apply a custom version of the noise filter, in order to keep
+            # observations where the signal would be expected to be above the
+            # noise threshold
+            if self.noise_filter <= 0.:
+                msg = ("Noise filter must be greater than 1 to use custom mag "
+                       "r-squared filtering. Change 'only_used' to True, or "
+                       f"set a noise filter (current = {self.noise_filter}")
+                raise AttributeError(msg)
+            for _, mag in magnitudes[~magnitudes["Noise_Filter"]].iterrows():
+                # Correct noise amp for station correction
+                noise_amp = mag["Noise_amp"] * self.amp_multiplier \
+                    * np.power(10, mag["Station_Correction"])
+                # Calculate predicted amp
+                att = self._get_attenuation(mag["Dist"])
+                predicted_amp = np.power(10, (mean_mag - att))
+                # If predicted amp is more than 5x larger than noise amp, keep
+                # this observation for mag_r2 calculation
+                if predicted_amp / noise_amp < 5:
+                    magnitudes.drop(labels=mag.name)
 
         # Calculate amplitudes -- including station corrections!
         amps = magnitudes[self.amp_feature].values * self.amp_multiplier * \
             np.power(10, magnitudes["Station_Correction"])
 
         dist = magnitudes["Dist"]
-
-        # Evaluate attenuation at distance of each observation
-        if callable(self.A0):
-            att = self.A0(dist)
-        else:
-            att = self._logA0(dist)
+        att = self._get_attenuation(dist)
 
         # Find variance of log(amplitude) observations -- doing this in log
         # space to linearise the problem (so that r_squared is meaningful)

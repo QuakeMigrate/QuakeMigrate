@@ -143,10 +143,20 @@ def _read_single_event(event_file, locate_dir, units, local_mag_ph):
 
     # Determine location of cut waveform data - add to event object as a
     # custom extra attribute.
-    mseed = locate_dir / "cut_waveforms" / event_uid
+    mseed = locate_dir / "raw_cut_waveforms" / event_uid
     event.extra.cut_waveforms_file = {
         "value": str(mseed.with_suffix(".m").resolve()),
         "namespace": ns}
+    if (locate_dir / "real_cut_waveforms").exists():
+        mseed = locate_dir / "real_cut_waveforms" / event_uid
+        event.extra.real_cut_waveforms_file = {
+            "value": str(mseed.with_suffix(".m").resolve()),
+            "namespace": ns}
+    if (locate_dir / "wa_cut_waveforms").exists():
+        mseed = locate_dir / "wa_cut_waveforms" / event_uid
+        event.extra.wa_cut_waveforms_file = {
+            "value": str(mseed.with_suffix(".m").resolve()),
+            "namespace": ns}
 
     # Create origin with spline location and set to preferred event origin.
     origin = Origin()
@@ -234,7 +244,7 @@ def _read_single_event(event_file, locate_dir, units, local_mag_ph):
                 amp = Amplitude()
                 if pd.isna(ampsline[phase]):
                     continue
-                amp.generic_amplitude = ampsline[phase] / 1000 # mm to m
+                amp.generic_amplitude = ampsline[phase] / 1000  # mm to m
                 amp.generic_amplitude_errors.uncertainty = noise_amp
                 amp.unit = "m"
                 amp.type = "AML"
@@ -247,6 +257,16 @@ def _read_single_event(event_file, locate_dir, units, local_mag_ph):
                 # amp.filter_id = ?
                 amp.magnitude_hint = "ML"
                 amp.evaluation_mode = "automatic"
+                amp.extra = AttribDict()
+                try:
+                    amp.extra.filter_gain = {
+                        "value": ampsline[f"{phase[0]}_filter_gain"],
+                        "namespace": ns}
+                    amp.extra.avg_amp = {
+                        "value": ampsline[f"{phase[0]}_avg_amp"] / 1000,  # m
+                        "namespace": ns}
+                except KeyError:
+                    pass
 
                 if phase[0] == local_mag_ph and not pd.isna(ampsline["ML"]):
                     i += 1

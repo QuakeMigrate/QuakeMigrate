@@ -38,14 +38,18 @@ stations = read_stations(station_file)
 # --- Read in response inventory ---
 response_inv = read_response_inv(response_file)
 
+# --- Specify parameters for response removal ---
+response_params = AttribDict()
+response_params.pre_filt = (0.05, 0.06, 30, 35)
+response_params.water_level = 600
+
 # --- Create new Archive and set path structure ---
 archive = Archive(archive_path=data_in, stations=stations,
-                  archive_format="YEAR/JD/STATION", response_inv=response_inv)
+                  archive_format="YEAR/JD/STATION", response_inv=response_inv,
+                  response_removal_params=response_params)
 
 # --- Specify parameters for amplitude measurement ---
 amp_params = AttribDict()
-amp_params.pre_filt = (0.05, 0.06, 30, 35)
-amp_params.water_level = 600
 amp_params.signal_window = 5.0
 amp_params.highpass_filter = True
 amp_params.highpass_freq = 2.0

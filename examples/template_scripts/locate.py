@@ -41,9 +41,18 @@ stations = read_stations(station_file)
 # --- Read in response inventory
 response_inv = read_response_inv(response_file)
 
+# --- Specify parameters for response removal ---
+# All parameters are optional, though one of `water_level` and `pre_filt` is
+# recommended - see the documentation for a complete guide.
+response_params = AttribDict()
+response_params.pre_filt = (0.05, 0.06, 30, 35)
+response_params.water_level = 600
+response_params.remove_full_response = False
+
 # --- Create new Archive and set path structure ---
 archive = Archive(archive_path=archive_path, stations=stations,
-                  archive_format="YEAR/JD/STATION", response_inv=response_inv)
+                  archive_format="YEAR/JD/STATION", response_inv=response_inv,
+                  response_removal_params=response_params)
 # For custom structures...
 # archive.format = "custom/archive_{year}_{jday}/{month:02d}-{day:02d}.{station}_structure"
 
@@ -85,12 +94,10 @@ picker.plot_picks = True
 # --- Create new LocalMag object ---
 # All parameters are optional: see the documentation for a complete guide.
 amp_params = AttribDict()
-amp_params.water_level = 60
 amp_params.signal_window = 5.
 amp_params.bandpass_filter = True
 amp_params.bandpass_lowcut = 2.
 amp_params.bandpass_highcut = 20.
-amp_params.remove_full_response = False
 
 # A0 attenuation function is required: see the documentation for several
 # built-in options, or specify your own function. All other parameters are

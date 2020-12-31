@@ -13,6 +13,8 @@ Module to handle input/output of cut waveforms.
 import logging
 import warnings
 
+from obspy import Stream
+
 import quakemigrate.util as util
 
 
@@ -26,12 +28,20 @@ warnings.filterwarnings("ignore", message=("File will be written with more tha"
                                            "ight have a negative influence on "
                                            "the compatibility with other progr"
                                            "ams."))
+warnings.filterwarnings("ignore", message=("The encoding specified in "
+                                           "trace.stats.mseed.encoding does "
+                                           "not match the dtype of the data.\n"
+                                           "A suitable encoding will be "
+                                           "chosen."))
+
 
 
 @util.timeit("info")
-def write_cut_waveforms(run, event, file_format, pre_cut=0., post_cut=0.):
+def write_cut_waveforms(run, event, file_format, pre_cut=0., post_cut=0.,
+                        waveform_type="raw",
+                        units="displacement"):
     """
-    Output raw cut waveform data as a waveform file -- defaults to mSEED.
+    Output cut waveform data as a waveform file -- defaults to mSEED.
 
     Parameters
     ----------
@@ -50,13 +60,20 @@ def write_cut_waveforms(run, event, file_format, pre_cut=0., post_cut=0.):
     post_cut : float or None, optional
         Specify how long after the event origin time to cut the waveform
         data to
+    waveform_type : {"raw", "real", "wa"}, optional
+        Whether to output raw, real or Wood-Anderson simulated waveforms.
+        Default: "raw"
+    units : {"displacement", "velocity"}, optional
+        Whether to output displacement waveforms or velocity waveforms for
+        real / Wood-Anderson corrected traces. Default: displacement
 
     """
 
-    logging.info("\tSaving raw cut waveforms...")
+    logging.info(f"\tSaving {waveform_type} cut waveforms...")
 
-    fpath = run.path / "locate" / run.subname / "cut_waveforms"
+    fpath = run.path / "locate" / run.subname / f"{waveform_type}_cut_waveforms"
     fpath.mkdir(exist_ok=True, parents=True)
+    fstem = f"{event.uid}"
 
     st = event.data.raw_waveforms
 
@@ -67,6 +84,91 @@ def write_cut_waveforms(run, event, file_format, pre_cut=0., post_cut=0.):
     if post_cut:
         for tr in st.traces:
             tr.trim(endtime=event.otime + post_cut)
+
+    if waveform_type == "real" or waveform_type == "wa":
+        if waveform_type == "real" and \
+            isinstance(event.data.real_waveforms, Stream) and not pre_cut \
+            and not post_cut:
+            st = event.data.real_waveforms
+        elif waveform_type == "wa" and \
+            isinstance(event.data.wa_waveforms, Stream) and not pre_cut \
+            and not post_cut:
+            st = event.data.wa_waveforms
+        else:
+            try:
+                st = get_waveforms(st, event, waveform_type, units)
+            except util.ResponseNotFoundError as e:
+                logging.warning(e)
+                return
+
+    write_waveforms(st, fpath, fstem, file_format)
+
+
+@util.timeit("debug")
+def get_waveforms(st, event, waveform_type, units):
+    """
+    Get real waveforms for a Stream.
+
+    Parameters
+    ----------
+    st : `obspy.Stream` object
+        Stream for which to remove response to get real waveforms.
+    event : :class:`~quakemigrate.io.Event` object
+        Light class encapsulating signal, onset, and location information for a
+        given event.
+    waveform_type : {"real", "wa"}
+        Whether to get real or Wood-Anderson simulated waveforms.
+    units : {"displacement", "velocity"}
+        Units to return real waveforms in.
+
+    Returns
+    -------
+    st_out : `obspy.Stream` object
+        Stream real or Wood-Anderson simulated waveforms in the requested
+        units.
+
+    """
+
+    # Work on a copy
+    st = st.copy()
+    st_out = Stream()
+
+    velocity = False
+    if units == "velocity":
+        velocity = True
+
+    for tr in st:
+        try:
+            if waveform_type == "real":
+                tr = event.data.get_real_waveform(tr, velocity)
+            else:
+                tr = event.data.get_wa_waveform(tr, velocity)
+            st_out.append(tr)
+        except util.ResponseRemovalError as e:
+            logging.warning(e)
+
+    return st_out
+
+
+@util.timeit("debug")
+def write_waveforms(st, fpath, fstem, file_format):
+    """
+    Output waveform data as a waveform file -- defaults to mSEED.
+
+    Parameters
+    ----------
+    st : `obspy.Stream` object
+        Waveforms to be written to file.
+    fpath : `pathlib.Path` object
+        Path to output directory.
+    fstem : str
+        File name (without suffix).
+    file_format : str
+        File format to write waveform data to. Options are all file formats
+        supported by obspy, including: "MSEED" (default), "SAC", "SEGY",
+        "GSE2"
+
+    """
 
     if file_format == "MSEED":
         suffix = ".m"
@@ -79,6 +181,5 @@ def write_cut_waveforms(run, event, file_format, pre_cut=0., post_cut=0.):
     else:
         suffix = ".waveforms"
 
-    fstem = f"{event.uid}"
     file = (fpath / fstem).with_suffix(suffix)
     st.write(str(file), format=file_format)

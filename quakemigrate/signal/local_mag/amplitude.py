@@ -49,11 +49,6 @@ class Amplitude:
 
     Attributes
     ----------
-    pre_filt : tuple of floats
-        Pre-filter to apply during the instrument response removal. E.g.
-        (0.03, 0.05, 30., 35.) - all in Hz. (Default None)
-    water_level : float
-        Water level to use in instrument response removal. (Default 60.)
     signal_window : float
         Length of S-wave signal window, in addition to the time window
         associated with the marginal_window and traveltime uncertainty.
@@ -67,11 +62,6 @@ class Amplitude:
         (Default "RMS")
     loc_method : {"spline", "gaussian", "covariance"}
         Which event location estimate to use. (Default "spline")
-    remove_full_response : bool
-        Whether to remove the full response (including the effect of
-        digital FIR filters) or just the instrument transform function (as
-        defined by the PolesZeros Response Stage). Significantly slower.
-        (Default False)
     highpass_filter : bool
         Whether to apply a high-pass filter before measuring amplitudes.
         (Default False)
@@ -105,6 +95,9 @@ class Amplitude:
         If both highpass_filter and bandpass_filter are selected, or if the
         user selects to apply a filter but does not provide the relevant
         frequencies.
+    AttributeError
+        If response removal parameters are provided here instead of to the
+        Archive object.
 
     """
 
@@ -148,15 +141,17 @@ class Amplitude:
                    "Please choose one or the other.")
             raise AttributeError(msg)
 
-        # Response removal parameters
-        if "water_level" not in amplitude_params.keys():
-            msg = ("Warning: 'water level' for instrument correction not "
-                   "specified. Set to default: 60")
-            logging.warning(msg)
-        self.water_level = amplitude_params.get("water_level", 60.)
-        self.pre_filt = amplitude_params.get("pre_filt")
-        self.remove_full_response = \
-            amplitude_params.get("remove_full_response", False)
+        # Handle deprecated response removal parameters
+        if any(param in amplitude_params.keys() for param in \
+            ["water_level", "pre_filt", "remove_full_response"]):
+            raise AttributeError("The response removal parameters "
+                                 "('water_level', 'pre_filt', "
+                                 "'remove_full_response') have been moved to "
+                                 "the Archive object. Please specify them "
+                                 "there as e.g. 'archive.water_level = 60.' or"
+                                 " by providing a dictionary of "
+                                 "response_removal parameters - see the "
+                                 "template locate script for guidance.")
 
     def __str__(self):
         """Return short summary string of the Amplitude object."""
@@ -178,12 +173,6 @@ class Amplitude:
                     f"\t\t    Lowcut frequency  = {self.bandpass_lowcut} Hz\n"
                     f"\t\t    Highcut frequency = {self.bandpass_highcut} Hz\n"
                     f"\t\t    Filter corners    = {self.filter_corners}\n")
-        out += ("\t    Response removal parameters:\n"
-                f"\t\tWater level  = {self.water_level}\n")
-        if self.pre_filt is not None:
-            out += f"\t\tPre-filter   = {self.pre_filt} Hz\n"
-        out += ("\t\tRemove full response (inc. FIR stages) = "
-                f"{self.remove_full_response}\n")
 
         return out
 
@@ -324,10 +313,7 @@ class Amplitude:
 
                 # Do response removal
                 try:
-                    tr = event.data.get_wa_waveform(tr, self.water_level,
-                        self.pre_filt,
-                        remove_full_response=self.remove_full_response,
-                        velocity=False)
+                    tr = event.data.get_wa_waveform(tr, velocity=False)
                 except (util.ResponseNotFoundError,
                         util.ResponseRemovalError) as e:
                     logging.warning(e)

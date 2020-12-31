@@ -97,6 +97,8 @@ class QuakeScan:
     pre_pad : float
         Additional amount of data to read in before the timestep, used to
         ensure the correct coalescence is calculated at every sample.
+    real_waveform_units : {"displacement", "velocity"}
+        Units to output real cut waveforms.
     run : :class:`~quakemigrate.io.Run` object
         Light class encapsulating i/o path information for a given run.
     scan_rate : int, optional
@@ -111,10 +113,32 @@ class QuakeScan:
         run duration should be divisible by timestep. Increasing timestep will
         increase RAM usage during detect, but will slightly speed up overall
         detect run. Default: 120 seconds.
+    wa_waveform_units : {"displacement", "velocity"}
+        Units to output Wood-Anderson simulated cut waveforms.
     write_cut_waveforms : bool, optional
-        Write raw cut waveforms for all data found in the archive for each
-        event located by locate(). Default: False.
-        Note: this data has not been processed or quality-checked!
+        Write raw cut waveforms for all data read from the archive for each
+        event located by locate(). See `~quakemigrate.io.data.Archive`
+        parameter `read_all_stations`. Default: False.
+        NOTE: this data has not been processed or quality-checked!
+    write_real_waveforms : bool, optional
+        Write real cut waveforms for all data read from the archive for each
+        event located by locate(). See `~quakemigrate.io.data.Archive`
+        parameter `read_all_stations`. Default: False.
+        NOTE: the units of this data (displacement or velocity) are controlled
+        by `real_waveform_units`.
+        NOTE: this data has not been processed or quality-checked!
+        NOTE: no padding has been added to take into account the taper applied
+        during response removal.
+    write_wa_waveforms : bool, optional
+        Write Wood-Anderson simulated cut waveforms for all data read from the
+        archive for each event located by locate(). See
+        `~quakemigrate.io.data.Archive` parameter `read_all_stations`.
+        Default: False.
+        NOTE: the units of this data (displacement or velocity) are controlled
+        by `wa_waveform_units`.
+        NOTE: this data has not been processed or quality-checked!
+        NOTE: no padding has been added to take into account the taper applied
+        during response removal.
     xy_files : str, optional
         Path to comma-separated value file (.csv) containing a series of
         coordinate files to plot. Columns: ["File", "Color", "Linewidth",
@@ -223,6 +247,12 @@ class QuakeScan:
         self.continuous_scanmseed_write = kwargs.get(
             "continuous_scanmseed_write", False)
         self.write_cut_waveforms = kwargs.get("write_cut_waveforms", False)
+        self.write_real_waveforms = kwargs.get("write_real_waveforms", False)
+        self.real_waveform_units = kwargs.get("real_waveform_units",
+                                              "displacement")
+        self.write_wa_waveforms = kwargs.get("write_wa_waveforms", False)
+        self.wa_waveform_units = kwargs.get("wa_waveform_units",
+                                            "displacement")
         self.cut_waveform_format = kwargs.get("cut_waveform_format", "MSEED")
 
         # +++ TO BE REMOVED TO ARCHIVE CLASS +++
@@ -322,6 +352,7 @@ class QuakeScan:
         logging.info(self.onset)
         logging.info(self.picker)
         if self.mags is not None:
+            logging.info(self.archive.__str__(response_only=True))
             logging.info(self.mags)
         logging.info(util.log_spacer)
 
@@ -465,6 +496,18 @@ class QuakeScan:
                 write_cut_waveforms(self.run, event, self.cut_waveform_format,
                                     pre_cut=self.pre_cut,
                                     post_cut=self.post_cut)
+            if self.write_real_waveforms:
+                write_cut_waveforms(self.run, event, self.cut_waveform_format,
+                                    pre_cut=self.pre_cut,
+                                    post_cut=self.post_cut,
+                                    waveform_type="real",
+                                    units=self.real_waveform_units)
+            if self.write_wa_waveforms:
+                write_cut_waveforms(self.run, event, self.cut_waveform_format,
+                                    pre_cut=self.pre_cut,
+                                    post_cut=self.post_cut,
+                                    waveform_type="wa",
+                                    units=self.wa_waveform_units)
 
             del event, marginalised_coa_map
             logging.info(util.log_spacer)

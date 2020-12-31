@@ -126,7 +126,7 @@ class Magnitude:
     def __str__(self):
         """Return short summary string of the Magnitude object."""
 
-        out = ("\t   Magnitude parameters:\n"
+        out = ("\t    Magnitude parameters:\n"
                f"\t\tA0 attenuation function = {self.A0}\n"
                f"\t\tUse hyp distance        = {self.use_hyp_dist}\n"
                f"\t\tAmplitude feature       = {self.amp_feature}\n")

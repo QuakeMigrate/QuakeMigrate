@@ -30,9 +30,11 @@ def amplitudes_summary(magnitudes, amp_feature, amp_multiplier, dist_err,
         the amplitude observations are raw, but the ML estimates derived
         from them include station corrections, if provided.
         Columns = ["epi_dist", "z_dist", "P_amp", "P_freq", "P_time",
-                    "S_amp", "S_freq", "S_time", "Noise_amp", "is_picked",
-                    "ML", "ML_Err", "Noise_Filter", "Trace_Filter",
-                    "Station_Filter", "Dist_Filter", "Dist", "Used"]
+                   "P_avg_amp", "P_filter_gain", "S_amp", "S_freq",
+                   "S_time", "S_avg_amp", "S_filter_gain", "Noise_amp",
+                   "is_picked", "ML", "ML_Err"], "Noise_Filter",
+                   "Trace_Filter", "Station_Filter", "Dist_Filter", "Dist",
+                   "Used"]
     amp_feature : {"S_amp", "P_amp"}
         Which phase amplitude measurement to use to calculate local
         magnitude. (Default "S_amp")
@@ -49,9 +51,10 @@ def amplitudes_summary(magnitudes, amp_feature, amp_multiplier, dist_err,
         which the predicted amplitude vs. distance curve should provide a
         good fit to the observations, from artefacts, which in general will
         not.
-    noise_measure : {"RMS", "STD"}, optional
-        Method by which to measure the noise amplitude; root-mean-quare or
-        standard deviation of the signal. (Default "RMS")
+    noise_measure : {"RMS", "STD", "ENV"}, optional
+        The method by which to measure the amplitude of the signal in the
+        noise window: root-mean-square, standard deviation or average
+        amplitude of the envelope of the signal. (Default "RMS")
 
     Returns
     -------
@@ -67,8 +70,11 @@ def amplitudes_summary(magnitudes, amp_feature, amp_multiplier, dist_err,
     ax = fig.add_subplot(111)
 
     # Correct noise amplitudes according to station corrections
-    noise_amps = magnitudes["Noise_amp"].values * amp_multiplier * \
-                    np.power(10, magnitudes["Station_Correction"])
+    noise_amps = magnitudes["Noise_amp"].values * amp_multiplier \
+                    * np.power(10, magnitudes["Station_Correction"])
+    filter_gains = magnitudes[f"{amp_feature[0]}_filter_gain"]
+    if not filter_gains.isnull().values.any():
+        noise_amps /= filter_gains
 
     # Set to loglog scale
     ax.set_xscale('log')
@@ -92,8 +98,8 @@ def amplitudes_summary(magnitudes, amp_feature, amp_multiplier, dist_err,
     signal_label = (f"Signal amplitude (max amplitude in {amp_feature[0]}-wave"
                     f" signal window)")
     # Plot amplitudes with station corrections applied
-    _, _, bars = ax.errorbar(used_mags["Dist"], used_mags[amp_feature] * \
-                             amp_multiplier * \
+    _, _, bars = ax.errorbar(used_mags["Dist"], used_mags[amp_feature] \
+                             * amp_multiplier * \
                              np.power(10, used_mags["Station_Correction"]),
                              xerr=dist_err,
                              yerr=noise_amps[magnitudes["Used"]],
@@ -102,8 +108,8 @@ def amplitudes_summary(magnitudes, amp_feature, amp_multiplier, dist_err,
 
     # One label for each station, above highest observed amplitude; faff.
     ax, stns = label_stations(ax, used_mags.index,
-                              used_mags[amp_feature] * amp_multiplier * \
-                              np.power(10, used_mags["Station_Correction"]),
+                              used_mags[amp_feature] * amp_multiplier \
+                              * np.power(10, used_mags["Station_Correction"]),
                               used_mags["Dist"])
 
     # Plot amplitude obs for rejected observations (if there are any)
@@ -111,9 +117,9 @@ def amplitudes_summary(magnitudes, amp_feature, amp_multiplier, dist_err,
     if len(rejected_mags) > 0:
         unused_label = f"Unused {amp_feature[0]}-wave amplitude observations"
         _, _, bars = ax.errorbar(rejected_mags["Dist"],
-                                 rejected_mags[amp_feature] * amp_multiplier *\
-                                 np.power(10,
-                                          rejected_mags["Station_Correction"]),
+                                 rejected_mags[amp_feature] * amp_multiplier \
+                                 * np.power(10,
+                                 rejected_mags["Station_Correction"]),
                                  xerr=dist_err,
                                  yerr=noise_amps[~magnitudes["Used"]], fmt="o",
                                  marker="x", c="gray", label=unused_label)
@@ -129,8 +135,8 @@ def amplitudes_summary(magnitudes, amp_feature, amp_multiplier, dist_err,
                 continue
             else:
                 rej_trids.append(tr_id)
-                rej_amps.append(rejected_mags[amp_feature].iloc[i] * \
-                    amp_multiplier * np.power(10,
+                rej_amps.append(rejected_mags[amp_feature].iloc[i] \
+                    * amp_multiplier * np.power(10,
                     rejected_mags["Station_Correction"].iloc[i]))
                 rej_dists.append(rejected_mags["Dist"].iloc[i])
 
@@ -199,6 +205,19 @@ def label_stations(ax, tr_ids, amps, dists, rejected=False):
             stn = tr_id[:-1]
             stn_start = i
             comps = [tr_id[-1]]
+            if i == len(tr_ids) - 1:
+                distance = dists[i]
+                amp = max(amps[stn_start:])
+                compstring = ""
+                for comp in comps:
+                    compstring += f"{comp},"
+                label = f"{stn}[{compstring[:-1]}]"
+                if not rejected:
+                    ax.annotate(label, (distance, amp), ha="center",
+                                va="bottom", fontsize=8)
+                else:
+                    ax.annotate(label, (distance, amp), color="gray",
+                                ha="center", va="bottom", fontsize=8)
         elif i == len(tr_ids) - 1:
             stn = tr_id[:-1]
             comps.append(tr_id[-1])
@@ -217,6 +236,5 @@ def label_stations(ax, tr_ids, amps, dists, rejected=False):
             stns.append(stn)
         else:
             comps.append(tr_id[-1])
-            continue
 
     return ax, stns

@@ -21,50 +21,37 @@ import quakemigrate.util as util
 from .base import Onset, OnsetData
 
 
-def sta_lta_centred(signal, nsta, nlta, method="energy"):
+def sta_lta_centred(signal, nsta, nlta):
     """
     Calculates the ratio of the average of the signal in a short-term (signal)
     window to a preceding long-term (noise) window. STA/LTA value is assigned
     to the end of the LTA / one sample before the start of the STA.
+    NOTE: signal must be non-negative.
 
     Parameters
     ----------
     signal : array-like
-        Signal array.
+        Transformed non-negative seismic waveform.
     nsta : int
         Number of samples in short-term window.
     nlta : int
         Number of samples in long-term window.
-    method : {"energy", "abs", "env", "env_squared"}, optional
-        Transformation to apply to the signal before taking the STA/LTA, to
-        ensure the signal is always positive: energy (signal^2), absolute
-        value, envelope (absolute value of the analytic signal), or envelope^2
-        (analytic - arguably more correct - measure of the energy of the
-        signal).
-        Default: "energy"
 
     Returns
     -------
     sta / lta : array-like
-        Ratio of a^2 in a short term average window to a preceding long term
-        average window. STA/LTA value is assigned to end of LTA window / one
-        sample before the start of STA window -- "centred".
+        Short-term average / long-term average ratio of the signal amplitude,
+        computed in adjacent STA/LTA windows.
 
     """
 
-    # Transform signal so always positive
-    if method == "energy":
-        transformed_signal = signal ** 2
-    elif method == "abs":
-        transformed_signal = np.abs(signal)
-    elif method == "env":
-        transformed_signal = np.abs(hilbert(signal))
-    elif method == "env_squared":
-        transformed_signal = np.abs(hilbert(signal)) ** 2
-
     # Cumulative sum to calculate moving average
-    sta = np.cumsum(transformed_signal)
+    sta = np.cumsum(signal)
+
+    # Convert to float
     sta = np.require(sta, dtype=np.float)
+
+    # Copy for LTA
     lta = sta.copy()
 
     # Compute the STA and the LTA
@@ -91,50 +78,35 @@ def sta_lta_centred(signal, nsta, nlta, method="energy"):
     return sta / lta
 
 
-def classic_sta_lta(signal, nsta, nlta, method="energy"):
+def classic_sta_lta(signal, nsta, nlta):
     """
     Computes the standard STA/LTA from a given input array `signal`. The length
     of the STA window is given by nsta (in samples), nlta is the length of the
     LTA window (in samples). STA window fully overlaps with the LTA window, and
     is positioned to the "right" i.e. the end of both of the windows is at the
     latest point in time; this is where the STA / LTA value is assigned.
+    NOTE: signal must be non-negative.
 
     Parameters
     ----------
     signal : `~numpy.ndarray`
-        Seismic Trace.
+        Transformed non-negative seismic waveform.
     nsta : int
         Length of short time average window in samples.
     nlta : int
         Length of long time average window in samples.
-    method : {"energy", "abs", "env", "env_squared"}, optional
-        Transformation to apply to the signal before taking the STA/LTA, to
-        ensure the signal is always positive: energy (signal^2), absolute
-        value, envelope (absolute value of the analytic signal), or envelope^2
-        (analytic - arguably more correct - measure of the energy of the
-        signal).
-        Default: "energy"
 
     Returns
     -------
     sta/lta :`~numpy.ndarray`
-        Characteristic function of the classic (overlapping) STA/LTA.
+        Short-term average / long-term average ratio of the signal amplitude,
+        computed in overlapping STA/LTA windows.
 
     """
 
-    # Transform signal so always positive
-    if method == "energy":
-        transformed_signal = signal ** 2
-    elif method == "abs":
-        transformed_signal = np.abs(signal)
-    elif method == "env":
-        transformed_signal = np.abs(hilbert(signal))
-    elif method == "env_squared":
-        transformed_signal = np.abs(hilbert(signal)) ** 2
-
     # The cumulative sum can be exploited to calculate a moving average (the
     # cumsum function is quite efficient)
-    sta = np.cumsum(transformed_signal)
+    sta = np.cumsum(signal)
 
     # Convert to float
     sta = np.require(sta, dtype=np.float)
@@ -307,6 +279,20 @@ class STALTAOnset(Onset):
     sampling_rate : int
         Desired sampling rate for input data, in Hz; sampling rate at which
         the onset functions will be computed.
+    signal_transform : {"energy", "abs", "env", "env_squared"}, optional
+        Transformation to apply to the signal before taking the STA/LTA, to
+        ensure the signal is always positive: energy (signal^2), absolute
+        value, envelope (absolute value of the analytic signal), or envelope^2
+        (analytic - arguably more correct - measure of the energy of the
+        signal).
+        Default: "energy"
+    min_onset_value : float, optional
+        Minimum value at which to clip the onset function. This is the
+        equivalent to setting a minimum SNR filter for which observations to
+        include. The appropriate value will depend on the signal and noise
+        characteristics, and the `signal_transform` selected.
+        Default: 0.4
+        NOTE: must be greater than 0.01
 
     Methods
     -------
@@ -323,7 +309,14 @@ class STALTAOnset(Onset):
 
         super().__init__(**kwargs)
 
+        # --- General parameters ---
         self.position = kwargs.get("position", "classic")
+        self.signal_transform = kwargs.get("signal_transform", "energy")
+        self.min_onset_value = kwargs.get("min_onset_value", 0.4)
+        if self.min_onset_value < 0.01:
+            raise ValueError("The `min_onset_value` must be greater than 0.01")
+
+        # --- Phase-specific parameters ---
         self.phases = kwargs.get("phases", ["P", "S"])
         self.bandpass_filters = kwargs.get("bandpass_filters",
                                            {"P": [2.0, 16.0, 2],
@@ -334,6 +327,8 @@ class STALTAOnset(Onset):
                                                         "S": "*[N,E,1,2]"})
         self.channel_counts = kwargs.get("channel_counts", {"P": 1,
                                                             "S": 2})
+
+        # --- Data quality parameters ---
         self.all_channels = kwargs.get("all_channels", False)
         self.allow_gaps = kwargs.get("allow_gaps", False)
         self.full_timespan = kwargs.get("full_timespan", True)
@@ -360,7 +355,7 @@ class STALTAOnset(Onset):
 
         return out
 
-    def calculate_onsets(self, data, timespan=None, method="energy"):
+    def calculate_onsets(self, data, timespan=None):
         """
         Calculate onset functions for the requested stations and phases.
 
@@ -382,13 +377,6 @@ class STALTAOnset(Onset):
             at the start and end of the onset function which should be
             disregarded. This is necessary to accurately set the pick threshold
             in GaussianPicker, for example.
-        method : {"energy", "abs", "env", "env_squared"}, optional
-            Transformation to apply to the signal before taking the STA/LTA, to
-            ensure the signal is always positive: energy (signal^2), absolute
-            value, envelope (absolute value of the analytic signal), or
-            envelope^2 (analytic - arguably more correct - measure of the
-            energy of the signal).
-            Default: "energy"
 
         Returns
         -------
@@ -474,8 +462,7 @@ class STALTAOnset(Onset):
                 # waveforms that have passed the availability check to
                 # WaveformData.filtered_waveforms
                 onsets_dict.setdefault(station, {}).update(
-                    {phase: self._onset(waveforms, stw, ltw, timespan,
-                                        method)})
+                    {phase: self._onset(waveforms, stw, ltw, timespan)})
                 onsets.append(onsets_dict[station][phase])
                 filtered_waveforms += waveforms
 
@@ -489,7 +476,7 @@ class STALTAOnset(Onset):
 
         return onsets, onset_data
 
-    def _onset(self, stream, stw, ltw, timespan, method="energy"):
+    def _onset(self, stream, stw, ltw, timespan):
         """
         Generates an onset (characteristic) function. If there are multiple
         components, these are combined as the root-mean-square of the onset
@@ -508,13 +495,6 @@ class STALTAOnset(Onset):
             If a timespan is provided it will be used to calculate the tapered
             window of data at the start and end of the onset function which
             should be disregarded.
-        method : {"energy", "abs", "env", "env_squared"}, optional
-            Transformation to apply to the signal before taking the STA/LTA, to
-            ensure the signal is always positive: energy (signal^2), absolute
-            value, envelope (absolute value of the analytic signal), or
-            envelope^2 (analytic - arguably more correct - measure of the
-            energy of the signal).
-            Default: "energy"
 
         Returns
         -------
@@ -523,22 +503,37 @@ class STALTAOnset(Onset):
 
         """
 
+        # Transform waveform data so it is always positive
+        if self.signal_transform == "energy":
+            transformed_waveforms = [tr.data ** 2 for tr in stream]
+        elif self.signal_transform == "abs":
+            transformed_waveforms = [np.abs(tr.data) for tr in stream]
+        elif self.signal_transform == "env":
+            transformed_waveforms = [np.abs(hilbert(tr.data)) for tr in stream]
+        elif self.signal_transform == "env_squared":
+            transformed_waveforms = \
+                [np.abs(hilbert(tr.data)) ** 2 for tr in stream]
+
         if self.position == "centred":
             onsets = \
-                [sta_lta_centred(tr.data, stw, ltw, method) for tr in stream]
+                [sta_lta_centred(waveform, stw, ltw) \
+                    for waveform in transformed_waveforms]
         elif self.position == "classic":
             onsets = \
-                [classic_sta_lta(tr.data, stw, ltw, method) for tr in stream]
+                [classic_sta_lta(waveform, stw, ltw) \
+                    for waveform in transformed_waveforms]
         onsets = np.array(onsets)
 
         if timespan:
             onsets = self._trim_taper_pad(onsets, stw, ltw, timespan)
 
-        np.clip(1 + onsets, 0.8, np.inf, onsets)
-
         # Combine onsets by taking the root-mean-square
         onset = np.sqrt(np.sum([onset ** 2 for onset in onsets], axis=0)
                         / len(onsets))
+
+        # Clip onsets at some minimum value; this is equivalent to setting a
+        # minimum SNR filter for which observations to include.
+        onset = np.clip(onset, self.min_onset_value, np.inf)
 
         return onset
 

@@ -8,3 +8,4 @@ Here we provide a few tutorials that explore each element of the package in more
 
    tutorials/archive
    tutorials/lut
+   tutorials/detect

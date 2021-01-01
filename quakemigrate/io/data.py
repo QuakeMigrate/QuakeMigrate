@@ -122,10 +122,10 @@ class Archive:
         # Response removal parameters
         self.response_inv = kwargs.get("response_inv")
         response_removal_params = kwargs.get("response_removal_params", {})
-        if self.response_inv and \
-            "water_level" not in response_removal_params.keys():
+        if (self.response_inv and
+                "water_level" not in response_removal_params.keys()):
             msg = ("Warning: 'water level' for instrument correction not "
-                    "specified. Set to default: 60")
+                   "specified. Set to default: 60")
             print(msg)  # Logger not yet spun up
         self.water_level = response_removal_params.get("water_level", 60.)
         self.pre_filt = response_removal_params.get("pre_filt")
@@ -155,15 +155,15 @@ class Archive:
             if self.pre_filt is not None:
                 response_str += f"\t\tPre-filter   = {self.pre_filt} Hz\n"
             response_str += ("\t\tRemove full response (inc. FIR stages) = "
-                            f"{self.remove_full_response}\n")
+                             f"{self.remove_full_response}\n")
         else:
             response_str = "\tNo instrument response inventory provided!\n"
 
         if not response_only:
             out = ("QuakeMigrate Archive object"
-                    f"\n\tArchive path\t:\t{self.archive_path}"
-                    f"\n\tPath structure\t:\t{self.format}"
-                    f"\n\tResampling\t:\t{self.resample}")
+                   f"\n\tArchive path\t:\t{self.archive_path}"
+                   f"\n\tPath structure\t:\t{self.format}"
+                   f"\n\tResampling\t:\t{self.resample}")
             if self.upfactor:
                 out += f"\n\tUpfactor\t:\t{self.upfactor}"
             out += "\n\tStations:"
@@ -193,7 +193,8 @@ class Archive:
         Raises
         ------
         ArchivePathStructureError
-            If the `archive_format` specified by the user is not a valid option.
+            If the `archive_format` specified by the user is not a valid
+            option.
 
         """
 
@@ -291,7 +292,7 @@ class Archive:
             st = util.shift_to_sample(st, interpolate=self.interpolate)
 
             if self.read_all_stations:
-               # Re-populate st with only stations in station file
+                # Re-populate st with only stations in station file
                 st_selected = Stream()
                 for station in self.stations:
                     st_selected += st.select(station=station)
@@ -564,8 +565,8 @@ class WaveformData:
                         raise TypeError("Please specify sampling_rate if you "
                                         "wish to check all channels are at the"
                                         " correct sampling rate.")
-                    if any(tr.stats.sampling_rate != sampling_rate \
-                        for tr in st_id):
+                    if any(tr.stats.sampling_rate != sampling_rate
+                           for tr in st_id):
                         continue
                 # Check data covers full timespan (if requested) - this
                 # strictly checks the *timespan*, so uses the trace sampling
@@ -581,8 +582,8 @@ class WaveformData:
                 if check_start_end_times:
                     if len(st_id) > 1:
                         continue
-                    elif st_id[0].stats.starttime != self.starttime or \
-                        st_id[0].stats.endtime != self.endtime:
+                    elif (st_id[0].stats.starttime != self.starttime or
+                          st_id[0].stats.endtime != self.endtime):
                         continue
 
                 # If passed all tests, set availability to 1
@@ -601,8 +602,8 @@ class WaveformData:
                         available = 1
                 else:
                     available = 1
-            elif not all_channels \
-                and any(ava == 1 for ava in availability.values()):
+            elif (not all_channels and
+                  any(ava == 1 for ava in availability.values())):
                 available = 1
 
         return available, availability

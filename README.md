@@ -27,7 +27,9 @@ This is a work in progress - [see our documentation for full details](https://qu
 
 To quickly get a taste for how the software works, try out the two icequake examples hosted on Binder:
 * Icequakes at the Rutford Ice Stream, Antarctica [here](https://mybinder.org/v2/gh/QuakeMigrate/QuakeMigrate/3f6f9ab030109e32c1c68d267bc456bbf79d82c9?filepath=examples%2FIcequake_Rutford%2Ficequakes_rutford.ipynb)
-* Icequakes at the Skeiðarárjökull outlet glacier, Iceland [here](https://mybinder.org/v2/gh/QuakeMigrate/QuakeMigrate/AGU_2020_binder?filepath=examples%2FIcequake_Iceland%2Ficequakes_iceland.ipynb) 
+* Icequakes at the Skeiðarárjökull outlet glacier, Iceland [here](https://mybinder.org/v2/gh/QuakeMigrate/QuakeMigrate/AGU_2020_binder?filepath=examples%2FIcequake_Iceland%2Ficequakes_iceland.ipynb)
+
+And for a more comprehensive demonstration of the options available, see the [template scripts](examples/template_scripts).
 
 Citation
 --------

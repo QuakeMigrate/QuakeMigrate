@@ -25,7 +25,7 @@ We are working on tutorials covering how each individual aspect of the package w
 
 This is a work in progress - [see our documentation for full details](https://quakemigrate.readthedocs.io/en/latest/tutorials.html).
 
-To quickly get a taste for the how the software works, try out the two icequake examples hosted on Binder:
+To quickly get a taste for how the software works, try out the two icequake examples hosted on Binder:
 * Icequakes at the Rutford Ice Stream, Antarctica [here](https://mybinder.org/v2/gh/QuakeMigrate/QuakeMigrate/3f6f9ab030109e32c1c68d267bc456bbf79d82c9?filepath=examples%2FIcequake_Rutford%2Ficequakes_rutford.ipynb)
 * Icequakes at the Skeiðarárjökull outlet glacier, Iceland [here](https://mybinder.org/v2/gh/QuakeMigrate/QuakeMigrate/AGU_2020_binder?filepath=examples%2FIcequake_Iceland%2Ficequakes_iceland.ipynb) 
 
@@ -53,4 +53,4 @@ Any additional comments/questions can be directed to:
 
 License
 -------
-This package is written and maintained by the QuakeMigrate developers, Copyright QuakeMigrate developers 2021. It is distributed under the GPLv3 License. Please see the [LICENSE](LICENSE) file for a complete description of the rights and freedoms that this provides the user.
+This package is written and maintained by the QuakeMigrate developers, Copyright QuakeMigrate developers 2020 - 2021. It is distributed under the GPLv3 License. Please see the [LICENSE](LICENSE) file for a complete description of the rights and freedoms that this provides the user.

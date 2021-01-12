@@ -4,7 +4,7 @@ The default onset function class - performs some pre-processing on raw
 seismic data and calculates STA/LTA onset (characteristic) function.
 
 :copyright:
-    2020, QuakeMigrate developers.
+    2020 - 2021, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)

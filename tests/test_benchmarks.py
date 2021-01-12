@@ -3,6 +3,12 @@
 Short test script that will identify any differences between the benchmarked
 example outputs and those run after any changes have been made to the codebase.
 
+:copyright:
+    2020 - 2021, QuakeMigrate developers.
+:license:
+    GNU General Public License, Version 3
+    (https://www.gnu.org/licenses/gpl-3.0.html)
+
 """
 
 import pathlib

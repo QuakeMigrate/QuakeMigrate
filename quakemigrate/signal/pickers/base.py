@@ -5,7 +5,7 @@ QuakeMigrate to use custom phase picking methods that remain compatible with
 the core of the package.
 
 :copyright:
-    2020, QuakeMigrate developers.
+    2020 - 2021, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)

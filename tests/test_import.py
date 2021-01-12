@@ -1,3 +1,16 @@
+# -*- coding: utf-8 -*-
+"""
+Short test script that will ensure QuakeMigrate and all required dependencies
+have been correctly installed.
+
+:copyright:
+    2020 - 2021, QuakeMigrate developers.
+:license:
+    GNU General Public License, Version 3
+    (https://www.gnu.org/licenses/gpl-3.0.html)
+
+"""
+
 import unittest
 
 

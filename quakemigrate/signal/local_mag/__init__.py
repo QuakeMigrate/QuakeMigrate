@@ -9,7 +9,7 @@ If you have comments or suggestions, please contact the QuakeMigrate developers
  at quakemigrate.developers@gmail.com , or submit an issue on GitHub.
 
 :copyright:
-    2020, QuakeMigrate developers.
+    2020 - 2021, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)

@@ -179,10 +179,10 @@ def setup_package():
 
     if not READ_THE_DOCS:
         install_requires = ["matplotlib<3.3", "numpy", "obspy>=1.2",
-                            "pandas<1.1", "pyproj>=2.5", "scipy"]
+                            "pandas==1.0.*", "pyproj>=2.5", "scipy"]
     else:
         install_requires = ["matplotlib<3.3", "mock", "numpy", "obspy>=1.2",
-                            "pandas<1.1", "pyproj>=2.5", "scipy"]
+                            "pandas==1.0.*", "pyproj>=2.5", "scipy"]
 
     setup_args = {
         "name": "quakemigrate",

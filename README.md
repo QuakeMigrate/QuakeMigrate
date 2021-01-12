@@ -1,5 +1,7 @@
 ![](./docs/img/QMlogoBig.png)
 
+[![Build Status](https://travis-ci.org/QuakeMigrate/QuakeMigrate.svg?branch=master)](https://travis-ci.org/QuakeMigrate/QuakeMigrate)
+[![codecov](https://codecov.io/gh/QuakeMigrate/QuakeMigrate/branch/master/graph/badge.svg)](https://codecov.io/gh/QuakeMigrate/QuakeMigrate)
 [![Documentation Status](https://readthedocs.org/projects/quakemigrate/badge/?version=latest)](https://quakemigrate.readthedocs.io/en/latest/?badge=latest)
 
 QuakeMigrate is a Python package for automatic earthquake detection and location using waveform migration and stacking. It can be used to produce catalogues of earthquakes, including hypocentres, origin times, phase arrival picks, and local magnitude estimates, as well as rigorous estimates of the associated uncertainties.

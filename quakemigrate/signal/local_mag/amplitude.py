@@ -325,11 +325,14 @@ class Amplitude:
                 else:
                     filter_sos = None
 
-                windows, picked = self._get_amplitude_windows(station, i,
-                                                              event, p_ttimes,
-                                                              s_ttimes,
-                                                              lut.fraction_tt)
-                amps[14] = picked
+                try:
+                    windows, picked = self._get_amplitude_windows(
+                        station, i, event, p_ttimes, s_ttimes, lut.fraction_tt)
+                    amps[14] = picked
+                except util.PickOrderException as e:
+                    logging.warning(f"{e}")
+                    amplitudes.loc[i*3+j] = amps
+                    continue
 
                 amps = self._measure_signal_amps(amps, tr, windows,
                                                  self.noise_measure,
@@ -770,8 +773,14 @@ class Amplitude:
                 _, filter_gain = sosfreqz(filter_sos, worN=[approx_freq],
                                           fs=tr.stats.sampling_rate)
                 filter_gain = np.abs(filter_gain[0])
-                half_amp /= filter_gain
-                average_amp /= filter_gain
+                if not filter_gain:
+                    logging.info("\t    Warning: Invalid frequency ("
+                                 f"{approx_freq:.5g} Hz) for {phase}_amp "
+                                 f"measurement on:\n\t\t{tr}")
+                    continue
+                else:
+                    half_amp /= filter_gain
+                    average_amp /= filter_gain
 
             # Put in relevant columns for P / S amplitude, approx_freq,
             # p2t_time

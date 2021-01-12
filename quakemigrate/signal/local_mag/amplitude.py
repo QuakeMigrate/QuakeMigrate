@@ -325,11 +325,14 @@ class Amplitude:
                 else:
                     filter_sos = None
 
-                windows, picked = self._get_amplitude_windows(station, i,
-                                                              event, p_ttimes,
-                                                              s_ttimes,
-                                                              lut.fraction_tt)
-                amps[14] = picked
+                try:
+                    windows, picked = self._get_amplitude_windows(station, i,
+                        event, p_ttimes, s_ttimes, lut.fraction_tt)
+                    amps[14] = picked
+                except util.PickOrderException as e:
+                    logging.warning(f"{e}")
+                    amplitudes.loc[i*3+j] = amps
+                    continue
 
                 amps = self._measure_signal_amps(amps, tr, windows,
                                                  self.noise_measure,

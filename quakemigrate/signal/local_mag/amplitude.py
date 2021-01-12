@@ -326,8 +326,8 @@ class Amplitude:
                     filter_sos = None
 
                 try:
-                    windows, picked = self._get_amplitude_windows(station, i,
-                        event, p_ttimes, s_ttimes, lut.fraction_tt)
+                    windows, picked = self._get_amplitude_windows(
+                        station, i, event, p_ttimes, s_ttimes, lut.fraction_tt)
                     amps[14] = picked
                 except util.PickOrderException as e:
                     logging.warning(f"{e}")

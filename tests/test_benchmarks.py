@@ -71,7 +71,8 @@ class TestExamples(unittest.TestCase):
             print("\t\t...'ur_corner'...")
             self.assertTrue(np.isclose(b_lut.ur_corner, t_lut.ur_corner).all())
             print("\t\t...'node_spacing'...")
-            self.assertTrue(np.equal(b_lut.node_spacing, t_lut.node_spacing).all())
+            self.assertTrue(np.equal(b_lut.node_spacing,
+                                     t_lut.node_spacing).all())
             print("\t\t...'node_count'...")
             self.assertTrue(np.equal(b_lut.node_count, t_lut.node_count).all())
             print("\t   ...passed!")
@@ -122,7 +123,8 @@ class TestExamples(unittest.TestCase):
 
             print("\t1: Assert triggered events files are identical...")
             b_trig = pd.read_csv(sorted(b_dir.glob("*Trigger*"))[0])
-            t_trig = pd.read_csv(sorted((t_dir / "events").glob("*Trigger*"))[0])
+            t_trig = pd.read_csv(sorted((t_dir / "events").glob(
+                "*Trigger*"))[0])
             self.assertTrue(b_trig.equals(t_trig))
             print("\t   ...passed!")
 
@@ -176,7 +178,7 @@ class TestExamples(unittest.TestCase):
             try:
                 b_amps = sorted(b_dir.glob("*.amps"))
                 t_amps = sorted((t_dir / "amplitudes").glob("*.amps"))
-                tmp = b_amps[0]  # Check any files
+                _ = b_amps[0]  # Check any files
                 for b_amp, t_amp in zip(b_amps, t_amps):
                     pd.testing.assert_frame_equal(pd.read_csv(b_amp),
                                                   pd.read_csv(t_amp),

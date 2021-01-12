@@ -52,8 +52,8 @@ class TestImport(unittest.TestCase):
         try:
             import quakemigrate  # NOQA
         except ImportError as e:
-             print("QuakeMigrate does not import correctly.")
-             i += 1
+            print(f"QuakeMigrate does not import correctly. - {e}")
+            i += 1
         self.assertEqual(i, 0)
 
 

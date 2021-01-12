@@ -770,8 +770,14 @@ class Amplitude:
                 _, filter_gain = sosfreqz(filter_sos, worN=[approx_freq],
                                           fs=tr.stats.sampling_rate)
                 filter_gain = np.abs(filter_gain[0])
-                half_amp /= filter_gain
-                average_amp /= filter_gain
+                if not filter_gain:
+                    logging.info("\t    Warning: Invalid frequency ("
+                                 f"{approx_freq:.5g} Hz) for {phase}_amp "
+                                 f"measurement on:\n\t\t{tr}")
+                    continue
+                else:
+                    half_amp /= filter_gain
+                    average_amp /= filter_gain
 
             # Put in relevant columns for P / S amplitude, approx_freq,
             # p2t_time

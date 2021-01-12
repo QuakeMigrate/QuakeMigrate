@@ -22,7 +22,7 @@ class TestImport(unittest.TestCase):
             print("QuakeMigrate does not support Python 2.x")
             i += 1
         if sys.version_info.minor < 6:
-            print("QuakeMigrate only supports Python 3.5 and up.")
+            print("QuakeMigrate only supports Python 3.6 and up.")
             i += 1
         try:
             import matplotlib  # NOQA

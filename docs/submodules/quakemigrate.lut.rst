@@ -1,5 +1,5 @@
-quakemigrate.lut package
-========================
+quakemigrate.lut
+================
 
 .. automodule:: quakemigrate.lut
     :members:

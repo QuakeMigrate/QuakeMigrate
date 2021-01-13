@@ -154,9 +154,9 @@ def compute_traveltimes(grid_spec, stations, method, phases=["P", "S"],
 
     Raises
     ------
-    AttributeError
+    ValueError
         If the specified `method` is not a valid option.
-    AttributeError
+    TypeError
         If the velocity model, or constant phase velocity, is not specified.
     NotImplementedError
         If the `3dfmm` method is specified.
@@ -181,7 +181,7 @@ def compute_traveltimes(grid_spec, stations, method, phases=["P", "S"],
         for phase in phases:
             velocity = kwargs.get(f"v{phase.lower()}")
             if velocity is None:
-                raise AttributeError(f"Missing argument: 'v{phase.lower()}'")
+                raise TypeError(f"Missing argument: 'v{phase.lower()}'")
             lut.velocity_model += f"\n\tV{phase.lower()} = {velocity:5.2f} m/s"
 
             logging.info(f"\t...phase: {phase}...")
@@ -191,7 +191,7 @@ def compute_traveltimes(grid_spec, stations, method, phases=["P", "S"],
         logging.info("Computing 1-D fast-marching traveltimes for...")
         lut.velocity_model = vmodel = kwargs.get("vmod")
         if vmodel is None:
-            raise AttributeError("Missing argument: 'vmod'")
+            raise TypeError("Missing argument: 'vmod'")
 
         for phase in phases:
             logging.info(f"\t...phase: {phase}...")
@@ -205,16 +205,16 @@ def compute_traveltimes(grid_spec, stations, method, phases=["P", "S"],
         logging.info("Computing 1-D nlloc traveltimes for...")
         lut.velocity_model = vmodel = kwargs.get("vmod")
         if vmodel is None:
-            raise AttributeError("Missing argument: 'vmod'")
+            raise TypeError("Missing argument: 'vmod'")
 
         for phase in phases:
             logging.info(f"\t...phase: {phase}...")
             _compute_1d_nlloc(lut, phase, vmodel, **kwargs)
 
     else:
-        raise AttributeError(f"'{method} is not a valid method. Please consult"
-                             " the documentation. Valid options are "
-                             "'homogeneous', '1dfmm' and '1dnlloc'.")
+        raise ValueError(f"'{method} is not a valid method. Please consult the"
+                         "documentation. Valid options are 'homogeneous', "
+                         "'1dfmm' and '1dnlloc'.")
 
     if save_file is not None:
         lut.save(save_file)

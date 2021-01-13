@@ -27,9 +27,9 @@ except KeyError:
 
 name = "quakemigrate"
 __version__ = "1.0.0"
-__description__ = ("QuakeMigrate - automatic earthquake detection and location"
-                   " using waveform migration and stacking.")
+__description__ = """QuakeMigrate - automatic earthquake detection and location
+                     using waveform migration and stacking."""
 __license__ = "GPLv3"
 __author__ = "QuakeMigrate developers"
-__email__ = ("quakemigrate.developers@gmail.com, tom.winder@esc.cam.ac.uk, "
-             "conor.bacon@esc.cam.ac.uk")
+__email__ = """quakemigrate.developers@gmail.com, tom.winder@esc.cam.ac.uk,
+               conor.bacon@esc.cam.ac.uk"""

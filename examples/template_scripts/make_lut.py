@@ -48,12 +48,12 @@ lut = compute_traveltimes(grid_spec, stations, method="homogeneous",
 lut = compute_traveltimes(grid_spec, stations, method="1dfmm", vmod=vmod,
                           phases=["P", "S"], log=True, save_file=lut_file)
 
-# --- NLLoc sweep LUT generation ---
+# --- NonLinLoc LUT generation (using the Grid2Time eikonal solver) ---
 # For P & S you must specify a velocity model with both P and S velocities.
-lut = compute_traveltimes(grid_spec, stations, method="1dsweep", vmod=vmod,
+lut = compute_traveltimes(grid_spec, stations, method="1dnlloc", vmod=vmod,
                           phases=["P", "S"], block_model=False, log=True,
                           save_file=lut_file)
 
-# --- Read NLLoc lookup tables ---
+# --- Read NonLinLoc lookup tables ---
 lut = read_nlloc("/path/to/nlloc_files", stations, log=True,
                  save_file=lut_file)

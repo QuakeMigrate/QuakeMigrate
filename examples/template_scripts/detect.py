@@ -50,14 +50,14 @@ lut = read_lut(lut_file=lut_file)
 lut = lut.decimate([2, 2, 2])
 
 # --- Create new Onset ---
-onset = STALTAOnset(position="classic", sampling_rate=20)
+onset = STALTAOnset(position="classic", sampling_rate=50)
 onset.phases = ["P", "S"]
 onset.bandpass_filters = {
-    "P": [2, 9.9, 2],
-    "S": [2, 9.9, 2]}
+    "P": [2, 16, 2],
+    "S": [2, 14, 2]}
 onset.sta_lta_windows = {
-    "P": [0.2, 1.5],
-    "S": [0.2, 1.5]}
+    "P": [0.2, 1.0],
+    "S": [0.2, 1.0]}
 
 # --- Create new QuakeScan ---
 scan = QuakeScan(archive, lut, onset=onset, run_path=run_path,
@@ -67,7 +67,10 @@ scan = QuakeScan(archive, lut, onset=onset, run_path=run_path,
 # For a complete list of parameters and guidance on how to choose them, please
 # see the manual and read the docs.
 scan.timestep = 120.
-scan.threads = 12
+# NOTE: increase the thread-count as your system allows. The core migration
+# routines are compiled against OpenMP, so the compute time (particularly for
+# detect), will decrease roughly linearly with the number of threads used.
+scan.threads = 4
 
 # --- Run detect ---
 scan.detect(starttime, endtime)

@@ -212,8 +212,8 @@ def compute_traveltimes(grid_spec, stations, method, phases=["P", "S"],
             _compute_1d_nlloc(lut, phase, vmodel, **kwargs)
 
     else:
-        raise AttributeError(f"'{method} is not a valid method. Please consult "
-                             "the documentation. Valid options are "
+        raise AttributeError(f"'{method} is not a valid method. Please consult"
+                             " the documentation. Valid options are "
                              "'homogeneous', '1dfmm' and '1dnlloc'.")
 
     if save_file is not None:

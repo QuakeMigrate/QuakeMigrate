@@ -1,4 +1,6 @@
-![](./docs/img/QMlogoBig.png)
+<p align="center">
+<img src="./docs/img/QMlogoBig.png" width="80%">
+</p>
 
 [![Build Status](https://travis-ci.org/QuakeMigrate/QuakeMigrate.svg?branch=master)](https://travis-ci.org/QuakeMigrate/QuakeMigrate)
 [![codecov](https://codecov.io/gh/QuakeMigrate/QuakeMigrate/branch/master/graph/badge.svg)](https://codecov.io/gh/QuakeMigrate/QuakeMigrate)
@@ -49,7 +51,7 @@ Winder, T., Bacon, C.A., Smith, J.D., Bacon, C.A., Hudson, T.S., Drew, J., and W
 
 Contact
 -------
-You can contact us directly at - quakemigrate.developers@gmail.com
+You can contact us directly at: quakemigrate.developers@gmail.com
 
 Any additional comments/questions can be directed to:
 * **Tom Winder** - tom.winder@esc.cam.ac.uk
@@ -57,4 +59,4 @@ Any additional comments/questions can be directed to:
 
 License
 -------
-This package is written and maintained by the QuakeMigrate developers, Copyright QuakeMigrate developers 2020 - 2021. It is distributed under the GPLv3 License. Please see the [LICENSE](LICENSE) file for a complete description of the rights and freedoms that this provides the user.
+This package is written and maintained by the QuakeMigrate developers, Copyright QuakeMigrate developers 2020-2021. It is distributed under the GPLv3 License. Please see the [LICENSE](LICENSE) file for a complete description of the rights and freedoms that this provides the user.

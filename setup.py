@@ -28,9 +28,8 @@ if READ_THE_DOCS:
 SETUP_DIRECTORY = pathlib.Path.cwd()
 
 
-long_description = """A Python package for the detection and location of
-                      seismicity, based on waveform backprojection and
-                      stacking"""
+long_description = """A Python package for automatic earthquake detection and
+                      location using waveform migration and stacking."""
 
 
 def read(*parts):
@@ -204,7 +203,7 @@ def setup_package():
             "Programming Language :: Python :: 3.7",
             "Programming Language :: Python :: 3.8",
         ],
-        "keywords": "seismic waveform event detection location",
+        "keywords": "seismic event detection location waveform migration",
         "install_requires": install_requires,
         "extras_require": get_extras_require(),
         "zip_safe": False,

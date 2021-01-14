@@ -29,7 +29,7 @@ def nlloc_obs(event, filename, autopick=True):
 
     Parameters
     ----------
-    event : obspy Event object
+    event : `obspy.Event` object
         Contains information on a single event.
     filename : str
         Name of NonLinLoc phase file.

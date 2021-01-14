@@ -22,7 +22,7 @@ for mod_name in MOCK_MODULES:
 
 # -- Project information -----------------------------------------------------
 project = 'QuakeMigrate'
-copyright = '2020, QuakeMigrate developers'
+copyright = '2020-2021, QuakeMigrate developers'
 author = 'QuakeMigrate developers'
 
 # The full version, including alpha/beta/rc tags
@@ -38,6 +38,7 @@ extensions = [
     "sphinx.ext.autosummary",
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
+    "sphinx.ext.autosectionlabel",
 ]
 
 # Set master doc
@@ -51,7 +52,7 @@ templates_path = ['_templates']
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = []
 
-html_logo = 'img/QMlogoBig.png'
+html_logo = 'img/QMlogoBig_rounded.png'
 
 # -- Options for HTML output -------------------------------------------------
 

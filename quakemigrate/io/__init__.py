@@ -4,12 +4,20 @@ The :mod:`quakemigrate.io` module handles the various input/output operations
 performed by QuakeMigrate. This includes:
 
     * Reading waveform data - The submodule data.py can handle any waveform \
-    data archives with regular directory structures.
-    * Writing results - The submodule quakeio.py provides a suite of \
-    functions to output QuakeMigrate results in the QuakeMigrate format.
-    * Parse QuakeMigrate results into the ObsPy Catalog structure.
-    * Various parsers to input files for different pieces of software. Feel \
-    free to contribute more!
+      data archive with a regular directory structure. It also provides \
+      functions for checking data quality and removing/simulating instrument \
+      reponse.
+    * Reading station files, velocity model files, instrument response \
+      inventories and QuakeMigrate lookup tables.
+    * The :class:`~quakemigrate.io.core.Run` class encapsulates all i/o path \
+      information and logger configuration for a given QuakeMigrate run.
+    * The :class:`~quakemigrate.io.event.Event` class encapsulates waveforms, \
+      coalescence information, picks and location information for a given \
+      event, and provides functionality to write ".event" files.
+    * Reading and writing results, including station availablity data and \
+      continuous coalescence output from detect; triggered event files from \
+      trigger, amplitude and local magnitude measurements and cut waveforms \
+      for located events.
 
 :copyright:
     2020 - 2021, QuakeMigrate developers.

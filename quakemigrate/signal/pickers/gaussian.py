@@ -118,8 +118,8 @@ class GaussianPicker(PhasePicker):
         Parameters
         ----------
         event : :class:`~quakemigrate.io.event.Event` object
-            Light class to encapsulate information about an event, including
-            origin time, location and waveform data.
+            Light class encapsulating waveforms, coalescence information and
+            location information for a given event.
         lut : :class:`~quakemigrate.lut.lut.LUT` object
             Contains the traveltime lookup tables for seismic phases, computed
             for some pre-defined velocity model.

@@ -20,15 +20,12 @@ def snuffler_stations(stations, output_path, filename, network_code=None):
 
     Parameters
     ----------
-    stations : pandas DataFrame
+    stations : `pandas.DataFrame` object
         DataFrame containing station information.
-
     output_path : str
         Location to save snuffler station file.
-
     filename : str
         Name of output station file.
-
     network_code : str
         Unique identifier for the seismic network.
 
@@ -62,13 +59,11 @@ def snuffler_markers(event, output_path, filename=None):
 
     Parameters
     ----------
-    event : ObsPy Event object
+    event : `ObsPy.Event` object
         Contains information about the origin time and a list of associated
         picks
-
     output_path : str
         Location to save the marker file
-
     filename : str, optional
         Name of marker file - defaults to eventid/eventid.markers
 

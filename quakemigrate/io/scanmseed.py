@@ -28,12 +28,13 @@ class ScanmSEED:
 
     Parameters
     ----------
-    run : :class:`~quakemigrate.io.Run` object
+    run : :class:`~quakemigrate.io.core.Run` object
         Light class encapsulating i/o path information for a given run.
     continuous_write : bool
-        Option to continuously write the .scanmseed file output by detect() at
-        the end of every time step. Default behaviour is to write in day chunks
-        where possible.
+        Option to continuously write the .scanmseed file output by
+        :func:`~quakemigrate.signal.scan.QuakeScan.detect()` at the end of
+        every time step. Default behaviour is to write in day chunks where
+        possible.
     sampling_rate : int
         Desired sampling rate of input data; sampling rate at which to compute
         the coalescence function. Default: 50 Hz.
@@ -41,8 +42,9 @@ class ScanmSEED:
     Attributes
     ----------
     stream : `obspy.Stream` object
-        Output of detect() stored in `obspy.Stream` object. The values have
-        been multiplied by a factor to make use of more efficient compression.
+        Output of :func:`~quakemigrate.signal.scan.QuakeScan.detect()` stored
+        in `obspy.Stream` object. The values have been multiplied by a factor
+        to make use of more efficient compression.
         Channels: ["COA", "COA_N", "X", "Y", "Z"]
     written : bool
         Tracker for whether the data appended has been written recently.
@@ -50,7 +52,9 @@ class ScanmSEED:
     Methods
     -------
     append(times, max_coa, max_coa_n, coord, map4d=None)
-        Append the output of QuakeScan._compute() to the coalescence stream.
+        Append the output of
+        :func:`~quakemigrate.signal.scan.QuakeScan._compute()` to the
+        coalescence stream.
     empty(starttime, timestep, i, msg)
         Create an set of empty arrays for a given timestep and append to the
         coalescence stream.
@@ -71,7 +75,10 @@ class ScanmSEED:
 
     def append(self, starttime, max_coa, max_coa_n, coord, ucf):
         """
-        Append latest timestep of detect() output to `obspy.Stream` object.
+        Append latest timestep of
+        :func:`~quakemigrate.signal.scan.QuakeScan.detect()` output to
+        `obspy.Stream` object.
+
         Multiply channels ["COA", "COA_N", "X", "Y", "Z"] by factors of
         ["1e5", "1e5", "1e6", "1e6", "1e3"] respectively, round and convert to
         int32 as this dramatically reduces memory usage, and allows the
@@ -133,7 +140,8 @@ class ScanmSEED:
     def empty(self, starttime, timestep, i, msg, ucf):
         """
         Create an empty set of arrays to write to .scanmseed; used where there
-        is no data available to run _compute().
+        is no data available to run
+        :func:`~quakemigrate.signal.scan.QuakeScan._compute()`.
 
         Parameters
         ----------
@@ -230,7 +238,7 @@ def read_scanmseed(run, starttime, endtime, pad, ucf):
 
     Parameters
     ----------
-    run : :class:`~quakemigrate.io.Run` object
+    run : :class:`~quakemigrate.io.core.Run` object
         Light class encapsulating i/o path information for a given run.
     starttime : `obspy.UTCDateTime` object
         Timestamp from which to read the coalescence stream.
@@ -247,7 +255,9 @@ def read_scanmseed(run, starttime, endtime, pad, ucf):
     -------
     data : `pandas.DataFrame` object
         Data output by detect() -- decimated scan.
-        Columns: ["DT", "COA", "COA_N", "X", "Y", "Z"] - X/Y/Z as lon/lat/m
+        Columns: ["DT", "COA", "COA_N", "X", "Y", "Z"] - X/Y/Z as lon/lat/units
+        where units is the user-selected units of the lookup table grid
+        projection (either metres or kilometres).
     stats : `obspy.trace.Stats` object
         Container for additional header information for coalescence trace.
         Contains keys: network, station, channel, starttime, endtime,

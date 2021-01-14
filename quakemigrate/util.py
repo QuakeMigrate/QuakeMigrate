@@ -31,9 +31,9 @@ def make_directories(run, subdir=None):
 
     Parameters
     ----------
-    run : pathlib Path object
+    run : `pathlib.Path` object
         Location of parent output directory, named by run name.
-    subdir : string, optional
+    subdir : str, optional
         subdir to make beneath the run level.
 
     """
@@ -211,7 +211,7 @@ class DateFormatter(ticker.Formatter):
     """
     Extend the `matplotlib.ticker.Formatter` class to allow for millisecond
     precision when formatting a tick (in days since the epoch) with a
-    `~datetime.datetime.strftime` format string.
+    `datetime.datetime.strftime` format string.
 
     """
 
@@ -220,7 +220,7 @@ class DateFormatter(ticker.Formatter):
         Parameters
         ----------
         fmt : str
-            `~datetime.datetime.strftime` format string.
+            `datetime.datetime.strftime` format string.
         precision : int
             Degree of precision to which to report sub-second time intervals.
 

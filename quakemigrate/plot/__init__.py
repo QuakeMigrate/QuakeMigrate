@@ -5,6 +5,7 @@ figures in QuakeMigrate, including:
     * Event summaries
     * Phase pick summaries
     * Triggered event summaries
+    * Amplitude / local magnitude summaries
 
 :copyright:
     2020 - 2021, QuakeMigrate developers.

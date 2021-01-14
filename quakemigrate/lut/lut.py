@@ -119,7 +119,7 @@ class Grid3D:
 
         Returns
         -------
-        grid : Grid3D object (optional)
+        grid : :class:`~quakemigrate.lut.lut.Grid3D` object (optional)
             Returns a Grid3D object with decimated traveltime lookup tables.
 
         """
@@ -403,13 +403,12 @@ class LUT(Grid3D):
     A lookup table (LUT) object is a simple data structure that is used to
     store a series of regularised tables that, for each seismic station in a
     network, store the traveltimes to every point in the 3-D volume. These
-    lookup tables are pre-computed to reduce the computational cost of the
-    back-projection method.
+    lookup tables are pre-computed to efficiently carry out the migration.
 
     This class provides utility functions that can be used to serve up or query
     these pre-computed lookup tables.
 
-    This object is-a Grid3D.
+    This object is-a :class:`~quakemigrate.lut.lut.Grid3D`.
 
     Attributes
     ----------
@@ -433,7 +432,7 @@ class LUT(Grid3D):
                     - "<PHASE>"
                     - "<PHASE>"
                 etc
-    velocity_model : `~pandas.DataFrame` object
+    velocity_model : `pandas.DataFrame` object
         Contains the input velocity model specification.
 
     Methods
@@ -449,7 +448,7 @@ class LUT(Grid3D):
         Restore the state of the saved LUT object from a pickle file.
     plot(fig, gs, slices=None, hypocentre=None, station_clr="k")
         Plot cross-sections of the LUT with station locations. Optionally plot
-        slices through a coalescence volume.
+        slices through a coalescence image.
 
     """
 
@@ -648,12 +647,12 @@ class LUT(Grid3D):
 
         Parameters
         ----------
-        fig : `~matplotlib.Figure` object
+        fig : `matplotlib.Figure` object
             Canvas on which LUT is plotted.
         gs : tuple(int, int)
             Grid specification for the plot.
         slices : array of arrays, optional
-            Slices through a coalescence volume to plot.
+            Slices through a coalescence image to plot.
         hypocentre : array of floats
             Event hypocentre - will add cross-hair to plot.
         station_clr : str, optional
@@ -814,7 +813,7 @@ class LUT(Grid3D):
 
         Parameters
         ----------
-        other : :class:`~quakemigrate.lut.LUT` object
+        other : :class:`~quakemigrate.lut.lut.LUT` object
             LUT with traveltime lookup tables to add to self.
 
         """
@@ -838,7 +837,7 @@ class LUT(Grid3D):
 
         Parameters
         ----------
-        other : :class:`~quakemigrate.lut.LUT` object
+        other : :class:`~quakemigrate.lut.lut.LUT` object
             LUT with which to test equality with self.
 
         """

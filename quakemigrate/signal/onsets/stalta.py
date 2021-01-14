@@ -94,14 +94,14 @@ def pre_process(stream, sampling_rate, resample, upfactor, filter_,
 
     Parameters
     ----------
-    stream : `~obspy.Stream` object
+    stream : `obspy.Stream` object
         Waveform data to be pre-processed.
     sampling_rate : int
         Desired sampling rate for data to be used to calculate onset. This will
         be achieved by resampling the raw waveform data. By default, only
         decimation will be applied, but data can also be upsampled if
         specified by the user when creating the
-        :class:`quakemigrate.io.data.Archive` object.
+        :class:`~quakemigrate.io.data.Archive` object.
     resample : bool, optional
         If true, perform resampling of data which cannot be decimated directly
         to the desired sampling rate. See :func:`~quakemigrate.util.resample`
@@ -115,7 +115,7 @@ def pre_process(stream, sampling_rate, resample, upfactor, filter_,
 
     Returns
     -------
-    filtered_waveforms : `~obspy.Stream` object
+    filtered_waveforms : `obspy.Stream` object
         Pre-processed seismic data.
 
     Raises
@@ -400,7 +400,7 @@ class STALTAOnset(Onset):
 
         Parameters
         ----------
-        stream : `~obspy.Stream` object
+        stream : `obspy.Stream` object
             Stream containing the pre-processed data from which to calculate
             the onset function.
         stw : int

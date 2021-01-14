@@ -34,14 +34,14 @@ def event_summary(run, event, marginalised_coa_map, lut, xy_files=None):
 
     Parameters
     ----------
-    run : :class:`~quakemigrate.io.Run` object
+    run : :class:`~quakemigrate.io.core.Run` object
         Light class encapsulating i/o path information for a given run.
-    event : :class:`~quakemigrate.io.Event` object
-        Light class encapsulating signal, onset, and location information
-        for a given event.
-    marginalised_coa_map : `~numpy.ndarray` of `~numpy.double`
+    event : :class:`~quakemigrate.io.event.Event` object
+        Light class encapsulating waveforms, coalescence information, picks and
+        location information for a given event.
+    marginalised_coa_map : `numpy.ndarray` of `numpy.double`
         Marginalised 3-D coalescence map, shape(nx, ny, nz).
-    lut : :class:`~quakemigrate.lut.LUT` object
+    lut : :class:`~quakemigrate.lut.lut.LUT` object
         Contains the traveltime lookup tables for seismic phases, computed for
         some pre-defined velocity model.
     xy_files : str, optional
@@ -70,7 +70,7 @@ def event_summary(run, event, marginalised_coa_map, lut, xy_files=None):
 
     fig = plt.figure(figsize=(25, 15))
 
-    # Create plot axes, ordering: [SIGNAL, COA, XY, XZ, YZ]
+    # Create plot axes, ordering: [WAVEFORMS, COA, XY, XZ, YZ]
     sig_spec = GridSpec(9, 15).new_subplotspec((0, 8), colspan=7, rowspan=7)
     fig.add_subplot(sig_spec)
     fig.canvas.draw()
@@ -86,7 +86,7 @@ def event_summary(run, event, marginalised_coa_map, lut, xy_files=None):
     # --- Plot xy files on map ---
     _plot_xy_files(xy_files, fig.axes[2])
 
-    # --- Add event origin time to signal and coalescence plots ---
+    # --- Add event origin time to waveform gather and coalescence plots ---
     for ax in fig.axes[:2]:
         ax.axvline(otime.datetime, label="Origin time", ls="--", lw=2,
                    c="#F03B20")
@@ -155,15 +155,15 @@ def _plot_waveform_gather(ax, lut, event, idx):
 
     Parameters
     ----------
-    ax : `~matplotlib.Axes` object
+    ax : `matplotlib.Axes` object
         Axes on which to plot the waveform gather.
-    lut : :class:`~quakemigrate.lut.LUT` object
+    lut : :class:`~quakemigrate.lut.lut.LUT` object
         Contains the traveltime lookup tables for seismic phases, computed for
         some pre-defined velocity model.
-    event : :class:`~quakemigrate.io.Event` object
-        Light class encapsulating signal, onset, and location information
-        for a given event.
-    idx : `~numpy.ndarray` of `numpy.double`
+    event : :class:`~quakemigrate.io.event.Event` object
+        Light class encapsulating waveforms, coalescence information, picks and
+        location information for a given event.
+    idx : `numpy.ndarray` of `numpy.double`
         Marginalised 3-D coalescence map, shape(nx, ny, nz).
 
     """
@@ -235,11 +235,11 @@ def _plot_coalescence_trace(ax, event):
 
     Parameters
     ----------
-    ax : `~matplotlib.Axes` object
+    ax : `matplotlib.Axes` object
         Axes on which to plot the coalescence trace.
-    event : :class:`~quakemigrate.io.Event` object
-        Light class encapsulating signal, onset, and location information
-        for a given event.
+    event : :class:`~quakemigrate.io.event.Event` object
+        Light class encapsulating waveforms, coalescence information, picks and
+        location information for a given event.
 
     """
 
@@ -258,14 +258,14 @@ def _plot_text_summary(ax, lut, event):
 
     Parameters
     ----------
-    ax : `~matplotlib.Axes` object
+    ax : `matplotlib.Axes` object
         Axes on which to plot the text summary.
-    lut : :class:`~quakemigrate.lut.LUT` object
+    lut : :class:`~quakemigrate.lut.lut.LUT` object
         Contains the traveltime lookup tables for seismic phases, computed for
         some pre-defined velocity model.
-    event : :class:`~quakemigrate.io.Event` object
-        Light class encapsulating signal, onset, and location information
-        for a given event.
+    event : :class:`~quakemigrate.io.event.Event` object
+        Light class encapsulating waveforms, coalescence information, picks and
+        location information for a given event.
 
     """
 
@@ -310,12 +310,12 @@ def _make_ellipses(lut, event, uncertainty, clr):
 
     Parameters
     ----------
-    lut : :class:`~quakemigrate.lut.LUT` object
+    lut : :class:`~quakemigrate.lut.lut.LUT` object
         Contains the traveltime lookup tables for seismic phases, computed for
         some pre-defined velocity model.
-    event : :class:`~quakemigrate.io.Event` object
-        Light class encapsulating signal, onset, and location information
-        for a given event.
+    event : :class:`~quakemigrate.io.event.Event` object
+        Light class encapsulating waveforms, coalescence information, picks and
+        location information for a given event.
     uncertainty : {"covariance", "gaussian"}
         Choice of uncertainty for which to generate ellipses.
     clr : str
@@ -324,7 +324,7 @@ def _make_ellipses(lut, event, uncertainty, clr):
 
     Returns
     -------
-    xy, yz, xz : `~matplotlib.Ellipse` (Patch) objects
+    xy, yz, xz : `matplotlib.Ellipse` (Patch) objects
         Ellipses for the requested uncertainty measure.
 
     """
@@ -367,7 +367,7 @@ def _plot_xy_files(xy_files, ax):
     xy_files : str
         Path to .csv file containing a list of coordinates files to plot, and
         the linecolor and style to plot them with.
-    ax : `~matplotlib.Axes` object
+    ax : `matplotlib.Axes` object
         Axes on which to plot the xy files.
 
     """

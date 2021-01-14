@@ -5,8 +5,9 @@ methods. This includes:
 
     * Generation of onset functions from raw data.
     * Picking of waveforms from onset functions.
-    * Raw scan for detect and locate.
-    * Measurement of amplitudes and calculation of local earthquake magnitudes.
+    * Migration of onsets for detect() and locate().
+    * Measurement of phase amplitudes and calculation of local earthquake \
+      magnitudes.
 
 :copyright:
     2020 - 2021, QuakeMigrate developers.

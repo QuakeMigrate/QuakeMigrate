@@ -21,8 +21,8 @@ stations = read_stations(station_file)
 vmod = read_vmodel(vmodel_file)
 
 # --- Define the input and grid projections ---
-gproj = Proj(proj="lcc", units="km", lon_0=116.75, lat_0=6.25, lat_1=4.0,
-             lat_2=7.5, datum="WGS84", ellps="WGS84", no_defs=True)
+gproj = Proj(proj="lcc", units="km", lon_0=116.75, lat_0=6.25, lat_1=5.9,
+             lat_2=6.6, datum="WGS84", ellps="WGS84", no_defs=True)
 cproj = Proj(proj="longlat", datum="WGS84", ellps="WGS84", no_defs=True)
 
 # --- Define the grid specifications ---

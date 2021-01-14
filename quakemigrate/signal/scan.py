@@ -42,13 +42,13 @@ class QuakeScan:
 
     Parameters
     ----------
-    archive : :class:`~quakemigrate.io.Archive` object
+    archive : :class:`~quakemigrate.io.data.Archive` object
         Details the structure and location of a data archive and provides
         methods for reading data from file.
-    lut : :class:`~quakemigrate.lut.LUT` object
+    lut : :class:`~quakemigrate.lut.lut.LUT` object
         Contains the traveltime lookup tables for seismic phases, computed for
         some pre-defined velocity model.
-    onset : :class:`~quakemigrate.signal.onsets.Onset` object
+    onset : :class:`~quakemigrate.signal.onsets.base.Onset` object
         Provides callback methods for calculation of onset functions.
     run_path : str
         Points to the top level directory containing all input files, under
@@ -73,7 +73,8 @@ class QuakeScan:
     loglevel : {"info", "debug"}, optional
         Toggle to set the logging level: "debug" will print out additional
         diagnostic information to the log and stdout. (Default "info")
-    mags : :class:`~quakemigrate.signal.local_mag.LocalMag` object, optional
+    mags : :class:`~quakemigrate.signal.local_mag.local_mag.LocalMag` object, \
+        optional
         Provides methods for calculating local magnitudes, performed during
         locate.
     marginal_window : float, optional
@@ -84,7 +85,8 @@ class QuakeScan:
         uncertainty in the earthquake origin time, which itself is some
         combination of the expected spatial uncertainty and uncertainty in the
         seismic velocity model used. Default: 2 seconds.
-    picker : :class:`~quakemigrate.signal.pickers.PhasePicker` object, optional
+    picker : :class:`~quakemigrate.signal.pickers.base.PhasePicker` object, \
+        optional
         Provides callback methods for phase picking, performed during locate.
     plot_event_summary : bool, optional
         Plot event summary figure - see `quakemigrate.plot` for more details.
@@ -99,7 +101,7 @@ class QuakeScan:
         ensure the correct coalescence is calculated at every sample.
     real_waveform_units : {"displacement", "velocity"}
         Units to output real cut waveforms.
-    run : :class:`~quakemigrate.io.Run` object
+    run : :class:`~quakemigrate.io.core.Run` object
         Light class encapsulating i/o path information for a given run.
     scan_rate : int, optional
         Sampling rate at which the 4-D coalescence map will be calculated.
@@ -167,26 +169,25 @@ class QuakeScan:
         throughout entire time period; output as .scanmseed (in mSEED format).
     locate(starttime, endtime) or locate(file)
         Core locate method -- compute 3-D coalescence over short time window
-        around candidate earthquake triggered from coastream; output location &
-        uncertainties (.event file), phase picks (.picks file), plus multiple
-        optional plots / data for further analysis and processing.
+        around candidate earthquake triggered from continuous detect output;
+        output location & uncertainties (.event file), phase picks (.picks
+        file), plus multiple optional plots / data for further analysis and
+        processing.
 
     Raises
     ------
     OnsetTypeError
-        If an object is passed in through the `onset` argument that does not
-        derive from the :class:`~quakemigrate.signal.onsets.Onset` base class.
-    PickerTypeError
-        If an object is passed in through the `picker` argument that does not
-        derive from the :class:`~quakemigrate.signal.pickers.PhasePicker` base
+        If an object is passed in through the `onset` argument that is not
+        derived from the :class:`~quakemigrate.signal.onsets.base.Onset` base
         class.
+    PickerTypeError
+        If an object is passed in through the `picker` argument that is not
+        derived from the :class:`~quakemigrate.signal.pickers.base.PhasePicker`
+        base class.
     RuntimeError
         If the user does not supply the locate function with valid arguments.
     TimeSpanException
         If the user supplies a starttime that is after the endtime.
-    NoMagObjectError
-        If the user selects to calculate magnitudes but does not provide a
-        :class:`~quakemigrate.signal.local_mag.LocalMag` object.
 
     """
 
@@ -275,15 +276,15 @@ class QuakeScan:
 
     def detect(self, starttime, endtime):
         """
-        Scans through continuous data calculating coalescence on a (decimated)
-        3-D grid by back-migrating onset (characteristic) functions.
+        Scans through data calculating coalescence in a (decimated) 3-D grid by
+        continuously migrating onset functions.
 
         Parameters
         ----------
         starttime : str
-            Timestamp from which to run continuous scan (detect).
+            Timestamp from which to run continuous scan.
         endtime : str
-            Timestamp up to which to run continuous scan (detect).
+            Timestamp up to which to run continuous scan.
             Note: the last sample returned will be that which immediately
             precedes this timestamp.
 
@@ -311,7 +312,7 @@ class QuakeScan:
 
     def locate(self, starttime=None, endtime=None, trigger_file=None):
         """
-        Re-computes the 3-D coalescence on an undecimated grid for a short
+        Re-computes the coalescence on an undecimated grid for a short
         time window around each candidate earthquake triggered from the
         (decimated) continuous detect scan. Calculates event location and
         uncertainties, makes phase arrival picks, plus multiple optional
@@ -629,9 +630,9 @@ class QuakeScan:
 
         Parameters
         ----------
-        event : :class:`~quakemigrate.io.Event` object
-            Light class encapsulating signal, onset, and location information
-            for a given event.
+        event : :class:`~quakemigrate.io.event.Event` object
+            Light class encapsulating waveforms, coalescence information, picks
+            and location information for a given event.
 
         Returns
         -------

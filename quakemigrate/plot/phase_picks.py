@@ -29,8 +29,8 @@ def pick_summary(event, station, waveforms, picks, onsets, ttimes, windows):
     Parameters
     ----------
     event : :class:`~quakemigrate.io.event.Event` object
-        Light class to encapsulate information about an event, including origin
-        time, location and waveform data.
+        Light class encapsulating waveforms, coalescence information, picks and
+        location information for a given event.
     station : str
         Station code.
     waveforms : `obspy.Stream` object

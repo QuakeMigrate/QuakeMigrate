@@ -93,7 +93,7 @@ class Magnitude:
 
     Raises
     ------
-    AttributeError
+    TypeError
         If the user does not specify an A0 attenuation curve.
     ValueError
         If the user specifies an invalid A0 attenuation curve.
@@ -107,7 +107,7 @@ class Magnitude:
         self.A0 = magnitude_params.get('A0')
         if not self.A0:
             msg = "A0 attenuation correction not specified in params!"
-            raise AttributeError(msg)
+            raise TypeError(msg)
         self.use_hyp_dist = magnitude_params.get("use_hyp_dist", False)
         self.amp_feature = magnitude_params.get("amp_feature", "S_amp")
         self.station_corrections = magnitude_params.get("station_corrections",
@@ -269,7 +269,7 @@ class Magnitude:
 
         Parameters
         ----------
-        magnitudes : `pandas.DataFrame`
+        magnitudes : `pandas.DataFrame` object
             Contains P- and S-wave amplitude measurements for each component of
             each station in the look-up table, and local magnitude estimates
             calculated from them (output by calculate_magnitudes()). Note that
@@ -386,8 +386,8 @@ class Magnitude:
         mean_mag_err = np.sqrt(np.sum(((mags - mean_mag)*weights)**2)
                                / np.sum(weights))
 
-        # Pass the *already filtered* magnitudes DataFrame to the
-        # _mag_r_squared function.
+        # Pass the magnitudes (filtered & un-filtered) to the _mag_r_squared
+        # function.
         mag_r_squared = self._mag_r_squared(all_mags, mean_mag,
                                             only_used=self.r2_only_used)
 
@@ -419,10 +419,10 @@ class Magnitude:
                        "is_picked", "ML", "ML_Err"], "Noise_Filter",
                        "Trace_Filter", "Station_Filter", "Dist_Filter", "Dist",
                        "Used"]
-        event : :class:`~quakemigrate.io.Event` object
-            Light class encapsulating waveform data, onset, pick, location and
-            local magnitude information for a given event.
-        run : :class:`~quakemigrate.io.Run` object
+        event : :class:`~quakemigrate.io.event.Event` object
+            Light class encapsulating waveforms, coalescence information, picks
+            and location information for a given event.
+        run : :class:`~quakemigrate.io.core.Run` object
             Light class encapsulating i/o path information for a given run.
         unit_conversion_factor : float
             A conversion factor based on the lookup table grid projection, used
@@ -655,7 +655,7 @@ class Magnitude:
 
         Parameters
         ----------
-        magnitudes : `pandas.DataFrame`
+        magnitudes : `pandas.DataFrame` object
             Contains P- and S-wave amplitude measurements for each component of
             each station in the look-up table, and local magnitude estimates
             calculated from them (output by calculate_magnitudes()). Note that
@@ -668,7 +668,7 @@ class Magnitude:
 
         Returns
         -------
-        used_mags : `pandas.DataFrame`
+        used_mags : `pandas.DataFrame` object
             As input, but only including individual amplitude measurements /
             local magnitude estimates that meet the filters specified by the
             user. Now with additional columns:
@@ -685,7 +685,7 @@ class Magnitude:
                 and event.
             Used : bool (== True)
                 Whether the observation meets all filter requirements.
-        all_mags : `pandas.DataFrame`
+        all_mags : `pandas.DataFrame` object
             As for used_mags, but containing all observations from the input
             magnitudes DataFrame, other than those which feature null values
             for the signal or noise amplitude.

@@ -1,6 +1,6 @@
 
 1.0.0
-============================
+=====
 
 This provides a limited summary of the major changes to the code since the
 previous release. For full details please see the linked pull requests, and

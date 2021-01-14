@@ -92,12 +92,12 @@ class Amplitude:
     Raises
     ------
     AttributeError
-        If both highpass_filter and bandpass_filter are selected, or if the
+        If both `highpass_filter` and `bandpass_filter` are selected, or if the
         user selects to apply a filter but does not provide the relevant
         frequencies.
     AttributeError
         If response removal parameters are provided here instead of to the
-        Archive object.
+        :class:`~quakemigrate.io.data.Archive` object.
 
     """
 
@@ -184,8 +184,8 @@ class Amplitude:
         Parameters
         ----------
         event : :class:`~quakemigrate.io.event.Event` object
-            Light class encapsulating waveform data, onset data, pick and
-            location information for a given event.
+            Light class encapsulating waveforms, coalescence information, picks
+            and location information for a given event.
         lut : :class:`~quakemigrate.lut.lut.LUT` object
             Contains the traveltime lookup tables for seismic phases, computed
             for some pre-defined velocity model.
@@ -406,7 +406,7 @@ class Amplitude:
 
         Returns
         -------
-        filter_sos : ndarray
+        filter_sos : `numpy.ndarray`
             Second-order sections representation of the applied filter.
 
         """
@@ -436,7 +436,7 @@ class Amplitude:
 
         Returns
         -------
-        filter_sos : ndarray
+        filter_sos : `numpy.ndarray`
             Second-order sections representation of the applied filter.
 
         Raises
@@ -484,7 +484,7 @@ class Amplitude:
 
         Returns
         -------
-        filter_sos : ndarray
+        filter_sos : `numpy.ndarray`
             Second-order sections representation of the applied filter.
 
         """
@@ -620,9 +620,9 @@ class Amplitude:
         ----------
         station : str
             Station name.
-        event : :class:`~quakemigrate.io.Event` object
-            Light class encapsulating signal, onset, pick and location
-            information for a given event.
+        event : :class:`~quakemigrate.io.event.Event` object
+            Light class encapsulating waveforms, coalescence information, picks
+            and location information for a given event.
 
         Returns
         -------
@@ -694,7 +694,7 @@ class Amplitude:
             The method by which to measure the average amplitude in the signal
             window: root-mean-square, standard deviation or average amplitude
             of the envelope of the signal. (Default "RMS")
-        filter_sos : ndarray, optional
+        filter_sos : `numpy.ndarray`, optional
             Second-order sections representation of the filter applied to the
             trace (if applicable).
 
@@ -962,7 +962,7 @@ class Amplitude:
         Raises
         ------
         NotImplementedError
-            For measurement methods other than {"RMS", "STD"}.
+            For measurement methods other than {"RMS", "STD", "ENV"}.
 
         """
 

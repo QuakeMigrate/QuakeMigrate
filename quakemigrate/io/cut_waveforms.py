@@ -47,8 +47,8 @@ def write_cut_waveforms(run, event, file_format, pre_cut=0., post_cut=0.,
     run : :class:`~quakemigrate.io.core.Run` object
         Light class encapsulating i/o path information for a given run.
     event : :class:`~quakemigrate.io.event.Event` object
-        Light class encapsulating waveform data and location information for a
-        given event.
+        Light class encapsulating waveforms, coalescence information, picks and
+        location information for a given event.
     file_format : str, optional
         File format to write waveform data to. Options are all file formats
         supported by obspy, including: "MSEED" (default), "SAC", "SEGY",
@@ -129,8 +129,8 @@ def get_waveforms(st, event, waveform_type, units):
     st : `obspy.Stream` object
         Stream for which to get real or simulated waveforms.
     event : :class:`~quakemigrate.io.event.Event` object
-        Light class encapsulating waveform data and location information for a
-        given event.
+        Light class encapsulating waveforms, coalescence information, picks and
+        location information for a given event.
     waveform_type : {"real", "wa"}
         Whether to get real or Wood-Anderson simulated waveforms.
     units : {"displacement", "velocity"}

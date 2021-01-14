@@ -28,16 +28,13 @@ def sac_mfast(event, stations, output_path, filename=None):
 
     Parameters
     ----------
-    event : ObsPy Event object
+    event : `ObsPy.Event` object
         Contains information about the origin time and a list of associated
         picks.
-
-    stations : pandas DataFrame
+    stations : `pandas.DataFrame` object
         DataFrame containing station information.
-
     output_path : str
         Location to save the SAC file.
-
     filename : str, optional
         Name of SAC file - defaults to "eventid/eventid.station.{comp}".
 

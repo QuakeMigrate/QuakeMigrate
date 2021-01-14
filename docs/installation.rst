@@ -106,7 +106,7 @@ As with Linux, we recommend installing GCC through conda.
 
 .. note:: We have not yet tested compiling and/or running QuakeMigrate against the Clang compiler.
 
-Installation of compilers at an OS level can be done using ``Homebrew``, `a package manager for macOS <https://brew.sh/>`_. It is then as simple as:
+Alternatively, installation of compilers at an OS level can be done using ``Homebrew``, `a package manager for macOS <https://brew.sh/>`_. It is then as simple as:
 
 .. code-block:: bash
     

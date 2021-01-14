@@ -32,8 +32,7 @@ XYZ, ERR_XYZ = ["X", "Y", "Z"], ["ErrX", "ErrY", "ErrZ"]
 class Event:
     """
     Light class to encapsulate information about an event, including waveform
-    data, onset data (and pre-processed waveforms), coalescence information,
-    origin time, locations, picks, magnitudes.
+    data, coalescence information, origin time, locations, picks, magnitudes.
 
     Parameters
     ----------

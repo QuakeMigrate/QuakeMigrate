@@ -33,7 +33,7 @@ def read_lut(lut_file):
 
     Returns
     -------
-    lut : :class:`~quakemigrate.lut.LUT` object
+    lut : :class:`~quakemigrate.lut.lut.LUT` object
         Lookup table populated with grid specification and traveltimes.
 
     """
@@ -68,7 +68,8 @@ def read_stations(station_file, **kwargs):
     station_file : str
         Path to station file.
         File format (header line is REQUIRED, case sensitive, any order):
-            Latitude, Longitude, Elevation (units of metres), Name
+            Latitude, Longitude, Elevation (units matching LUT grid projection;
+            either metres or kilometres; positive upwards), Name
     kwargs : dict
         Passthrough for `pandas.read_csv` kwargs.
 
@@ -122,7 +123,7 @@ def read_response_inv(response_file, sac_pz_format=False):
     Raises
     ------
     NotImplementedError
-        If the user selects sac_pz_format.
+        If the user selects `sac_pz_format=True`.
     TypeError
         If the user provides a response file that is not readable by ObsPy.
 
@@ -151,14 +152,21 @@ def read_vmodel(vmodel_file, **kwargs):
     vmodel_file : str
         Path to velocity model file.
         File format: (header line is REQUIRED, case sensitive, any order):
-        Depth (units of metres), Vp, Vs (units of metres per second)
+            "Depth" of each layer in the model (units matching the LUT grid
+            projection; positive-down)
+            "V<phase>" velocity for each layer in the model, for each phase
+            the user wishes to calculate traveltimes for (units matching the
+            LUT grid projection). There are no required phases, and no maximum
+            number of separate phases. E.g. "Vp", "Vs", "Vsh".
     kwargs : dict
         Passthrough for `pandas.read_csv` kwargs.
 
     Returns
     -------
     vmodel_data : `pandas.DataFrame` object
-        Columns: "Depth", "Vp", "Vs"
+        Columns:
+            "Depth" of each layer in model (positive down)
+            "V<phase>" velocity for each layer in model (e.g. "Vp")
 
     Raises
     ------

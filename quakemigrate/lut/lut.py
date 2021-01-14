@@ -119,7 +119,7 @@ class Grid3D:
 
         Returns
         -------
-        grid : Grid3D object (optional)
+        grid : :class:`~quakemigrate.lut.lut.Grid3D` object (optional)
             Returns a Grid3D object with decimated traveltime lookup tables.
 
         """
@@ -408,7 +408,7 @@ class LUT(Grid3D):
     This class provides utility functions that can be used to serve up or query
     these pre-computed lookup tables.
 
-    This object is-a Grid3D.
+    This object is-a :class:`~quakemigrate.lut.lut.Grid3D`.
 
     Attributes
     ----------
@@ -813,7 +813,7 @@ class LUT(Grid3D):
 
         Parameters
         ----------
-        other : :class:`~quakemigrate.lut.LUT` object
+        other : :class:`~quakemigrate.lut.lut.LUT` object
             LUT with traveltime lookup tables to add to self.
 
         """
@@ -837,7 +837,7 @@ class LUT(Grid3D):
 
         Parameters
         ----------
-        other : :class:`~quakemigrate.lut.LUT` object
+        other : :class:`~quakemigrate.lut.lut.LUT` object
             LUT with which to test equality with self.
 
         """

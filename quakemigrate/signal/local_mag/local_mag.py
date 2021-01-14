@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Module containing methods to calculate the local magnitude for an event located
-by `QuakeMigrate`.
+by :mod:`QuakeMigrate`.
 
 :copyright:
     2020 - 2021, QuakeMigrate developers.
@@ -31,11 +31,6 @@ class LocalMag:
     ----------
     amp_params : dict
         All keys are optional, including:
-        pre_filt : tuple of floats
-            Pre-filter to apply during the instrument response removal. E.g.
-            (0.03, 0.05, 30., 35.) - all in Hz. (Default None)
-        water_level : float
-            Water level to use in instrument response removal. (Default 60)
         signal_window : float
             Length of S-wave signal window, in addition to the time window
             associated with the marginal_window and traveltime uncertainty.
@@ -43,16 +38,12 @@ class LocalMag:
         noise_window : float
             Length of the time window before the P-wave signal window in which
             to measure the noise amplitude. (Default 10 s)
-        noise_measure : {"RMS", "STD"}
-            Method by which to measure the noise amplitude; root-mean-quare or
-            standard deviation of the signal. (Default "RMS")
+        noise_measure : {"RMS", "STD", "ENV"}
+            Method by which to measure the noise amplitude; root-mean-quare,
+            standard deviation or average amplitude of the envelope of the
+            signal. (Default "RMS")
         loc_method : {"spline", "gaussian", "covariance"}
             Which event location estimate to use. (Default "spline")
-        remove_full_response : bool
-            Whether to remove the full response (including the effect of
-            digital FIR filters) or just the instrument transform function (as
-            defined by the PolesZeros Response Stage. Significantly slower.
-            (Default False)
         highpass_filter : bool
             Whether to apply a highpass filter to the data before measuring
             amplitudes. (Default False)
@@ -118,11 +109,11 @@ class LocalMag:
 
     Attributes
     ----------
-    amp : :class:`~quakemigrate.signal.local_mag.Amplitude` object
+    amp : :class:`~quakemigrate.signal.local_mag.amplitude.Amplitude` object
         The Amplitude object for this instance of LocalMag. Contains functions
         to measure Wood-Anderson corrected displacement amplitudes for an
         event.
-    mag : :class:`~quakemigrate.signal.local_mag.Magnitude` object
+    mag : :class:`~quakemigrate.signal.local_mag.magnitude.Magnitude` object
         The Magnitude object for this instance of LocalMag. Contains functions
         to calculate magnitudes from Wood-Anderson corrected displacement
         amplitudes, and to combine them into a single magnitude estimate for
@@ -165,21 +156,22 @@ class LocalMag:
 
         Parameters
         ----------
-        event : :class:`~quakemigrate.io.Event` object
+        event : :class:`~quakemigrate.io.event.Event` object
             Light class encapsulating waveform data, onset, pick and location
             information for a given event.
-        lut : :class:`~quakemigrate.lut.LUT` object
+        lut : :class:`~quakemigrate.lut.lut.LUT` object
             Contains the traveltime lookup tables for seismic phases, computed
             for some pre-defined velocity model.
-        run : :class:`~quakemigrate.io.Run` object
-            Light class encapsulating i/o path information for a given run.
+        run : :class:`~quakemigrate.io.core.Run` object
+            Light class encapsulating waveforms, coalescence information, picks
+            and location information for a given event.
 
         Returns
         -------
-        event : :class:`~quakemigrate.io.Event` object
-            Light class encapsulating waveform data, onset, pick and location
-            information for a given event. Now also contains local magnitude
-            information.
+        event : :class:`~quakemigrate.io.event.Event` object
+            Light class encapsulating waveforms, coalescence information, picks
+            and location information for a given event. Now also contains local
+            magnitude information.
         mag : float
             Network-averaged local magnitude estimate for this event.
 

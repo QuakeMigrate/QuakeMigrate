@@ -698,21 +698,40 @@ class NoStationAvailabilityDataException(Exception):
         super().__init__(msg)
 
 
-class DataGapException(Exception):
+class DataAvailabilityException(Exception):
     """
-    Custom exception to handle case when all data has gaps for a given timestep
+    Custom exception to handle case when all data for the selected stations did
+    not pass the data quality criteria specified by the user.
 
     """
 
     def __init__(self):
-        msg = ("DataGapException: All available data had gaps for this "
-               "timestep.\n    OR: no data present in the archive for the"
-               "selected stations.")
+        msg = ("DataAvailabilityException: All data for this timestep did not "
+               "pass the specified data quality criteria.")
         super().__init__(msg)
 
         # Additional message printed to log
-        self.msg = ("\t\tAll available data for this time period contains gaps"
-                    "\n\t\tor data not available at start/end of time period")
+        self.msg = ("\t\tAll data for this timestep failed to pass the"
+                    "\n\t\tspecified data quality criteria. This includes the"
+                    "\n\t\tpresence of gaps or overlaps, or the data not"
+                    "\n\t\tspanning the full time window.")
+
+
+class DataGapException(Exception):
+    """
+    Custom exception to handle case when no data is found for the selected
+    stations for a given timestep.
+
+    """
+
+    def __init__(self):
+        msg = ("DataGapException: No data present in the archive for the"
+               "selected stations for this time window.")
+        super().__init__(msg)
+
+        # Additional message printed to log
+        self.msg = ("\t\tNo data for the selected stations was found in the"
+                    "\n\t\tarchive for this time window.")
 
 
 class ChannelNameException(Exception):

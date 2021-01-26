@@ -244,6 +244,14 @@ class Archive:
             Object containing the waveform data read from the archive that
             satisfies the query.
 
+        Raises
+        ------
+        ArchiveEmptyException
+            If no data files are found in the archive for this day(s).
+        DataGapException
+            If no data is found in the archive for the specified stations
+            within the specified time window.
+
         """
 
         # Ensure pre-pad and post-pad are not negative.
@@ -358,6 +366,7 @@ class Archive:
                                              dtime=loadstart)
             if self.read_all_stations is True:
                 file_format = temp_format.format(station="*")
+                file_format = file_format.replace("**", "*")
                 files = chain(files, self.archive_path.glob(file_format))
             else:
                 for station in self.stations:

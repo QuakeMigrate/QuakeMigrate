@@ -1,5 +1,5 @@
 <p align="center">
-<img src="./docs/img/QMlogoBig.png" width="80%">
+<img src="https://github.com/QuakeMigrate/QuakeMigrate/raw/master/docs/img/QMlogoBig.png", width="80%">
 </p>
 
 [![Build Status](https://travis-ci.org/QuakeMigrate/QuakeMigrate.svg?branch=master)](https://travis-ci.org/QuakeMigrate/QuakeMigrate)
@@ -49,7 +49,7 @@ Smith, J.D., White, R.S., Avouac, JP, and S. Bourne (2020), Probabilistic earthq
 
 We hope to have a publication coming out soon:
 
-Winder, T., Bacon, C.A., Smith, J.D., Bacon, C.A., Hudson, T.S., Drew, J., and White, R.S. QuakeMigrate: a Python Package for Automatic Earthquake Detection and Location Using Waveform Migration and Stacking. (to be submitted to Seismological Research Letters).
+Winder, T., Bacon, C.A., Smith, J.D., Hudson, T.S., Drew, J., and White, R.S. QuakeMigrate: a Python Package for Automatic Earthquake Detection and Location Using Waveform Migration and Stacking. (to be submitted to Seismological Research Letters).
 
 Contact
 -------

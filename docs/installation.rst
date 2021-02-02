@@ -33,6 +33,7 @@ This will install the explicit dependencies of QuakeMigrate (as well as some add
 - pandas >= 1 and < 1.1
 - pyproj >= 2.6
 - scipy
+- PyQt5
 
 .. note:: These version pins are subject to change. We defer to ObsPy to select suitable versions for NumPy/SciPy.
 
@@ -128,6 +129,18 @@ Installing
 ----------
 There are several ways to get a copy of QuakeMigrate:
 
+pip install
+***********
+The simplest way to get a working copy of QuakeMigrate is to install it from the Python Package Index (PyPI) using pip (the Python package installer). This can be done by first activating your environment, then typing the following command into terminal:
+
+.. code-block:: bash
+    
+    pip install quakemigrate
+
+Providing all the requisite packages and compilers were correctly installed, this should proceed to quickly install QuakeMigrate!
+
+.. note:: Installing the package this way will not provide you with the examples. These can be retrieved directly from the GitHub repository (see below).
+
 From source
 ***********
 `Clone the repository <https://help.github.com/en/github/creating-cloning-and-archiving-repositories/cloning-a-repository>`_ from our `GitHub <https://github.com/QuakeMigrate/quakemigrate>`_ (note: you will need ``git`` installed on your system), or alternatively download the source code directly through the GitHub web interface. Once you have a local copy, navigate to the new QuakeMigrate directory and run (ensuring your environment is activated):
@@ -150,14 +163,6 @@ You should now be able to import quakemigrate within a Python session:
     
     python
     >>> import quakemigrate
-
-pip install
-***********
-We will be linking the package to PyPI (the Python Package Index) soon, after which you will be able to use the following command to install the package:
-
-.. code-block:: bash
-    
-    pip install quakemigrate
 
 conda install
 *************

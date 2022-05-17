@@ -1,3 +1,11 @@
+[build-system]
+# Minimum requirements for the build system to execute.
+# see PEP518: https://www.python.org/dev/peps/pep-0518/
+requires = [
+    "setuptools",
+    "numpy==1.21",
+    ]
+build-backend = "setuptools.build_meta"
 [tool.cibuildwheel.macos]
 before-all = [
     "brew install llvm",

@@ -1,0 +1,5 @@
+[tool.cibuildwheel.macos]
+before-all = [
+    "brew install llvm",
+    "brew install libomp"
+]

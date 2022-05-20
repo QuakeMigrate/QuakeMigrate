@@ -2,7 +2,7 @@
 <img src="./docs/img/QMlogoBig.png" width="80%">
 </p>
 
-[![Build Status](https://travis-ci.org/QuakeMigrate/QuakeMigrate.svg?branch=master)](https://travis-ci.org/QuakeMigrate/QuakeMigrate)
+![example workflow](https://github.com/QuakeMigrate/QuakeMigrate/actions/workflows/build_wheels.yml/badge.svg)
 [![codecov](https://codecov.io/gh/QuakeMigrate/QuakeMigrate/branch/master/graph/badge.svg)](https://codecov.io/gh/QuakeMigrate/QuakeMigrate)
 [![Documentation Status](https://readthedocs.org/projects/quakemigrate/badge/?version=latest)](https://quakemigrate.readthedocs.io/en/latest/?badge=latest)
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/QuakeMigrate/QuakeMigrate/master)
@@ -49,7 +49,7 @@ Smith, J.D., White, R.S., Avouac, JP, and S. Bourne (2020), Probabilistic earthq
 
 We hope to have a publication coming out soon:
 
-Winder, T., Bacon, C.A., Smith, J.D., Bacon, C.A., Hudson, T.S., Drew, J., and White, R.S. QuakeMigrate: a Python Package for Automatic Earthquake Detection and Location Using Waveform Migration and Stacking. (to be submitted to Seismological Research Letters).
+Winder, T., Bacon, C.A., Smith, J.D., Hudson, T.S., Drew, J., and White, R.S. QuakeMigrate: a Python Package for Automatic Earthquake Detection and Location Using Waveform Migration and Stacking. (to be submitted to Geophysical Journal International).
 
 Contact
 -------
@@ -61,4 +61,4 @@ Any additional comments/questions can be directed to:
 
 License
 -------
-This package is written and maintained by the QuakeMigrate developers, Copyright QuakeMigrate developers 2020-2021. It is distributed under the GPLv3 License. Please see the [LICENSE](LICENSE) file for a complete description of the rights and freedoms that this provides the user.
+This package is written and maintained by the QuakeMigrate developers, Copyright QuakeMigrate developers 2020--2022. It is distributed under the GPLv3 License. Please see the [LICENSE](LICENSE) file for a complete description of the rights and freedoms that this provides the user.

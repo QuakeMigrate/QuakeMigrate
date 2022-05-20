@@ -193,7 +193,6 @@ def setup_package():
 
     setup_args = {
         "name": "quakemigrate",
-        "version": __version__,
         "description": " ".join(DOCSTRING[1:3]),
         "long_description": "\n".join(DOCSTRING[4:]),
         "url": "https://github.com/QuakeMigrate/QuakeMigrate",

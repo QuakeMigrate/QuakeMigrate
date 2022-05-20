@@ -32,3 +32,5 @@ try:
     matplotlib.use("Qt5Agg")
 except KeyError:
     matplotlib.use("Agg")
+
+__version__ = "1.0.0"

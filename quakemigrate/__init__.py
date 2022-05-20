@@ -33,4 +33,4 @@ try:
 except KeyError:
     matplotlib.use("Agg")
 
-__version__ = "1.0.0"
+__version__ = "1.0.0-pypi_test200522"

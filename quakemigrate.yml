@@ -9,6 +9,6 @@ dependencies:
   - numpy
   - obspy >=1.2
   - pandas ==1.0.*
-  - python >=3.6
+  - python >=3.7
   - pyproj >=2.5
   - scipy

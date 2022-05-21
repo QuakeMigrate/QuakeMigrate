@@ -33,7 +33,7 @@ from setuptools.command.build_ext import build_ext
 __version__ = "1.0.0"
 
 # The minimum python version which can be used to run QuakeMigrate
-MIN_PYTHON_VERSION = (3, 6)
+MIN_PYTHON_VERSION = (3, 7)
 
 # Fail fast if the user is on an unsupported version of Python.
 if sys.version_info < MIN_PYTHON_VERSION:
@@ -212,11 +212,9 @@ def setup_package():
             "Operating System :: OS Independent",
             "Programming Language :: Python",
             "Programming Language :: Python :: 3",
-            "Programming Language :: Python :: 3.6",
             "Programming Language :: Python :: 3.7",
             "Programming Language :: Python :: 3.8",
             "Programming Language :: Python :: 3.9",
-            "Programming Language :: Python :: 3.10",
         ],
         "keywords": KEYWORDS,
         "install_requires": INSTALL_REQUIRES,

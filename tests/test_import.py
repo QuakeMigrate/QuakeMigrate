@@ -21,13 +21,18 @@ class TestImport(unittest.TestCase):
         if sys.version_info.major != 3:
             print("QuakeMigrate does not support Python 2.x")
             i += 1
-        if sys.version_info.minor < 6:
-            print("QuakeMigrate only supports Python 3.6 and up.")
+        if sys.version_info.minor < 7:
+            print("QuakeMigrate only supports Python 3.7 and up.")
             i += 1
         try:
             import matplotlib  # NOQA
         except ImportError:
             print("You have not properly installed: matplotlib")
+            i += 1
+        try:
+            matplotlib.use("Qt5Agg")
+        except ImportError:
+            print("Failed to find a Qt backend - run `conda install pyqt`")
             i += 1
         try:
             import numpy  # NOQA

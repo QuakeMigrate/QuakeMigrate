@@ -3,10 +3,11 @@
 A Python package for automatic earthquake detection and location using waveform
 migration and stacking.
 
-QuakeMigrate is a Python package for automatic earthquake detection and location
-using waveform migration and stacking. It can be used to produce catalogues of
-earthquakes, including hypocentres, origin times, phase arrival picks, and local
-magnitude estimates, as well as rigorous estimates of the associated uncertainties.
+QuakeMigrate is a Python package for automatic earthquake detection and
+location using waveform migration and stacking. It can be used to produce
+catalogues of earthquakes, including hypocentres, origin times, phase arrival
+picks, and local magnitude estimates, as well as rigorous estimates of the
+associated uncertainties.
 
 The package has been built with a modular architecture, providing the potential
 for extension and adaptation at numerous entry points.
@@ -27,7 +28,6 @@ import sys
 
 from distutils.ccompiler import get_default_compiler
 from setuptools import Extension, find_packages, setup
-from setuptools.command.build_ext import build_ext
 
 
 # The minimum python version which can be used to run QuakeMigrate
@@ -91,8 +91,8 @@ else:
 
 KEYWORDS = [
     "seismic event detection", "seismic event location", "waveform migration",
-    "array", "seismic", "seismology", "earthquake", "seismic waves", "waveform",
-    "processing"
+    "array", "seismic", "seismology", "earthquake", "seismic waves",
+    "waveform", "processing"
 ]
 
 # Monkey patch for MS Visual Studio

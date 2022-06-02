@@ -1,8 +1,8 @@
 <p align="center">
-<img src="./docs/img/QMlogoBig.png" width="80%">
+<img src="https://github.com/QuakeMigrate/QuakeMigrate/raw/master/docs/img/QMlogoBig.png", width="80%">
 </p>
 
-![example workflow](https://github.com/QuakeMigrate/QuakeMigrate/actions/workflows/build_wheels.yml/badge.svg)
+![WheelBuilding Workflow](https://github.com/QuakeMigrate/QuakeMigrate/actions/workflows/build_wheels.yml/badge.svg)
 [![codecov](https://codecov.io/gh/QuakeMigrate/QuakeMigrate/branch/master/graph/badge.svg)](https://codecov.io/gh/QuakeMigrate/QuakeMigrate)
 [![Documentation Status](https://readthedocs.org/projects/quakemigrate/badge/?version=latest)](https://quakemigrate.readthedocs.io/en/latest/?badge=latest)
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/QuakeMigrate/QuakeMigrate/master)
@@ -61,4 +61,4 @@ Any additional comments/questions can be directed to:
 
 License
 -------
-This package is written and maintained by the QuakeMigrate developers, Copyright QuakeMigrate developers 2020--2022. It is distributed under the GPLv3 License. Please see the [LICENSE](LICENSE) file for a complete description of the rights and freedoms that this provides the user.
+This package is written and maintained by the QuakeMigrate developers, Copyright QuakeMigrate developers 2020-2022. It is distributed under the GPLv3 License. Please see the [LICENSE](LICENSE) file for a complete description of the rights and freedoms that this provides the user.

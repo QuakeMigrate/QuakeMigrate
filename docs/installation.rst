@@ -1,6 +1,6 @@
 Installation
 ============
-:mod:`QuakeMigrate` is a predominantly Python package with some routines written and optimised in C. These are built and linked to QuakeMigrate at installation, which means you will need to ensure that there is a suitable compiler available (see :ref:`C compilers`).
+:mod:`QuakeMigrate` is a predominantly Python package with some routines written and optimised in C. These are built and linked to QuakeMigrate at installation - if installing from source (i.e. not through ``pip``), you will need to ensure that there is a suitable compiler available (see :ref:`C compilers`).
 
 Supported operating systems
 ---------------------------
@@ -18,11 +18,11 @@ QuakeMigrate supports Python 3.7 or newer (3.8/3.9). We recommend using Anaconda
 
 Setting up an environment
 *************************
-Using conda, you can use our ``quakemigrate.yml`` file to create and activate a minimally complete environment:
+Using conda, you can use our ``environment.yml`` file to create and activate a minimally complete environment:
 
 .. code-block:: bash
     
-    conda env create -f quakemigrate.yml
+    conda env create -f environment.yml
     conda activate quakemigrate
 
 This will install the explicit dependencies of QuakeMigrate (as well as some additional sub-dependencies/useful packages). The full list of dependencies (and versions, where relevant) is:
@@ -33,12 +33,25 @@ This will install the explicit dependencies of QuakeMigrate (as well as some add
 - pandas >= 1 and < 1.1
 - pyproj >= 2.6
 - scipy
+- PyQt5
 
 .. note:: These version pins are subject to change. We defer to ObsPy to select suitable versions for NumPy/SciPy.
 
 .. warning:: Some changes to datetime handling were introduced in matplotlib 3.3, which caused some conflicts with pandas versions > 1.0.5. A patch was applied, but for the time being we have pinned these two packages until we find time to fully resolve the issues arising from these changes.
 
 In addition, we use `NonLinLoc <http://alomax.free.fr/nlloc/>`_ and `scikit fmm <https://pythonhosted.org/scikit-fmm/>`_ as backends for producing 1-D traveltime lookup tables.
+
+pip install
+***********
+The simplest way to get a working copy of QuakeMigrate is to install it from the Python Package Index (PyPI) using pip (the Python package installer). This can be done by first activating your environment, then typing the following command into terminal:
+
+.. code-block:: bash
+    
+    pip install quakemigrate
+
+Providing all the requisite packages and compilers were correctly installed, this should proceed to quickly install QuakeMigrate!
+
+.. note:: Installing the package this way will not provide you with the examples. These can be retrieved directly from the GitHub repository (see below).
 
 NonLinLoc
 #########
@@ -76,7 +89,7 @@ It can also be installed along with the rest of package (see :ref:`Installing`).
 
 C compilers
 ***********
-In order to install and use QuakeMigrate, you will need a C compiler that will build the migration extension library.
+In order to install and use QuakeMigrate from source, you will need a C compiler that will build the migration extension library.
 
 If you already have a suitable compiler (e.g. gcc, MSVC) at the OS level, then you can proceed to the Installing section.
 
@@ -150,14 +163,6 @@ You should now be able to import quakemigrate within a Python session:
     
     python
     >>> import quakemigrate
-
-pip install
-***********
-We will be linking the package to PyPI (the Python Package Index) soon, after which you will be able to use the following command to install the package:
-
-.. code-block:: bash
-    
-    pip install quakemigrate
 
 conda install
 *************

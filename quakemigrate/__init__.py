@@ -10,7 +10,7 @@ Contact - quakemigrate.developers@gmail.com
           conor.bacon@esc.cam.ac.uk
 
 :copyright:
-    2020 - 2021, QuakeMigrate developers.
+    2020-2022, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)

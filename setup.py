@@ -12,7 +12,7 @@ The package has been built with a modular architecture, providing the potential
 for extension and adaptation at numerous entry points.
 
 :copyright:
-    2020 - 2021, QuakeMigrate developers.
+    2020-2022, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -29,8 +29,6 @@ from distutils.ccompiler import get_default_compiler
 from setuptools import Extension, find_packages, setup
 from setuptools.command.build_ext import build_ext
 
-
-__version__ = "1.0.0"
 
 # The minimum python version which can be used to run QuakeMigrate
 MIN_PYTHON_VERSION = (3, 7)
@@ -73,7 +71,8 @@ INSTALL_REQUIRES = [
     "obspy>=1.2",
     "pandas==1.0.*",
     "pyproj>=2.5",
-    "scipy"
+    "scipy",
+    "PyQt5"
 ]
 
 if READ_THE_DOCS:

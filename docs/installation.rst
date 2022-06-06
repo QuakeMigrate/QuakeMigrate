@@ -4,7 +4,7 @@ Installation
 
 Supported operating systems
 ---------------------------
-QuakeMigrate was developed and tested on Ubuntu 16.04/18.04, with the intention of being "platform agnostic". As of January 2021, the package has been successfully built and run on:
+QuakeMigrate was developed and tested on Ubuntu 16.04/18.04, with the intention of being "platform agnostic". As of June 2022, the package has been successfully built and run on:
 
 - Ubuntu 16.04/18.04/20.04
 - Red Hat Enterprise Linux
@@ -53,6 +53,12 @@ The full list of dependencies (and versions, where relevant) is:
 .. warning:: Some changes to datetime handling were introduced in matplotlib 3.3, which caused some conflicts with pandas versions > 1.0.5. A patch was applied, but for the time being we have pinned these two packages until we find time to fully resolve the issues arising from these changes.
 
 In addition, we use `NonLinLoc <http://alomax.free.fr/nlloc/>`_ and `scikit fmm <https://pythonhosted.org/scikit-fmm/>`_ as backends for producing 1-D traveltime lookup tables. See below for installation instructions.
+
+If you want to explore the example notebooks, you will need to install `ipython` and `jupyter`. This can be done with conda as:
+
+.. code-block:: bash
+
+    conda install ipython jupyter
 
 NonLinLoc
 *********
@@ -142,7 +148,18 @@ Other installation methods
 --------------------------
 From source
 ***********
-`Clone the repository <https://help.github.com/en/github/creating-cloning-and-archiving-repositories/cloning-a-repository>`_ from our `GitHub <https://github.com/QuakeMigrate/quakemigrate>`_ (note: you will need ``git`` installed on your system), or alternatively download the source code directly through the GitHub web interface. Once you have a local copy, navigate to the new QuakeMigrate directory and run (ensuring your environment is activated):
+`Clone the repository <https://help.github.com/en/github/creating-cloning-and-archiving-repositories/cloning-a-repository>`_ from our `GitHub <https://github.com/QuakeMigrate/quakemigrate>`_ (note: you will need ``git`` installed on your system), or alternatively download the source code directly through the GitHub web interface. Once you have a local copy, navigate to the new QuakeMigrate directory.
+
+You can build a complete environment using the `environment.yml` file which can be found in the top level of the cloned repository.
+
+.. code-block:: bash
+    conda env create -f environment.yml
+    conda activate quakemigrate
+    conda install pyqt
+
+Where we also install the Qt backend, required for making QuakeMigrate figures.
+
+Finally, you can install the package (making sure your environment is activated) by running:
 
 .. code-block:: bash
     
@@ -162,6 +179,8 @@ You should now be able to import quakemigrate within a Python session:
     
     python
     >>> import quakemigrate
+
+.. note:: You should try this import in any directory that is _not_ the root of the git repository. Here, the local ``quakemigrate`` directory will override the version of QuakeMigrate installed in your environment site-packages.
 
 conda install
 *************

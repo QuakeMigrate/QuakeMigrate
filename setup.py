@@ -71,8 +71,7 @@ INSTALL_REQUIRES = [
     "obspy>=1.2",
     "pandas==1.0.*",
     "pyproj>=2.5",
-    "scipy",
-    "PyQt5"
+    "scipy"
 ]
 
 if READ_THE_DOCS:
@@ -187,7 +186,7 @@ def setup_package():
             pathlib.Path("quakemigrate") / "core"
         )
         package_data["quakemigrate.core"] = [
-            "anisotropy/core/src/*.dll"
+            "quakemigrate/core/src/*.dll"
         ]
 
     setup_args = {

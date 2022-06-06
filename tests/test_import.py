@@ -58,6 +58,8 @@ class TestImport(unittest.TestCase):
             import quakemigrate  # NOQA
         except ImportError as e:
             print(f"QuakeMigrate does not import correctly. - {e}")
+            print("If the above error says 'Failed to import any qt binding'")
+            print("please install a Qt binding - try `conda install pyqt`!")
             i += 1
         self.assertEqual(i, 0)
 

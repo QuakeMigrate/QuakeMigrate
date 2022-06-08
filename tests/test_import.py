@@ -26,7 +26,6 @@ class TestImport(unittest.TestCase):
             i += 1
         try:
             import matplotlib  # NOQA
-            import matplotlib.pyplot as plt
         except ImportError:
             print("You have not properly installed: matplotlib")
             i += 1

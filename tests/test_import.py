@@ -26,13 +26,9 @@ class TestImport(unittest.TestCase):
             i += 1
         try:
             import matplotlib  # NOQA
+            import matplotlib.pyplot as plt
         except ImportError:
             print("You have not properly installed: matplotlib")
-            i += 1
-        try:
-            matplotlib.use("Qt5Agg")
-        except ImportError:
-            print("Failed to find a Qt backend - run `conda install pyqt`")
             i += 1
         try:
             import numpy  # NOQA
@@ -58,10 +54,12 @@ class TestImport(unittest.TestCase):
             import quakemigrate  # NOQA
         except ImportError as e:
             print(f"QuakeMigrate does not import correctly. - {e}")
-            print("If the above error says 'Failed to import any qt binding'")
-            print("please install a Qt binding - try `conda install pyqt`!")
             i += 1
         self.assertEqual(i, 0)
+
+        if matplotlib.get_backend() == "agg":
+            print("Only AGG backend available - interactive plots won't work!")
+            print("Consider installing Tk or Qt bindings.")
 
 
 if __name__ == "__main__":

@@ -27,10 +27,7 @@ from quakemigrate.signal import QuakeScan, Trigger  # NOQA
 
 # Set matplotlib logging level and backend
 logging.getLogger("matplotlib").setLevel(logging.INFO)
-try:
-    os.environ["DISPLAY"]
-    matplotlib.use("Qt5Agg")
-except KeyError:
+if "DISPLAY" not in os.environ:
     matplotlib.use("Agg")
 
 __version__ = "1.0.0.rc1"

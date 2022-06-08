@@ -22,10 +22,10 @@ We recommend installing a minimal environment initially:
 
 .. code-block:: bash
     
-    conda create --name quakemigrate python=3.9 pyqt
+    conda create --name quakemigrate python=3.9
     conda activate quakemigrate
 
-We include at this stage the Qt backend which is used to render the figures made by QuakeMigrate. All other dependencies will be handled during the installation of QuakeMigrate, outlined in the next section.
+All other dependencies will be handled during the installation of QuakeMigrate, outlined in the next section.
 
 Installation via `pip`
 ----------------------
@@ -155,9 +155,6 @@ You can build a complete environment using the `environment.yml` file which can 
 .. code-block:: bash
     conda env create -f environment.yml
     conda activate quakemigrate
-    conda install pyqt
-
-Where we also install the Qt backend, required for making QuakeMigrate figures.
 
 Finally, you can install the package (making sure your environment is activated) by running:
 
@@ -194,7 +191,13 @@ Testing your installation
 -------------------------
 In order to test your installation, you will need to have cloned the GitHub repository. This will ensure you have all of the required benchmarked data (which is not included in pip/conda installs). It is also recommended that you install NonLinLoc, which is required for the volcano-tectonic example.
 
-To run the tests, navigate to ``QuakeMigrate/tests`` and run the `run_test_examples.py` script:
+To run the tests, navigate to ``QuakeMigrate/tests`` and run the test scripts. First, test all packages have correctly installed and you can import QuakeMigrate:
+
+.. code-block:: bash
+
+    python test_import.py
+
+This may output some warning messages about deprecations - so long as the final output line says "OK" and not "FAILED", these aren't an issue). Check if there is a message about matplotlib backends - there ought to be a suitable backend (e.g. macOSX, Qt, or Tk), but there is a chance you might not have any. In this case, interactive plots will not work - we recommend installing a backend if you wish to use this feature. Then run the examples (noting, again, that this requires NonLinLoc):
 
 .. code-block:: bash
 

@@ -13,5 +13,5 @@ before-all = [
     "clang --version",
     "gcc --version",
     "which clang",
-    "export CC=/usr/bin/clang"
+    "export CC=/usr/local/opt/llvm/bin/clang"
 ]

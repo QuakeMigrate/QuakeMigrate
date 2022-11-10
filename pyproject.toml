@@ -10,5 +10,8 @@ build-backend = "setuptools.build_meta"
 before-all = [
     "brew install llvm",
     "brew install libomp",
+    "clang --version",
+    "gcc --version",
+    "which clang",
     "export CC=/usr/bin/clang"
 ]

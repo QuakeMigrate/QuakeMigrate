@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 [tool.cibuildwheel.macos]
 before-all = [
     "brew install llvm libomp",
-    'echo \"include_directories("/usr/local/include" "/usr/local/opt/llvm/include")\" > CMakeList.txt',
-    'echo \'link_directories("/usr/local/lib" "/usr/local/opt/llvm/lib")\' >> CMakeList.txt',
+    'echo "include_directories(\"/usr/local/include\" \"/usr/local/opt/llvm/include\")" > CMakeList.txt',
+    'echo "link_directories(\"/usr/local/lib\" \"/usr/local/opt/llvm/lib\")" >> CMakeList.txt',
     'CMake -DCMAKE_C_COMPILER="/usr/local/opt/llvm/bin/clang"'
 ]

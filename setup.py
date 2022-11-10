@@ -155,7 +155,7 @@ def get_extensions():
         extra_link_args.extend(["-lm"])
         if platform.system() == "Darwin":
             extra_link_args.extend(["-lomp"])
-            extra_compile_args.extend(["-Xpreprocessor", "-Xclang"])
+            extra_compile_args.extend(["-Xpreprocessor"])
         else:
             extra_link_args.extend(["-lgomp"])
         extra_compile_args.extend(["-fopenmp", "-fPIC", "-Ofast"])

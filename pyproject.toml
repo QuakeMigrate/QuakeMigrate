@@ -8,6 +8,6 @@ requires = [
 build-backend = "setuptools.build_meta"
 [tool.cibuildwheel.macos]
 before-all = [
-    "brew install llvm",
+    "brew install gcc",
     "brew install libomp"
 ]

@@ -52,7 +52,7 @@ You can contact us directly at quakemigrate.developers@gmail.com
 Any additional comments/questions can be directed to:
 
 * **Tom Winder** - tom.winder@esc.cam.ac.uk
-* **Conor Bacon** - conor.bacon@esc.cam.ac.uk
+* **Conor Bacon** - conor.bacon@cantab.net
 
 License
 -------

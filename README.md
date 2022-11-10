@@ -2,7 +2,7 @@
 <img src="https://github.com/QuakeMigrate/QuakeMigrate/raw/master/docs/img/QMlogoBig.png", width="80%">
 </p>
 
-![WheelBuilding Workflow](https://github.com/QuakeMigrate/QuakeMigrate/actions/workflows/build_wheels.yml/badge.svg)
+[![WheelBuilding Workflow](https://github.com/QuakeMigrate/QuakeMigrate/actions/workflows/build_wheels.yml/badge.svg)](https://github.com/QuakeMigrate/QuakeMigrate/actions)
 [![codecov](https://codecov.io/gh/QuakeMigrate/QuakeMigrate/branch/master/graph/badge.svg)](https://codecov.io/gh/QuakeMigrate/QuakeMigrate)
 [![Documentation Status](https://readthedocs.org/projects/quakemigrate/badge/?version=latest)](https://quakemigrate.readthedocs.io/en/latest/?badge=latest)
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/QuakeMigrate/QuakeMigrate/master)
@@ -57,7 +57,7 @@ You can contact us directly at: quakemigrate.developers@gmail.com
 
 Any additional comments/questions can be directed to:
 * **Tom Winder** - tom.winder@esc.cam.ac.uk
-* **Conor Bacon** - conor.bacon@esc.cam.ac.uk
+* **Conor Bacon** - conor.bacon@cantab.net
 
 License
 -------

@@ -133,8 +133,14 @@ def get_extensions():
         ]
     }
     if platform.system() == "Darwin":
-        extension_args["include_dirs"].extend(["/usr/local/include", "/usr/local/opt/llvm/include"])
-        extension_args["library_dirs"].extend(["/usr/local/lib", "/usr/local/opt/llvm/lib"])
+        extension_args["include_dirs"].extend([
+            "/usr/local/include",
+            "/usr/local/opt/llvm/include"
+        ])
+        extension_args["library_dirs"].extend([
+            "/usr/local/lib",
+            "/usr/local/opt/llvm/lib"
+        ])
 
     sources = [
         str(pathlib.Path("quakemigrate") / "core/src/quakemigrate.c")

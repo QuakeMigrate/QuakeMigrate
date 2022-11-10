@@ -8,10 +8,6 @@ requires = [
 build-backend = "setuptools.build_meta"
 [tool.cibuildwheel.macos]
 before-all = [
-    "brew install llvm",
-    "brew install libomp",
-    "clang --version",
-    "gcc --version",
-    "which clang",
-    "export CC=/usr/local/opt/llvm/bin/clang"
+    "brew install llvm libomp",
+    'CMake -DCMAKE_C_COMPILER="/usr/local/opt/llvm/bin/clang"'
 ]

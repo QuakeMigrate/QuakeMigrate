@@ -1,5 +1,5 @@
-The Detect Stage
-================
+Detect
+======
 This tutorial will cover the basic ideas and definitions underpinning the initial stage of a QuakeMigrate run - Detect.
 
 During this stage, the waveform data is continuously migrated through your travel time lookup tables (LUTs) to generate a coalescence function through time. This function records the x, y, z position of maximum coalescence in your volume for each timestep. Peaks in this function are then used during the `trigger` stage to identify events.
@@ -8,7 +8,7 @@ The migration of the data is performed for each node and timestep in a 4D sense 
 
 Before you start
 ----------------
-You will need an archive of waveform files organised into a regular structure (see `Archive` tutorial), a traveltime LUT (as generated in the previous tutorial) and a station file (as used to generate the LUT). You will also need to choose a location to store your results and a name for your run. QuakeMigrate will automatically generate an output structure to store all your results and place this in a folder in your chosen location named as the run name. You may well run QuakeMigrate many times before you reach the final set of parameter values which produce the best results. It is therefore recommended you devise a naming scheme to help you distinguish between your trials. Information on the parameters for each run can be found at the head of the corresponding log file.
+You will need an archive of waveform files organised into a regular structure (see the :class:`Archive <https://quakemigrate.readthedocs.io/en/docs-tutorials/tutorials/archive.html>`_), a traveltime LUT (as generated in the previous tutorial) and a station file (as used to generate the LUT). You will also need to choose a location to store your results and a name for your run. QuakeMigrate will automatically generate an output structure to store all your results and place this in a folder (named by the run name) in your chosen location. You may well run QuakeMigrate many times before you reach the final set of parameter values which produce the best results. It is therefore recommended you devise a naming scheme to help you distinguish between your trials. Information on the parameters for each run can be found at the head of the corresponding log file.
 
 .. note:: The output directory and run names are used to link the outputs from one stage to the next. As such, you must be consistent across ``detect``, ``trigger``, and ``locate`` for a full run.
 
@@ -17,6 +17,7 @@ We proceed by defining these parameters as variables.
 ::
 
     from quakemigrate.io import read_stations
+
 
     archive_path = "/path/to/archived/data"
     lut_file = "/path/to/lut_file"
@@ -34,11 +35,12 @@ Detect runs on continuous data between two defined timestamps. Internally, Quake
     starttime = "2018-001T00:00:00.0"
     endtime = "2018-002T00:00:00.0"
 
-The waveform archive is defined using an `Archive` object (see `Archive` tutorial) and the saved LUT can be loaded using the :func:`quakemigrate.io.read_lut` function.
+The waveform archive is defined using an :class:`Archive` object (`see Archive tutorial <https://quakemigrate.readthedocs.io/en/docs-tutorials/tutorials/archive.html>`_) and the saved LUT can be loaded using the :func:`quakemigrate.io.read_lut` function.
 
 ::
 
     from quakemigrate.io import Archive, read_lut
+
     
     archive = Archive(archive_path=archive_path, stations=stations,
                   archive_format="YEAR/JD/STATION")
@@ -62,11 +64,13 @@ The onset function should (if correctly specified) peak at the arrival time of a
 
 Deciding your Onset Function
 ############################
-QuakeMigrate currently ships with one option to use as an onset function (`STALTAOnset`). Custom functions are easily added to QuakeMigrate and are discussed in a further tutorial. 
+QuakeMigrate currently ships with one option to use as an onset function (:class:`STALTAOnset`)). Custom functions are easily added to QuakeMigrate and are discussed in a further tutorial. 
 
 ::
 
     from quakemigrate.signal.onset import STALTAOnset
+
+
     onset = STALTAOnset(position="classic")
 
 The STALTA function is the ratio between the average value in a short window to the average value in a longer window. In theory, if your window lengths are well-chosen, this function should peak at the arrival time of a seismic phase. The :class:`STALTAOnset` function that ships with QuakeMigrate takes a keyword argument (``position``) which specifies the window position relative to the reference point (see image below).
@@ -84,8 +88,10 @@ Prior inspection of your recorded data before analysis is strongly recommended t
 ::
 
     # [lowcut (Hz), highcut (Hz), corners]
-    onset.bandpass_filter = {"P": [2, 9.9, 2]
-                             "S": [2, 9.9, 2]}
+    onset.bandpass_filter = {
+        "P": [2, 9.9, 2]
+        "S": [2, 9.9, 2]
+    }
 
 High- and low-cut frequencies can be defined for both P- and S-waves separately and are defined in Hertz. Typically S-waves have lower frequency content than P-waves and the horizontal components may have a different seismic-noise frequency content to the vertical component.
 
@@ -102,8 +108,10 @@ In combination with your filter choice, the choice of window length is the most 
 ::
 
     # [length of short window (s), length of long window (s)]
-    onset.sta_lta_windows = {"P": [0.2, 1.5],
-                             "S": [0.2, 1.5]}
+    onset.sta_lta_windows = {
+        "P": [0.2, 1.5],
+        "S": [0.2, 1.5]
+    }
 
 A good place to start is to choose a short window length equal to 2-3 times the dominant period of the signal you are hoping to capture. The long window values are then much longer than the short window. Typical values are 5-10 times the length of the short window. 
 
@@ -115,12 +123,16 @@ When choosing your parameters, you should experiment with different values using
     from quakemigrate.signal.onsets import STALTAOnset
     from quakemigrate.io import Archive, read_stations
 
+
     # define an archive object
     archive_path = "/path/to/archived/data"
     station_file = "/path/to/station_file"
     stations = read_stations(station_file)
-    archive = Archive(archive_path=archive_path, stations=stations,
-                      archive_format="YEAR/JD/STATION")
+    archive = Archive(
+        archive_path=archive_path,
+        stations=stations,
+        archive_format="YEAR/JD/STATION"
+    )
                     
     # Read a snippet of data (ideally around a known event)
     starttime = "2018-001T10:00:00.0"
@@ -129,17 +141,21 @@ When choosing your parameters, you should experiment with different values using
 
     # Define the onset function
     onset = STALTAOnset(sampling_rate=sampling_rate, position="classic")
-    onset.bandpass_filter = {"P": [2, 9.9, 2]
-                             "S": [2, 9.9, 2]}
-    onset.sta_lta_windows = {"P": [0.2, 1.5],
-                             "S": [0.2, 1.5]}
+    onset.bandpass_filter = {
+        "P": [2, 9.9, 2]
+        "S": [2, 9.9, 2]
+    }
+    onset.sta_lta_windows = {
+        "P": [0.2, 1.5],
+        "S": [0.2, 1.5]
+    }
 
     # Apply the onset function to the data snippet
     onset_data = onset.calculate_onsets(data)
 
     # Onset data is a numpy array of the P and S onsets
     # to plot the Z-component of the first station
-    fig, axs = plt.subplots(3, 1)
+    fig, axs = plt.subplots(nrows=3, ncols=1, constrained_layout=True)
 
     raw_waveform = data.signal[0, 0, :]
     filtered_waveform = data.filtered_signal[0, 0, :]
@@ -159,7 +175,6 @@ When choosing your parameters, you should experiment with different values using
     axs[2].set_ylabel('signal-to-noise ratio')
     axs[2].set_title('Onset function')
 
-    plt.tight_layout()
     plt.show()
 
 `Detect` parameters
@@ -167,10 +182,19 @@ When choosing your parameters, you should experiment with different values using
 The `detect` stage of QuakeMigrate takes relatively few parameters which the user should set before starting the run. These mostly affect the runtime of the detect run and optimising them can dramatically reduce the overall compute time. 
 
 ::
+
     from quakemigrate import QuakeScan
-    
-    scan = QuakeScan(archive, lut, onset=onset, run_path=run_path,
-                     run_name=run_name, log=True, loglevel="info")
+
+
+    scan = QuakeScan(
+        archive,
+        lut,
+        onset=onset,
+        run_path=run_path,
+        run_name=run_name,
+        log=True,
+        loglevel="info"
+    )
     scan.sampling_rate = 20
     scan.timestep = 120.
     scan.threads = 12
@@ -181,8 +205,8 @@ The ``timestep`` parameter is used to balance between reducing the number of tim
 
 Finally, the ``threads`` parameter controls the number of CPU threads you wish to make available for detect to use when migrating and stacking the waveform data. If you wish to use your computer for other work while running QuakeMigrate, you may find it useful to leave some of your cores free.
 
-Starting your `detect` run
---------------------------
+Starting your Detect run
+------------------------
 
 ::
 
@@ -231,15 +255,17 @@ By using the miniSEED file format it is possible to read the outputs using the s
 
     from obspy import read
 
+
     st = read('path/to/file.scanmseed')
     print(st)
 
-    5 Trace(s) in Stream:
-    NW.COA..   | 2014-06-29T18:41:55.000000Z - 2014-06-29T18:42:20.498000Z | 500.0 Hz, 12750 samples
-    NW.COA_N.. | 2014-06-29T18:41:55.000000Z - 2014-06-29T18:42:20.498000Z | 500.0 Hz, 12750 samples
-    NW.X..     | 2014-06-29T18:41:55.000000Z - 2014-06-29T18:42:20.498000Z | 500.0 Hz, 12750 samples
-    NW.Y..     | 2014-06-29T18:41:55.000000Z - 2014-06-29T18:42:20.498000Z | 500.0 Hz, 12750 samples
-    NW.Z..     | 2014-06-29T18:41:55.000000Z - 2014-06-29T18:42:20.498000Z | 500.0 Hz, 12750 samples
+    # > Should display the following
+    # 5 Trace(s) in Stream:
+    # NW.COA..   | 2014-06-29T18:41:55.000000Z - 2014-06-29T18:42:20.498000Z | 500.0 Hz, 12750 samples
+    # NW.COA_N.. | 2014-06-29T18:41:55.000000Z - 2014-06-29T18:42:20.498000Z | 500.0 Hz, 12750 samples
+    # NW.X..     | 2014-06-29T18:41:55.000000Z - 2014-06-29T18:42:20.498000Z | 500.0 Hz, 12750 samples
+    # NW.Y..     | 2014-06-29T18:41:55.000000Z - 2014-06-29T18:42:20.498000Z | 500.0 Hz, 12750 samples
+    # NW.Z..     | 2014-06-29T18:41:55.000000Z - 2014-06-29T18:42:20.498000Z | 500.0 Hz, 12750 samples
 
     st[0].plot()
 

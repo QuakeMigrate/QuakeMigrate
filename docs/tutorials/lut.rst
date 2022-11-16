@@ -1,5 +1,5 @@
-The traveltime lookup table
-===========================
+Traveltime lookup tables
+========================
 This tutorial will cover the basic ideas and definitions underpinning the traveltime lookup table, as well as showing how they can be created.
 
 In order to reduce computational costs during runtime, we pre-compute traveltime
@@ -11,7 +11,7 @@ Before we can create our traveltime lookup table, we have to define the underlyi
 
 Coordinate projections
 ######################
-First, we choose a pair of coordinate reference systems to represent the input coordinate space (``cproj``) and the Cartesian grid space (``gproj``). We do this using `pyproj`, which provides the Python bindings for the PROJ library. It is important to think about which projection is best suited to your particular study region. More information can be found [in their documentation](https://pyproj4.github.io/pyproj/stable/).
+First, we choose a pair of coordinate reference systems to represent the input coordinate space (``cproj``) and the Cartesian grid space (``gproj``). We do this using :mod:`pyproj`, which provides the Python bindings for the :mod:`PROJ` library. It is important to think about which projection is best suited to your particular study region. More information can be found `in their documentation`<https://pyproj4.github.io/pyproj/stable/>_.
 
 .. warning:: The default units of :class:`Proj` are `metres`! It is strongly advised that you explicitly state which units you wish to use.
 
@@ -21,9 +21,19 @@ We use here the WGS84 reference ellipsoid (used as standard by the Global Positi
 
     from pyproj import Proj
 
+
     cproj = Proj(proj="longlat", ellps="WGS84", datum"=WGS84", no_defs=True)
-    gproj = Proj(proj="lcc", lon_0=116.75, lat_0=6.25, lat_1=4.0, lat_2=7.5,
-             datum="WGS84", ellps="WGS84", units="km", no_defs=True)
+    gproj = Proj(
+        proj="lcc",
+        lon_0=116.75,
+        lat_0=6.25,
+        lat_1=4.0,
+        lat_2=7.5,
+        datum="WGS84",
+        ellps="WGS84",
+        units="km",
+        no_defs=True
+    )
 
 Geographical location and spatial extent
 ########################################
@@ -45,8 +55,8 @@ The final piece of information required to fully define the grid on which we wil
 
 Bundling the grid specification
 ###############################
-The grid specification needs to be bundled into a dictionary to be used as an input for the `compute_traveltimes` function. We use here the :class:`AttribDict` from ObsPy, which extends the standard Python `dict` data structure to also
-have `.`-style access.
+The grid specification needs to be bundled into a dictionary to be used as an input for the :func:`compute_traveltimes` function. We use here the :class:`AttribDict` from ObsPy, which extends the standard Python :class:`dict` data structure to also
+have ``.``-style access.
 
 ::
 
@@ -67,14 +77,15 @@ In addition to the grid specification, we need to provide a list of stations for
 
     from quakemigrate.io import read_stations
 
+
     stations = read_stations("/path/to/station_file")
 
-The `read_stations` function is a passthrough for `pandas.read_csv`, so we can handle any delimiting characters (e.g. by specifying `read_stations("station_file", delimiter=",")`). There are four required (case-sensitive) column
-headers - "Name", "Longitude", "Latitude", "Elevation".
+The :func:`read_stations` function is a passthrough for :func:`pandas.read_csv`, so we can handle any delimiting characters (e.g. by specifying ``read_stations("station_file", delimiter=",")``). There are four required (case-sensitive) column
+headers - ``Name``, ``Longitude``, ``Latitude``, ``Elevation``.
 
 .. note:: Station elevations are in the positive-up/right-handed coordinate frame. An elevation of 2 would correspond to 2 (km) above sea level.
 
-The `compute_traveltimes` function used in the following sections returns a lookup table (a fully-populated instance of the LUT class) which can be used for `detect`, `trigger`, and `locate`.
+The :func:`compute_traveltimes` function used in the following sections returns a lookup table (a fully-populated instance of the LUT class) which can be used for `detect`, `trigger`, and `locate`.
 
 Homogeneous velocity model
 ##########################
@@ -84,12 +95,20 @@ Simply calculates the straight line traveltimes between stations and points in t
 
     from quakemigrate.lut import compute_traveltimes
 
-    compute_traveltimes(grid_spec, stations, method="homogeneous", vp=5., vs=3.,
-                        log=True, save_file=/path/to/save_file)
+
+    compute_traveltimes(
+        grid_spec,
+        stations,
+        method="homogeneous",
+        vp=5.,
+        vs=3.,
+        log=True,
+        save_file=/path/to/save_file
+    )
 
 1-D velocity models
 ###################
-1-D velocity models are read in from an (arbitrarily delimited) textfile using `quakemigrate.io.read_vmodel`. There is only 1 required (case-sensitive) column header - "Depth", which corresponds to the depths for each block in the velocity model. Each additional column should contain a velocity model that corresponds to a particular seismic phase, with a (case-sensitive) header, e.g. `Vp` (Note: Uppercase `V`, lowercase phase code).
+1-D velocity models are read in from an (arbitrarily delimited) textfile using :func:`quakemigrate.io.read_vmodel`. There is only 1 required (case-sensitive) column header - ``Depth``, which corresponds to the depths for each block in the velocity model. Each additional column should contain a velocity model that corresponds to a particular seismic phase, with a (case-sensitive) header, e.g. ``Vp`` (Note: Uppercase ``V``, lowercase phase code).
 
 .. note:: The units for velocities should correspond to the units used in specifying the grid projection. km -> km / s; m -> m / s.
 
@@ -97,7 +116,7 @@ Simply calculates the straight line traveltimes between stations and points in t
 
 1-D fast-marching method
 ************************
-The fast-marching method implicitly tracks the evolution of the wavefront. Our current backend is the `scikit-fmm` package. It is possible to use this package to compute traveltimes to 1-D, 2-D, or 3-D velocity models. Currently we provide a utility function that computes traveltime tables for 1-D velocity models. The format of this velocity model file is specified below. See the `scikit-fmm` documentation and Rawlinson & Sambridge (2005) for more details.
+The fast-marching method implicitly tracks the evolution of the wavefront. Our current backend is the :mod:`scikit-fmm` package. It is possible to use this package to compute traveltimes to 1-D, 2-D, or 3-D velocity models. Currently we provide a utility function that computes traveltime tables for 1-D velocity models. The format of this velocity model file is specified below. See the `scikit-fmm` documentation and Rawlinson & Sambridge (2005) for more details.
 
 .. note:: Traveltime calculation can only be performed between grid nodes: the station location is therefore taken as the closest grid node. Note that for large node spacings this may cause a modest error in the calculated traveltimes.
 
@@ -108,9 +127,16 @@ The fast-marching method implicitly tracks the evolution of the wavefront. Our c
     from quakemigrate.lut import compute_traveltimes
     from quakemigrate.io import read_vmodel
 
+
     vmod = read_vmodel("/path/to/vmodel_file")
-    compute_traveltimes(grid_spec, stations, method="1dfmm", vmod=vmod,
-                        log=True, save_file=/path/to/save_file)
+    compute_traveltimes(
+        grid_spec,
+        stations,
+        method="1dfmm",
+        vmod=vmod,
+        log=True,
+        save_file=/path/to/save_file
+    )
 
 1-D NonLinLoc-style sweep
 *************************
@@ -123,9 +149,17 @@ Uses the Eikonal solver from NonLinLoc under the hood to generate a traveltime g
     from quakemigrate.lut import compute_traveltimes
     from quakemigrate.io import read_vmodel
 
+
     vmod = read_vmodel("/path/to/vmodel_file")
-    compute_traveltimes(grid_spec, stations, method="1dsweep", vmod=vmod,
-                        block_model=True, log=True, save_file=/path/to/save_file)
+    compute_traveltimes(
+        grid_spec,
+        stations,
+        method="1dsweep",
+        vmod=vmod,
+        block_model=True,
+        log=True,
+        save_file=/path/to/save_file
+    )
 
 Other formats
 #############
@@ -134,13 +168,14 @@ It is also easy to import traveltime lookup tables generated by other means. We 
 ::
 
     lut.traveltimes.setdefault(STATION, {}).update(
-        {PHASE.upper(): traveltime_table})
+        {PHASE.upper(): traveltime_table}
+    )
 
-where `STATION` and `PHASE` are station name and seismic phase strings, respectively.
+where ``STATION`` and ``PHASE`` are station name and seismic phase strings, respectively.
 
 Saving your LUT
 ---------------
-If you provided a ``save_file`` argument to the ``compute_traveltimes`` function, the LUT will already be saved. In any case, the lookup table object is returned by the `compute_traveltimes` function if you wish to explore the object further. We use the `pickle` library (a Python standard library) to serialise the LUT, which essentially freezes the state of the LUT. If you have added 3rd-party traveltime lookup tables to the LUT, you will need to save using:
+If you provided a ``save_file`` argument to the :func:`compute_traveltimes` function, the LUT will already be saved. In any case, the lookup table object is returned by the :func:`compute_traveltimes` function if you wish to explore the object further. We use the :mod:`pickle` library (a Python standard library) to serialise the LUT, which essentially freezes the state of the LUT. If you have added 3rd-party traveltime lookup tables to the LUT, you will need to save using:
 
 ::
 
@@ -148,7 +183,7 @@ If you provided a ``save_file`` argument to the ``compute_traveltimes`` function
 
 Reading in a saved LUT
 ----------------------
-When running the main stages of QuakeMigrate (`detect`, `trigger`, and `locate`)
+When running the main stages of QuakeMigrate (**Detect**, **Trigger**, and **Locate**)
 it is necessary to read in the saved LUT, which can be done as:
 
 ::

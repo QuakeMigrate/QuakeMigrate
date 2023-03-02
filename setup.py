@@ -66,11 +66,11 @@ else:
     IS_MSVC = False
 
 INSTALL_REQUIRES = [
-    "matplotlib<3.3",
+    "matplotlib",
     "numpy",
-    "obspy>=1.2",
-    "pandas==1.0.*",
-    "pyproj>=2.5",
+    "obspy",
+    "pandas",
+    "pyproj",
     "scipy"
 ]
 
@@ -84,7 +84,7 @@ if READ_THE_DOCS:
 else:
     EXTRAS_REQUIRES = {
         "fmm": [
-            "scikit-fmm==2019.1.30"
+            "scikit-fmm==2022.08.15"
         ]
     }
 

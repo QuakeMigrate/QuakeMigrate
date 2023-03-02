@@ -88,7 +88,7 @@ scikit-fmm is a 3rd-party package which implements the fast-marching method. We 
 
 .. code-block:: bash
     
-    pip install scikit-fmm==2019.1.30
+    pip install scikit-fmm==2022.08.15
 
 It can also be installed along with the rest of package (see :ref:`Other installation methods`).
 

@@ -5,10 +5,10 @@ channels:
 dependencies:
   - ipython
   - jupyter
-  - matplotlib <3.3
+  - matplotlib
   - numpy
-  - obspy >=1.2
-  - pandas ==1.0.*
-  - python >=3.7,<3.10
-  - pyproj >=2.5
+  - obspy
+  - pandas
+  - python
+  - pyproj
   - scipy

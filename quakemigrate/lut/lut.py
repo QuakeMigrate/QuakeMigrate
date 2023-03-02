@@ -124,7 +124,7 @@ class Grid3D:
 
         """
 
-        df = np.array(df, dtype=np.int)
+        df = np.array(df, dtype=int)
 
         new_node_count = 1 + (self.node_count - 1) // df
         c1 = (self.node_count - df * (new_node_count - 1) - 1) // 2

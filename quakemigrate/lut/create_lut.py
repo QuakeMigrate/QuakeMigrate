@@ -211,6 +211,16 @@ def compute_traveltimes(grid_spec, stations, method, phases=["P", "S"],
             logging.info(f"\t...phase: {phase}...")
             _compute_1d_nlloc(lut, phase, vmodel, **kwargs)
 
+    elif method == "1dpykonal":
+        logging.info("Computing 1-D nlloc traveltimes for...")
+        lut.velocity_model = vmodel = kwargs.get("vmod")
+        if vmodel is None:
+            raise TypeError("Missing argument: 'vmod'")
+
+        for phase in phases:
+            logging.info(f"\t...phase: {phase}...")
+            _compute_1d_pykonal(lut, phase, vmodel, **kwargs)
+
     else:
         raise ValueError(f"'{method} is not a valid method. Please consult the"
                          "documentation. Valid options are 'homogeneous', "
@@ -484,6 +494,122 @@ def _compute_1d_nlloc(lut, phase, vmodel, **kwargs):
         else:
             logging.info("Warning: time directory not empty; does it contain "
                          "traveltime grids from a previous run?\nNot removed.")
+
+def _compute_1d_pykonal(lut, phase, vmodel, **kwargs):
+    """
+    Calculate 3-D traveltime lookup tables from a 1-D velocity model.
+
+    A pure python method (pykonal) is used to generate a 2D lookup table 
+    which is then swept around the full range of azimuths, centred on the 
+    station location, to populate the 3-D traveltime grid.
+
+    Parameters
+    ----------
+    lut : :class:`~quakemigrate.lut.lut.LUT` object
+        Defines the grid on which the traveltimes are to be calculated.
+    phase : str
+        The seismic phase for which to calculate traveltimes.
+    vmodel : `pandas.DataFrame` object
+        DataFrame containing the velocity model to be used to generate the LUT.
+        Columns:
+            "Depth" of each layer in model (positive down)
+            "V<phase>" velocity for each layer in model (e.g. "Vp")
+    kwargs : dict
+        Can contain:
+        pykonal_dx : float, optional
+            pykonal 2D grid spacing (default: 0.2 km). Note: units must be km.
+        pykonal_buffer : float, optional
+            number of nodes pykonal uses as a buffer (default 5)
+        block_model : bool, optional
+            Toggle to choose whether to interpret velocity model with constant
+            velocity blocks or a linear gradient (default: False).
+
+    Raises
+    ------
+
+    """
+
+    import pykonal
+    SMALL_NUMBER = 1e-4
+
+    # Unpack kwargs
+    pykonal_dx = kwargs.get("pykonal_dx", 0.1)
+    pykonal_buffer = kwargs.get("pykonal_buffer", 5)
+    block_model = kwargs.get("block_model", False)
+
+    # For pykonal, distances/velocities must be in km - use conversion factor
+    km_cf = 1000 / lut.unit_conversion_factor
+    grid_xyz = [g / km_cf for g in lut.grid_xyz]
+    stations_xyz = lut.stations_xyz / km_cf
+    ll, *_, ur = lut.grid_corners / km_cf
+    vmodel = vmodel / km_cf
+
+    for i, station in enumerate(lut.station_data["Name"].values):
+        logging.info(f"\t\t...running Pykonal - station: {station:5s} - "
+                     f"{i+1} of {stations_xyz.shape[0]}")
+
+        dx, dy = [grid_xyz[j] - stations_xyz[i, j] for j in range(2)]
+        distances = np.sqrt(dx**2 + dy**2).flatten()
+        depths = grid_xyz[2].flatten()
+        max_dist = np.max(distances)
+
+        # NLLoc needs the station to lie within the 2-D section -> we pick the
+        # depth extent of the 2-D grid from the max. possible extent of the
+        # station and the grid - [min_z, max_z]
+        depth_span = [np.min([ll[2], stations_xyz[i, 2]]),
+                      np.max([ur[2], stations_xyz[i, 2]])]
+
+        # define parameters for pykonal
+        grid0 = -(pykonal_buffer*pykonal_dx), np.floor((depth_span[0] -(pykonal_buffer*pykonal_dx)) / pykonal_dx) * pykonal_dx, 0
+        print(np.ceil((max_dist - grid0[0]) / pykonal_dx))
+        print(max_dist)
+        nx = int(np.ceil((max_dist - grid0[0]) / pykonal_dx)) + 5
+        ny = int(np.ceil((depth_span[1] - grid0[1]) / pykonal_dx)) + 5
+        nz = 1
+        x0, y0, z0 = SMALL_NUMBER, stations_xyz[i, 2], SMALL_NUMBER 
+        if (y0/pykonal_dx) == np.round(y0/pykonal_dx):
+            y0 += SMALL_NUMBER
+
+        # Instantiate EikonalSolver object using Cartesian coordinates.
+        solver = pykonal.solver.PointSourceSolver(coord_sys="cartesian")
+
+        # Set the coordinates of the lower bounds of the computational grid.
+        solver.velocity.min_coords = grid0
+
+        # Set the interval between nodes of the computational grid.
+        # For Cartesian coordinates this is dx, dy, dz.
+        solver.velocity.node_intervals = pykonal_dx, pykonal_dx, pykonal_dx
+        # set the interval for the near_field grid
+        solver.nphi, solver.ntheta, solver.nrho = 64, 32, 200
+        solver.dphi, solver.dtheta, solver.drho = np.deg2rad(360/solver.nphi), np.deg2rad(180/solver.ntheta), 4. / solver.nrho
+
+        # Set the number of nodes in the computational grid.
+        solver.velocity.npts = nx, ny, nz
+        
+        if block_model == "block":
+            interp_kind = "previous"
+        else:
+            interp_kind = "linear"
+        vmodel_interp = interp1d(vmodel["Depth"], vmodel[f"V{phase.lower()}"], 
+                            kind=interp_kind, bounds_error=False, 
+                            fill_value=(vmodel[f"V{phase.lower()}"].iloc[0], 
+                                        vmodel[f"V{phase.lower()}"].iloc[-1]))
+
+        # node coordinates are solver.velocity.nodes
+        solver.velocity.values = vmodel_interp(solver.velocity.nodes[:, :, :, 1])
+
+        # Initialize the source. This is the trickiest part of the example.
+        solver.src_loc = [x0, y0, z0]
+
+        # Solve the system.
+        solver.solve()
+
+        lut.traveltimes.setdefault(station, {}).update(
+            {phase: _bilinear_interpolate(np.c_[distances, depths],
+                                          [grid0[0], grid0[1]],
+                                          [pykonal_dx, pykonal_dx],
+                                          solver.traveltime.values[:, :, 0]
+                                          ).reshape(lut.node_count)})
 
 
 def _write_control_file(station_xyz, station, max_dist, vmodel, depth_span,

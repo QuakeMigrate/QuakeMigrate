@@ -3,7 +3,7 @@
 Module that supplies various utility functions and classes.
 
 :copyright:
-    2020, QuakeMigrate developers.
+    2020 - 2021, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -31,9 +31,9 @@ def make_directories(run, subdir=None):
 
     Parameters
     ----------
-    run : pathlib Path object
+    run : `pathlib.Path` object
         Location of parent output directory, named by run name.
-    subdir : string, optional
+    subdir : str, optional
         subdir to make beneath the run level.
 
     """
@@ -211,7 +211,7 @@ class DateFormatter(ticker.Formatter):
     """
     Extend the `matplotlib.ticker.Formatter` class to allow for millisecond
     precision when formatting a tick (in days since the epoch) with a
-    `~datetime.datetime.strftime` format string.
+    `datetime.datetime.strftime` format string.
 
     """
 
@@ -220,7 +220,7 @@ class DateFormatter(ticker.Formatter):
         Parameters
         ----------
         fmt : str
-            `~datetime.datetime.strftime` format string.
+            `datetime.datetime.strftime` format string.
         precision : int
             Degree of precision to which to report sub-second time intervals.
 
@@ -553,7 +553,7 @@ def upsample(trace, upfactor, starttime, endtime):
             * trace.stats.sampling_rate * upfactor)
         logging.debug(f"Start pad = {start_pad}")
         # Add padding data (constant value)
-        start_fill = np.full(np.int(start_pad), trace.data[0], dtype=int)
+        start_fill = np.full(int(start_pad), trace.data[0], dtype=int)
         dnew = np.append(start_fill, dnew)
         # Calculate new starttime of trace
         new_starttime = trace.stats.starttime - start_pad \
@@ -570,7 +570,7 @@ def upsample(trace, upfactor, starttime, endtime):
             * trace.stats.sampling_rate * upfactor)
         logging.debug(f"End pad = {end_pad}")
         # Add padding data (constant value)
-        end_fill = np.full(np.int(end_pad), trace.data[-1], dtype=int)
+        end_fill = np.full(int(end_pad), trace.data[-1], dtype=int)
         dnew = np.append(dnew, end_fill)
 
     out = Trace()

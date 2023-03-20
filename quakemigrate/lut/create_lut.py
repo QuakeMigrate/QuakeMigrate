@@ -3,7 +3,7 @@
 Module to produce traveltime lookup tables defined on a Cartesian grid.
 
 :copyright:
-    2020, QuakeMigrate developers.
+    2020 - 2021, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -11,6 +11,7 @@ Module to produce traveltime lookup tables defined on a Cartesian grid.
 """
 
 import logging
+import warnings
 import os
 import pathlib
 import struct
@@ -36,7 +37,7 @@ def read_nlloc(path, stations, phases=["P", "S"], fraction_tt=0.1,
     stations : `pandas.DataFrame`
         DataFrame containing station information (lat/lon/elev).
     phases : list of str, optional
-        List of seismic phases for which to calculate traveltimes.
+        List of seismic phases for which to read in traveltimes.
     fraction_tt : float, optional
         An estimate of the uncertainty in the velocity model as a function of
         a fraction of the traveltime. (Default 0.1 == 10%)
@@ -48,8 +49,14 @@ def read_nlloc(path, stations, phases=["P", "S"], fraction_tt=0.1,
 
     Returns
     -------
-    lut : :class:`~quakemigrate.lut.LUT` object
-        Lookup table populated with traveltimes from the NonLinLoc files.
+    lut : :class:`~quakemigrate.lut.lut.LUT` object
+        Lookup table populated with traveltimes from the NonLinLoc lookup table
+        files.
+
+    Raises
+    ------
+    NotImplementedError
+        If the specified projection type is not supported.
 
     """
 
@@ -119,11 +126,13 @@ def compute_traveltimes(grid_spec, stations, method, phases=["P", "S"],
     stations : `pandas.DataFrame`
         DataFrame containing station information (lat/lon/elev).
     method : str
-        Method to be used when computing the traveltime lookup tables.
-            "homogeneous" - straight line velocities
-            "1dfmm" - 1-D fast-marching method using scikit-fmm
-            "1dsweep" - a 2-D traveltime grid for a 1-D velocity model is swept
-                        over the 3-D grid using a bilinear interpolation scheme
+        Method to be used when computing the traveltime lookup tables.\n
+            "homogeneous" - straight line velocities.\n
+            "1dfmm" - 1-D fast-marching method using scikit-fmm.\n
+            "1dnlloc" - a 2-D traveltime grid is calculated from the 1-D\
+                        velocity model using the Grid2Time eikonal solver in\
+                        NonLinLoc, then swept over the 3-D grid using a\
+                        bilinear interpolation scheme.
     phases : list of str, optional
         List of seismic phases for which to calculate traveltimes.
     fraction_tt : float, optional
@@ -140,8 +149,17 @@ def compute_traveltimes(grid_spec, stations, method, phases=["P", "S"],
 
     Returns
     -------
-    lut : :class:`~quakemigrate.lut.LUT` object
-        Lookup table populated with traveltimes from the NonLinLoc files.
+    lut : :class:`~quakemigrate.lut.lut.LUT` object
+        Lookup table populated with traveltimes.
+
+    Raises
+    ------
+    ValueError
+        If the specified `method` is not a valid option.
+    TypeError
+        If the velocity model, or constant phase velocity, is not specified.
+    NotImplementedError
+        If the `3dfmm` method is specified.
 
     """
 
@@ -150,6 +168,12 @@ def compute_traveltimes(grid_spec, stations, method, phases=["P", "S"],
     lut = LUT(**grid_spec, fraction_tt=fraction_tt)
     lut.station_data = stations
     lut.phases = phases
+
+    if method == "1dsweep":
+        warnings.warn("Parameter name has changed - continuing. To remove this"
+                      " message, change:\t'1dsweep' -> '1dnlloc'.",
+                      DeprecationWarning, 2)
+        method = "1dnlloc"
 
     if method == "homogeneous":
         logging.info("Computing homogeneous traveltimes for...")
@@ -163,7 +187,7 @@ def compute_traveltimes(grid_spec, stations, method, phases=["P", "S"],
             logging.info(f"\t...phase: {phase}...")
             _compute_homogeneous(lut, phase, velocity)
 
-    if method == "1dfmm":
+    elif method == "1dfmm":
         logging.info("Computing 1-D fast-marching traveltimes for...")
         lut.velocity_model = vmodel = kwargs.get("vmod")
         if vmodel is None:
@@ -173,19 +197,34 @@ def compute_traveltimes(grid_spec, stations, method, phases=["P", "S"],
             logging.info(f"\t...phase: {phase}...")
             _compute_1d_fmm(lut, phase, vmodel)
 
-    if method == "3dfmm":
+    elif method == "3dfmm":
         raise NotImplementedError("Feature coming soon - please contact the "
-                                  "QuakeMigrate developers")
+                                  "QuakeMigrate developers.")
 
-    if method == "1dsweep":
-        logging.info("Computing 1-D sweep traveltimes for...")
+    elif method == "1dnlloc":
+        logging.info("Computing 1-D nlloc traveltimes for...")
         lut.velocity_model = vmodel = kwargs.get("vmod")
         if vmodel is None:
             raise TypeError("Missing argument: 'vmod'")
 
         for phase in phases:
             logging.info(f"\t...phase: {phase}...")
-            _compute_1d_sweep(lut, phase, vmodel, **kwargs)
+            _compute_1d_nlloc(lut, phase, vmodel, **kwargs)
+
+    elif method == "1dpykonal":
+        logging.info("Computing 1-D nlloc traveltimes for...")
+        lut.velocity_model = vmodel = kwargs.get("vmod")
+        if vmodel is None:
+            raise TypeError("Missing argument: 'vmod'")
+
+        for phase in phases:
+            logging.info(f"\t...phase: {phase}...")
+            _compute_1d_pykonal(lut, phase, vmodel, **kwargs)
+
+    else:
+        raise ValueError(f"'{method} is not a valid method. Please consult the"
+                         "documentation. Valid options are 'homogeneous', "
+                         "'1dfmm' and '1dnlloc'.")
 
     if save_file is not None:
         lut.save(save_file)
@@ -200,7 +239,7 @@ def _compute_homogeneous(lut, phase, velocity):
 
     Parameters
     ----------
-    lut : :class:`~quakemigrate.lut.LUT` object
+    lut : :class:`~quakemigrate.lut.lut.LUT` object
         Defines the grid on which the traveltimes are to be calculated.
     phase : str
         The seismic phase for which to calculate traveltimes.
@@ -230,7 +269,7 @@ def _compute_1d_fmm(lut, phase, vmodel):
 
     Parameters
     ----------
-    lut : :class:`~quakemigrate.lut.LUT` object
+    lut : :class:`~quakemigrate.lut.lut.LUT` object
         Defines the grid on which the traveltimes are to be calculated.
     phase : str
         The seismic phase for which to calculate traveltimes.
@@ -239,6 +278,12 @@ def _compute_1d_fmm(lut, phase, vmodel):
         Columns:
             "Depth" of each layer in model (positive down)
             "V<phase>" velocity for each layer in model (e.g. "Vp")
+
+    Raises
+    ------
+    InvalidVelocityModelHeader
+        If the velocity model does not contain the key corresponding to the
+        specified seismic `phase`. (E.g. "Vp" for "P" phase.)
 
     """
 
@@ -299,7 +344,13 @@ def _eikonal_fmm(grid_xyz, node_spacing, velocity_grid, station_xyz):
         the input array speed has values less than or equal to zero the return
         value will be a masked array.
 
+    Raises
+    ------
+    ImportError
+        If scikit-fmm is not installed.
+
     """
+
     try:
         import skfmm
     except ImportError:
@@ -318,7 +369,7 @@ def _eikonal_fmm(grid_xyz, node_spacing, velocity_grid, station_xyz):
     return skfmm.travel_time(phi, velocity_grid, dx=node_spacing)
 
 
-def _compute_1d_sweep(lut, phase, vmodel, **kwargs):
+def _compute_1d_nlloc(lut, phase, vmodel, **kwargs):
     """
     Calculate 3-D traveltime lookup tables from a 1-D velocity model.
 
@@ -332,7 +383,7 @@ def _compute_1d_sweep(lut, phase, vmodel, **kwargs):
 
     Parameters
     ----------
-    lut : :class:`~quakemigrate.lut.LUT` object
+    lut : :class:`~quakemigrate.lut.lut.LUT` object
         Defines the grid on which the traveltimes are to be calculated.
     phase : str
         The seismic phase for which to calculate traveltimes.
@@ -352,7 +403,15 @@ def _compute_1d_sweep(lut, phase, vmodel, **kwargs):
             velocity blocks or a linear gradient (default: False).
         retain_nll_grids : bool, optional
             Toggle to choose whether to keep the 2-D traveltime grids created
-            by NonLinLoc (default: False).
+            by NonLinLoc Grid2Time (default: False).
+
+    Raises
+    ------
+    FileNotFoundError
+        If the Vel2Grid and/or Grid2Time executables are not found in the
+        `nlloc_path`.
+    Exception
+        If the execution of `Grid2Time` or `Vel2Grid` returns an error.
 
     """
 
@@ -384,7 +443,7 @@ def _compute_1d_sweep(lut, phase, vmodel, **kwargs):
     (cwd / "model").mkdir(exist_ok=True)
 
     for i, station in enumerate(lut.station_data["Name"].values):
-        logging.info(f"\t\t...running NonLinLoc - station: {station:5s} - "
+        logging.info(f"\t\t...running Grid2Time - station: {station:5s} - "
                      f"{i+1} of {stations_xyz.shape[0]}")
 
         dx, dy = [grid_xyz[j] - stations_xyz[i, j] for j in range(2)]
@@ -435,6 +494,122 @@ def _compute_1d_sweep(lut, phase, vmodel, **kwargs):
         else:
             logging.info("Warning: time directory not empty; does it contain "
                          "traveltime grids from a previous run?\nNot removed.")
+
+def _compute_1d_pykonal(lut, phase, vmodel, **kwargs):
+    """
+    Calculate 3-D traveltime lookup tables from a 1-D velocity model.
+
+    A pure python method (pykonal) is used to generate a 2D lookup table 
+    which is then swept around the full range of azimuths, centred on the 
+    station location, to populate the 3-D traveltime grid.
+
+    Parameters
+    ----------
+    lut : :class:`~quakemigrate.lut.lut.LUT` object
+        Defines the grid on which the traveltimes are to be calculated.
+    phase : str
+        The seismic phase for which to calculate traveltimes.
+    vmodel : `pandas.DataFrame` object
+        DataFrame containing the velocity model to be used to generate the LUT.
+        Columns:
+            "Depth" of each layer in model (positive down)
+            "V<phase>" velocity for each layer in model (e.g. "Vp")
+    kwargs : dict
+        Can contain:
+        pykonal_dx : float, optional
+            pykonal 2D grid spacing (default: 0.2 km). Note: units must be km.
+        pykonal_buffer : float, optional
+            number of nodes pykonal uses as a buffer (default 5)
+        block_model : bool, optional
+            Toggle to choose whether to interpret velocity model with constant
+            velocity blocks or a linear gradient (default: False).
+
+    Raises
+    ------
+
+    """
+
+    import pykonal
+    SMALL_NUMBER = 1e-4
+
+    # Unpack kwargs
+    pykonal_dx = kwargs.get("pykonal_dx", 0.1)
+    pykonal_buffer = kwargs.get("pykonal_buffer", 5)
+    block_model = kwargs.get("block_model", False)
+
+    # For pykonal, distances/velocities must be in km - use conversion factor
+    km_cf = 1000 / lut.unit_conversion_factor
+    grid_xyz = [g / km_cf for g in lut.grid_xyz]
+    stations_xyz = lut.stations_xyz / km_cf
+    ll, *_, ur = lut.grid_corners / km_cf
+    vmodel = vmodel / km_cf
+
+    for i, station in enumerate(lut.station_data["Name"].values):
+        logging.info(f"\t\t...running Pykonal - station: {station:5s} - "
+                     f"{i+1} of {stations_xyz.shape[0]}")
+
+        dx, dy = [grid_xyz[j] - stations_xyz[i, j] for j in range(2)]
+        distances = np.sqrt(dx**2 + dy**2).flatten()
+        depths = grid_xyz[2].flatten()
+        max_dist = np.max(distances)
+
+        # NLLoc needs the station to lie within the 2-D section -> we pick the
+        # depth extent of the 2-D grid from the max. possible extent of the
+        # station and the grid - [min_z, max_z]
+        depth_span = [np.min([ll[2], stations_xyz[i, 2]]),
+                      np.max([ur[2], stations_xyz[i, 2]])]
+
+        # define parameters for pykonal
+        grid0 = -(pykonal_buffer*pykonal_dx), np.floor((depth_span[0] -(pykonal_buffer*pykonal_dx)) / pykonal_dx) * pykonal_dx, 0
+        print(np.ceil((max_dist - grid0[0]) / pykonal_dx))
+        print(max_dist)
+        nx = int(np.ceil((max_dist - grid0[0]) / pykonal_dx)) + 5
+        ny = int(np.ceil((depth_span[1] - grid0[1]) / pykonal_dx)) + 5
+        nz = 1
+        x0, y0, z0 = SMALL_NUMBER, stations_xyz[i, 2], SMALL_NUMBER 
+        if (y0/pykonal_dx) == np.round(y0/pykonal_dx):
+            y0 += SMALL_NUMBER
+
+        # Instantiate EikonalSolver object using Cartesian coordinates.
+        solver = pykonal.solver.PointSourceSolver(coord_sys="cartesian")
+
+        # Set the coordinates of the lower bounds of the computational grid.
+        solver.velocity.min_coords = grid0
+
+        # Set the interval between nodes of the computational grid.
+        # For Cartesian coordinates this is dx, dy, dz.
+        solver.velocity.node_intervals = pykonal_dx, pykonal_dx, pykonal_dx
+        # set the interval for the near_field grid
+        solver.nphi, solver.ntheta, solver.nrho = 64, 32, 200
+        solver.dphi, solver.dtheta, solver.drho = np.deg2rad(360/solver.nphi), np.deg2rad(180/solver.ntheta), 4. / solver.nrho
+
+        # Set the number of nodes in the computational grid.
+        solver.velocity.npts = nx, ny, nz
+        
+        if block_model == "block":
+            interp_kind = "previous"
+        else:
+            interp_kind = "linear"
+        vmodel_interp = interp1d(vmodel["Depth"], vmodel[f"V{phase.lower()}"], 
+                            kind=interp_kind, bounds_error=False, 
+                            fill_value=(vmodel[f"V{phase.lower()}"].iloc[0], 
+                                        vmodel[f"V{phase.lower()}"].iloc[-1]))
+
+        # node coordinates are solver.velocity.nodes
+        solver.velocity.values = vmodel_interp(solver.velocity.nodes[:, :, :, 1])
+
+        # Initialize the source. This is the trickiest part of the example.
+        solver.src_loc = [x0, y0, z0]
+
+        # Solve the system.
+        solver.solve()
+
+        lut.traveltimes.setdefault(station, {}).update(
+            {phase: _bilinear_interpolate(np.c_[distances, depths],
+                                          [grid0[0], grid0[1]],
+                                          [pykonal_dx, pykonal_dx],
+                                          solver.traveltime.values[:, :, 0]
+                                          ).reshape(lut.node_count)})
 
 
 def _write_control_file(station_xyz, station, max_dist, vmodel, depth_span,

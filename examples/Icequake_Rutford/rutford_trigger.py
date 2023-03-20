@@ -22,7 +22,7 @@ run_name = "icequake_example"
 
 # --- Set time period over which to run trigger ---
 starttime = "2009-01-21T04:00:05.0"
-endtime = "2009-01-21T04:00:15.0"
+endtime = "2009-01-21T04:00:10.0"
 
 # --- Load the LUT ---
 lut = read_lut(lut_file=lut_file)

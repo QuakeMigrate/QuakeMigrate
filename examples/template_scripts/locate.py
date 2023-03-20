@@ -67,28 +67,30 @@ lut = read_lut(lut_file=lut_file)
 # lut = lut.decimate([1, 1, 1])
 
 # --- Create new Onset function ---
-onset = STALTAOnset(position="centred", sampling_rate=20)
+onset = STALTAOnset(position="centred", sampling_rate=50)
 onset.phases = ["P", "S"]
 onset.bandpass_filters = {
-    "P": [2, 9.9, 2],
-    "S": [2, 9.9, 2]}
+    "P": [2, 16, 2],
+    "S": [2, 14, 2]}
 onset.sta_lta_windows = {
-    "P": [0.2, 1.5],
-    "S": [0.2, 1.5]}
+    "P": [0.2, 1.0],
+    "S": [0.2, 1.0]}
 
 # --- Create new PhasePicker ---
 # For a complete list of parameters and guidance on how to choose them, please
 # see the manual and read the docs.
-gausspicker_onset = STALTAOnset(position="centred", sampling_rate=20)
-gausspicker_onset.phases = ["P", "S"]
-gausspicker_onset.bandpass_filters = {
-    "P": [2, 9.9, 2],
-    "S": [2, 9.9, 2]}
-gausspicker_onset.sta_lta_windows = {
-    "P": [0.2, 1.5],
-    "S": [0.2, 1.5]}
+# Optionally, define a new onset function for the picker. You can also re-use
+# the onset used for migration (as is done below).
+# gausspicker_onset = STALTAOnset(position="centred", sampling_rate=100)
+# gausspicker_onset.phases = ["P", "S"]
+# gausspicker_onset.bandpass_filters = {
+#     "P": [2, 16, 2],
+#     "S": [2, 14, 2]}
+# gausspicker_onset.sta_lta_windows = {
+#     "P": [0.2, 1.0],
+#     "S": [0.2, 1.0]}
 
-picker = GaussianPicker(onset=gausspicker_onset)
+picker = GaussianPicker(onset=onset)
 picker.plot_picks = True
 
 # --- Create new LocalMag object ---
@@ -108,8 +110,8 @@ mag_params.use_hyp_dist = False
 mag_params.amp_feature = "S_amp"
 mag_params.station_corrections = {}
 mag_params.trace_filter = ".[BH]H[NE]$"
-mag_params.noise_filter = 1.
-mag_params.station_filter = ["KVE", "LIND"]
+mag_params.noise_filter = 3.
+mag_params.station_filter = ["KVE", "LIND"]  # List of stations to exclude.
 mag_params.dist_filter = False
 
 mags = LocalMag(amp_params=amp_params, mag_params=mag_params)
@@ -125,7 +127,10 @@ scan = QuakeScan(archive, lut, onset=onset, picker=picker, mags=mags,
 # For a complete list of parameters and guidance on how to choose them, please
 # see the manual and read the docs.
 scan.marginal_window = 1
-scan.threads = 12
+# NOTE: increase the thread-count as your system allows. The core migration
+# routines are compiled against OpenMP, so the compute time (particularly for
+# detect), will decrease roughly linearly with the number of threads used.
+scan.threads = 4
 
 # --- Toggle plotting options ---
 scan.plot_event_summary = True

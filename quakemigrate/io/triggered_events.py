@@ -3,7 +3,7 @@
 Module to handle input/output of TriggeredEvents.csv files.
 
 :copyright:
-    2020, QuakeMigrate developers.
+    2020 - 2021, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -24,7 +24,7 @@ def read_triggered_events(run, **kwargs):
 
     Parameters
     ----------
-    run : :class:`~quakemigrate.io.Run` object
+    run : :class:`~quakemigrate.io.core.Run` object
         Light class encapsulating i/o path information for a given run.
     starttime : `obspy.UTCDateTime` object, optional
         Timestamp from which to include events in the locate scan.
@@ -85,7 +85,7 @@ def write_triggered_events(run, events, starttime):
 
     Parameters
     ----------
-    run : :class:`~quakemigrate.io.Run` object
+    run : :class:`~quakemigrate.io.core.Run` object
         Light class encapsulating i/o path information for a given run.
     events : `pandas.DataFrame` object
         Triggered events information. Columns: ["EventID", "CoaTime",

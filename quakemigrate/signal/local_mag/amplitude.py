@@ -4,7 +4,7 @@ Module containing methods to measure Wood-Anderson corrected waveform
 amplitudes to be used for local magnitude calculation.
 
 :copyright:
-    2020, QuakeMigrate developers.
+    2020 - 2021, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -92,12 +92,12 @@ class Amplitude:
     Raises
     ------
     AttributeError
-        If both highpass_filter and bandpass_filter are selected, or if the
+        If both `highpass_filter` and `bandpass_filter` are selected, or if the
         user selects to apply a filter but does not provide the relevant
         frequencies.
     AttributeError
         If response removal parameters are provided here instead of to the
-        Archive object.
+        :class:`~quakemigrate.io.data.Archive` object.
 
     """
 
@@ -184,8 +184,8 @@ class Amplitude:
         Parameters
         ----------
         event : :class:`~quakemigrate.io.event.Event` object
-            Light class encapsulating waveform data, onset data, pick and
-            location information for a given event.
+            Light class encapsulating waveforms, coalescence information, picks
+            and location information for a given event.
         lut : :class:`~quakemigrate.lut.lut.LUT` object
             Contains the traveltime lookup tables for seismic phases, computed
             for some pre-defined velocity model.
@@ -325,11 +325,14 @@ class Amplitude:
                 else:
                     filter_sos = None
 
-                windows, picked = self._get_amplitude_windows(station, i,
-                                                              event, p_ttimes,
-                                                              s_ttimes,
-                                                              lut.fraction_tt)
-                amps[14] = picked
+                try:
+                    windows, picked = self._get_amplitude_windows(
+                        station, i, event, p_ttimes, s_ttimes, lut.fraction_tt)
+                    amps[14] = picked
+                except util.PickOrderException as e:
+                    logging.warning(f"{e}")
+                    amplitudes.loc[i*3+j] = amps
+                    continue
 
                 amps = self._measure_signal_amps(amps, tr, windows,
                                                  self.noise_measure,
@@ -403,7 +406,7 @@ class Amplitude:
 
         Returns
         -------
-        filter_sos : ndarray
+        filter_sos : `numpy.ndarray`
             Second-order sections representation of the applied filter.
 
         """
@@ -433,7 +436,7 @@ class Amplitude:
 
         Returns
         -------
-        filter_sos : ndarray
+        filter_sos : `numpy.ndarray`
             Second-order sections representation of the applied filter.
 
         Raises
@@ -481,7 +484,7 @@ class Amplitude:
 
         Returns
         -------
-        filter_sos : ndarray
+        filter_sos : `numpy.ndarray`
             Second-order sections representation of the applied filter.
 
         """
@@ -617,9 +620,9 @@ class Amplitude:
         ----------
         station : str
             Station name.
-        event : :class:`~quakemigrate.io.Event` object
-            Light class encapsulating signal, onset, pick and location
-            information for a given event.
+        event : :class:`~quakemigrate.io.event.Event` object
+            Light class encapsulating waveforms, coalescence information, picks
+            and location information for a given event.
 
         Returns
         -------
@@ -691,7 +694,7 @@ class Amplitude:
             The method by which to measure the average amplitude in the signal
             window: root-mean-square, standard deviation or average amplitude
             of the envelope of the signal. (Default "RMS")
-        filter_sos : ndarray, optional
+        filter_sos : `numpy.ndarray`, optional
             Second-order sections representation of the filter applied to the
             trace (if applicable).
 
@@ -770,8 +773,14 @@ class Amplitude:
                 _, filter_gain = sosfreqz(filter_sos, worN=[approx_freq],
                                           fs=tr.stats.sampling_rate)
                 filter_gain = np.abs(filter_gain[0])
-                half_amp /= filter_gain
-                average_amp /= filter_gain
+                if not filter_gain:
+                    logging.info("\t    Warning: Invalid frequency ("
+                                 f"{approx_freq:.5g} Hz) for {phase}_amp "
+                                 f"measurement on:\n\t\t{tr}")
+                    continue
+                else:
+                    half_amp /= filter_gain
+                    average_amp /= filter_gain
 
             # Put in relevant columns for P / S amplitude, approx_freq,
             # p2t_time
@@ -953,7 +962,7 @@ class Amplitude:
         Raises
         ------
         NotImplementedError
-            For measurement methods other than {"RMS", "STD"}.
+            For measurement methods other than {"RMS", "STD", "ENV"}.
 
         """
 

@@ -88,7 +88,7 @@ scan = QuakeScan(archive, lut, onset=onset, picker=picker, mags=mags,
 # For a complete list of parameters and guidance on how to choose them, please
 # see the manual and read the docs.
 scan.marginal_window = 1.0
-scan.threads = 12
+scan.threads = 4  # NOTE: increase as your system allows to increase speed!
 
 # --- Toggle plotting options ---
 scan.plot_event_summary = True

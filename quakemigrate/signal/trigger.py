@@ -3,7 +3,7 @@
 Module to perform the trigger stage of QuakeMigrate.
 
 :copyright:
-    2020, QuakeMigrate developers.
+    2020 - 2021, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -56,14 +56,15 @@ class Trigger:
     """
     QuakeMigrate triggering class.
 
-    Triggers candidate earthquakes from the maximum coalescence through time
-    data output by the decimated detect scan, ready to be run through locate().
+    Triggers candidate earthquakes from the continuous maximum coalescence
+    through time data output by the decimated detect scan, ready to be run
+    through locate().
 
     Parameters
     ----------
-    lut : :class:`~quakemigrate.lut.LUT` object
-        Contains the traveltime lookup tables for P- and S-phases, computed for
-        some pre-defined velocity model.
+    lut : :class:`~quakemigrate.lut.lut.LUT` object
+        Contains the traveltime lookup tables for the selected seismic phases,
+        computed for some pre-defined velocity model.
     run_path : str
         Points to the top level directory containing all input files, under
         which the specific run directory will be created.
@@ -92,10 +93,13 @@ class Trigger:
         Default: 1.4826, which is the appropriate scaling factor for a normal
         distribution.
     marginal_window : float, optional
-        Time window over which to marginalise the coalescence, making it solely
-        a function of the spatial dimensions. This should be an estimate of the
-        time error, as derived from an estimate of the spatial error and error
-        in the velocity model. Default: 2 seconds.
+        Half-width of window centred on the maximum coalescence time. The
+        4-D coalescence functioned is marginalised over time across this window
+        such that the earthquake location and associated uncertainty can be
+        appropriately calculated. It should be an estimate of the time
+        uncertainty in the earthquake origin time, which itself is some
+        combination of the expected spatial uncertainty and uncertainty in the
+        seismic velocity model used. Default: 2 seconds.
     min_event_interval : float, optional
         Minimum time interval between triggered events. Must be at least twice
         the marginal window. Default: 4 seconds.
@@ -107,7 +111,7 @@ class Trigger:
         are not cut off and missed. Default: 120 seconds.
     plot_trigger_summary : bool, optional
         Plot triggering through time for each batched segment. Default: True.
-    run : :class:`~quakemigrate.io.Run` object
+    run : :class:`~quakemigrate.io.core.Run` object
         Light class encapsulating i/o path information for a given run.
     static_threshold : float, optional
         Static threshold value above which to trigger candidate events.
@@ -133,7 +137,7 @@ class Trigger:
 
     Methods
     -------
-    trigger(starttime, endtime, region=None, interactive_plot=True)
+    trigger(starttime, endtime, region=None, interactive_plot=False)
         Trigger candidate earthquakes from decimated detect scan results.
 
     Raises
@@ -204,17 +208,16 @@ class Trigger:
         Parameters
         ----------
         starttime : str
-            Timestamp from which to trigger.
+            Timestamp from which to trigger events.
         endtime : str
-            Timestamp up to which to trigger.
+            Timestamp up to which to trigger events.
         region : list of floats, optional
-            Only write triggered events within this region to the triggered
-            events csv file (for use in locate.) Format is:
+            Only retain triggered events located within this region. Format is:
                 [Xmin, Ymin, Zmin, Xmax, Ymax, Zmax]
-            Units are longitude / latitude / metres (in positive-down frame).
+            As longitude / latitude / depth (units corresponding to the lookup
+            table grid projection; in positive-down frame).
         interactive_plot : bool, optional
-            Toggles the ability to live interact with the trigger plot. Default
-            is False.
+            Toggles whether to produce an interactive plot. Default: False.
 
         Raises
         ------
@@ -250,16 +253,16 @@ class Trigger:
         Parameters
         ----------
         batchstart : `obspy.UTCDateTime` object
-            Timestamp from which to trigger.
+            Timestamp from which to trigger events.
         batchend : `obspy.UTCDateTime` object
-            Timestamp up to which to trigger.
+            Timestamp up to which to trigger events.
         region : list of floats
-            Only write triggered events within this region to the triggered
-            events csv file (for use in locate.) Format is:
+            Only retain triggered events located within this region. Format is:
                 [Xmin, Ymin, Zmin, Xmax, Ymax, Zmax]
-            Units are longitude / latitude / metres (in positive-down frame).
+            As longitude / latitude / depth (units corresponding to the lookup
+            table grid projection; in positive-down frame).
         interactive_plot : bool
-            Toggles the ability to live interact with the trigger plot.
+            Toggles whether to produce an interactive plot. Default: False.
 
         """
 
@@ -353,7 +356,9 @@ class Trigger:
         ----------
         scandata : `pandas.DataFrame` object
             Data output by detect() -- decimated scan.
-            Columns: ["DT", "COA", "COA_N", "X", "Y", "Z"] - X/Y/Z as lon/lat/m
+            Columns: ["DT", "COA", "COA_N", "X", "Y", "Z"] - X/Y/Z as lon/lat/
+            z-units corresponding to the units of the lookup table grid
+            projection.
         trigger_on : str
             Specifies the maximum coalescence data on which to trigger events.
         threshold : `numpy.ndarray` object
@@ -400,7 +405,8 @@ class Trigger:
                                  min_dt, max_dt, peak["COA"], peak["COA_N"]],
                                 index=CANDIDATES_COLS)
 
-            triggers = triggers.append(trigger, ignore_index=True)
+            triggers = pd.concat([triggers, pd.DataFrame([trigger])], 
+                                ignore_index=True)
 
         return triggers
 
@@ -463,7 +469,8 @@ class Trigger:
             event_uid = event_uid[:17].ljust(17, "0")
             event["EventID"] = event_uid
 
-            refined_events = refined_events.append(event, ignore_index=True)
+            # refined_events = refined_events.append(event, ignore_index=True)
+            refined_events = pd.concat([refined_events, pd.DataFrame([event])], ignore_index=True)
 
         return refined_events
 
@@ -481,14 +488,14 @@ class Trigger:
             "CoaTime", "TRIG_COA", "COA_X", "COA_Y", "COA_Z", "MinTime",
             "MaxTime", "COA", "COA_NORM"].
         starttime : `obspy.UTCDateTime` object
-            Timestamp from which to trigger.
+            Timestamp from which to trigger events.
         endtime : `obspy.UTCDateTime` object
-            Timestamp up to which to trigger.
-        region : list
-            Only write triggered events within this region to the triggered
-            events csv file (for use in locate.) Format is:
+            Timestamp up to which to trigger events.
+        region : list of floats
+            Only retain triggered events located within this region. Format is:
                 [Xmin, Ymin, Zmin, Xmax, Ymax, Zmax]
-            Units are longitude / latitude / metres (elevation; up is positive)
+            As longitude / latitude / depth (units corresponding to the lookup
+            table grid projection; in positive-down frame).
 
         Returns
         -------

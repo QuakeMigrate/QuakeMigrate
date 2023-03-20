@@ -3,7 +3,7 @@
 Module to produce a summary plot for the phase picking.
 
 :copyright:
-    2020, QuakeMigrate developers.
+    2020 - 2021, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -29,8 +29,8 @@ def pick_summary(event, station, waveforms, picks, onsets, ttimes, windows):
     Parameters
     ----------
     event : :class:`~quakemigrate.io.event.Event` object
-        Light class to encapsulate information about an event, including origin
-        time, location and waveform data.
+        Light class encapsulating waveforms, coalescence information, picks and
+        location information for a given event.
     station : str
         Station code.
     waveforms : `obspy.Stream` object

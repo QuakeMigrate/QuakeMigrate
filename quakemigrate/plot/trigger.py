@@ -3,7 +3,7 @@
 Module to plot the triggered events on a decimated grid.
 
 :copyright:
-    2020, QuakeMigrate developers.
+    2020 - 2021, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -42,30 +42,32 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
         Start time of trigger run.
     endtime : `obspy.UTCDateTime`
         End time of trigger run.
-    run : :class:`~quakemigrate.io.Run` object
+    run : :class:`~quakemigrate.io.core.Run` object
         Light class encapsulating i/o path information for a given run.
     marginal_window : float
-        Estimate of time error over which to marginalise the coalescence.
+        Time window over which to marginalise the 4D coalescence function.
     min_event_interval : float
         Minimum time interval between triggered events.
     detection_threshold : array-like
         Coalescence value above which to trigger events.
     normalise_coalescence : bool
-        If True, use coalescence normalised by the average background noise.
-    lut : :class:`~quakemigrate.lut.LUT` object
-        Contains the traveltime lookup tables for P- and S-phases, computed for
-        some pre-defined velocity model.
+        If True, use coalescence normalised by the average coalescence value in
+        the 3-D grid at each timestep.
+    lut : :class:`~quakemigrate.lut.lut.LUT` object
+        Contains the traveltime lookup tables for the selected seismic phases,
+        computed for some pre-defined velocity model.
     data : `pandas.DataFrame`
-        Data output by detect() -- decimated scan, columns ["COA", "COA_N",
-        "X", "Y", "Z"]
+        Data output by :func:`~quakemigrate.signal.scan.QuakeScan.detect()` --
+        continuous scan, columns: ["COA", "COA_N", "X", "Y", "Z"]
     region : list
-        Geographical region within which earthquakes have been triggered.
+        Geographical region within which to trigger earthquakes; events located
+        outside this region will be discarded.
     discarded_events : `pandas.DataFrame`
         Discarded triggered events information, columns: ["EventID", "CoaTime",
         "TRIG_COA", "COA_X", "COA_Y", "COA_Z", "MinTime", "MaxTime", "COA",
         "COA_NORM"].
     interactive : bool
-        Toggles the ability to live interact with the trigger plot.
+        Toggles whether to produce an interactive plot.
     xy_files : str, optional
         Path to comma-separated value file (.csv) containing a series of
         coordinate files to plot. Columns: ["File", "Color", "Linewidth",
@@ -199,11 +201,11 @@ def _plot_station_availability(ax, availability, endtime):
 
     Parameters
     ----------
-    ax : `~matplotlib.Axes` object
+    ax : `matplotlib.Axes` object
         Axes on which to plot the waveform gather.
-    availability : `~pandas.DataFrame` object
+    availability : `pandas.DataFrame` object
         Dataframe containing the availability of stations through time.
-    endtime : `~obspy.UTCDateTime`
+    endtime : `obspy.UTCDateTime`
         End time of trigger run.
 
     """
@@ -261,9 +263,9 @@ def _plot_station_availability(ax, availability, endtime):
 
     # Plot formatting
     _add_plot_tag(ax, "Station availability")
-    ax.set_ylim([int(min(min_ava)*0.8), np.int(np.ceil(max(max_ava)*1.1))])
+    ax.set_ylim([int(min(min_ava)*0.8), int(np.ceil(max(max_ava)*1.1))])
     ax.set_yticks(range(int(min(min_ava)*0.8),
-                        np.int(np.ceil(max(max_ava)*1.1))+1))
+                        int(np.ceil(max(max_ava)*1.1))+1))
     ax.xaxis.set_major_formatter(util.DateFormatter("%H:%M:%S.{ms}", 2))
     ax.set_xlabel("DateTime", fontsize=14)
     ax.set_ylabel("Available stations", fontsize=14)
@@ -273,11 +275,11 @@ def _plot_station_availability(ax, availability, endtime):
 
 def _plot_coalescence(ax, dt, data, label):
     """
-    Utility function to bring plotting of coalescence into one place.
+    Utility function to bring plotting of coalescence trace into one place.
 
     Parameters
     ----------
-    ax : `~matplotlib.Axes` object
+    ax : `matplotlib.Axes` object
         Axes on which to plot the coalescence traces.
     dt : array-like
         Timestamps of the coalescence data.
@@ -301,7 +303,7 @@ def _add_plot_tag(ax, tag):
 
     Parameters
     ----------
-    ax : `~matplotlib.Axes` object
+    ax : `matplotlib.Axes` object
         Axes on which to plot the tag.
     tag : str
         Text to go in the tag.
@@ -316,13 +318,13 @@ def _add_plot_tag(ax, tag):
 def _plot_event_scatter(fig, events, discarded=False):
     """
     Utility function for plotting the triggered events as a scatter on the
-    LUT cross-sections.
+    LUT map and cross-sections.
 
     Parameters
     ----------
-    fig : `~matplotlib.Figure` object
+    fig : `matplotlib.Figure` object
         Figure containing axes on which to plot event scatter.
-    events : `~pandas.DataFrame` object
+    events : `pandas.DataFrame` object
         Dataframe of triggered events.
     discarded : bool, optional
          Whether supplied events are discarded (due to being outside the trigger
@@ -367,15 +369,15 @@ def _plot_event_windows(axes, events, marginal_window, discarded=False):
 
     Parameters
     ----------
-    axes : list of `~matplotlib.Axes` objects
+    axes : list of `matplotlib.Axes` objects
         Axes on which to plot the event windows.
-    events : `~pandas.DataFrame` object
+    events : `pandas.DataFrame` object
         Dataframe of triggered events.
     marginal_window : float
         Estimate of time error over which to marginalise the coalescence.
     discarded : bool, optional
         Whether supplied events are discarded (due to being outside the trigger
-         region, or outside the trigger time window).
+        region, or outside the trigger time window).
 
     """
 
@@ -402,22 +404,23 @@ def _plot_event_windows(axes, events, marginal_window, discarded=False):
 def _plot_text_summary(ax, events, threshold, marginal_window,
                        min_event_interval, normalise_coalescence):
     """
-    Utility function to plot the event summary information.
+    Utility function to plot the trigger summary information.
 
     Parameters
     ----------
-    ax : `~matplotlib.Axes` object
+    ax : `matplotlib.Axes` object
         Axes on which to plot the text summary.
-    events : `~pandas.DataFrame` object
+    events : `pandas.DataFrame` object
         DataFrame of triggered events.
     threshold : array-like
         Coalescence value above which to trigger events.
     marginal_window : float
-        Estimate of time error over which to marginalise the coalescence.
+        Time window over which to marginalise the 4-D coalescence function.
     min_event_interval : float
         Minimum time interval between triggered events.
     normalise_coalescence : bool
-        If True, use coalescence normalised by the average background noise.
+        If True, use coalescence normalised by the average coalescence value in
+        the 3-D grid at each timestep.
 
     """
 
@@ -450,10 +453,10 @@ def _plot_trigger_region(axes, region):
 
     Parameters
     ----------
-    axes : list of `~matplotlib.Axes` objects
+    axes : list of `matplotlib.Axes` objects
         Axes on which to plot the bounding boxes.
     region : list
-        Geographical region within which earthquakes have been triggered.
+        Geographical region within which to trigger earthquakes.
 
     """
 
@@ -498,7 +501,7 @@ def _plot_xy_files(xy_files, ax):
     xy_files : str
         Path to .csv file containing a list of coordinates files to plot, and
         the linecolor and style to plot them with.
-    ax : `~matplotlib.Axes` object
+    ax : `matplotlib.Axes` object
         Axes on which to plot the xy files.
 
     """

@@ -3,7 +3,7 @@
 Module to handle input/output of .amps files.
 
 :copyright:
-    2020, QuakeMigrate developers.
+    2020 - 2021, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -19,7 +19,7 @@ def write_amplitudes(run, amplitudes, event):
 
     Parameters
     ----------
-    run : :class:`~quakemigrate.io.Run` object
+    run : :class:`~quakemigrate.io.core.Run` object
         Light class encapsulating i/o path information for a given run.
     amplitudes : `pandas.DataFrame` object
         P- and S-wave amplitude measurements for each component of each
@@ -30,9 +30,9 @@ def write_amplitudes(run, amplitudes, event):
                    "S_avg_amp", "S_filter_gain", "Noise_amp", "is_picked",
                    "ML", "ML_Err"]
         Index = Trace ID (see `obspy.Trace` object property 'id')
-    event : :class:`~quakemigrate.io.Event` object
-        Light class encapsulating signal, onset, and location information for a
-        given event.
+    event : :class:`~quakemigrate.io.event.Event` object
+        Light class encapsulating waveforms, coalescence information, picks and
+        location information for a given event.
 
     """
 

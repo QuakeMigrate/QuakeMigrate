@@ -4,7 +4,7 @@ Module containing the Event class, which stores information related to an
 individual event.
 
 :copyright:
-    2020, QuakeMigrate developers.
+    2020 - 2021, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -32,8 +32,7 @@ XYZ, ERR_XYZ = ["X", "Y", "Z"], ["ErrX", "ErrY", "ErrZ"]
 class Event:
     """
     Light class to encapsulate information about an event, including waveform
-    data, onset data (and pre-processed waveforms), coalescence information,
-    origin time, locations, picks, magnitudes.
+    data, coalescence information, origin time, locations, picks, magnitudes.
 
     Parameters
     ----------

@@ -1,0 +1,129 @@
+language: c
+
+jobs:
+  include:
+    - name: "Python 3.6 on Xenial Linux"
+      os: linux
+      language: c
+      env: PYTHON_VERSION=3.6
+
+    - name: "Python 3.7 on Xenial Linux"
+      os: linux
+      language: c
+      env: PYTHON_VERSION=3.7
+
+    - name: "Python 3.8 on Xenial Linux"
+      os: linux
+      language: c
+      env: PYTHON_VERSION=3.8
+
+    - name: "Python 3.6 on OSX"
+      os: osx
+      language: generic
+      env: PYTHON_VERSION=3.6
+
+    - name: "Python 3.7 on OSX"
+      os: osx
+      language: generic
+      env: PYTHON_VERSION=3.7
+
+    - name: "Python 3.8 on OSX"
+      os: osx
+      language: generic
+      env: PYTHON_VERSION=3.8
+
+sudo: false
+
+before_install:
+  # Make Python scripts executable
+  - chmod +x tests/*
+  - chmod +x examples/Icequake_Iceland/*.py
+
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
+      export OS="MacOSX";
+    else
+      export OS="Linux";
+    fi
+
+  # Set codecov variable
+  - export CODECOV_TOKEN="d29dbc54-b153-4eed-b36c-87cf5c5628e0"
+
+  # Grab and install miniconda then create a test environment
+  - wget https://repo.continuum.io/miniconda/Miniconda3-latest-${OS}-x86_64.sh -O miniconda.sh;
+  - bash miniconda.sh -b -p $HOME/miniconda
+  - export PATH="$HOME/miniconda/bin:$PATH"
+  - hash -r
+  - conda config --set always_yes yes --set changeps1 no
+  - conda config --add channels conda-forge
+  - conda update -q conda
+  - conda info -a
+  - echo $PYTHON_VERSION
+  - conda create -q -n test-environment python=$PYTHON_VERSION coverage flake8 matplotlib mock numpy obspy pandas pyproj scipy
+  - source activate test-environment
+
+  # Enforce single-threaded just to stay in memory
+  - export OMP_NUM_THREADS=1;
+
+  # Install compilers and PyQt5 if testing on a MacOSX environment
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
+      conda install clangdev>=4 openmp>=4 libcxx>=4 cctools clang clang_osx-64 compiler-rt libcxx llvm-openmp>=4.0.1;
+      pip install PyQt5;
+    fi
+
+  # Clean-up
+  - pip install coverage
+  - pip install codecov
+  - pip freeze
+  - conda list
+  - git version
+
+install:
+  - mkdir nll
+  - cd nll
+  - curl http://alomax.free.fr/nlloc/soft7.00/tar/NLL7.00_src.tgz -o NLL7.00_src.tgz
+  - tar -xzvf NLL7.00_src.tgz
+  - cd src
+  - mkdir bin
+  - export MYBIN=./bin
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
+      make all;
+    else
+      make -R all;
+    fi
+  - cd ../..
+  - python setup.py develop
+
+script:
+  - export MPLBACKEND=Agg
+  - export PATH=$PWD/nll/src/bin:$PATH
+  - python tests/test_import.py
+  - cd examples/Icequake_Iceland
+  - coverage run --source=quakemigrate -a iceland_lut.py
+  - coverage run --source=quakemigrate -a iceland_detect.py
+  - coverage run --source=quakemigrate -a iceland_trigger.py
+  - coverage run --source=quakemigrate -a iceland_locate.py
+  - mv .coverage ../Volcanotectonic_Iceland
+  - cd ../Volcanotectonic_Iceland
+  - coverage run --source=quakemigrate -a get_dike_intrusion_data.py
+  - coverage run --source=quakemigrate -a dike_intrusion_lut.py
+  - coverage run --source=quakemigrate -a dike_intrusion_detect.py
+  - coverage run --source=quakemigrate -a dike_intrusion_trigger.py
+  - coverage run --source=quakemigrate -a dike_intrusion_locate.py
+  - mv .coverage ../../.
+  - cd ../..
+  - python tests/test_benchmarks.py
+
+after_success:
+  # Check how much code is actually tested and send this report to codecov
+  - ls -a
+  - coverage report
+  - bash <(curl -s https://codecov.io/bash)
+
+notifications:
+  email:
+    recipients:
+      - quakemigrate.developers@gmail.com
+    on_success: never
+    on_failure: always
+  slack:
+    if: branch = master

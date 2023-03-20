@@ -26,7 +26,7 @@ run_name = "icequake_example"
 
 # --- Set time period over which to run locate ---
 starttime = "2009-01-21T04:00:05.0"
-endtime = "2009-01-21T04:00:15.0"
+endtime = "2009-01-21T04:00:10.0"
 
 # --- Read in station file ---
 stations = read_stations(station_file)
@@ -61,7 +61,7 @@ scan = QuakeScan(archive, lut, onset=onset, picker=picker,
 # For a complete list of parameters and guidance on how to choose them, please
 # see the manual and read the docs.
 scan.marginal_window = 0.1
-scan.threads = 12
+scan.threads = 4  # NOTE: increase as your system allows to increase speed!
 
 # --- Toggle plotting options ---
 scan.plot_event_summary = True

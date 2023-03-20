@@ -4,7 +4,7 @@ This module provides parsers to generate input files for Snuffler, a manual
 phase picking interface from the Pyrocko package.
 
 :copyright:
-    2020, QuakeMigrate developers.
+    2020 - 2021, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -20,15 +20,12 @@ def snuffler_stations(stations, output_path, filename, network_code=None):
 
     Parameters
     ----------
-    stations : pandas DataFrame
+    stations : `pandas.DataFrame` object
         DataFrame containing station information.
-
     output_path : str
         Location to save snuffler station file.
-
     filename : str
         Name of output station file.
-
     network_code : str
         Unique identifier for the seismic network.
 
@@ -62,13 +59,11 @@ def snuffler_markers(event, output_path, filename=None):
 
     Parameters
     ----------
-    event : ObsPy Event object
+    event : `ObsPy.Event` object
         Contains information about the origin time and a list of associated
         picks
-
     output_path : str
         Location to save the marker file
-
     filename : str, optional
         Name of marker file - defaults to eventid/eventid.markers
 

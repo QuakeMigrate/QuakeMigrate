@@ -4,7 +4,7 @@ The default seismic phase picking class - fits a 1-D Gaussian to the calculated
 onset functions.
 
 :copyright:
-    2020, QuakeMigrate developers.
+    2020 - 2021, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -118,8 +118,8 @@ class GaussianPicker(PhasePicker):
         Parameters
         ----------
         event : :class:`~quakemigrate.io.event.Event` object
-            Light class to encapsulate information about an event, including
-            origin time, location and waveform data.
+            Light class encapsulating waveforms, coalescence information and
+            location information for a given event.
         lut : :class:`~quakemigrate.lut.lut.LUT` object
             Contains the traveltime lookup tables for seismic phases, computed
             for some pre-defined velocity model.

@@ -2,7 +2,7 @@
 """
 
 :copyright:
-    2020, QuakeMigrate developers.
+    2020 - 2021, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -27,7 +27,9 @@ except KeyError:
 
 name = "quakemigrate"
 __version__ = "1.0.0"
-__description__ = "QuakeMigrate - waveform backprojection for earthquake detection and location."
+__description__ = """QuakeMigrate - automatic earthquake detection and location
+                     using waveform migration and stacking."""
 __license__ = "GPLv3"
 __author__ = "QuakeMigrate developers"
-__email__ = "tom.winder@esc.cam.ac.uk, conor.bacon@esc.cam.ac.uk, jds70@cantab.net"
+__email__ = """quakemigrate.developers@gmail.com, tom.winder@esc.cam.ac.uk,
+               conor.bacon@esc.cam.ac.uk"""

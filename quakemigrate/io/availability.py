@@ -3,7 +3,7 @@
 Module to handle input/output of StationAvailability.csv files.
 
 :copyright:
-    2020, QuakeMigrate developers.
+    2020 - 2021, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -25,7 +25,7 @@ def read_availability(run, starttime, endtime):
 
     Parameters
     ----------
-    run : :class:`~quakemigrate.io.Run` object
+    run : :class:`~quakemigrate.io.core.Run` object
         Light class encapsulating i/o path information for a given run.
     starttime : `obspy.UTCDateTime` object
         Timestamp from which to read the station availability.
@@ -124,7 +124,7 @@ def write_availability(run, availability):
 
     Parameters
     ----------
-    run : :class:`~quakemigrate.io.Run` object
+    run : :class:`~quakemigrate.io.core.Run` object
         Light class encapsulating i/o path information for a given run.
     availability : `pandas.DataFrame` object
         Details the availability of each station for each timestep of detect.

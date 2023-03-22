@@ -3,7 +3,7 @@
 # see PEP518: https://www.python.org/dev/peps/pep-0518/
 requires = [
     "setuptools",
-    "numpy==1.21",
+    "numpy",
     ]
 build-backend = "setuptools.build_meta"
 [tool.cibuildwheel.macos]

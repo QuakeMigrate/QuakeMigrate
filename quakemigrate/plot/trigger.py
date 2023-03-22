@@ -227,8 +227,8 @@ def _plot_station_availability(ax, availability, endtime):
             colours = ["#F03B20"]
         else:
             colours = ["#3182BD"]
-    elif (availability.filter(like=f".{phases[0]}").values == \
-        availability.filter(like=f".{phases[1]}").values).all():
+    elif (availability.filter(like=f"_{phases[0]}").values == \
+        availability.filter(like=f"_{phases[1]}").values).all():
         logging.info("\t\t    Station availability is identical for both "
                      "phases; plotting by station only.")
         divideby = len(phases)
@@ -241,7 +241,7 @@ def _plot_station_availability(ax, availability, endtime):
     max_ava = []
     min_ava = []
     for phase, colour in zip(phases, colours):
-        ph_availability = availability.filter(regex=f".{phase}$")
+        ph_availability = availability.filter(regex=f"_{phase}$")
 
         available = ph_availability.sum(axis=1).astype(int)
         times = list(pd.to_datetime(available.index))

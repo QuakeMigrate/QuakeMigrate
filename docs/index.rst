@@ -21,16 +21,6 @@ the GPLv3 License, Copyright QuakeMigrate developers 2020-2022.
 
     <a href="https://github.com/QuakeMigrate/QuakeMigrate" target="_blank">github</a>
 
-Supported operating systems
----------------------------
-QuakeMigrate was developed and tested on Ubuntu 16.04/18.04, with the intention of being "platform agnostic". As of June 2022, the package has been successfully built and run on:
-
-- Ubuntu 16.04/18.04/20.04
-- Red Hat Enterprise Linux
-- Debian
-- Windows 10
-- macOS High Sierra 10.13, Catalina 10.15
-
 Citation
 --------
 If you use this package in your work, please cite the following conference presentation:
@@ -43,7 +33,7 @@ Smith, J.D., White, R.S., Avouac, JP, and S. Bourne (2020), Probabilistic earthq
 
 We hope to have a publication coming out soon:
 
-Winder, T., Bacon, C.A., Smith, J.D., Hudson, T.S., Drew, J., and White, R.S. QuakeMigrate: a Python Package for Automatic Earthquake Detection and Location Using Waveform Migration and Stacking. (to be submitted to Seismological Research Letters).
+Winder, T., Bacon, C.A., Smith, J.D., Hudson, T.S., Drew, J., and White, R.S. QuakeMigrate: a Python Package for Automatic Earthquake Detection and Location Using Waveform Migration and Stacking. (to be submitted to *Seismica*).
 
 Contact
 -------

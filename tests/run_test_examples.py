@@ -14,7 +14,7 @@ tests.
 import os
 import pathlib
 
-base_path = pathlib.Path.cwd().parent / "examples"
+base_path = pathlib.Path(__file__).resolve().parent.parent / "examples"
 
 # Run Iceland icequake example scripts
 os.chdir(base_path / "Icequake_Iceland")

@@ -84,7 +84,7 @@ if READ_THE_DOCS:
 else:
     EXTRAS_REQUIRES = {
         "fmm": [
-            "scikit-fmm==2022.08.15"
+            "scikit-fmm"
         ]
     }
 

@@ -18,7 +18,7 @@ import struct
 from shutil import rmtree
 
 import numpy as np
-import pyproj
+from pyproj import Proj, Transformer
 from scipy.interpolate import interp1d
 
 import quakemigrate.util as util
@@ -82,12 +82,12 @@ def read_nlloc(path, stations, phases=["P", "S"], fraction_tt=0.1,
                                               " not supported.")
 
                 # Transform from grid projection origin to a coord origin
-                ll_corner = pyproj.transform(gproj, cproj, *grid_origin)
+                ll_corner = Transformer.from_proj(gproj, cproj).transform(*grid_origin)
 
                 # Calculate the ur corner
                 ur_corner = (np.array(grid_origin)
                              + (node_count - 1) * node_spacing)
-                ur_corner = pyproj.transform(gproj, cproj, *ur_corner)
+                ur_corner = Transformer.from_proj(gproj, cproj).transform(*ur_corner)
 
                 # Need to initialise the grid
                 lut = LUT(ll_corner=ll_corner, ur_corner=ur_corner,
@@ -581,8 +581,8 @@ def _read_nlloc(fname, ignore_proj=False):
 
         # Read the transform definition line
         line = f.readline().split()
-        cproj = pyproj.Proj(proj="longlat", ellps="WGS84", datum="WGS84",
-                            no_defs=True)
+        cproj = Proj(proj="longlat", ellps="WGS84", datum="WGS84",
+                     no_defs=True)
         gproj = None
         if line[1] == "NONE" and not ignore_proj:
             logging.info("\tNo projection selected.")
@@ -591,8 +591,8 @@ def _read_nlloc(fname, ignore_proj=False):
             orig_lon = float(line[5])
 
             # The simple projection is the Plate Carree/Equidistant Cylindrical
-            gproj = pyproj.Proj(proj="eqc", lat_0=orig_lat, lon_0=orig_lon,
-                                units="km")
+            gproj = Proj(proj="eqc", lat_0=orig_lat, lon_0=orig_lon,
+                         units="km")
         elif line[1] == "LAMBERT":
             proj_ellipsoid = line[3]
             orig_lat = float(line[5])
@@ -632,15 +632,15 @@ def _read_nlloc(fname, ignore_proj=False):
                              "developers.\n\n\tWGS-84 used instead...\n")
                 proj_ellipsoid = "WGS84"
 
-            gproj = pyproj.Proj(proj="lcc", lon_0=orig_lon, lat_0=orig_lat,
-                                lat_1=parallel_1, lat_2=parallel_2, units="km",
-                                ellps=proj_ellipsoid, datum="WGS84")
+            gproj = Proj(proj="lcc", lon_0=orig_lon, lat_0=orig_lat,
+                         lat_1=parallel_1, lat_2=parallel_2, units="km",
+                         ellps=proj_ellipsoid, datum="WGS84")
         elif line[1] == "TRANS_MERC":
             orig_lat = float(line[5])
             orig_lon = float(line[7])
 
-            gproj = pyproj.Proj(proj="tmerc", lon=orig_lon, lat=orig_lat,
-                                units="km")
+            gproj = Proj(proj="tmerc", lon=orig_lon, lat=orig_lat,
+                         units="km")
 
         transform = [gproj, cproj, line[1]]
 

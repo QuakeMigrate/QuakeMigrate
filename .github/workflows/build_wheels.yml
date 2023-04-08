@@ -21,12 +21,13 @@ jobs:
     env:
       CIBW_BUILD: '${{ matrix.build }}-*'
       CIBW_ARCHS: 'native'
+      CIBW_ARCHS_MACOS: x86_64 arm64
       CIBW_SKIP: '*i686 *s390x *ppc64le *musllinux*'
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        build: [cp37, cp38, cp39]
+        build: [cp38, cp39, cp310]
 
     steps:
       - uses: actions/checkout@v3

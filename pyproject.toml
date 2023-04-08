@@ -2,11 +2,80 @@
 # Minimum requirements for the build system to execute.
 # see PEP518: https://www.python.org/dev/peps/pep-0518/
 requires = [
-    "setuptools",
     "numpy",
+    "setuptools >= 61.0.0",
+    "wheel",
     ]
 build-backend = "setuptools.build_meta"
+
 [tool.cibuildwheel.macos]
 before-all = [
     "conda install -c conda-forge llvm-openmp"
 ]
+
+[tool.setuptools.packages.find]
+include = ["quakemigrate*"]
+
+[project]
+name = "quakemigrate"
+version = "1.0.1rc7"
+description = "A Python package for automatic earthquake detection and location using waveform migration and stacking."
+readme = "README.md"
+license = {text = "GPLv3"}
+requires-python = ">=3.8"
+authors = [
+    {name = "The QuakeMigrate Development Team", email = "quakemigrate.developers@gmail.com"},
+    {name = "Tom Winder", email = "tom.winder@esc.cam.ac.uk"},
+    {name = "Conor Bacon", email = "cbacon@ldeo.columbia.edu"},
+]
+maintainers = [
+    {name = "Tom Winder", email = "tom.winder@esc.cam.ac.uk"},
+    {name = "Conor Bacon", email = "cbacon@ldeo.columbia.edu"},
+]
+keywords = [
+    "seismic event detection",
+    "seismic event location",
+    "waveform migration",
+    "array",
+    "seismic",
+    "seismology",
+    "earthquake",
+    "seismic waves",
+    "waveform",
+    "processing",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering",
+    "Natural Language :: English",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+dependencies = [
+    "matplotlib",
+    "numpy",
+    "obspy>=1.2",
+    "pandas",
+    "pyproj>=2.5",
+    "scipy",
+]
+
+[project.optional-dependencies]
+dev = ["black", "ipython"]
+docs = ["docutils", "mock", "Sphinx >= 1.8.1", "sphinx_rtd_theme"]
+fmm = ["scikit-fmm"]
+
+[project.urls]
+GitHub = "https://github.com/QuakeMigrate/QuakeMigrate"
+Issues = "https://github.com/QuakeMigrate/QuakeMigrate/issues"
+
+[tool.black]
+line-length = 88
+

@@ -27,7 +27,7 @@ import shutil
 import sys
 
 from distutils.ccompiler import get_default_compiler
-from setuptools import Extension, find_packages, setup
+from setuptools import Extension, setup
 
 
 # The minimum python version which can be used to run QuakeMigrate
@@ -35,8 +35,10 @@ MIN_PYTHON_VERSION = (3, 8)
 
 # Fail fast if the user is on an unsupported version of Python.
 if sys.version_info < MIN_PYTHON_VERSION:
-    msg = (f"QuakeMigrate requires python version >= {MIN_PYTHON_VERSION}"
-           f" you are using python version {sys.version_info}")
+    msg = (
+        f"QuakeMigrate requires python version >= {MIN_PYTHON_VERSION}"
+        f" you are using python version {sys.version_info}"
+    )
     print(msg, file=sys.stderr)
     sys.exit(1)
 
@@ -54,52 +56,23 @@ if READ_THE_DOCS:
 
 # Directory of the current file
 SETUP_DIRECTORY = pathlib.Path.cwd()
-DOCSTRING = __doc__.split("\n")
 
 # Check for MSVC (Windows)
 if platform.system() == "Windows" and (
-        "msvc" in sys.argv or
-        "-c" not in sys.argv and
-        get_default_compiler() == "msvc"):
+    "msvc" in sys.argv or "-c" not in sys.argv and get_default_compiler() == "msvc"
+):
     IS_MSVC = True
 else:
     IS_MSVC = False
-
-INSTALL_REQUIRES = [
-    "matplotlib",
-    "numpy",
-    "obspy",
-    "pandas",
-    "pyproj",
-    "scipy"
-]
-
-if READ_THE_DOCS:
-    EXTRAS_REQUIRES = {
-        "docs": [
-            "Sphinx >= 1.8.1",
-            "docutils"
-        ]
-    }
-else:
-    EXTRAS_REQUIRES = {
-        "fmm": [
-            "scikit-fmm"
-        ]
-    }
-
-KEYWORDS = [
-    "seismic event detection", "seismic event location", "waveform migration",
-    "array", "seismic", "seismology", "earthquake", "seismic waves",
-    "waveform", "processing"
-]
 
 # Monkey patch for MS Visual Studio
 if IS_MSVC:
     # Remove 'init' entry in exported symbols
     def _get_export_symbols(self, ext):
         return ext.export_symbols
+
     from setuptools.command.build_ext import build_ext
+
     build_ext.get_export_symbols = _get_export_symbols
 
 
@@ -117,6 +90,7 @@ def get_extensions():
     Config function used to compile C code into a Python extension.
     """
     import numpy
+
     extensions = []
 
     if READ_THE_DOCS:
@@ -126,26 +100,19 @@ def get_extensions():
         "include_dirs": [
             str(pathlib.Path.cwd() / "quakemigrate" / "core" / "src"),
             str(pathlib.Path(sys.prefix) / "include"),
-            numpy.get_include()
+            numpy.get_include(),
         ],
-        "library_dirs": [
-            str(pathlib.Path(sys.prefix) / "lib")
-        ]
+        "library_dirs": [str(pathlib.Path(sys.prefix) / "lib")],
     }
     if platform.system() == "Darwin":
-        extension_args["include_dirs"].extend([
-            "/usr/local/include",
-            "/usr/local/opt/llvm/include"
-        ])
-        extension_args["library_dirs"].extend([
-            "/usr/local/lib",
-            "/usr/local/opt/llvm/lib",
-            "/usr/local/opt/libomp/lib"
-        ])
+        extension_args["include_dirs"].extend(
+            ["/usr/local/include", "/usr/local/opt/llvm/include"]
+        )
+        extension_args["library_dirs"].extend(
+            ["/usr/local/lib", "/usr/local/opt/llvm/lib", "/usr/local/opt/libomp/lib"]
+        )
 
-    sources = [
-        str(pathlib.Path("quakemigrate") / "core/src/quakemigrate.c")
-    ]
+    sources = [str(pathlib.Path("quakemigrate") / "core/src/quakemigrate.c")]
 
     extra_link_args = []
     if IS_MSVC:
@@ -153,10 +120,12 @@ def get_extensions():
         extension_args["export_symbols"] = export_symbols(
             "quakemigrate/core/src/qmlib.def"
         )
-        extension_args["library_dirs"].extend([
-            str(pathlib.Path.cwd() / "quakemigrate" / "core"),
-            str(pathlib.Path(sys.prefix) / "bin")
-        ])
+        extension_args["library_dirs"].extend(
+            [
+                str(pathlib.Path.cwd() / "quakemigrate" / "core"),
+                str(pathlib.Path(sys.prefix) / "bin"),
+            ]
+        )
     else:
         extra_compile_args = []
         extra_link_args.extend(["-lm"])
@@ -170,13 +139,9 @@ def get_extensions():
     extension_args["extra_link_args"] = extra_link_args
     extension_args["extra_compile_args"] = extra_compile_args
 
-    extensions.extend([
-        Extension(
-            "quakemigrate.core.src.qmlib",
-            sources=sources,
-            **extension_args
-        )
-    ])
+    extensions.extend(
+        [Extension("quakemigrate.core.src.qmlib", sources=sources, **extension_args)]
+    )
 
     return extensions
 
@@ -184,53 +149,15 @@ def get_extensions():
 def setup_package():
     """Setup package"""
 
-    if READ_THE_DOCS:
-        INSTALL_REQUIRES.append("mock")
-
     package_dir, package_data = {}, {}
     if IS_MSVC:
-        package_dir["quakemigrate.core"] = str(
-            pathlib.Path("quakemigrate") / "core"
-        )
-        package_data["quakemigrate.core"] = [
-            "quakemigrate/core/src/*.dll"
-        ]
+        package_dir["quakemigrate.core"] = str(pathlib.Path("quakemigrate") / "core")
+        package_data["quakemigrate.core"] = ["quakemigrate/core/src/*.dll"]
 
     setup_args = {
-        "name": "quakemigrate",
-        "description": " ".join(DOCSTRING[1:3]),
-        "long_description": "\n".join(DOCSTRING[4:]),
-        "url": "https://github.com/QuakeMigrate/QuakeMigrate",
-        "author": "The QuakeMigrate Development Team",
-        "author_email": """
-            quakemigrate.developers@gmail.com,
-            tom.winder@esc.cam.ac.uk,
-            conor.bacon@esc.cam.ac.uk
-        """,
-        "license": "GNU General Public License, Version 3 (GPLv3)",
-        "classifiers": [
-            "Development Status :: 5 - Production/Stable",
-            "Intended Audience :: Science/Research",
-            "Topic :: Scientific/Engineering",
-            "Natural Language :: English",
-            "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
-            "Operating System :: OS Independent",
-            "Programming Language :: Python",
-            "Programming Language :: Python :: 3",
-            "Programming Language :: Python :: 3.8",
-            "Programming Language :: Python :: 3.9",
-            "Programming Language :: Python :: 3.10",
-            "Programming Language :: Python :: 3.11",
-        ],
-        "keywords": KEYWORDS,
-        "install_requires": INSTALL_REQUIRES,
-        "extras_require": EXTRAS_REQUIRES,
-        "zip_safe": False,
-        "include_package_data": True,
-        "packages": find_packages(),
         "ext_modules": get_extensions(),
         "package_data": package_data,
-        "package_dir": package_dir
+        "package_dir": package_dir,
     }
 
     shutil.rmtree(str(SETUP_DIRECTORY / "build"), ignore_errors=True)

@@ -11,6 +11,8 @@ using waveform migration and stacking.
 
 """
 
+import pkg_resources
+
 import matplotlib
 import os
 import logging
@@ -19,9 +21,10 @@ from quakemigrate.io.data import Archive  # NOQA
 from quakemigrate.lut import create_lut, read_nlloc, LUT  # NOQA
 from quakemigrate.signal import QuakeScan, Trigger  # NOQA
 
+
 # Set matplotlib logging level and backend
 logging.getLogger("matplotlib").setLevel(logging.INFO)
 if "DISPLAY" not in os.environ:
     matplotlib.use("Agg")
 
-__version__ = "1.0.1.rc6"
+__version__ = pkg_resources.get_distribution("quakemigrate").version

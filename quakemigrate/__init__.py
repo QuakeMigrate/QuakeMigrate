@@ -30,4 +30,4 @@ logging.getLogger("matplotlib").setLevel(logging.INFO)
 if "DISPLAY" not in os.environ:
     matplotlib.use("Agg")
 
-__version__ = "1.0.0.rc2"
+__version__ = "1.0.1.rc1"

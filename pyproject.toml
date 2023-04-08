@@ -8,10 +8,5 @@ requires = [
 build-backend = "setuptools.build_meta"
 [tool.cibuildwheel.macos]
 before-all = [
-    "brew install llvm libomp",
-    'export PATH="/usr/local/opt/llvm/bin:$PATH"',
-    'echo "include_directories(\"/usr/local/include\" \"/usr/local/opt/llvm/include\")" > CMakeLists.txt',
-    'echo "link_directories(\"/usr/local/lib\" \"/usr/local/opt/llvm/lib\")" >> CMakeLists.txt',
-    'CMake -DCMAKE_C_COMPILER="/usr/local/opt/llvm/bin/clang"',
-    "export CC=/usr/local/opt/llvm/bin/clang"
+    "conda install openmp"
 ]

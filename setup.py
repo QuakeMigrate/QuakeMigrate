@@ -226,6 +226,7 @@ def setup_package():
         "install_requires": INSTALL_REQUIRES,
         "extras_require": EXTRAS_REQUIRES,
         "zip_safe": False,
+        "include_package_data": True,
         "packages": find_packages(),
         "ext_modules": get_extensions(),
         "package_data": package_data,

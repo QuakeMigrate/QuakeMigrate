@@ -21,7 +21,7 @@ jobs:
     env:
       CIBW_BUILD: '${{ matrix.build }}-*'
       CIBW_ARCHS: 'native'
-      CIBW_ARCHS_MACOS: x86_64 arm64
+      CIBW_ARCHS_MACOS: x86_64
       CIBW_SKIP: '*i686 *s390x *ppc64le *musllinux*'
     strategy:
       fail-fast: false

@@ -26,7 +26,7 @@ copyright = '2020-2021, QuakeMigrate developers'
 author = 'QuakeMigrate developers'
 
 # The full version, including alpha/beta/rc tags
-release = '1.0.1rc5'
+release = '1.0.1rc6'
 
 # -- General configuration ---------------------------------------------------
 # Add any Sphinx extension module names here, as strings. They can be

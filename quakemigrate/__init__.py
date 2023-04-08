@@ -3,12 +3,6 @@
 QuakeMigrate - a Python package for automatic earthquake detection and location
 using waveform migration and stacking.
 
-Version - 1.0.0
-Authors - The QuakeMigrate Development Team
-Contact - quakemigrate.developers@gmail.com
-          tom.winder@esc.cam.ac.uk
-          conor.bacon@esc.cam.ac.uk
-
 :copyright:
     2020-2022, QuakeMigrate developers.
 :license:
@@ -30,4 +24,4 @@ logging.getLogger("matplotlib").setLevel(logging.INFO)
 if "DISPLAY" not in os.environ:
     matplotlib.use("Agg")
 
-__version__ = "1.0.1.rc5"
+__version__ = "1.0.1.rc6"

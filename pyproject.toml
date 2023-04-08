@@ -8,5 +8,5 @@ requires = [
 build-backend = "setuptools.build_meta"
 [tool.cibuildwheel.macos]
 before-all = [
-    "conda install openmp -c conda-forge"
+    "conda install -c conda-forge llvm-openmp"
 ]

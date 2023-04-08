@@ -1,0 +1,2 @@
+include quakemigrate/core/src/qmlib.*
+include quakemigrate/core/src/quakemigrate.c

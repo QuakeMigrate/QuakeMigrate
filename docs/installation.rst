@@ -279,7 +279,7 @@ Alternatively, you can install `gcc` and `g++` `through conda <https://docs.cond
 
 .. code-block:: bash
     
-    conda install gcc_linux-64 gxx_linux-64
+    conda install -c conda-forge gcc_linux-64 gxx_linux-64
 
 You can test this was successful with the same procedure detailed :ref:`above<Checking for a C compiler>`. Once installed, you can proceed with the QuakeMigrate :ref:`installation from source <Other installation methods>`.
 
@@ -314,8 +314,8 @@ Then use conda to install the compiler (along with the OpenMP libraries). **Note
 
 .. code-block:: bash
 
-    conda install openmp clang_osx-64 clangxx_osx-64  # Intel chip
-    conda install openmp clang_osx-arm64 clangxx_osx-arm64  # Apple Silicon chip (M1, M2 etc.)
+    conda install -c conda-forge llvm-openmp clang_osx-64 clangxx_osx-64  # Intel chip
+    conda install -c conda-forge llvm-openmp clang_osx-arm64 clangxx_osx-arm64  # Apple Silicon chip (M1, M2 etc.)
 
 .. note:: If you did not already have Xcode Command Line Tools installed, you will be prompted to install them now. Click ``Install`` and wait for installation to complete.
 

@@ -16,7 +16,7 @@ QuakeMigrate was developed and tested on Ubuntu 16.04/18.04, with the intention 
 
 Prerequisites
 -------------
-QuakeMigrate supports Python 3.7 or newer (3.8/3.9/3.10). We recommend using Anaconda as a package manager and environment management system to isolate and install the specific dependencies of QuakeMigrate.
+QuakeMigrate supports Python 3.8 or newer (3.8/3.9/3.10/3.11). We recommend using Anaconda as a package manager and environment management system to isolate and install the specific dependencies of QuakeMigrate.
 
 Instructions for downloading and installing Anaconda can be found `here <https://docs.anaconda.com/anaconda/install/>`_. If drive space is limited, consider using Miniconda instead, which ships with a minimal collection of useful packages.
 
@@ -45,9 +45,9 @@ The full list of dependencies is:
 
 - matplotlib
 - numpy
-- obspy
+- obspy >= 1.2
 - pandas
-- pyproj
+- pyproj >= 2.5
 - scipy
 
 .. note:: We are currently not pinning the version of any dependencies. We aim to keep on top of any new syntax changes etc. as new versions of these packages are released - but please submit an issue if you come across something!
@@ -73,6 +73,8 @@ Obtaining binaries
 To download, unpack, and compile NonLinLoc, **Linux** and *most* **macOS** users can use:
 
 .. note:: In order to install NonLinLoc, you will need an accessible C compiler, such as `gcc` or `clang` (see :ref:`C compilers`).
+
+.. warning:: The NLLoc MakeFile specifies the compiler as ``gcc``. For **macOS users** this means that the system (XCode) clang compiler will be used even if you activate the relevant environment for an alternative. To change this, edit the MakeFile to specify ``clang`` instead of ``gcc``.
 
 .. code-block:: bash
     
@@ -121,8 +123,6 @@ scikit-fmm is a 3rd-party Python package which implements the fast-marching meth
     pip install scikit-fmm
 
 It can also be installed along with the rest of package if installing from source (see :ref:`Other installation methods`).
-
-.. note:: At time of writing scikit-fmm (version 2022.8.15) does not yet support Python 3.11.
 
 Other installation methods
 --------------------------

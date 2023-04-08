@@ -49,7 +49,7 @@ Smith, J.D., White, R.S., Avouac, JP, and S. Bourne (2020), Probabilistic earthq
 
 We hope to have a publication coming out soon:
 
-Winder, T., Bacon, C.A., Smith, J.D., Hudson, T.S., Drew, J., and White, R.S. QuakeMigrate: a Python Package for Automatic Earthquake Detection and Location Using Waveform Migration and Stacking. (to be submitted to Geophysical Journal International).
+Winder, T., Bacon, C.A., Smith, J.D., Hudson, T.S., Drew, J., and White, R.S. QuakeMigrate: a Python Package for Automatic Earthquake Detection and Location Using Waveform Migration and Stacking. (to be submitted to *Seismica*).
 
 Contact
 -------

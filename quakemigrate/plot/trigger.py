@@ -244,7 +244,7 @@ def _plot_station_availability(ax, availability, endtime):
         ph_availability = availability.filter(regex=f"_{phase}$")
 
         available = ph_availability.sum(axis=1).astype(int)
-        times = list(pd.to_datetime(available.index))
+        times = list(pd.to_datetime(available.index).tz_localize(None))
 
         # If plotting by station, divide by # of phases
         if phases[0] == "*":
@@ -255,7 +255,8 @@ def _plot_station_availability(ax, availability, endtime):
         # Handle last step
         available = available.values
         available = np.append(available, [available[-1]])
-        times.append(endtime.datetime)
+        times.append(pd.to_datetime(endtime.datetime))
+        logging.debug(times)
         ax.step(times, available, c=colour, where="post", label=phase)
 
         max_ava.append(max(available))

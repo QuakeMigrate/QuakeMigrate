@@ -309,9 +309,9 @@ class Archive:
                     try:
                         st_merged += st.select(id=tr_id).merge(method=-1)
                     except UserWarning as e:
-                        print(f"\t\t{e}")
-                        print(f"\t\t{st.select(id=tr_id)}")
-                        print(
+                        logging.info(f"\t\t{e}")
+                        logging.info(f"\t\t{st.select(id=tr_id)}")
+                        logging.info(
                             "\t\tThis channel will not be used for onset "
                             "calculation."
                         )

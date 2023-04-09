@@ -60,7 +60,7 @@ def sac_mfast(event, stations, output_path, units, filename=None):
     event_header.evla = origin.latitude
     event_header.evlo = origin.longitude
     # Obspy Event object already has all units converted to metres
-    event_header.evdp = origin.depth / 1000.  # converted to km
+    event_header.evdp = origin.depth / 1000.0  # converted to km
     eventid = str(event.resource_id)
     if filename is None:
         filename = eventid + ".{}.{}"
@@ -76,15 +76,14 @@ def sac_mfast(event, stations, output_path, units, filename=None):
         station_header = AttribDict()
         station_header.stla = station.Latitude
         station_header.stlo = station.Longitude
-        station_header.stel = station.Elevation / factor # convert to m
+        station_header.stel = station.Elevation / factor  # convert to m
 
         # Calculate the distance and azimuth between event and station
-        dist, az, _ = gps2dist_azimuth(event_header.evla,
-                                         event_header.evlo,
-                                         station.Latitude,
-                                         station.Longitude)
+        dist, az, _ = gps2dist_azimuth(
+            event_header.evla, event_header.evlo, station.Latitude, station.Longitude
+        )
 
-        station_header.dist = dist / 1000. # convert m to km
+        station_header.dist = dist / 1000.0  # convert m to km
         station_header.az = az
 
         # Get relevant picks here

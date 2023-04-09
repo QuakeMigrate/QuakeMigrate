@@ -734,8 +734,8 @@ class WaveformData:
                     water_level=self.water_level,
                     taper=True,
                     sacsim=True,  # To replicate remove_response()
-                    pitsasim=False,
-                )  # To replicate remove_response()
+                    pitsasim=False,   # To replicate remove_response()
+                )
             except ValueError as e:
                 raise util.ResponseRemovalError(e, tr.id)
         else:
@@ -797,8 +797,8 @@ class WaveformData:
             water_level=self.water_level,
             taper=True,
             sacsim=True,  # To replicate remove_response()
-            pitsasim=False,
-        )  # To replicate remove_response()
+            pitsasim=False,  # To replicate remove_response()
+        )
 
         try:
             self.wa_waveforms.append(tr.copy())

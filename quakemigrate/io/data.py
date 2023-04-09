@@ -13,6 +13,7 @@ Module for processing waveform files stored in a data archive.
 from itertools import chain
 import logging
 import pathlib
+import warnings
 
 from obspy import read, Stream, UTCDateTime
 
@@ -279,7 +280,20 @@ class Archive:
 
             # Merge all traces with contiguous data, or overlapping data which
             # exactly matches (== st._cleanup(); i.e. no clobber)
-            st.merge(method=-1)
+            # Apply this on a channel by channel basis so that if any individual
+            # merge fails then only that channel will be omitted.
+            ids = set([tr.id for tr in st])
+            st_merged = Stream()
+            with warnings.catch_warnings():
+                warnings.filterwarnings("error")
+                for tr_id in ids:
+                    try:
+                        st_merged += st.select(id=tr_id).merge(method=-1)
+                    except UserWarning as e:
+                        print(f"\t\t{e}")
+                        print(f"\t\t{st.select(id=tr_id)}")
+                        print("\t\tThis channel will not be used for onset "
+                              "calculation.")
 
             # Make copy of raw waveforms to output if requested
             data.raw_waveforms = st.copy()

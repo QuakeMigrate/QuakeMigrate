@@ -297,24 +297,8 @@ class Archive:
                     logging.info(f"File not compatible with ObsPy - {file}")
                     continue
 
-            # Merge all traces with contiguous data, or overlapping data which
-            # exactly matches (== st._cleanup(); i.e. no clobber)
-            # Apply this on a channel by channel basis so that if any individual
-            # merge fails then only that channel will be omitted.
-            ids = set([tr.id for tr in st])
-            st_merged = Stream()
-            with warnings.catch_warnings():
-                warnings.filterwarnings("error")
-                for tr_id in ids:
-                    try:
-                        st_merged += st.select(id=tr_id).merge(method=-1)
-                    except UserWarning as e:
-                        logging.info(f"\t\t{e}")
-                        logging.info(f"\t\t{st.select(id=tr_id)}")
-                        logging.info(
-                            "\t\tThis channel will not be used for onset "
-                            "calculation."
-                        )
+            # Merge waveforms channel-by-channel with no-clobber merge
+            st = util.merge_stream(st)
 
             # Make copy of raw waveforms to output if requested
             data.raw_waveforms = st.copy()

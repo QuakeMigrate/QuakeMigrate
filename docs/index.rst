@@ -11,15 +11,22 @@ QuakeMigrate
 
 QuakeMigrate uses a waveform migration and stacking algorithm to search for coherent seismic phase arrivals across a network of instruments. It produces, from raw data, a catalogue of earthquakes with locations, origin times, phase arrival picks, and local magnitude estimates, as well as well as rigorous estimates of the associated uncertainties.
 
+The package has been built with a modular architecture, providing the potential for extension and adaptation at numerous entry points. This includes, but is not limited to:
+
+* the calculation or import of traveltime grids
+* the choice of algorithm used to identify phase arrivals (for example by kurtosis, cross-covariance analysis between multiple components, machine learning techniques and more)
+* the stacking function used to combine onset functions
+* the algorithm used to perform phase picking
+
 The source code for the project is hosted on |github|.
 
 This package is written by the QuakeMigrate developers, and is distributed under
-the GPLv3 License, Copyright QuakeMigrate developers 2020-2022.
+the GPLv3 License, Copyright QuakeMigrate developers 2023.
 
 
 .. |github| raw:: html
 
-    <a href="https://github.com/QuakeMigrate/QuakeMigrate" target="_blank">github</a>
+    <a href="https://github.com/QuakeMigrate/QuakeMigrate" target="_blank">GitHub</a>
 
 Citation
 --------
@@ -27,9 +34,7 @@ If you use this package in your work, please cite the following conference prese
 
 Winder, T., Bacon, C.A., Smith, J.D., Hudson, T., Greenfield, T. and White, R.S., 2020. QuakeMigrate: a Modular, Open-Source Python Package for Automatic Earthquake Detection and Location. AGUFM, 2020. pp.S38-0013.
 
-or, if this is not possible, please cite the following journal article:
-
-Smith, J.D., White, R.S., Avouac, JP, and S. Bourne (2020), Probabilistic earthquake locations of induced seismicity in the Groningen region, Netherlands, Geophysical Journal International.
+as well as the relevant version of the source code on `Zenodo <https://doi.org/10.5281/zenodo.4442749>`_.
 
 We hope to have a publication coming out soon:
 

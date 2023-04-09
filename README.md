@@ -1,13 +1,49 @@
 <p align="center">
+  <!-- DOI -->
+  <a href="https://doi.org/10.5281/zenodo.4442749">
+    <img src="https://zenodo.org/badge/DOI/10.5281/zenodo.4442749.svg" alt="DOI" />
+  </a>
+  <!-- ReadTheDocs -->
+  <a href="https://quakemigrate.readthedocs.io/en/latest">
+    <img src="https://readthedocs.org/projects/quakemigrate/badge/?version=latest" />
+  </a>
+  <!-- Build Action -->
+  <a href="https://github.com/QuakeMigrate/QuakeMigrate/actions">
+    <img src="https://github.com/QuakeMigrate/QuakeMigrate/actions/workflows/build_wheels.yml/badge.svg" />
+  </a>
+  <!-- PyPI -->
+  <a href="https://pypi.org/project/quakemigrate/">
+    <img src="https://img.shields.io/pypi/v/quakemigrate" />
+  </a>
+  <!-- Coverage -->
+  <a href="https://codecov.io/gh/QuakeMigrate/QuakeMigrate">
+    <img src="https://codecov.io/gh/QuakeMigrate/QuakeMigrate/branch/master/graph/badge.svg">
+  </a>
+  <!-- MyBinder Example -->
+  <a href="https://mybinder.org/v2/gh/QuakeMigrate/QuakeMigrate/master">
+    <img src="https://mybinder.org/badge_logo.svg" />
+  </a>
+  <!-- Python version-->
+  <a href="https://www.python.org/downloads/release/python-380/">
+    <img src="https://img.shields.io/badge/python-3.8+-blue.svg" />
+  </a>
+  <!-- License -->
+  <a href="https://www.gnu.org/licenses/gpl-3.0">
+    <img src="https://img.shields.io/badge/License-GPLv3-blue.svg" />
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://quakemigrate.readthedocs.io/en/latest">QuakeMigrate</a> is a Python package for automatic earthquake detection and location using waveform migration and stacking.</a>
+</p>
+
+<p align="center">
 <img src="https://github.com/QuakeMigrate/QuakeMigrate/raw/master/docs/img/QMlogoBig.png", width="80%">
 </p>
 
-[![WheelBuilding Workflow](https://github.com/QuakeMigrate/QuakeMigrate/actions/workflows/build_wheels.yml/badge.svg)](https://github.com/QuakeMigrate/QuakeMigrate/actions)
-[![codecov](https://codecov.io/gh/QuakeMigrate/QuakeMigrate/branch/master/graph/badge.svg)](https://codecov.io/gh/QuakeMigrate/QuakeMigrate)
-[![Documentation Status](https://readthedocs.org/projects/quakemigrate/badge/?version=latest)](https://quakemigrate.readthedocs.io/en/latest/?badge=latest)
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/QuakeMigrate/QuakeMigrate/master)
-
-QuakeMigrate is a Python package for automatic earthquake detection and location using waveform migration and stacking. It can be used to produce catalogues of earthquakes, including hypocentres, origin times, phase arrival picks, and local magnitude estimates, as well as rigorous estimates of the associated uncertainties.
+Key Features
+------------
+QuakeMigrate uses a waveform migration and stacking algorithm to search for coherent seismic phase arrivals across a network of instruments. It produces—from raw data—catalogues of earthquakes with locations, origin times, phase arrival picks, and local magnitude estimates, as well as well as rigorous estimates of the associated uncertainties.
 
 The package has been built with a modular architecture, providing the potential for extension and adaptation at numerous entry points. This includes, but is not limited to:
 * the calculation or import of traveltime grids
@@ -15,14 +51,19 @@ The package has been built with a modular architecture, providing the potential 
 * the stacking function used to combine onset functions
 * the algorithm used to perform phase picking
 
-
 Documentation
 -------------
 Documentation for QuakeMigrate is hosted [here](https://quakemigrate.readthedocs.io/en/latest/index.html).
 
 Installation
 ------------
-Installation instructions can be found [here](https://quakemigrate.readthedocs.io/en/latest/installation.html).
+Detailed installation instructions can be found [here](https://quakemigrate.readthedocs.io/en/latest/installation.html).
+
+If you're comfortable with virtual environments and just want to get started, QuakeMigrate is available via the Python Package Index, and can be installed via pip:
+
+```console
+pip install quakemigrate
+```
 
 Usage
 -----
@@ -30,10 +71,10 @@ We are working on tutorials covering how each individual aspect of the package w
 
 This is a work in progress - [see our documentation for full details](https://quakemigrate.readthedocs.io/en/latest/tutorials.html).
 
-### Binder
+### Examples you can run in your browser
 To quickly get a taste for how the software works, try out the two icequake examples hosted on Binder:
-* Icequakes at the Rutford Ice Stream, Antarctica  [![badge](https://img.shields.io/badge/launch-Icequake%20Rutford%20notebook-579ACA.svg?logo=data:image/png;base64,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)](https://mybinder.org/v2/gh/QuakeMigrate/QuakeMigrate/master?filepath=examples%2FIcequake_Rutford%2Ficequakes_rutford.ipynb)
-* Icequakes at the Skeiðarárjökull outlet glacier, Iceland [![badge](https://img.shields.io/badge/launch-Icequake%20Iceland%20notebook-E66581.svg?logo=data:image/png;base64,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)](https://mybinder.org/v2/gh/QuakeMigrate/QuakeMigrate/master?filepath=examples%2FIcequake_Iceland%2Ficequakes_iceland.ipynb)
+* Icequakes at the Rutford Ice Stream, Antarctica  [![badge](https://img.shields.io/badge/launch-Icequake%20Rutford%20notebook-579ACA.svg)](https://mybinder.org/v2/gh/QuakeMigrate/QuakeMigrate/master?filepath=examples%2FIcequake_Rutford%2Ficequakes_rutford.ipynb)
+* Icequakes at the Skeiðarárjökull outlet glacier, Iceland [![badge](https://img.shields.io/badge/launch-Icequake%20Iceland%20notebook-E66581.svg)](https://mybinder.org/v2/gh/QuakeMigrate/QuakeMigrate/master?filepath=examples%2FIcequake_Iceland%2Ficequakes_iceland.ipynb)
 
 And for a more comprehensive demonstration of the options available, see the [template scripts](examples/template_scripts).
 
@@ -41,15 +82,25 @@ Citation
 --------
 If you use this package in your work, please cite the following conference presentation:
 
+```console
 Winder, T., Bacon, C.A., Smith, J.D., Hudson, T., Greenfield, T. and White, R.S., 2020. QuakeMigrate: a Modular, Open-Source Python Package for Automatic Earthquake Detection and Location. In AGU Fall Meeting 2020. AGU.
+```
 
-or, if this is not possible, please cite the following journal article:
-
-Smith, J.D., White, R.S., Avouac, JP, and S. Bourne (2020), Probabilistic earthquake locations of induced seismicity in the Groningen region, Netherlands, Geophysical Journal International.
+as well as the relevant version of the source code on [Zenodo](https://doi.org/10.5281/zenodo.4442749).
 
 We hope to have a publication coming out soon:
 
-Winder, T., Bacon, C.A., Smith, J.D., Hudson, T.S., Drew, J., and White, R.S. QuakeMigrate: a Python Package for Automatic Earthquake Detection and Location Using Waveform Migration and Stacking. (to be submitted to *Seismica*).
+```console
+Winder, T., Bacon, C.A., Smith, J.D., Hudson, T.S., Drew, J., and White, R.S. QuakeMigrate: a Python Package for Automatic Earthquake Detection and Location Using Waveform Migration and Stacking. (to be submitted to Seismica).
+```
+
+Contributing to QuakeMigrate
+----------------------------
+Contributions to QuakeMigrate are welcomed. The first stop should be to reach out, either directly or—preferably—via the GitHub Issues panel, to discuss the proposed changes. Next, simply fork the QuakeMigrate repository, make your changes/add your new contribution, then make a [pull request](https://help.github.com/articles/about-pull-requests/).
+
+Bug reports, suggestions for new features and enhancements, and even links to projects that have made use of QuakeMigrate are most welcome.
+
+See our [contributions page](https://github.com/QuakeMigrate/QuakeMigrate/blob/master/CONTRIBUTING.md) for more information.
 
 Contact
 -------
@@ -61,4 +112,4 @@ Any additional comments/questions can be directed to:
 
 License
 -------
-This package is written and maintained by the QuakeMigrate developers, Copyright QuakeMigrate developers 2020-2022. It is distributed under the GPLv3 License. Please see the [LICENSE](LICENSE) file for a complete description of the rights and freedoms that this provides the user.
+This package is written and maintained by the QuakeMigrate developers, Copyright QuakeMigrate developers 2023. It is distributed under the GPLv3 License. Please see the [LICENSE](LICENSE) file for a complete description of the rights and freedoms that this provides the user.

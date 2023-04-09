@@ -408,11 +408,18 @@ class QuakeScan:
             except util.ArchiveEmptyException as e:
                 coalescence.empty(starttime, self.timestep, i, e.msg,
                                   self.lut.unit_conversion_factor)
-                availability.loc[i] = np.zeros(len(availability_cols))
+                availability.loc[i] = np.zeros(len(availability_cols),
+                                               dtype=int)
             except util.DataGapException as e:
                 coalescence.empty(starttime, self.timestep, i, e.msg,
                                   self.lut.unit_conversion_factor)
-                availability.loc[i] = np.zeros(len(availability_cols))
+                availability.loc[i] = np.zeros(len(availability_cols),
+                                               dtype=int)
+            except util.DataAvailabilityException as e:
+                coalescence.empty(starttime, self.timestep, i, e.msg,
+                                  self.lut.unit_conversion_factor)
+                availability.loc[i] = np.zeros(len(availability_cols),
+                                               dtype=int)
 
             availability.rename(index={i: str(starttime + self.timestep*i)},
                                 inplace=True)
@@ -464,6 +471,9 @@ class QuakeScan:
                 logging.info(e.msg)
                 continue
             except util.DataGapException as e:
+                logging.info(e.msg)
+                continue
+            except util.DataAvailabilityException as e:
                 logging.info(e.msg)
                 continue
 

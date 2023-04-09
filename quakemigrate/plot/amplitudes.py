@@ -103,7 +103,7 @@ def amplitudes_summary(magnitudes, amp_feature, amp_multiplier, dist_err,
                              np.power(10, used_mags["Station_Correction"]),
                              xerr=dist_err,
                              yerr=noise_amps[magnitudes["Used"]],
-                             fmt="o", marker="x", label=signal_label)
+                             marker="x", label=signal_label)
     _ = [errorbar.set_alpha(0.3) for errorbar in bars]
 
     # One label for each station, above highest observed amplitude; faff.

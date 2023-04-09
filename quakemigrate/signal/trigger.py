@@ -280,6 +280,7 @@ class Trigger:
             logging.info("\tNo events triggered at this threshold - try a "
                          "lower detection threshold.")
             events = candidate_events
+            discarded = candidate_events
         else:
             refined_events = self._refine_candidates(candidate_events)
             events = self._filter_events(refined_events, batchstart, batchend,

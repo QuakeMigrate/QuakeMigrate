@@ -384,6 +384,9 @@ class STALTAOnset(Onset):
 
         logging.debug(filtered_waveforms.__str__(extended=True))
 
+        if sum(availability.values()) == 0:
+            raise util.DataAvailabilityException
+
         onsets = np.stack(onsets, axis=0)
         onset_data = OnsetData(onsets_dict, self.phases, self.channel_maps,
                                filtered_waveforms, availability,

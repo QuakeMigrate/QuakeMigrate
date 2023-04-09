@@ -7,7 +7,7 @@ dependencies:
   - jupyter
   - matplotlib
   - numpy
-  - obspy >=1.2
+  - obspy >=1.3
   - pandas
   - python
   - pyproj >=2.5

@@ -45,7 +45,7 @@ The full list of dependencies is:
 
 - matplotlib
 - numpy
-- obspy >= 1.2
+- obspy >= 1.3
 - pandas
 - pyproj >= 2.5
 - scipy

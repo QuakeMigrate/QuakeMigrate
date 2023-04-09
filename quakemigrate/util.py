@@ -593,6 +593,7 @@ def upsample(trace, upfactor, starttime, endtime):
 
     return out
 
+
 def merge_stream(stream):
     """
     Merge all traces with contiguous data, or overlapping data which

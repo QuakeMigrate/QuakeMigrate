@@ -13,7 +13,6 @@ Module for processing waveform files stored in a data archive.
 from itertools import chain
 import logging
 import pathlib
-import warnings
 
 from obspy import read, Stream, UTCDateTime
 

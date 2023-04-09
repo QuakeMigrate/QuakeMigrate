@@ -1,6 +1,6 @@
-matplotlib<3.3
+matplotlib
 numpy
 obspy>=1.2
-pandas==1.0.*
+pandas
 pyproj>=2.5
 scipy

@@ -47,7 +47,7 @@ quakemigrate.io.data
     :show-inheritance:
 
 quakemigrate.io.event
---------------------
+---------------------
 
 .. automodule:: quakemigrate.io.event
     :members:

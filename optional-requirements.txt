@@ -1,1 +1,1 @@
-scikit-fmm==2019.1.30
+scikit-fmm

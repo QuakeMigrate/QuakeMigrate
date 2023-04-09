@@ -1,3 +1,13 @@
+1.0.1
+=====
+Add the ability to install QuakeMigrate from the Python Package Index. This involves building Python wheels for different operating systems / architectures / Python versions. This is done using a GitHub Action and build machines provided by GitHub.
+
+- Overhaul the build system from the old, quite messy, setup.py file to a pyproject.toml file (specifying mostly metadata) and a setup.py file that specifically handles the C extension module.
+- Make the codebase compatible with most recent versions of dependencies (and specify some minimum version requirements).
+- Handled a number of deprecation warnings that had started to crop up.
+- Reviewed the installation instructions and provided significant additional detail for installing compilers across different operating systems. While no longer necessary (`pip install quakemigrate` will install QuakeMigrate complete with its precompiled C library), it may still be useful for anyone wanting to build from the source code themselves.
+- Updated base README.md file to reflect these updates.
+- Drop TravisCI—not currently working and will migrate to testing and coverage uploading via GitHub Actions in the future.
 
 1.0.0
 =====

@@ -553,7 +553,7 @@ def upsample(trace, upfactor, starttime, endtime):
             * trace.stats.sampling_rate * upfactor)
         logging.debug(f"Start pad = {start_pad}")
         # Add padding data (constant value)
-        start_fill = np.full(np.int(start_pad), trace.data[0], dtype=int)
+        start_fill = np.full(int(start_pad), trace.data[0], dtype=int)
         dnew = np.append(start_fill, dnew)
         # Calculate new starttime of trace
         new_starttime = trace.stats.starttime - start_pad \
@@ -570,7 +570,7 @@ def upsample(trace, upfactor, starttime, endtime):
             * trace.stats.sampling_rate * upfactor)
         logging.debug(f"End pad = {end_pad}")
         # Add padding data (constant value)
-        end_fill = np.full(np.int(end_pad), trace.data[-1], dtype=int)
+        end_fill = np.full(int(end_pad), trace.data[-1], dtype=int)
         dnew = np.append(dnew, end_fill)
 
     out = Trace()

@@ -17,7 +17,7 @@ import pickle
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pyproj
+from pyproj import Transformer
 from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 from scipy.interpolate import RegularGridInterpolator
 
@@ -124,7 +124,7 @@ class Grid3D:
 
         """
 
-        df = np.array(df, dtype=np.int)
+        df = np.array(df, dtype=int)
 
         new_node_count = 1 + (self.node_count - 1) // df
         c1 = (self.node_count - df * (new_node_count - 1) - 1) // 2
@@ -210,11 +210,11 @@ class Grid3D:
         v1, v2, v3 = np.array(value).T
 
         if inverse:
-            inproj, outproj = self.grid_proj, self.coord_proj
+            transformer = Transformer.from_proj(self.grid_proj, self.coord_proj)
         else:
-            inproj, outproj = self.coord_proj, self.grid_proj
+            transformer = Transformer.from_proj(self.coord_proj, self.grid_proj)
 
-        return np.column_stack(pyproj.transform(inproj, outproj, v1, v2, v3))
+        return np.column_stack(transformer.transform(v1, v2, v3))
 
     def index2coord(self, value, inverse=False, unravel=False):
         """

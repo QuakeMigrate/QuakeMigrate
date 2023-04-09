@@ -21,8 +21,8 @@ class TestImport(unittest.TestCase):
         if sys.version_info.major != 3:
             print("QuakeMigrate does not support Python 2.x")
             i += 1
-        if sys.version_info.minor < 6:
-            print("QuakeMigrate only supports Python 3.6 and up.")
+        if sys.version_info.minor < 8:
+            print("QuakeMigrate only supports Python 3.8 and up.")
             i += 1
         try:
             import matplotlib  # NOQA
@@ -55,6 +55,10 @@ class TestImport(unittest.TestCase):
             print(f"QuakeMigrate does not import correctly. - {e}")
             i += 1
         self.assertEqual(i, 0)
+
+        if matplotlib.get_backend() == "agg":
+            print("Only AGG backend available - interactive plots won't work!")
+            print("Consider installing Tk or Qt bindings.")
 
 
 if __name__ == "__main__":

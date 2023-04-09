@@ -11,3 +11,8 @@ dist/
 .vscode/
 runs/
 LUT/
+logs/
+outputs/
+Z7_dataless.xml
+examples/Volcanotectonic_Iceland/inputs/mSEED/
+.DS_Store

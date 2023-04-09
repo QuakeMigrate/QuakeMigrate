@@ -227,8 +227,8 @@ def _plot_station_availability(ax, availability, endtime):
             colours = ["#F03B20"]
         else:
             colours = ["#3182BD"]
-    elif (availability.filter(like=f".{phases[0]}").values == \
-        availability.filter(like=f".{phases[1]}").values).all():
+    elif (availability.filter(like=f"_{phases[0]}").values ==
+          availability.filter(like=f"_{phases[1]}").values).all():
         logging.info("\t\t    Station availability is identical for both "
                      "phases; plotting by station only.")
         divideby = len(phases)
@@ -241,7 +241,7 @@ def _plot_station_availability(ax, availability, endtime):
     max_ava = []
     min_ava = []
     for phase, colour in zip(phases, colours):
-        ph_availability = availability.filter(regex=f".{phase}$")
+        ph_availability = availability.filter(regex=f"_{phase}$")
 
         available = ph_availability.sum(axis=1).astype(int)
         times = list(pd.to_datetime(available.index))
@@ -263,9 +263,9 @@ def _plot_station_availability(ax, availability, endtime):
 
     # Plot formatting
     _add_plot_tag(ax, "Station availability")
-    ax.set_ylim([int(min(min_ava)*0.8), np.int(np.ceil(max(max_ava)*1.1))])
+    ax.set_ylim([int(min(min_ava)*0.8), int(np.ceil(max(max_ava)*1.1))])
     ax.set_yticks(range(int(min(min_ava)*0.8),
-                        np.int(np.ceil(max(max_ava)*1.1))+1))
+                        int(np.ceil(max(max_ava)*1.1))+1))
     ax.xaxis.set_major_formatter(util.DateFormatter("%H:%M:%S.{ms}", 2))
     ax.set_xlabel("DateTime", fontsize=14)
     ax.set_ylabel("Available stations", fontsize=14)

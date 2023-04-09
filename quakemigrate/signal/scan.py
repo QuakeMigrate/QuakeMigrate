@@ -995,7 +995,7 @@ class QuakeScan:
         x1, y1, z1 = np.clip(i - w2, 0 * n, n)
         x2, y2, z2 = np.clip(i + w2 + 1, 0 * n, n)
 
-        mask = np.zeros(n, dtype=np.bool)
+        mask = np.zeros(n, dtype=bool)
         mask[x1:x2, y1:y2, z1:z2] = True
 
         return mask

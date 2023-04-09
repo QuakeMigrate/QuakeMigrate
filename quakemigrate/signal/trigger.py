@@ -406,7 +406,8 @@ class Trigger:
                                  min_dt, max_dt, peak["COA"], peak["COA_N"]],
                                 index=CANDIDATES_COLS)
 
-            triggers = triggers.append(trigger, ignore_index=True)
+            triggers = pd.concat([triggers, trigger.to_frame().T.convert_dtypes()],
+                                 ignore_index=True)
 
         return triggers
 
@@ -469,7 +470,9 @@ class Trigger:
             event_uid = event_uid[:17].ljust(17, "0")
             event["EventID"] = event_uid
 
-            refined_events = refined_events.append(event, ignore_index=True)
+            refined_events = pd.concat([refined_events,
+                                        event.to_frame().T.convert_dtypes()],
+                                       ignore_index=True)
 
         return refined_events
 

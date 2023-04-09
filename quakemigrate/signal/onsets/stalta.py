@@ -47,7 +47,7 @@ def sta_lta_centred(signal, nsta, nlta):
 
     # Cumulative sum to calculate moving average
     sta = np.cumsum(signal ** 2)
-    sta = np.require(sta, dtype=np.float)
+    sta = np.require(sta, dtype=float)
     lta = sta.copy()
 
     # Compute the STA and the LTA

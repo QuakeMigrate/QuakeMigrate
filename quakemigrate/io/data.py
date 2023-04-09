@@ -248,7 +248,7 @@ class Archive:
         ------
         ArchiveEmptyException
             If no data files are found in the archive for this day(s).
-        DataGapException
+        DataAvailabilityException
             If no data is found in the archive for the specified stations
             within the specified time window.
 

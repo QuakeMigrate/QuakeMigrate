@@ -289,6 +289,14 @@ def _compute_1d_fmm(lut, phase, vmodel):
     grid_xyz = lut.grid_xyz
     stations_xyz = lut.stations_xyz
 
+    # Check that all stations are contained within grid
+    if (lut.stations_xyz < lut.ll_corner).any() or \
+        (lut.stations_xyz > lut.ur_corner).any():
+        raise ValueError("Cannot calculate traveltimes with method '1dfmm' "
+                         "unless all stations are contained within the grid! "
+                         "Please either use method '1dnlloc' or increase the "
+                         "grid extent to contain all stations")
+
     # Interpolate the velocity model in the Z-dimension
     f = interp1d(depths, vmodel)
     int_vmodel = f(grid_xyz[2])

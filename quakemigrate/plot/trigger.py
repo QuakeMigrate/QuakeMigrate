@@ -92,6 +92,8 @@ def trigger_summary(events, starttime, endtime, run, marginal_window,
     fig = plt.figure(figsize=(30, 15))
     gs = (9, 18)
 
+    logging.debug(discarded_events)
+
     # Create plot axes, ordering: [COA, COA_N, AVAIL, XY, XZ, YZ]
     for row in [0, 3, 6]:
         ax = plt.subplot2grid(gs, (row, 8), colspan=10, rowspan=3, fig=fig)

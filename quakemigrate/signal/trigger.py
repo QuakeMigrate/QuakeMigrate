@@ -283,9 +283,12 @@ class Trigger:
             discarded = candidate_events
         else:
             refined_events = self._refine_candidates(candidate_events)
+            logging.debug(refined_events)
             events = self._filter_events(refined_events, batchstart, batchend,
                                          region)
-            discarded = refined_events[~refined_events.isin(events)].dropna()
+            logging.debug(events)
+            discarded = refined_events[~refined_events.index.isin(events.index)].dropna()
+            logging.debug(discarded)
             logging.info(f"\n\t\t{len(events)} event(s) triggered within the "
                          f"specified region between {batchstart} \n\t\tand "
                          f"{batchend}")

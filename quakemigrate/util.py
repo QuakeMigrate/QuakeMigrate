@@ -598,7 +598,7 @@ def merge_stream(stream):
     """
     Merge all traces with contiguous data, or overlapping data which
     exactly matches (== st._cleanup(); i.e. no clobber). Apply this on a
-    channel by channel basis so that if any individua merge fails then only
+    channel by channel basis so that if any individual merge fails then only
     that channel will be omitted.
 
     Parameters

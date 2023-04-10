@@ -158,8 +158,8 @@ class TestExamples(unittest.TestCase):
             print("\t   ...passed!")
 
             print("\t3: Assert same number of channels in cut waveforms...")
-            b_st = obspy.read(f"{b_dir / '*.m'}")
-            t_st = obspy.read(f"{t_dir / 'raw_cut_waveforms' / '*.m'}")
+            b_st = obspy.read(f"{b_dir / '*.m'}").sort()
+            t_st = obspy.read(f"{t_dir / 'raw_cut_waveforms' / '*.m'}").sort()
             self.assertEqual(len(b_st), len(t_st))
             print("\t   ...passed!")
 

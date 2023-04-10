@@ -122,15 +122,17 @@ class Archive:
         # Response removal parameters
         self.response_inv = kwargs.get("response_inv")
         response_removal_params = kwargs.get("response_removal_params", {})
-        if self.response_inv and \
-            "water_level" not in response_removal_params.keys():
-            msg = ("Warning: 'water level' for instrument correction not "
-                    "specified. Set to default: 60")
+        if self.response_inv and "water_level" not in response_removal_params.keys():
+            msg = (
+                "Warning: 'water level' for instrument correction not "
+                "specified. Set to default: 60"
+            )
             print(msg)  # Logger not yet spun up
-        self.water_level = response_removal_params.get("water_level", 60.)
+        self.water_level = response_removal_params.get("water_level", 60.0)
         self.pre_filt = response_removal_params.get("pre_filt")
-        self.remove_full_response = \
-            response_removal_params.get("remove_full_response", False)
+        self.remove_full_response = response_removal_params.get(
+            "remove_full_response", False
+        )
 
     def __str__(self, response_only=False):
         """
@@ -150,20 +152,26 @@ class Archive:
         """
 
         if self.response_inv:
-            response_str = ("\tResponse removal parameters:\n"
-                            f"\t\tWater level  = {self.water_level}\n")
+            response_str = (
+                "\tResponse removal parameters:\n"
+                f"\t\tWater level  = {self.water_level}\n"
+            )
             if self.pre_filt is not None:
                 response_str += f"\t\tPre-filter   = {self.pre_filt} Hz\n"
-            response_str += ("\t\tRemove full response (inc. FIR stages) = "
-                            f"{self.remove_full_response}\n")
+            response_str += (
+                "\t\tRemove full response (inc. FIR stages) = "
+                f"{self.remove_full_response}\n"
+            )
         else:
             response_str = "\tNo instrument response inventory provided!\n"
 
         if not response_only:
-            out = ("QuakeMigrate Archive object"
-                    f"\n\tArchive path\t:\t{self.archive_path}"
-                    f"\n\tPath structure\t:\t{self.format}"
-                    f"\n\tResampling\t:\t{self.resample}")
+            out = (
+                "QuakeMigrate Archive object"
+                f"\n\tArchive path\t:\t{self.archive_path}"
+                f"\n\tPath structure\t:\t{self.format}"
+                f"\n\tResampling\t:\t{self.resample}"
+            )
             if self.upfactor:
                 out += f"\n\tUpfactor\t:\t{self.upfactor}"
             out += "\n\tStations:"
@@ -198,8 +206,10 @@ class Archive:
         """
 
         if archive_format == "SeisComp3":
-            self.format = ("{year}/*/{station}/"+channels+"/*.{station}.*.*.D."
-                           "{year}.{jday:03d}")
+            self.format = (
+                "{year}/*/{station}/" + channels + "/*.{station}.*.*.D."
+                "{year}.{jday:03d}"
+            )
         elif archive_format == "YEAR/JD/*_STATION_*":
             self.format = "{year}/{jday:03d}/*_{station}_*"
         elif archive_format == "YEAR/JD/STATION":
@@ -215,7 +225,7 @@ class Archive:
         else:
             raise util.ArchivePathStructureError(archive_format)
 
-    def read_waveform_data(self, starttime, endtime, pre_pad=0., post_pad=0.):
+    def read_waveform_data(self, starttime, endtime, pre_pad=0.0, post_pad=0.0):
         """
         Read in waveform data from the archive between two times.
 
@@ -255,18 +265,23 @@ class Archive:
         """
 
         # Ensure pre-pad and post-pad are not negative.
-        pre_pad = max(0., pre_pad)
-        post_pad = max(0., post_pad)
+        pre_pad = max(0.0, pre_pad)
+        post_pad = max(0.0, post_pad)
 
-        data = WaveformData(starttime=starttime, endtime=endtime,
-                            stations=self.stations,
-                            read_all_stations=self.read_all_stations,
-                            resample=self.resample, upfactor=self.upfactor,
-                            response_inv=self.response_inv,
-                            water_level=self.water_level,
-                            pre_filt=self.pre_filt,
-                            remove_full_response=self.remove_full_response,
-                            pre_pad=pre_pad, post_pad=post_pad)
+        data = WaveformData(
+            starttime=starttime,
+            endtime=endtime,
+            stations=self.stations,
+            read_all_stations=self.read_all_stations,
+            resample=self.resample,
+            upfactor=self.upfactor,
+            response_inv=self.response_inv,
+            water_level=self.water_level,
+            pre_filt=self.pre_filt,
+            remove_full_response=self.remove_full_response,
+            pre_pad=pre_pad,
+            post_pad=post_pad,
+        )
 
         files = self._load_from_path(starttime - pre_pad, endtime + post_pad)
 
@@ -279,15 +294,18 @@ class Archive:
                 try:
                     read_start = starttime - pre_pad
                     read_end = endtime + post_pad
-                    st += read(file, starttime=read_start, endtime=read_end,
-                               nearest_sample=True)
+                    st += read(
+                        file,
+                        starttime=read_start,
+                        endtime=read_end,
+                        nearest_sample=True,
+                    )
                 except TypeError:
                     logging.info(f"File not compatible with ObsPy - {file}")
                     continue
 
-            # Merge all traces with contiguous data, or overlapping data which
-            # exactly matches (== st._cleanup(); i.e. no clobber)
-            st.merge(method=-1)
+            # Merge waveforms channel-by-channel with no-clobber merge
+            st = util.merge_stream(st)
 
             # Make copy of raw waveforms to output if requested
             data.raw_waveforms = st.copy()
@@ -299,18 +317,17 @@ class Archive:
             st = util.shift_to_sample(st, interpolate=self.interpolate)
 
             if self.read_all_stations:
-               # Re-populate st with only stations in station file
+                # Re-populate st with only stations in station file
                 st_selected = Stream()
                 for station in self.stations:
                     st_selected += st.select(station=station)
                 st = st_selected.copy()
                 del st_selected
 
-            if pre_pad != 0. or post_pad != 0.:
+            if pre_pad != 0.0 or post_pad != 0.0:
                 # Trim data between start and end time
                 for tr in st:
-                    tr.trim(starttime=starttime, endtime=endtime,
-                            nearest_sample=True)
+                    tr.trim(starttime=starttime, endtime=endtime, nearest_sample=True)
                     if not bool(tr):
                         st.remove(tr)
 
@@ -358,12 +375,14 @@ class Archive:
         files = []
         loadstart = UTCDateTime(starttime)
         while loadstart < endtime:
-            temp_format = self.format.format(year=loadstart.year,
-                                             month=loadstart.month,
-                                             day=loadstart.day,
-                                             jday=loadstart.julday,
-                                             station="{station}",
-                                             dtime=loadstart)
+            temp_format = self.format.format(
+                year=loadstart.year,
+                month=loadstart.month,
+                day=loadstart.day,
+                jday=loadstart.julday,
+                station="{station}",
+                dtime=loadstart,
+            )
             if self.read_all_stations is True:
                 file_format = temp_format.format(station="*")
                 file_format = file_format.replace("**", "*")
@@ -463,10 +482,21 @@ class WaveformData:
 
     """
 
-    def __init__(self, starttime, endtime, stations=None, response_inv=None,
-                 water_level=60., pre_filt=None, remove_full_response=False,
-                 read_all_stations=False, resample=False, upfactor=None,
-                 pre_pad=0., post_pad=0.):
+    def __init__(
+        self,
+        starttime,
+        endtime,
+        stations=None,
+        response_inv=None,
+        water_level=60.0,
+        pre_filt=None,
+        remove_full_response=False,
+        read_all_stations=False,
+        resample=False,
+        upfactor=None,
+        pre_pad=0.0,
+        post_pad=0.0,
+    ):
         """Instantiate the WaveformData object."""
 
         self.starttime = starttime
@@ -488,10 +518,17 @@ class WaveformData:
         self.wa_waveforms = None
         self.real_waveforms = None
 
-    def check_availability(self, st, all_channels=False, n_channels=None,
-                           allow_gaps=False, full_timespan=True,
-                           check_sampling_rate=False, sampling_rate=None,
-                           check_start_end_times=False):
+    def check_availability(
+        self,
+        st,
+        all_channels=False,
+        n_channels=None,
+        allow_gaps=False,
+        full_timespan=True,
+        check_sampling_rate=False,
+        sampling_rate=None,
+        check_start_end_times=False,
+    ):
         """
         Check waveform availability against data quality criteria.
 
@@ -570,11 +607,12 @@ class WaveformData:
                 # Check sampling rate
                 if check_sampling_rate:
                     if not sampling_rate:
-                        raise TypeError("Please specify sampling_rate if you "
-                                        "wish to check all channels are at the"
-                                        " correct sampling rate.")
-                    if any(tr.stats.sampling_rate != sampling_rate \
-                        for tr in st_id):
+                        raise TypeError(
+                            "Please specify sampling_rate if you "
+                            "wish to check all channels are at the"
+                            " correct sampling rate."
+                        )
+                    if any(tr.stats.sampling_rate != sampling_rate for tr in st_id):
                         continue
                 # Check data covers full timespan (if requested) - this
                 # strictly checks the *timespan*, so uses the trace sampling
@@ -590,8 +628,10 @@ class WaveformData:
                 if check_start_end_times:
                     if len(st_id) > 1:
                         continue
-                    elif st_id[0].stats.starttime != self.starttime or \
-                        st_id[0].stats.endtime != self.endtime:
+                    elif (
+                        st_id[0].stats.starttime != self.starttime
+                        or st_id[0].stats.endtime != self.endtime
+                    ):
                         continue
 
                 # If passed all tests, set availability to 1
@@ -603,15 +643,16 @@ class WaveformData:
                     # If all_channels requested, must also check that the
                     # expected number of channels are present
                     if not n_channels:
-                        raise TypeError("Please specify n_channels if you wish"
-                                        " to check all channels meet the "
-                                        "availability criteria.")
+                        raise TypeError(
+                            "Please specify n_channels if you wish"
+                            " to check all channels meet the "
+                            "availability criteria."
+                        )
                     elif len(availability) == n_channels:
                         available = 1
                 else:
                     available = 1
-            elif not all_channels \
-                and any(ava == 1 for ava in availability.values()):
+            elif not all_channels and any(ava == 1 for ava in availability.values()):
                 available = 1
 
         return available, availability
@@ -652,7 +693,7 @@ class WaveformData:
 
         # Copy the Trace before operating on it
         tr = tr.copy()
-        tr.detrend('linear')
+        tr.detrend("linear")
 
         if not self.remove_full_response:
             # Just remove the response encapsulated in the instrument transfer
@@ -661,8 +702,7 @@ class WaveformData:
             # the recorded waveforms. However, due to this it is significantly
             # faster to compute.
             try:
-                response = self.response_inv.get_response(tr.id,
-                                                          tr.stats.starttime)
+                response = self.response_inv.get_response(tr.id, tr.stats.starttime)
             except Exception as e:
                 raise util.ResponseNotFoundError(str(e), tr.id)
 
@@ -672,18 +712,22 @@ class WaveformData:
             if not velocity:
                 paz.zeros.extend([0j])
 
-            paz_dict = {'poles': paz.poles,
-                        'zeros': paz.zeros,
-                        'gain': paz.normalization_factor,
-                        'sensitivity': response.instrument_sensitivity.value}
+            paz_dict = {
+                "poles": paz.poles,
+                "zeros": paz.zeros,
+                "gain": paz.normalization_factor,
+                "sensitivity": response.instrument_sensitivity.value,
+            }
 
             try:
-                tr.simulate(paz_remove=paz_dict,
-                            pre_filt=self.pre_filt,
-                            water_level=self.water_level,
-                            taper=True,
-                            sacsim=True,  # To replicate remove_response()
-                            pitsasim=False)  # To replicate remove_response()
+                tr.simulate(
+                    paz_remove=paz_dict,
+                    pre_filt=self.pre_filt,
+                    water_level=self.water_level,
+                    taper=True,
+                    sacsim=True,  # To replicate remove_response()
+                    pitsasim=False,   # To replicate remove_response()
+                )
             except ValueError as e:
                 raise util.ResponseRemovalError(e, tr.id)
         else:
@@ -692,11 +736,13 @@ class WaveformData:
             output = "VEL" if velocity else "DISP"
 
             try:
-                tr.remove_response(inventory=self.response_inv,
-                                   output=output,
-                                   pre_filt=self.pre_filt,
-                                   water_level=self.water_level,
-                                   taper=True)
+                tr.remove_response(
+                    inventory=self.response_inv,
+                    output=output,
+                    pre_filt=self.pre_filt,
+                    water_level=self.water_level,
+                    taper=True,
+                )
             except ValueError as e:
                 raise util.ResponseRemovalError(e, tr.id)
 
@@ -731,18 +777,20 @@ class WaveformData:
 
         # Copy the Trace before operating on it
         tr = tr.copy()
-        tr.detrend('linear')
+        tr.detrend("linear")
 
         # Remove instrument response
         tr = self.get_real_waveform(tr, velocity)
 
         # Simulate Wood-Anderson response
-        tr.simulate(paz_simulate=util.wa_response(obspy_def=True),
-                    pre_filt=self.pre_filt,
-                    water_level=self.water_level,
-                    taper=True,
-                    sacsim=True,  # To replicate remove_response()
-                    pitsasim=False)  # To replicate remove_response()
+        tr.simulate(
+            paz_simulate=util.wa_response(obspy_def=True),
+            pre_filt=self.pre_filt,
+            water_level=self.water_level,
+            taper=True,
+            sacsim=True,  # To replicate remove_response()
+            pitsasim=False,  # To replicate remove_response()
+        )
 
         try:
             self.wa_waveforms.append(tr.copy())

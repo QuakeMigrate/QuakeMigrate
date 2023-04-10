@@ -16,3 +16,4 @@ outputs/
 Z7_dataless.xml
 examples/Volcanotectonic_Iceland/inputs/mSEED/
 .DS_Store
+_build

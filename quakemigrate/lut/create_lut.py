@@ -25,8 +25,9 @@ import quakemigrate.util as util
 from .lut import LUT
 
 
-def read_nlloc(path, stations, phases=["P", "S"], fraction_tt=0.1,
-               save_file=None, log=False):
+def read_nlloc(
+    path, stations, phases=["P", "S"], fraction_tt=0.1, save_file=None, log=False
+):
     """
     Read in a traveltime lookup table that is saved in the NonLinLoc format.
 
@@ -78,26 +79,30 @@ def read_nlloc(path, stations, phases=["P", "S"], fraction_tt=0.1,
 
                 gproj, cproj, gproj_string = transform
                 if gproj is None:
-                    raise NotImplementedError(f"Projection type {gproj_string}"
-                                              " not supported.")
+                    raise NotImplementedError(
+                        f"Projection type {gproj_string}" " not supported."
+                    )
 
                 # Transform from grid projection origin to a coord origin
                 ll_corner = Transformer.from_proj(gproj, cproj).transform(*grid_origin)
 
                 # Calculate the ur corner
-                ur_corner = (np.array(grid_origin)
-                             + (node_count - 1) * node_spacing)
+                ur_corner = np.array(grid_origin) + (node_count - 1) * node_spacing
                 ur_corner = Transformer.from_proj(gproj, cproj).transform(*ur_corner)
 
                 # Need to initialise the grid
-                lut = LUT(ll_corner=ll_corner, ur_corner=ur_corner,
-                          node_spacing=node_spacing, grid_proj=gproj,
-                          coord_proj=cproj, fraction_tt=fraction_tt)
+                lut = LUT(
+                    ll_corner=ll_corner,
+                    ur_corner=ur_corner,
+                    node_spacing=node_spacing,
+                    grid_proj=gproj,
+                    coord_proj=cproj,
+                    fraction_tt=fraction_tt,
+                )
             else:
                 _, _, traveltimes = _read_nlloc(file)
 
-            lut.traveltimes.setdefault(station, {}).update(
-                {phase: traveltimes})
+            lut.traveltimes.setdefault(station, {}).update({phase: traveltimes})
 
     lut.station_data = stations
     lut.phases = phases
@@ -108,8 +113,16 @@ def read_nlloc(path, stations, phases=["P", "S"], fraction_tt=0.1,
     return lut
 
 
-def compute_traveltimes(grid_spec, stations, method, phases=["P", "S"],
-                        fraction_tt=0.1, save_file=None, log=False, **kwargs):
+def compute_traveltimes(
+    grid_spec,
+    stations,
+    method,
+    phases=["P", "S"],
+    fraction_tt=0.1,
+    save_file=None,
+    log=False,
+    **kwargs,
+):
     """
     Top-level method for computing traveltime lookup tables.
 
@@ -170,9 +183,12 @@ def compute_traveltimes(grid_spec, stations, method, phases=["P", "S"],
     lut.phases = phases
 
     if method == "1dsweep":
-        warnings.warn("Parameter name has changed - continuing. To remove this"
-                      " message, change:\t'1dsweep' -> '1dnlloc'.",
-                      DeprecationWarning, 2)
+        warnings.warn(
+            "Parameter name has changed - continuing. To remove this"
+            " message, change:\t'1dsweep' -> '1dnlloc'.",
+            DeprecationWarning,
+            2,
+        )
         method = "1dnlloc"
 
     if method == "homogeneous":
@@ -198,8 +214,9 @@ def compute_traveltimes(grid_spec, stations, method, phases=["P", "S"],
             _compute_1d_fmm(lut, phase, vmodel)
 
     elif method == "3dfmm":
-        raise NotImplementedError("Feature coming soon - please contact the "
-                                  "QuakeMigrate developers.")
+        raise NotImplementedError(
+            "Feature coming soon - please contact the " "QuakeMigrate developers."
+        )
 
     elif method == "1dnlloc":
         logging.info("Computing 1-D nlloc traveltimes for...")
@@ -212,9 +229,11 @@ def compute_traveltimes(grid_spec, stations, method, phases=["P", "S"],
             _compute_1d_nlloc(lut, phase, vmodel, **kwargs)
 
     else:
-        raise ValueError(f"'{method} is not a valid method. Please consult the"
-                         "documentation. Valid options are 'homogeneous', "
-                         "'1dfmm' and '1dnlloc'.")
+        raise ValueError(
+            f"'{method} is not a valid method. Please consult the"
+            "documentation. Valid options are 'homogeneous', "
+            "'1dfmm' and '1dnlloc'."
+        )
 
     if save_file is not None:
         lut.save(save_file)
@@ -242,14 +261,14 @@ def _compute_homogeneous(lut, phase, velocity):
     stations_xyz = lut.stations_xyz
 
     for i, station in enumerate(lut.station_data["Name"].values):
-        logging.info(f"\t\t...station: {station} - {i+1} of "
-                     f"{stations_xyz.shape[0]}")
+        logging.info(
+            f"\t\t...station: {station} - {i+1} of " f"{stations_xyz.shape[0]}"
+        )
 
         dx, dy, dz = [grid_xyz[j] - stations_xyz[i, j] for j in range(3)]
         dist = np.sqrt(dx**2 + dy**2 + dz**2)
 
-        lut.traveltimes.setdefault(station, {}).update(
-            {phase: dist / velocity})
+        lut.traveltimes.setdefault(station, {}).update({phase: dist / velocity})
 
 
 def _compute_1d_fmm(lut, phase, vmodel):
@@ -289,17 +308,33 @@ def _compute_1d_fmm(lut, phase, vmodel):
     grid_xyz = lut.grid_xyz
     stations_xyz = lut.stations_xyz
 
+    # Check that all stations are contained within grid
+    if (lut.stations_xyz < lut.ll_corner).any() or (
+        lut.stations_xyz > lut.ur_corner
+    ).any():
+        raise ValueError(
+            "Cannot calculate traveltimes with method '1dfmm' "
+            "unless all stations are contained within the grid! "
+            "Please either use method '1dnlloc' or increase the "
+            "grid extent to contain all stations"
+        )
+
     # Interpolate the velocity model in the Z-dimension
     f = interp1d(depths, vmodel)
     int_vmodel = f(grid_xyz[2])
 
     for i, station in enumerate(lut.station_data["Name"].values):
-        logging.info(f"\t\t...station: {station} - {i+1} of "
-                     f"{stations_xyz.shape[0]}")
+        logging.info(
+            f"\t\t...station: {station} - {i+1} of " f"{stations_xyz.shape[0]}"
+        )
 
         lut.traveltimes.setdefault(station, {}).update(
-            {phase: _eikonal_fmm(grid_xyz, lut.node_spacing,
-                                 int_vmodel, stations_xyz[i])})
+            {
+                phase: _eikonal_fmm(
+                    grid_xyz, lut.node_spacing, int_vmodel, stations_xyz[i]
+                )
+            }
+        )
 
 
 def _eikonal_fmm(grid_xyz, node_spacing, velocity_grid, station_xyz):
@@ -344,16 +379,20 @@ def _eikonal_fmm(grid_xyz, node_spacing, velocity_grid, station_xyz):
     try:
         import skfmm
     except ImportError:
-        raise ImportError("Unable to import skfmm - you need to install "
-                          "scikit-fmm to use this method.\nSee the "
-                          "installation instructions in the documentation"
-                          "for more details.")
+        raise ImportError(
+            "Unable to import skfmm - you need to install "
+            "scikit-fmm to use this method.\nSee the "
+            "installation instructions in the documentation"
+            "for more details."
+        )
 
     phi = -np.ones(grid_xyz[0].shape)
     # Find closest grid node to true station location
-    indx = np.argmin(abs(grid_xyz[0] - station_xyz[0])
-                     + abs(grid_xyz[1] - station_xyz[1])
-                     + abs(grid_xyz[2] - station_xyz[2]))
+    indx = np.argmin(
+        abs(grid_xyz[0] - station_xyz[0])
+        + abs(grid_xyz[1] - station_xyz[1])
+        + abs(grid_xyz[2] - station_xyz[2])
+    )
     phi[np.unravel_index(indx, grid_xyz[0].shape)] = 1.0
 
     return skfmm.travel_time(phi, velocity_grid, dx=node_spacing)
@@ -415,10 +454,14 @@ def _compute_1d_nlloc(lut, phase, vmodel, **kwargs):
 
     # Check nlloc_path is valid and contains Vel2Grid and Grid2Time
     if kwargs.get("nlloc_path", "") != "":
-        if not (nlloc_path / "Vel2Grid").exists() \
-           or not (nlloc_path / "Grid2Time").exists():
-            raise FileNotFoundError(f"Incorrect nlloc_path? - Grid2Time and "
-                                    f"Vel2Grid not found in {nlloc_path}")
+        if (
+            not (nlloc_path / "Vel2Grid").exists()
+            or not (nlloc_path / "Grid2Time").exists()
+        ):
+            raise FileNotFoundError(
+                f"Incorrect nlloc_path? - Grid2Time and "
+                f"Vel2Grid not found in {nlloc_path}"
+            )
 
     # For NonLinLoc, distances/velocities must be in km - use conversion factor
     km_cf = 1000 / lut.unit_conversion_factor
@@ -433,8 +476,10 @@ def _compute_1d_nlloc(lut, phase, vmodel, **kwargs):
     (cwd / "model").mkdir(exist_ok=True)
 
     for i, station in enumerate(lut.station_data["Name"].values):
-        logging.info(f"\t\t...running Grid2Time - station: {station:5s} - "
-                     f"{i+1} of {stations_xyz.shape[0]}")
+        logging.info(
+            f"\t\t...running Grid2Time - station: {station:5s} - "
+            f"{i+1} of {stations_xyz.shape[0]}"
+        )
 
         dx, dy = [grid_xyz[j] - stations_xyz[i, j] for j in range(2)]
         distances = np.sqrt(dx**2 + dy**2).flatten()
@@ -444,16 +489,25 @@ def _compute_1d_nlloc(lut, phase, vmodel, **kwargs):
         # NLLoc needs the station to lie within the 2-D section -> we pick the
         # depth extent of the 2-D grid from the max. possible extent of the
         # station and the grid - [min_z, max_z]
-        depth_span = [np.min([ll[2], stations_xyz[i, 2]]),
-                      np.max([ur[2], stations_xyz[i, 2]])]
+        depth_span = [
+            np.min([ll[2], stations_xyz[i, 2]]),
+            np.max([ur[2], stations_xyz[i, 2]]),
+        ]
 
         # Allow 2 nodes on depth extent as a computational buffer
-        _write_control_file(stations_xyz[i], station, max_dist, vmodel,
-                            depth_span, phase, nlloc_dx, block_model)
+        _write_control_file(
+            stations_xyz[i],
+            station,
+            max_dist,
+            vmodel,
+            depth_span,
+            phase,
+            nlloc_dx,
+            block_model,
+        )
 
         for mode in ["Vel2Grid", "Grid2Time"]:
-            out = check_output([str(nlloc_path / mode),
-                                "control.in"], stderr=STDOUT)
+            out = check_output([str(nlloc_path / mode), "control.in"], stderr=STDOUT)
             if b"ERROR" in out:
                 raise Exception(f"{mode} Error", out)
 
@@ -461,11 +515,15 @@ def _compute_1d_nlloc(lut, phase, vmodel, **kwargs):
         gridspec, _, traveltimes = _read_nlloc(to_read, ignore_proj=True)
 
         lut.traveltimes.setdefault(station, {}).update(
-            {phase: _bilinear_interpolate(np.c_[distances, depths],
-                                          gridspec[1, 1:],
-                                          gridspec[2, 1:],
-                                          traveltimes[0, :, :]
-                                          ).reshape(lut.node_count)})
+            {
+                phase: _bilinear_interpolate(
+                    np.c_[distances, depths],
+                    gridspec[1, 1:],
+                    gridspec[2, 1:],
+                    traveltimes[0, :, :],
+                ).reshape(lut.node_count)
+            }
+        )
 
         # Tidy up: remove control file and nll model and time files
         os.remove(cwd / "control.in")
@@ -482,12 +540,15 @@ def _compute_1d_nlloc(lut, phase, vmodel, **kwargs):
         if not os.listdir(cwd / "time"):
             rmtree(cwd / "time")
         else:
-            logging.info("Warning: time directory not empty; does it contain "
-                         "traveltime grids from a previous run?\nNot removed.")
+            logging.info(
+                "Warning: time directory not empty; does it contain "
+                "traveltime grids from a previous run?\nNot removed."
+            )
 
 
-def _write_control_file(station_xyz, station, max_dist, vmodel, depth_span,
-                        phase, dx, block_model):
+def _write_control_file(
+    station_xyz, station, max_dist, vmodel, depth_span, phase, dx, block_model
+):
     """
     Write out a control file for NonLinLoc.
 
@@ -516,26 +577,31 @@ def _write_control_file(station_xyz, station, max_dist, vmodel, depth_span,
 
     """
 
-    control_string = ("CONTROL 0 54321\n"
-                      "TRANS NONE\n\n"
-                      "VGOUT {model_path:s}\n"
-                      "VGTYPE {phase:s}\n\n"
-                      "VGGRID {grid:s} SLOW_LEN\n\n"
-                      "{vmodel:s}\n\n"
-                      "GTFILES {model_path:s} {time_path:s} {phase:s}\n"
-                      "GTMODE GRID2D ANGLES_NO\n\n"
-                      "GTSRCE {station:s} XYZ {x:f} {y:f} {z:f} 0.0\n\n"
-                      "GT_PLFD 1.0E-3 0")
+    control_string = (
+        "CONTROL 0 54321\n"
+        "TRANS NONE\n\n"
+        "VGOUT {model_path:s}\n"
+        "VGTYPE {phase:s}\n\n"
+        "VGGRID {grid:s} SLOW_LEN\n\n"
+        "{vmodel:s}\n\n"
+        "GTFILES {model_path:s} {time_path:s} {phase:s}\n"
+        "GTMODE GRID2D ANGLES_NO\n\n"
+        "GTSRCE {station:s} XYZ {x:f} {y:f} {z:f} 0.0\n\n"
+        "GT_PLFD 1.0E-3 0"
+    )
 
     cwd = pathlib.Path.cwd()
-    out = control_string.format(phase=phase,
-                                grid=_grid_string(max_dist, depth_span, dx),
-                                vmodel=_vmodel_string(vmodel, block_model,
-                                                      phase),
-                                model_path=str(cwd / "model" / "layer"),
-                                time_path=str(cwd / "time" / "layer"),
-                                station=station, x=station_xyz[0],
-                                y=station_xyz[1], z=station_xyz[2])
+    out = control_string.format(
+        phase=phase,
+        grid=_grid_string(max_dist, depth_span, dx),
+        vmodel=_vmodel_string(vmodel, block_model, phase),
+        model_path=str(cwd / "model" / "layer"),
+        time_path=str(cwd / "time" / "layer"),
+        station=station,
+        x=station_xyz[0],
+        y=station_xyz[1],
+        z=station_xyz[2],
+    )
 
     with open(cwd / "control.in", "w") as f:
         f.write(out)
@@ -581,8 +647,7 @@ def _read_nlloc(fname, ignore_proj=False):
 
         # Read the transform definition line
         line = f.readline().split()
-        cproj = Proj(proj="longlat", ellps="WGS84", datum="WGS84",
-                     no_defs=True)
+        cproj = Proj(proj="longlat", ellps="WGS84", datum="WGS84", no_defs=True)
         gproj = None
         if line[1] == "NONE" and not ignore_proj:
             logging.info("\tNo projection selected.")
@@ -591,8 +656,7 @@ def _read_nlloc(fname, ignore_proj=False):
             orig_lon = float(line[5])
 
             # The simple projection is the Plate Carree/Equidistant Cylindrical
-            gproj = Proj(proj="eqc", lat_0=orig_lat, lon_0=orig_lon,
-                         units="km")
+            gproj = Proj(proj="eqc", lat_0=orig_lat, lon_0=orig_lon, units="km")
         elif line[1] == "LAMBERT":
             proj_ellipsoid = line[3]
             orig_lat = float(line[5])
@@ -627,20 +691,28 @@ def _read_nlloc(fname, ignore_proj=False):
             elif proj_ellipsoid == "Sphere":
                 proj_ellipsoid = "sphere"
             else:
-                logging.info(f"Projection Ellipsoid {proj_ellipsoid} not "
-                             "supported!\n\tPlease notify the QuakeMigrate "
-                             "developers.\n\n\tWGS-84 used instead...\n")
+                logging.info(
+                    f"Projection Ellipsoid {proj_ellipsoid} not "
+                    "supported!\n\tPlease notify the QuakeMigrate "
+                    "developers.\n\n\tWGS-84 used instead...\n"
+                )
                 proj_ellipsoid = "WGS84"
 
-            gproj = Proj(proj="lcc", lon_0=orig_lon, lat_0=orig_lat,
-                         lat_1=parallel_1, lat_2=parallel_2, units="km",
-                         ellps=proj_ellipsoid, datum="WGS84")
+            gproj = Proj(
+                proj="lcc",
+                lon_0=orig_lon,
+                lat_0=orig_lat,
+                lat_1=parallel_1,
+                lat_2=parallel_2,
+                units="km",
+                ellps=proj_ellipsoid,
+                datum="WGS84",
+            )
         elif line[1] == "TRANS_MERC":
             orig_lat = float(line[5])
             orig_lon = float(line[7])
 
-            gproj = Proj(proj="tmerc", lon=orig_lon, lat=orig_lat,
-                         units="km")
+            gproj = Proj(proj="tmerc", lon=orig_lon, lat=orig_lat, units="km")
 
         transform = [gproj, cproj, line[1]]
 
@@ -692,9 +764,9 @@ def _bilinear_interpolate(xz, xz_origin, xz_dimensions, traveltimes):
 
     # Get 4 data points of surrounding square
     c00 = traveltimes[i, k]
-    c10 = traveltimes[i+1, k]
-    c11 = traveltimes[i+1, k+1]
-    c01 = traveltimes[i, k+1]
+    c10 = traveltimes[i + 1, k]
+    c11 = traveltimes[i + 1, k + 1]
+    c01 = traveltimes[i, k + 1]
 
     # Interpolate along x-axis
     c0 = c00 * (1 - x_d) + c10 * x_d
@@ -742,9 +814,11 @@ def _vmodel_string(vmodel, block_model, phase):
         else:
             dvdx = 0.0
 
-        out.append(string_template.format(vmodel["Depth"][i],
-                                          vmodel[f"V{phase.lower()}"][i],
-                                          dvdx))
+        out.append(
+            string_template.format(
+                vmodel["Depth"][i], vmodel[f"V{phase.lower()}"][i], dvdx
+            )
+        )
         i += 1
 
     return "\n".join(out)
@@ -773,8 +847,8 @@ def _velocity_gradient(i, vmodel, phase):
 
     """
 
-    d_depth = vmodel["Depth"][i+1] - vmodel["Depth"][i]
-    d_vel = vmodel[f"V{phase.lower()}"][i+1] - vmodel[f"V{phase.lower()}"][i]
+    d_depth = vmodel["Depth"][i + 1] - vmodel["Depth"][i]
+    d_vel = vmodel[f"V{phase.lower()}"][i + 1] - vmodel[f"V{phase.lower()}"][i]
 
     return d_vel / d_depth
 

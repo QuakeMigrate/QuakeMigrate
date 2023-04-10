@@ -22,7 +22,7 @@ cmpaz = {"N": 0, "Z": 0, "E": 90}
 cmpinc = {"N": 90, "Z": 0, "E": 90}
 
 
-def sac_mfast(event, stations, output_path, filename=None):
+def sac_mfast(event, stations, output_path, units, filename=None):
     """
     Function to create the SAC file.
 
@@ -35,20 +35,32 @@ def sac_mfast(event, stations, output_path, filename=None):
         DataFrame containing station information.
     output_path : str
         Location to save the SAC file.
+    units : {"km", "m"}
+        Grid projection coordinates for QM LUT (determines units of depths and
+        uncertainties in the .event files).
     filename : str, optional
         Name of SAC file - defaults to "eventid/eventid.station.{comp}".
 
     """
 
     # Read in the mSEED file containing
-    stream = read(event.event_descriptions.text)
+    stream = read(event.extra.cut_waveforms_file.value)
+
+    # Set distance conversion factor (from units of QM LUT projection units).
+    if units == "km":
+        factor = 1
+    elif units == "m":
+        factor = 1e3
+    else:
+        raise AttributeError(f"units must be 'km' or 'm'; not {units}")
 
     # Create general SAC header AttribDict
     event_header = AttribDict()
     origin = event.preferred_origin()
     event_header.evla = origin.latitude
     event_header.evlo = origin.longitude
-    event_header.evdp = origin.depth / 1000.  # converted to km
+    # Obspy Event object already has all units converted to metres
+    event_header.evdp = origin.depth / 1000.0  # converted to km
     eventid = str(event.resource_id)
     if filename is None:
         filename = eventid + ".{}.{}"
@@ -58,21 +70,20 @@ def sac_mfast(event, stations, output_path, filename=None):
     output_path.mkdir(parents=True, exist_ok=True)
 
     # Loop over the available stations and get the pick information
-    for i, station in stations.iterrows():
+    for _, station in stations.iterrows():
         st = stream.select(station=station.Name)
 
         station_header = AttribDict()
         station_header.stla = station.Latitude
         station_header.stlo = station.Longitude
-        station_header.stel = station.Elevation
+        station_header.stel = station.Elevation / factor  # convert to m
 
         # Calculate the distance and azimuth between event and station
-        dist, az, baz = gps2dist_azimuth(event_header.evla,
-                                         event_header.evlo,
-                                         station.Latitude,
-                                         station.Longitude)
+        dist, az, _ = gps2dist_azimuth(
+            event_header.evla, event_header.evlo, station.Latitude, station.Longitude
+        )
 
-        station_header.dist = dist / 1000.
+        station_header.dist = dist / 1000.0  # convert m to km
         station_header.az = az
 
         # Get relevant picks here
@@ -102,14 +113,14 @@ def sac_mfast(event, stations, output_path, filename=None):
 
         pick_header = AttribDict()
         pick_header.t0 = s_pick
-        pick_header.kt5 = kt5
-        pick_header.kt0 = kt5
+        pick_header.kt5 = str(kt5)
+        pick_header.kt0 = str(kt5)
         pick_header.o = origin_time
         if p_pick != 0:
             pick_header.a = p_pick
 
         for comp in ["Z", "N", "E"]:
-            tr = st.select(channel="*{}".format(comp))[0]
+            tr = st.select(channel=f"*{comp}")[0]
 
             # Write out to SAC file, then read in again to fill header
             name = filename.format(station.Name, comp.lower())
@@ -120,7 +131,7 @@ def sac_mfast(event, stations, output_path, filename=None):
             sac_header = AttribDict()
             sac_header.cmpaz = str(cmpaz[comp])
             sac_header.cmpinc = str(cmpinc[comp])
-            sac_header.kcmpnm = "HH{}".format(comp)
+            sac_header.kcmpnm = f"HH{comp}"
             sac_header.update(event_header)
             sac_header.update(station_header)
             sac_header.update(pick_header)

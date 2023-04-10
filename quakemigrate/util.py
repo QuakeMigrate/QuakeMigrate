@@ -13,13 +13,14 @@ Module that supplies various utility functions and classes.
 import logging
 import sys
 import time
+import warnings
 from datetime import datetime
 from functools import wraps
 from itertools import tee
 
 import matplotlib.ticker as ticker
 import numpy as np
-from obspy import Trace
+from obspy import Trace, Stream
 
 
 log_spacer = "="*110
@@ -591,6 +592,45 @@ def upsample(trace, upfactor, starttime, endtime):
     logging.debug(f"Trimmed upsampled trace:\n\t{out}")
 
     return out
+
+
+def merge_stream(stream):
+    """
+    Merge all traces with contiguous data, or overlapping data which
+    exactly matches (== st._cleanup(); i.e. no clobber). Apply this on a
+    channel by channel basis so that if any individual merge fails then only
+    that channel will be omitted.
+
+    Parameters
+    ----------
+    stream : `obspy.Stream` object
+        Stream to be merged.
+
+    Returns
+    -------
+    stream_merged : `obpsy.Stream` object
+        Merged Stream.
+
+    """
+
+    # Work on a copy
+    stream = stream.copy()
+
+    seed_ids = set([trace.id for trace in stream])
+    stream_merged = Stream()
+    with warnings.catch_warnings():
+        warnings.filterwarnings("error")
+        for seed_id in seed_ids:
+            try:
+                stream_merged += stream.select(id=seed_id).merge(method=-1)
+            except UserWarning as error_message:
+                logging.info(f"\t\t{error_message}")
+                logging.info(f"\t\t{stream.select(id=seed_id)}")
+                logging.info(
+                    "\t\tThis channel will not be used for onset calculation."
+                )
+
+    return stream_merged
 
 
 def pairwise(iterable):

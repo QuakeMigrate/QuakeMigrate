@@ -14,4 +14,4 @@ dependencies:
   - scipy
   - pip
   - pip:
-    - .
+    - quakemigrate

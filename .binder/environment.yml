@@ -1,0 +1,17 @@
+name: quakemigrate
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - ipython
+  - jupyter
+  - matplotlib
+  - numpy
+  - obspy >=1.3
+  - pandas
+  - python
+  - pyproj >=2.5
+  - scipy
+  - pip
+  - pip:
+    - .

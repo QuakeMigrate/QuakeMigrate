@@ -843,7 +843,7 @@ class QuakeScan:
         ls = [np.arange(n) for n in shape]
 
         # Get ijk indices for points in the sub-grid
-        x, y, z = [l[idx] - i for l, idx, i in zip(ls, np.where(flag), ijk)]
+        x, y, z = [L[idx] - i for L, idx, i in zip(ls, np.where(flag), ijk)]
 
         X = np.c_[x * x, y * y, z * z, x * y, x * z, y * z, x, y, z, np.ones(len(ix))].T
         Y = -np.log(np.clip(coa_map.astype(np.float64)[ix, iy, iz], 1e-300, np.inf))

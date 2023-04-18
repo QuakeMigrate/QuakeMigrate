@@ -3,7 +3,7 @@
 Module to produce traveltime lookup tables defined on a Cartesian grid.
 
 :copyright:
-    2020 - 2021, QuakeMigrate developers.
+    2020–2023, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -51,8 +51,7 @@ def read_nlloc(
     Returns
     -------
     lut : :class:`~quakemigrate.lut.lut.LUT` object
-        Lookup table populated with traveltimes from the NonLinLoc lookup table
-        files.
+        Lookup table populated with traveltimes from the NonLinLoc lookup table files.
 
     Raises
     ------
@@ -80,7 +79,7 @@ def read_nlloc(
                 gproj, cproj, gproj_string = transform
                 if gproj is None:
                     raise NotImplementedError(
-                        f"Projection type {gproj_string}" " not supported."
+                        f"Projection type {gproj_string} not supported."
                     )
 
                 # Transform from grid projection origin to a coord origin
@@ -126,16 +125,15 @@ def compute_traveltimes(
     """
     Top-level method for computing traveltime lookup tables.
 
-    This function takes a grid specification and is capable of computing
-    traveltimes for an arbitrary number of phases using a variety of
-    techniques.
+    This function takes a grid specification and is capable of computing traveltimes for
+    an arbitrary number of phases using a variety of techniques.
 
     Parameters
     ----------
     grid_spec : dict
-        Dictionary containing all of the defining parameters for the underlying
-        3-D grid on which the traveltimes are to be calculated. For expected
-        keys, see :class:`~quakemigrate.lut.lut.Grid3D`.
+        Dictionary containing all of the defining parameters for the underlying 3-D grid
+        on which the traveltimes are to be calculated. For expected keys, see
+        :class:`~quakemigrate.lut.lut.Grid3D`.
     stations : `pandas.DataFrame`
         DataFrame containing station information (lat/lon/elev).
     method : str
@@ -149,8 +147,8 @@ def compute_traveltimes(
     phases : list of str, optional
         List of seismic phases for which to calculate traveltimes.
     fraction_tt : float, optional
-        An estimate of the uncertainty in the velocity model as a function of
-        a fraction of the traveltime. (Default 0.1 == 10%)
+        An estimate of the uncertainty in the velocity model as a function of a fraction
+        of the traveltime. (Default 0.1 == 10%)
     save_file : str, optional
         Path to location to save pickled lookup table.
     log : bool, optional
@@ -215,7 +213,7 @@ def compute_traveltimes(
 
     elif method == "3dfmm":
         raise NotImplementedError(
-            "Feature coming soon - please contact the " "QuakeMigrate developers."
+            "Feature coming soon - please contact the QuakeMigrate developers."
         )
 
     elif method == "1dnlloc":
@@ -230,9 +228,8 @@ def compute_traveltimes(
 
     else:
         raise ValueError(
-            f"'{method} is not a valid method. Please consult the"
-            "documentation. Valid options are 'homogeneous', "
-            "'1dfmm' and '1dnlloc'."
+            f"'{method} is not a valid method. Please consult the documentation. Valid "
+            "options are 'homogeneous', '1dfmm', and '1dnlloc'."
         )
 
     if save_file is not None:
@@ -243,8 +240,7 @@ def compute_traveltimes(
 
 def _compute_homogeneous(lut, phase, velocity):
     """
-    Calculate the traveltime lookup table for a station in a homogeneous
-    velocity model.
+    Calculate the traveltime lookup table for a station in a homogeneous velocity model.
 
     Parameters
     ----------
@@ -261,9 +257,7 @@ def _compute_homogeneous(lut, phase, velocity):
     stations_xyz = lut.stations_xyz
 
     for i, station in enumerate(lut.station_data["Name"].values):
-        logging.info(
-            f"\t\t...station: {station} - {i+1} of " f"{stations_xyz.shape[0]}"
-        )
+        logging.info(f"\t\t...station: {station} - {i+1} of {stations_xyz.shape[0]}")
 
         dx, dy, dz = [grid_xyz[j] - stations_xyz[i, j] for j in range(3)]
         dist = np.sqrt(dx**2 + dy**2 + dz**2)
@@ -273,8 +267,8 @@ def _compute_homogeneous(lut, phase, velocity):
 
 def _compute_1d_fmm(lut, phase, vmodel):
     """
-    Calculate traveltime lookup tables for each station in a 1-D velocity
-    model using the fast-marching method.
+    Calculate traveltime lookup tables for each station in a 1-D velocity model using
+    the fast-marching method.
 
     Parameters
     ----------
@@ -291,8 +285,8 @@ def _compute_1d_fmm(lut, phase, vmodel):
     Raises
     ------
     InvalidVelocityModelHeader
-        If the velocity model does not contain the key corresponding to the
-        specified seismic `phase`. (E.g. "Vp" for "P" phase.)
+        If the velocity model does not contain the key corresponding to the specified
+        seismic `phase`. (E.g. "Vp" for "P" phase.)
 
     """
 
@@ -313,10 +307,9 @@ def _compute_1d_fmm(lut, phase, vmodel):
         lut.stations_xyz > lut.ur_corner
     ).any():
         raise ValueError(
-            "Cannot calculate traveltimes with method '1dfmm' "
-            "unless all stations are contained within the grid! "
-            "Please either use method '1dnlloc' or increase the "
-            "grid extent to contain all stations"
+            "Cannot calculate traveltimes with method '1dfmm' unless all stations are "
+            "contained within the grid! Please either use method '1dnlloc' or increase "
+            "the grid extent to contain all stations"
         )
 
     # Interpolate the velocity model in the Z-dimension
@@ -324,9 +317,7 @@ def _compute_1d_fmm(lut, phase, vmodel):
     int_vmodel = f(grid_xyz[2])
 
     for i, station in enumerate(lut.station_data["Name"].values):
-        logging.info(
-            f"\t\t...station: {station} - {i+1} of " f"{stations_xyz.shape[0]}"
-        )
+        logging.info(f"\t\t...station: {station} - {i+1} of {stations_xyz.shape[0]}")
 
         lut.traveltimes.setdefault(station, {}).update(
             {
@@ -339,13 +330,12 @@ def _compute_1d_fmm(lut, phase, vmodel):
 
 def _eikonal_fmm(grid_xyz, node_spacing, velocity_grid, station_xyz):
     """
-    Calculates the traveltime lookup tables by solving the eikonal equation
-    using an implementation of the fast-marching algorithm.
+    Calculates the traveltime lookup tables by solving the eikonal equation using an
+    implementation of the fast-marching algorithm.
 
-    Traveltime calculation can only be performed between grid nodes: the
-    station location is therefore taken as the closest grid node. Note that
-    for large node spacings this may cause a modest error in the calculated
-    traveltimes.
+    Traveltime calculation can only be performed between grid nodes: the station
+    location is therefore taken as the closest grid node. Note that for large node
+    spacings this may cause a modest error in the calculated traveltimes.
 
     .. warning:: Requires the scikit-fmm python package.
 
@@ -356,18 +346,17 @@ def _eikonal_fmm(grid_xyz, node_spacing, velocity_grid, station_xyz):
     node_spacing : array-like
         [X, Y, Z] distances between each node.
     velocity_grid : array-like
-        Contains the speed of interface propagation at each point in the
-        domain.
+        Contains the speed of interface propagation at each point in the domain.
     station_xyz : array-like
         Station location (in grid xyz).
 
     Returns
     -------
     traveltimes : array-like, same shape as grid_xyz
-        Contains the traveltime from the zero contour (zero level set) of phi
-        to each point in the array given the scalar velocity field speed. If
-        the input array speed has values less than or equal to zero the return
-        value will be a masked array.
+        Contains the traveltime from the zero contour (zero level set) of phi to each
+        point in the array given the scalar velocity field speed. If the input array
+        speed has values less than or equal to zero the return value will be a masked
+        array.
 
     Raises
     ------
@@ -380,10 +369,9 @@ def _eikonal_fmm(grid_xyz, node_spacing, velocity_grid, station_xyz):
         import skfmm
     except ImportError:
         raise ImportError(
-            "Unable to import skfmm - you need to install "
-            "scikit-fmm to use this method.\nSee the "
-            "installation instructions in the documentation"
-            "for more details."
+            "Unable to import skfmm - you need to install scikit-fmm to use this "
+            "method.\nSee the installation instructions in the documentation for more "
+            "details."
         )
 
     phi = -np.ones(grid_xyz[0].shape)
@@ -402,13 +390,13 @@ def _compute_1d_nlloc(lut, phase, vmodel, **kwargs):
     """
     Calculate 3-D traveltime lookup tables from a 1-D velocity model.
 
-    NonLinLoc Grid2Time is used to generate a 2-D lookup table which is then
-    swept around the full range of azimuths, centred on the station location,
-    to populate the 3-D traveltime grid.
+    NonLinLoc Grid2Time is used to generate a 2-D lookup table which is then swept
+    around the full range of azimuths, centred on the station location, to populate the
+    3-D traveltime grid.
 
-    .. warning:: Requires NonLinLoc to be installed, and `Vel2Grid` and
-    `Grid2Time` to be in the user's path. Alternatively, a custom path to
-    these executables can be specified with the kwarg `nlloc_path`.
+    .. warning:: Requires NonLinLoc to be installed, and `Vel2Grid` and `Grid2Time` to
+    be in the user's path. Alternatively, a custom path to these executables can be
+    specified with the kwarg `nlloc_path`.
 
     Parameters
     ----------
@@ -428,17 +416,16 @@ def _compute_1d_nlloc(lut, phase, vmodel, **kwargs):
         nlloc_path : str, optional
             Path to NonLinLoc executables Vel2Grid and Grid2Time (default: "").
         block_model : bool, optional
-            Toggle to choose whether to interpret velocity model with constant
-            velocity blocks or a linear gradient (default: False).
+            Toggle to choose whether to interpret velocity model with constant velocity
+            blocks or a linear gradient (default: False).
         retain_nll_grids : bool, optional
-            Toggle to choose whether to keep the 2-D traveltime grids created
-            by NonLinLoc Grid2Time (default: False).
+            Toggle to choose whether to keep the 2-D traveltime grids created by
+            NonLinLoc Grid2Time (default: False).
 
     Raises
     ------
     FileNotFoundError
-        If the Vel2Grid and/or Grid2Time executables are not found in the
-        `nlloc_path`.
+        If the Vel2Grid and/or Grid2Time executables are not found in the `nlloc_path`.
     Exception
         If the execution of `Grid2Time` or `Vel2Grid` returns an error.
 
@@ -459,8 +446,8 @@ def _compute_1d_nlloc(lut, phase, vmodel, **kwargs):
             or not (nlloc_path / "Grid2Time").exists()
         ):
             raise FileNotFoundError(
-                f"Incorrect nlloc_path? - Grid2Time and "
-                f"Vel2Grid not found in {nlloc_path}"
+                "Incorrect nlloc_path? - Grid2Time and Vel2Grid not found in "
+                f"{nlloc_path}"
             )
 
     # For NonLinLoc, distances/velocities must be in km - use conversion factor
@@ -477,8 +464,8 @@ def _compute_1d_nlloc(lut, phase, vmodel, **kwargs):
 
     for i, station in enumerate(lut.station_data["Name"].values):
         logging.info(
-            f"\t\t...running Grid2Time - station: {station:5s} - "
-            f"{i+1} of {stations_xyz.shape[0]}"
+            f"\t\t...running Grid2Time - station: {station:5s} - {i+1} of "
+            f"{stations_xyz.shape[0]}"
         )
 
         dx, dy = [grid_xyz[j] - stations_xyz[i, j] for j in range(2)]
@@ -486,9 +473,9 @@ def _compute_1d_nlloc(lut, phase, vmodel, **kwargs):
         depths = grid_xyz[2].flatten()
         max_dist = np.max(distances)
 
-        # NLLoc needs the station to lie within the 2-D section -> we pick the
-        # depth extent of the 2-D grid from the max. possible extent of the
-        # station and the grid - [min_z, max_z]
+        # NLLoc needs the station to lie within the 2-D section -> we pick the depth
+        # extent of the 2-D grid from the max. possible extent of the station and the
+        # grid - [min_z, max_z]
         depth_span = [
             np.min([ll[2], stations_xyz[i, 2]]),
             np.max([ur[2], stations_xyz[i, 2]]),
@@ -535,14 +522,14 @@ def _compute_1d_nlloc(lut, phase, vmodel, **kwargs):
 
     if not retain_nll_grids:
         rmtree(cwd / "model")
-        # Check time directory is empty before removing (might have
-        # saved grids from previous runs)
+        # Check time directory is empty before removing (might have saved grids from
+        # previous runs)
         if not os.listdir(cwd / "time"):
             rmtree(cwd / "time")
         else:
             logging.info(
-                "Warning: time directory not empty; does it contain "
-                "traveltime grids from a previous run?\nNot removed."
+                "Warning: time directory not empty; does it contain traveltime grids "
+                "from a previous run?\nNot removed."
             )
 
 
@@ -572,8 +559,8 @@ def _write_control_file(
     dx : float
         NLLoc 2D grid spacing, in km.
     block_model : bool
-        Toggle to choose whether to interpret velocity model with constant
-        velocity blocks or a linear gradient.
+        Toggle to choose whether to interpret velocity model with constant velocity
+        blocks or a linear gradient.
 
     """
 
@@ -618,16 +605,16 @@ def _read_nlloc(fname, ignore_proj=False):
     Parameters
     ----------
     fname : str
-        Path to file containing NonLinLoc traveltime lookup tables, without
-        the extension.
+        Path to file containing NonLinLoc traveltime lookup tables, without the
+        extension.
     ignore_proj : bool, optional
         Flag to suppress the "No projection specified" message.
 
     Returns
     -------
     gridspec : array-like
-        Details on the NonLinLoc grid specification. Contains the number of
-        nodes, the grid origin and the node spacings.
+        Details on the NonLinLoc grid specification. Contains the number of nodes, the
+        grid origin and the node spacings.
     transform : array of `pyproj.Proj` objects
         Array containing the grid and coordinate projections, respectively.
     traveltimes : array-like
@@ -692,9 +679,8 @@ def _read_nlloc(fname, ignore_proj=False):
                 proj_ellipsoid = "sphere"
             else:
                 logging.info(
-                    f"Projection Ellipsoid {proj_ellipsoid} not "
-                    "supported!\n\tPlease notify the QuakeMigrate "
-                    "developers.\n\n\tWGS-84 used instead...\n"
+                    f"Projection Ellipsoid {proj_ellipsoid} not supported!\n\tPlease "
+                    "notify the QuakeMigrate developers.\n\n\tWGS-84 used instead...\n"
                 )
                 proj_ellipsoid = "WGS84"
 
@@ -729,18 +715,18 @@ def _read_nlloc(fname, ignore_proj=False):
 
 def _bilinear_interpolate(xz, xz_origin, xz_dimensions, traveltimes):
     """
-    Perform a bi-linear interpolation between 4 data points on the input
-    2-D lookup table to calculate the traveltime to nodes on the 3-D grid.
+    Perform a bi-linear interpolation between 4 data points on the input 2-D lookup
+    table to calculate the traveltime to nodes on the 3-D grid.
 
-    Note: x is used to denote the horizontal dimension over which the
-    interpolation is performed. Due to the NonLinLoc definition, this
-    corresponds to the y component of the grid.
+    Note: x is used to denote the horizontal dimension over which the interpolation is
+    performed. Due to the NonLinLoc definition, this corresponds to the y component of
+    the grid.
 
     Parameters
     ----------
     xz : array-like
-        Column-stacked array of distances from the station and depths for all
-        points in grid.
+        Column-stacked array of distances from the station and depths for all points in
+        grid.
     xz_origin : array-like
         The x (actually y) and z values of the grid origin.
     xz_dimensions : array-like
@@ -788,8 +774,8 @@ def _vmodel_string(vmodel, block_model, phase):
             "Depth" of each layer in model (positive down), in km.
             "V<phase>" velocity for each layer in model (e.g. "Vp"), in km / s.
     block_model : bool
-        Toggle to choose whether to interpret velocity model with constant
-        velocity blocks or a linear gradient.
+        Toggle to choose whether to interpret velocity model with constant velocity
+        blocks or a linear gradient.
     phase : str
         The seismic phase for which to calculate traveltimes.
 

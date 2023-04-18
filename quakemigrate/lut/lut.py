@@ -3,7 +3,7 @@
 Module to produce traveltime lookup tables defined on a Cartesian grid.
 
 :copyright:
-    2020 - 2021, QuakeMigrate developers.
+    2020–2023, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -24,19 +24,16 @@ from scipy.interpolate import RegularGridInterpolator
 
 class Grid3D:
     """
-    A grid object represents a collection of points in a 3-D Cartesian space
-    that can be used to produce regularised traveltime lookup tables that
-    sample the continuous traveltime space for each station in a seismic
-    network.
+    A grid object represents a collection of points in a 3-D Cartesian space that can be
+    used to produce regularised traveltime lookup tables that sample the continuous
+    traveltime space for each station in a seismic network.
 
-    This class also provides the series of transformations required to move
-    between the input projection, the grid projection and the grid index
-    coordinate spaces.
+    This class also provides the series of transformations required to move between the
+    input projection, the grid projection and the grid index coordinate spaces.
 
-    The size and shape specifications of the grid are defined by providing the
-    (input projection) coordinates for the lower-left and upper-right corners,
-    a node spacing and the projections (defined using pyproj) of the input and
-    grid spaces.
+    The size and shape specifications of the grid are defined by providing the (input
+    projection) coordinates for the lower-left and upper-right corners, a node spacing
+    and the projections (defined using pyproj) of the input and grid spaces.
 
     Attributes
     ----------
@@ -47,51 +44,47 @@ class Grid3D:
     grid_proj : `pyproj.Proj` object
         Grid space projection.
     grid_xyz : array-like, shape (3, nx, ny, nz)
-        Positions of the grid nodes in the grid coordinate space. The shape of
-        each element of the list is defined by the number of nodes in each
-        dimension.
+        Positions of the grid nodes in the grid coordinate space. The shape of each
+        element of the list is defined by the number of nodes in each dimension.
     ll_corner : array-like, [float, float, float]
-        Location of the lower-left corner of the grid in the grid
-        projection. Should also contain the minimum depth in the grid.
+        Location of the lower-left corner of the grid in the grid projection. Should
+        also contain the minimum depth in the grid.
     node_count : array-like, [int, int, int]
-        Number of nodes in each dimension of the grid. This is calculated by
-        finding the number of nodes with a given node spacing that fit between
-        the lower-left and upper-right corners. This value is rounded up if the
-        number of nodes returned is non-integer, to ensure the requested area
-        is included in the grid.
+        Number of nodes in each dimension of the grid. This is calculated by finding the
+        number of nodes with a given node spacing that fit between the lower-left and
+        upper-right corners. This value is rounded up if the number of nodes returned is
+        non-integer, to ensure the requested area is included in the grid.
     node_spacing : array-like, [float, float, float]
         Distance between nodes in each dimension of the grid.
     precision : list of float
-        An appropriate number of decimal places for distances as a function of
-        the node spacing and coordinate projection.
+        An appropriate number of decimal places for distances as a function of the node
+        spacing and coordinate projection.
     unit_conversion_factor : float
-        A conversion factor based on the grid projection, used to convert
-        between units of metres and kilometres.
+        A conversion factor based on the grid projection, used to convert between units
+        of metres and kilometres.
     unit_name : str
         Shorthand string for the units of the grid projection.
     ur_corner : array-like, [float, float, float]
-        Location of the upper-right corner of the grid in the grid
-        projection. Should also contain the maximum depth in the grid.
+        Location of the upper-right corner of the grid in the grid projection. Should
+        also contain the maximum depth in the grid.
 
     Methods
     -------
     coord2grid(value, inverse=False, clip=False)
-        Provides a transformation between the input projection and grid
-        coordinate spaces.
+        Provides a transformation between the input projection and grid coordinate
+        spaces.
     decimate(df, inplace=False)
         Downsamples the traveltime lookup tables by some decimation factor.
     index2coord(value, inverse=False, unravel=False, clip=False)
-        Provides a transformation between grid indices (can be a flattened
-        index or an [i, j, k] position) and the input projection coordinate
-        space.
+        Provides a transformation between grid indices (can be a flattened index or an
+        [i, j, k] position) and the input projection coordinate space.
     index2grid(value, inverse=False, unravel=False)
-        Provides a transformation between grid indices (can be a flattened
-        index or an [i, j, k] position) and the grid coordinate space.
+        Provides a transformation between grid indices (can be a flattened index or an
+        [i, j, k] position) and the grid coordinate space.
 
     """
 
-    def __init__(self, ll_corner, ur_corner, node_spacing, grid_proj,
-                 coord_proj):
+    def __init__(self, ll_corner, ur_corner, node_spacing, grid_proj, coord_proj):
         """Instantiate the Grid3D object."""
 
         self.grid_proj = grid_proj
@@ -139,9 +132,9 @@ class Grid3D:
 
         for station, map_ in grid.traveltimes.items():
             for phase, ttimes in map_.items():
-                grid[station][phase] = ttimes[c1[0]::df[0],
-                                              c1[1]::df[1],
-                                              c1[2]::df[2]]
+                grid[station][phase] = ttimes[
+                    c1[0] :: df[0], c1[1] :: df[1], c1[2] :: df[2]
+                ]
 
         if not inplace:
             return grid
@@ -153,14 +146,14 @@ class Grid3D:
         Parameters
         ----------
         value : array-like
-            Array (of arrays) containing the grid indices (grid coordinates)
-            to be transformed. Can be an array of flattened indices.
+            Array (of arrays) containing the grid indices (grid coordinates) to be
+            transformed. Can be an array of flattened indices.
         inverse : bool, optionale
             Reverses the direction of the transform.
             Default indices -> grid coordinates.
         unravel : bool, optional
-            Convert a flat index or array of flat indices into a tuple of
-            coordinate arrays.
+            Convert a flat index or array of flat indices into a tuple of coordinate
+            arrays.
 
         Returns
         -------
@@ -193,9 +186,8 @@ class Grid3D:
         Parameters
         ----------
         value : array-like
-            Array (of arrays) containing the coordinate locations to be
-            transformed. Each sub-array should describe a single point in the
-            3-D input space.
+            Array (of arrays) containing the coordinate locations to be transformed.
+            Each sub-array should describe a single point in the 3-D input space.
         inverse : bool, optional
             Reverses the direction of the transform.
             Default input coordinates -> grid coordinates
@@ -225,14 +217,14 @@ class Grid3D:
         Parameters
         ----------
         value : array-like
-            Array (of arrays) containing the grid indices (grid coordinates)
-            to be transformed. Can be an array of flattened indices.
+            Array (of arrays) containing the grid indices (grid coordinates) to be
+            transformed. Can be an array of flattened indices.
         inverse : bool, optional
             Reverses the direction of the transform.
             Default indices -> input projection coordinates.
         unravel : bool, optional
-            Convert a flat index or array of flat indices into a tuple of
-            coordinate arrays.
+            Convert a flat index or array of flat indices into a tuple of coordinate
+            arrays.
 
         Returns
         -------
@@ -257,16 +249,17 @@ class Grid3D:
         try:
             return self._node_count
         except AttributeError:
-            print("FutureWarning: The internal data structure of LUT has "
-                  "changed.\nTo remove this warning you will need to convert "
-                  "your lookup table to the new-style\nusing "
-                  "`quakemigrate.lut.update_lut`.")
+            print(
+                "FutureWarning: The internal data structure of LUT has changed.\nTo "
+                "remove this warning you will need to convert your lookup table to the "
+                "new-style\nusing `quakemigrate.lut.update_lut`."
+            )
             return self._cell_count
 
     @node_count.setter
     def node_count(self, value):
         value = np.array(value, dtype="int32")
-        assert (np.all(value > 0)), "Node count must be greater than [0]"
+        assert np.all(value > 0), "Node count must be greater than [0]"
         self._node_count = value
 
     @property
@@ -276,10 +269,11 @@ class Grid3D:
         try:
             return self._node_spacing
         except AttributeError:
-            print("FutureWarning: The internal data structure of LUT has "
-                  "changed.\nTo remove this warning you will need to convert "
-                  "your lookup table to the new-style\nusing "
-                  "`quakemigrate.lut.update_lut`.")
+            print(
+                "FutureWarning: The internal data structure of LUT has changed.\nTo "
+                "remove this warning you will need to convert your lookup table to the "
+                "new-style\nusing `quakemigrate.lut.update_lut`."
+            )
             return self._cell_size
 
     @node_spacing.setter
@@ -288,8 +282,8 @@ class Grid3D:
         if value.size == 1:
             value = np.repeat(value, 3)
         else:
-            assert (value.shape == (3,)), "Node spacing must be an nx3 array."
-        assert (np.all(value > 0)), "Node spacing must be greater than [0]"
+            assert value.shape == (3,), "Node spacing must be an nx3 array."
+        assert np.all(value > 0), "Node spacing must be greater than [0]"
         self._node_spacing = value
 
     @property
@@ -305,16 +299,14 @@ class Grid3D:
         """
         Get the minimum/maximum extent of each dimension of the grid.
 
-        The default returns the grid extent as the convex hull of the grid
-        nodes. It is useful, for visualisation purposes, to also be able to
-        determine the grid extent as the convex hull of a grid of cells centred
-        on the grid nodes.
+        The default returns the grid extent as the convex hull of the grid nodes. It is
+        useful, for visualisation purposes, to also be able to determine the grid extent
+        as the convex hull of a grid of cells centred on the grid nodes.
 
         Parameters
         ----------
         cells : bool, optional
-            Specifies the grid mode (nodes / cells) for which to calculate the
-            extent.
+            Specifies the grid mode (nodes / cells) for which to calculate the extent.
 
         Returns
         -------
@@ -346,13 +338,15 @@ class Grid3D:
     @property
     def precision(self):
         """
-        Get appropriate number of decimal places as a function of the
-        node spacing and coordinate projection.
+        Get appropriate number of decimal places as a function of the node spacing and
+        coordinate projection.
 
         """
 
-        return [-int(np.format_float_scientific(axis).split("e")[1]) for axis
-                in np.subtract(*self.index2coord([[0, 0, 0], [1, 1, 1]]))]
+        return [
+            -int(np.format_float_scientific(axis).split("e")[1])
+            for axis in np.subtract(*self.index2coord([[0, 0, 0], [1, 1, 1]]))
+        ]
 
     @property
     def unit_conversion_factor(self):
@@ -378,9 +372,11 @@ class Grid3D:
     def cell_count(self, value):
         if value is None:
             return
-        print("FutureWarning: Parameter name has changed - continuing.")
-        print("To remove this message, change:")
-        print("\t'cell_count' -> 'node_count'")
+        print(
+            "FutureWarning: Parameter name has changed - continuing.\n"
+            "To remove this message, change:\n"
+            "\t'cell_count' -> 'node_count'"
+        )
         self.node_count = value
 
     @property
@@ -392,29 +388,31 @@ class Grid3D:
     def cell_size(self, value):
         if value is None:
             return
-        print("FutureWarning: Parameter name has changed - continuing.")
-        print("To remove this message, change:")
-        print("\t'cell_size' -> 'node_spacing'")
+        print(
+            "FutureWarning: Parameter name has changed - continuing.\n"
+            "To remove this message, change:\n"
+            "\t'cell_size' -> 'node_spacing'"
+        )
         self.node_spacing = value
 
 
 class LUT(Grid3D):
     """
-    A lookup table (LUT) object is a simple data structure that is used to
-    store a series of regularised tables that, for each seismic station in a
-    network, store the traveltimes to every point in the 3-D volume. These
-    lookup tables are pre-computed to efficiently carry out the migration.
+    A lookup table (LUT) object is a simple data structure that is used to store a
+    series of regularised tables that, for each seismic station in a network, store the
+    traveltimes to every point in the 3-D volume. These lookup tables are pre-computed
+    to efficiently carry out the migration.
 
-    This class provides utility functions that can be used to serve up or query
-    these pre-computed lookup tables.
+    This class provides utility functions that can be used to serve up or query these
+    pre-computed lookup tables.
 
     This object is-a :class:`~quakemigrate.lut.lut.Grid3D`.
 
     Attributes
     ----------
     fraction_tt : float
-        An estimate of the uncertainty in the velocity model as a function of
-        a fraction of the traveltime. (Default 0.1 == 10%)
+        An estimate of the uncertainty in the velocity model as a function of a fraction
+        of the traveltime. (Default 0.1 == 10%)
     max_traveltime : float
         The maximum traveltime between any station and a point in the grid.
     phases : list of str
@@ -440,15 +438,15 @@ class LUT(Grid3D):
     serve_traveltimes(sampling_rate)
         Serve up the traveltime lookup tables.
     traveltime_to(phase, ijk)
-        Query traveltimes to a grid location (in terms of indices) for a
-        particular phase.
+        Query traveltimes to a grid location (in terms of indices) for a particular
+        phase.
     save(filename)
         Dumps the current state of the lookup table object to a pickle file.
     load(filename)
         Restore the state of the saved LUT object from a pickle file.
     plot(fig, gs, slices=None, hypocentre=None, station_clr="k")
-        Plot cross-sections of the LUT with station locations. Optionally plot
-        slices through a coalescence image.
+        Plot cross-sections of the LUT with station locations. Optionally plot slices
+        through a coalescence image.
 
     """
 
@@ -474,21 +472,30 @@ class LUT(Grid3D):
 
         ll, *_, ur = self.coord2grid(self.grid_corners, inverse=True)
 
-        out = ("QuakeMigrate traveltime lookup table\nGrid parameters"
-               "\n\tLower-left corner  : {lat1:10.5f}\u00b0N "
-               "{lon1:10.5f}\u00b0E {dep1:10.3f} {unit_name:s}"
-               "\n\tUpper-right corner : {lat2:10.5f}\u00b0N "
-               "{lon2:10.5f}\u00b0E {dep2:10.3f} {unit_name:s}"
-               f"\n\tNumber of nodes    : {self.node_count}"
-               f"\n\tNode spacing       : {self.node_spacing} {self.unit_name}"
-               "\n\n")
+        out = (
+            "QuakeMigrate traveltime lookup table\nGrid parameters"
+            "\n\tLower-left corner  : {lat1:10.5f}\u00b0N "
+            "{lon1:10.5f}\u00b0E {dep1:10.3f} {unit_name:s}"
+            "\n\tUpper-right corner : {lat2:10.5f}\u00b0N "
+            "{lon2:10.5f}\u00b0E {dep2:10.3f} {unit_name:s}"
+            f"\n\tNumber of nodes    : {self.node_count}"
+            f"\n\tNode spacing       : {self.node_spacing} {self.unit_name}"
+            "\n\n"
+        )
 
-        out = out.format(lat1=ll[0], lon1=ll[1], dep1=ll[2],
-                         lat2=ur[0], lon2=ur[1], dep2=ur[2],
-                         unit_name=self.unit_name)
+        out = out.format(
+            lat1=ll[0],
+            lon1=ll[1],
+            dep1=ll[2],
+            lat2=ur[0],
+            lon2=ur[1],
+            dep2=ur[2],
+            unit_name=self.unit_name,
+        )
 
-        out += ("\tVelocity model:\n"
-                "\t{}".format(str(self.velocity_model).replace("\n", "\n\t")))
+        out += "\tVelocity model:\n\t{}".format(
+            str(self.velocity_model).replace("\n", "\n\t")
+        )
 
         return out
 
@@ -496,22 +503,22 @@ class LUT(Grid3D):
         """
         Serve up the traveltime lookup tables.
 
-        The traveltimes are multiplied by the scan sampling rate and converted
-        to integers.
+        The traveltimes are multiplied by the scan sampling rate and converted to
+        integers.
 
         Parameters
         ----------
         sampling_rate : int
             Samples per second used in the scan run.
         availability : dict, optional
-            Dict of stations and phases for which to serve traveltime lookup
-            tables: keys "station_phase".
+            Dict of stations and phases for which to serve traveltime lookup tables:
+            keys "station_phase".
 
         Returns
         -------
         traveltimes : `numpy.ndarray` of `numpy.int`
-            Stacked traveltime lookup tables for all seismic phases, stacked
-            along the station axis, with shape(nx, ny, nz, nstations)
+            Stacked traveltime lookup tables for all seismic phases, stacked along the
+            station axis, with shape(nx, ny, nz, nstations)
 
         """
 
@@ -541,9 +548,8 @@ class LUT(Grid3D):
         ijk : array-like
             Grid indices for which to serve traveltime.
         station : str or list-like (of str), optional
-            Station or stations for which to serve traveltimes. Can be str
-            (for a single station) or list / `pandas.Series` object for
-            multiple.
+            Station or stations for which to serve traveltimes. Can be str (for a single
+            station) or list / `pandas.Series` object for multiple.
 
         Returns
         -------
@@ -561,9 +567,9 @@ class LUT(Grid3D):
         else:
             traveltimes = self._serve_traveltimes([phase], station)
 
-        interpolator = RegularGridInterpolator(grid, traveltimes,
-                                               bounds_error=False,
-                                               fill_value=None)
+        interpolator = RegularGridInterpolator(
+            grid, traveltimes, bounds_error=False, fill_value=None
+        )
 
         return interpolator(ijk)[0]
 
@@ -581,13 +587,11 @@ class LUT(Grid3D):
         Returns
         -------
         traveltimes : `numpy.ndarray` of float
-            Array of stacked traveltimes, per the requested phases and
-            stations.
+            Array of stacked traveltimes, per the requested phases and stations.
 
         """
 
-        stations = (self.station_data["Name"].values
-                    if stations is None else stations)
+        stations = self.station_data["Name"].values if stations is None else stations
 
         traveltimes = []
         for phase in phases:
@@ -617,8 +621,7 @@ class LUT(Grid3D):
 
     def load(self, filename):
         """
-        Read the contents of a pickle file and restore state of the lookup
-        table object.
+        Read the contents of a pickle file and restore state of the lookup table object.
 
         Parameters
         ----------
@@ -627,21 +630,25 @@ class LUT(Grid3D):
 
         """
 
-        print("FutureWarning: This method of reading lookup tables has been"
-              "deprecated.\nTo remove this warning:\n"
-              "\tUse 'quakemigrate.io.read_lut(lut_file=/path/to/file'")
+        print(
+            "FutureWarning: This method of reading lookup tables has been deprecated.\n"
+            "To remove this warning:\n\tUse "
+            "'quakemigrate.io.read_lut(lut_file=/path/to/file'"
+        )
 
         with open(filename, "rb") as f:
             self.__dict__.update(pickle.load(f))
 
         if hasattr(self, "maps"):
-            print("FutureWarning: The internal data structure of LUT has "
-                  "changed.\nTo remove this warning you will need to convert "
-                  "your lookup table to the new-style\nusing "
-                  "`quakemigrate.lut.update_lut`.")
+            print(
+                "FutureWarning: The internal data structure of LUT has changed.\nTo "
+                "remove this warning you will need to convert your lookup table to the "
+                "new-style\nusing `quakemigrate.lut.update_lut`."
+            )
 
-    def plot(self, fig, gs, slices=None, hypocentre=None, station_clr="k",
-             station_list=None):
+    def plot(
+        self, fig, gs, slices=None, hypocentre=None, station_clr="k", station_list=None
+    ):
         """
         Plot the lookup table for a particular station.
 
@@ -658,8 +665,8 @@ class LUT(Grid3D):
         station_clr : str, optional
             Plot the stations with a particular colour.
         station_list : list-like of str, optional
-            List of stations from the LUT to plot - useful if only a subset
-            have been selected to be used in e.g. locate.
+            List of stations from the LUT to plot - useful if only a subset have been
+            selected to be used in e.g. locate.
 
         """
 
@@ -700,7 +707,7 @@ class LUT(Grid3D):
 
             slice_ = slices[i + j - 1]
             nx, ny = [dim + 1 for dim in slice_.shape]
-            grid1, grid2 = np.mgrid[gminx:gmaxx:nx*1j, gminy:gmaxy:ny*1j]
+            grid1, grid2 = np.mgrid[gminx : gmaxx : nx * 1j, gminy : gmaxy : ny * 1j]
             sc = ax.pcolormesh(grid1, grid2, slice_, edgecolors="face")
 
             if i + j - 1 != 0:
@@ -709,58 +716,109 @@ class LUT(Grid3D):
             # --- Add colourbar ---
             cax = plt.subplot2grid(gs, (7, 5), colspan=2, rowspan=2, fig=fig)
             cax.set_axis_off()
-            cb = fig.colorbar(sc, ax=cax, orientation="horizontal",
-                              fraction=0.8, aspect=8)
-            cb.ax.set_xlabel("Normalised coalescence\nvalue", rotation=0,
-                             fontsize=14)
+            cb = fig.colorbar(
+                sc, ax=cax, orientation="horizontal", fraction=0.8, aspect=8
+            )
+            cb.ax.set_xlabel("Normalised coalescence\nvalue", rotation=0, fontsize=14)
 
         # --- Plot stations ---
         if station_list is not None:
-            station_data = \
-                self.station_data[self.station_data["Name"].isin(station_list)]
+            station_data = self.station_data[
+                self.station_data["Name"].isin(station_list)
+            ]
         else:
             station_data = self.station_data
-        xy.scatter(station_data.Longitude.values,
-                   station_data.Latitude.values,
-                   s=15, marker="^", zorder=20, c=station_clr)
-        xz.scatter(station_data.Longitude.values,
-                   station_data.Elevation.values,
-                   s=15, marker="^", zorder=20, c=station_clr)
-        yz.scatter(station_data.Elevation.values,
-                   station_data.Latitude.values,
-                   s=15, marker="<", zorder=20, c=station_clr)
+        xy.scatter(
+            station_data.Longitude.values,
+            station_data.Latitude.values,
+            s=15,
+            marker="^",
+            zorder=20,
+            c=station_clr,
+        )
+        xz.scatter(
+            station_data.Longitude.values,
+            station_data.Elevation.values,
+            s=15,
+            marker="^",
+            zorder=20,
+            c=station_clr,
+        )
+        yz.scatter(
+            station_data.Elevation.values,
+            station_data.Latitude.values,
+            s=15,
+            marker="<",
+            zorder=20,
+            c=station_clr,
+        )
         for i, row in station_data.iterrows():
-            xy.annotate(row["Name"], [row.Longitude, row.Latitude], zorder=20,
-                        c=station_clr, clip_on=True)
+            xy.annotate(
+                row["Name"],
+                [row.Longitude, row.Latitude],
+                zorder=20,
+                c=station_clr,
+                clip_on=True,
+            )
 
         # --- Add scalebar ---
         num_cells = np.ceil(self.node_count[0] / 10)
         length = num_cells * self.node_spacing[0]
         size = extent[0] * length / grid_size[0]
-        scalebar = AnchoredSizeBar(xy.transData, size=size,
-                                   label=f"{length} {self.unit_name}",
-                                   loc="lower right", pad=0.5, sep=5,
-                                   frameon=False, color=station_clr)
+        scalebar = AnchoredSizeBar(
+            xy.transData,
+            size=size,
+            label=f"{length} {self.unit_name}",
+            loc="lower right",
+            pad=0.5,
+            sep=5,
+            frameon=False,
+            color=station_clr,
+        )
         xy.add_artist(scalebar)
 
         # --- Axes labelling ---
-        xy.tick_params(which="both", left=True, right=True, top=True,
-                       bottom=True, labelleft=True, labeltop=True,
-                       labelright=False, labelbottom=False)
+        xy.tick_params(
+            which="both",
+            left=True,
+            right=True,
+            top=True,
+            bottom=True,
+            labelleft=True,
+            labeltop=True,
+            labelright=False,
+            labelbottom=False,
+        )
         xy.set_ylabel("Latitude (deg)", fontsize=14)
         xy.yaxis.set_label_position("left")
 
         xz.invert_yaxis()
-        xz.tick_params(which="both", left=True, right=True, top=True,
-                       bottom=True, labelleft=True, labeltop=False,
-                       labelright=False, labelbottom=True)
+        xz.tick_params(
+            which="both",
+            left=True,
+            right=True,
+            top=True,
+            bottom=True,
+            labelleft=True,
+            labeltop=False,
+            labelright=False,
+            labelbottom=True,
+        )
         xz.set_xlabel("Longitude (deg)", fontsize=14)
         xz.set_ylabel(f"Depth ({self.unit_name})", fontsize=14)
         xz.yaxis.set_label_position("left")
 
-        yz.tick_params(which="both", left=True, right=True, top=True,
-                       bottom=True, labelleft=False, labeltop=True,
-                       labelright=True, labelbottom=True)
+        yz.tick_params(
+            which="both",
+            left=True,
+            right=True,
+            top=True,
+            bottom=True,
+            labelleft=False,
+            labeltop=True,
+            labelright=True,
+            labelbottom=True,
+        )
         yz.set_xlabel(f"Depth ({self.unit_name})", fontsize=14)
         yz.xaxis.set_label_position("bottom")
 
@@ -775,7 +833,7 @@ class LUT(Grid3D):
         max_extent = [max(a, b) for a, b in zip(stat_max, grid_max)]
         diff = abs(np.subtract(max_extent, min_extent))
 
-        min_extent = np.subtract(min_extent, 0.05*diff)
+        min_extent = np.subtract(min_extent, 0.05 * diff)
         max_extent = np.add(max_extent, 0.05 * diff)
 
         return np.array([min_extent, max_extent])
@@ -806,10 +864,9 @@ class LUT(Grid3D):
         """
         Define behaviour for the rich addition operator, "+".
 
-        Two lookup tables which have identical grid definitions (as per "==")
-        can be combined by adding the traveltime lookup tables from
-        other.traveltimes for which the station key is not already in
-        self.traveltimes.
+        Two lookup tables which have identical grid definitions (as per "==") can be
+        combined by adding the traveltime lookup tables from other.traveltimes for which
+        the station key is not already in self.traveltimes.
 
         Parameters
         ----------
@@ -854,15 +911,17 @@ class LUT(Grid3D):
             eq_sizes = (self.node_spacing == other.node_spacing).all()
 
             # Test equality of projections
-            eq_projections = (self.grid_proj == other.grid_proj
-                              and self.coord_proj == other.coord_proj)
+            eq_projections = (
+                self.grid_proj == other.grid_proj
+                and self.coord_proj == other.coord_proj
+            )
 
             return eq_corners and eq_sizes and eq_projections
 
     def __getitem__(self, key):
         """
-        Provide a method to directly access traveltime tables by station key
-        without having to go through the traveltimes dictionary.
+        Provide a method to directly access traveltime tables by station key without
+        having to go through the traveltimes dictionary.
 
         Parameters
         ----------

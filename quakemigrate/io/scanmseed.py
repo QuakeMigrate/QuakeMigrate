@@ -3,7 +3,7 @@
 Module to handle input/output of .scanmseed files.
 
 :copyright:
-    2020 - 2021, QuakeMigrate developers.
+    2020–2023, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -22,9 +22,9 @@ import quakemigrate.util as util
 
 class ScanmSEED:
     """
-    Light class to encapsulate the data output by the detect stage of
-    QuakeMigrate. This data is stored in an `obspy.Stream` object with the
-    channels: ["COA", "COA_N", "X", "Y", "Z"].
+    Light class to encapsulate the data output by the detect stage of QuakeMigrate. This
+    data is stored in an `obspy.Stream` object with the channels:
+    ["COA", "COA_N", "X", "Y", "Z"].
 
     Parameters
     ----------
@@ -32,19 +32,18 @@ class ScanmSEED:
         Light class encapsulating i/o path information for a given run.
     continuous_write : bool
         Option to continuously write the .scanmseed file output by
-        :func:`~quakemigrate.signal.scan.QuakeScan.detect()` at the end of
-        every time step. Default behaviour is to write in day chunks where
-        possible.
+        :func:`~quakemigrate.signal.scan.QuakeScan.detect()` at the end of every time
+        step. Default behaviour is to write in day chunks where possible.
     sampling_rate : int
-        Desired sampling rate of input data; sampling rate at which to compute
-        the coalescence function. Default: 50 Hz.
+        Desired sampling rate of input data; sampling rate at which to compute the
+        coalescence function. Default: 50 Hz.
 
     Attributes
     ----------
     stream : `obspy.Stream` object
-        Output of :func:`~quakemigrate.signal.scan.QuakeScan.detect()` stored
-        in `obspy.Stream` object. The values have been multiplied by a factor
-        to make use of more efficient compression.
+        Output of :func:`~quakemigrate.signal.scan.QuakeScan.detect()` stored in
+        `obspy.Stream` object. The values have been multiplied by a factor to make use
+        of more efficient compression.
         Channels: ["COA", "COA_N", "X", "Y", "Z"]
     written : bool
         Tracker for whether the data appended has been written recently.
@@ -52,12 +51,11 @@ class ScanmSEED:
     Methods
     -------
     append(times, max_coa, max_coa_n, coord, map4d=None)
-        Append the output of
-        :func:`~quakemigrate.signal.scan.QuakeScan._compute()` to the
-        coalescence stream.
+        Append the output of :func:`~quakemigrate.signal.scan.QuakeScan._compute()` to
+        the coalescence stream.
     empty(starttime, timestep, i, msg)
-        Create an set of empty arrays for a given timestep and append to the
-        coalescence stream.
+        Create an set of empty arrays for a given timestep and append to the coalescence
+        stream.
     write(write_start=None, write_end=None)
         Write the coalescence stream to a .scanmseed file.
 
@@ -75,15 +73,14 @@ class ScanmSEED:
 
     def append(self, starttime, max_coa, max_coa_n, coord, ucf):
         """
-        Append latest timestep of
-        :func:`~quakemigrate.signal.scan.QuakeScan.detect()` output to
-        `obspy.Stream` object.
+        Append latest timestep of :func:`~quakemigrate.signal.scan.QuakeScan.detect()`
+        output to `obspy.Stream` object.
 
         Multiply channels ["COA", "COA_N", "X", "Y", "Z"] by factors of
-        ["1e5", "1e5", "1e6", "1e6", "1e3"] respectively, round and convert to
-        int32 as this dramatically reduces memory usage, and allows the
-        coastream data to be saved in mSEED format with STEIM2 compression.
-        The multiplication factor is removed when the data is read back in.
+        ["1e5", "1e5", "1e6", "1e6", "1e3"] respectively, round and convert to int32 as
+        this dramatically reduces memory usage, and allows the coastream data to be
+        saved in mSEED format with STEIM2 compression. The multiplication factor is
+        removed when the data is read back in.
 
         Parameters
         ----------
@@ -94,35 +91,43 @@ class ScanmSEED:
         max_coa_n : `numpy.ndarray` of floats, shape(nsamples)
             Normalised coalescence value through time.
         coord : `numpy.ndarray` of floats, shape(nsamples)
-            Location of maximum coalescence through time in input projection
-            space.
+            Location of maximum coalescence through time in input projection space.
         ucf : float
-            A conversion factor based on the lookup table grid projection. Used
-            to ensure the same level of precision (millimetre) is retained
-            during compression, irrespective of the units of the grid
-            projection.
+            A conversion factor based on the lookup table grid projection. Used to
+            ensure the same level of precision (millimetre) is retained during
+            compression, irrespective of the units of the grid projection.
 
         """
 
         # Clip max value of COA to prevent int overflow
-        max_coa[max_coa > 21474.] = 21474.
-        max_coa_n[max_coa_n > 21474.] = 21474.
+        max_coa[max_coa > 21474.0] = 21474.0
+        max_coa_n[max_coa_n > 21474.0] = 21474.0
 
-        meta = {"network": "NW",
-                "npts": len(max_coa) - 1,
-                "sampling_rate": self.sampling_rate,
-                "starttime": starttime}
+        meta = {
+            "network": "NW",
+            "npts": len(max_coa) - 1,
+            "sampling_rate": self.sampling_rate,
+            "starttime": starttime,
+        }
 
-        self.stream += Trace(data=self._data2int(max_coa[:-1], 1e5),
-                             header={**{"station": "COA"}, **meta})
-        self.stream += Trace(data=self._data2int(max_coa_n[:-1], 1e5),
-                             header={**{"station": "COA_N"}, **meta})
-        self.stream += Trace(data=self._data2int(coord[:-1, 0], 1e6),
-                             header={**{"station": "X"}, **meta})
-        self.stream += Trace(data=self._data2int(coord[:-1, 1], 1e6),
-                             header={**{"station": "Y"}, **meta})
-        self.stream += Trace(data=self._data2int(coord[:-1, 2], 1e3*ucf),
-                             header={**{"station": "Z"}, **meta})
+        self.stream += Trace(
+            data=self._data2int(max_coa[:-1], 1e5),
+            header={**{"station": "COA"}, **meta},
+        )
+        self.stream += Trace(
+            data=self._data2int(max_coa_n[:-1], 1e5),
+            header={**{"station": "COA_N"}, **meta},
+        )
+        self.stream += Trace(
+            data=self._data2int(coord[:-1, 0], 1e6), header={**{"station": "X"}, **meta}
+        )
+        self.stream += Trace(
+            data=self._data2int(coord[:-1, 1], 1e6), header={**{"station": "Y"}, **meta}
+        )
+        self.stream += Trace(
+            data=self._data2int(coord[:-1, 2], 1e3 * ucf),
+            header={**{"station": "Z"}, **meta},
+        )
         self.stream.merge(method=-1)
 
         # Write to file if passed day line
@@ -139,9 +144,8 @@ class ScanmSEED:
 
     def empty(self, starttime, timestep, i, msg, ucf):
         """
-        Create an empty set of arrays to write to .scanmseed; used where there
-        is no data available to run
-        :func:`~quakemigrate.signal.scan.QuakeScan._compute()`.
+        Create an empty set of arrays to write to .scanmseed; used where there is no
+        data available to run :func:`~quakemigrate.signal.scan.QuakeScan._compute()`.
 
         Parameters
         ----------
@@ -152,19 +156,17 @@ class ScanmSEED:
         i : int
             The ith timestep of the continuous compute.
         msg : str
-            Message to output to log giving details as to why this timestep is
-            empty.
+            Message to output to log giving details as to why this timestep is empty.
         ucf : float
-            A conversion factor based on the lookup table grid projection. Used
-            to ensure the same level of precision (millimetre) is retained
-            during compression, irrespective of the units of the grid
-            projection.
+            A conversion factor based on the lookup table grid projection. Used to
+            ensure the same level of precision (millimetre) is retained during
+            compression, irrespective of the units of the grid projection.
 
         """
 
         logging.info(msg)
 
-        starttime = starttime + timestep*i
+        starttime = starttime + timestep * i
         n = util.time2sample(timestep, self.sampling_rate) + 1
         max_coa = max_coa_n = np.full(n, 0)
         coord = np.full((n, 3), 0)
@@ -173,11 +175,11 @@ class ScanmSEED:
 
     def write(self, write_start=None, write_end=None):
         """
-        Write a new .scanmseed file from an `obspy.Stream` object containing
-        the data output from detect(). Note: values have been multiplied by a
-        power of ten, rounded and converted to an int32 array so the data can
-        be saved as mSEED with STEIM2 compression. This multiplication factor
-        is removed when the data is read back in with read_scanmseed().
+        Write a new .scanmseed file from an `obspy.Stream` object containing the data
+        output from detect(). Note: values have been multiplied by a power of ten,
+        rounded and converted to an int32 array so the data can be saved as mSEED with
+        STEIM2 compression. This multiplication factor is removed when the data is read
+        back in with read_scanmseed().
 
         Parameters
         ----------
@@ -203,9 +205,10 @@ class ScanmSEED:
         try:
             st.write(str(file), format="MSEED", encoding="STEIM2")
         except InternalMSEEDError as e:
-            logging.debug(f"Cannot compress data: {e}\n"
-                          "Unable to compress data using STEIM2 - falling back"
-                          " on STEIM1.")
+            logging.debug(
+                f"Cannot compress data: {e}\nUnable to compress data using STEIM2 - "
+                "falling back on STEIM1."
+            )
             st.write(str(file), format="MSEED", encoding="STEIM1")
         self.written = True
 
@@ -227,14 +230,14 @@ class ScanmSEED:
 
         """
 
-        return np.round(data*factor).astype(np.int32)
+        return np.round(data * factor).astype(np.int32)
 
 
 @util.timeit()
 def read_scanmseed(run, starttime, endtime, pad, ucf):
     """
-    Read .scanmseed files between two time stamps. Files are labelled by year
-    and Julian day.
+    Read .scanmseed files between two time stamps. Files are labelled by year and Julian
+    day.
 
     Parameters
     ----------
@@ -247,17 +250,17 @@ def read_scanmseed(run, starttime, endtime, pad, ucf):
     pad : float
         Read in "pad" seconds of additional data on either end.
     ucf : float
-        A conversion factor based on the lookup table grid projection. Used to
-        ensure the same level of precision (millimetre) is retained during
-        compression, irrespective of the units of the grid projection.
+        A conversion factor based on the lookup table grid projection. Used to ensure
+        the same level of precision (millimetre) is retained during compression,
+        irrespective of the units of the grid projection.
 
     Returns
     -------
     data : `pandas.DataFrame` object
         Data output by detect() -- decimated scan.
         Columns: ["DT", "COA", "COA_N", "X", "Y", "Z"] - X/Y/Z as lon/lat/units
-        where units is the user-selected units of the lookup table grid
-        projection (either metres or kilometres).
+        where units is the user-selected units of the lookup table grid projection
+        (either metres or kilometres).
     stats : `obspy.trace.Stats` object
         Container for additional header information for coalescence trace.
         Contains keys: network, station, channel, starttime, endtime,
@@ -278,8 +281,9 @@ def read_scanmseed(run, starttime, endtime, pad, ucf):
         fstem = f"{now.year}_{now.julday:03d}"
         file = (fpath / fstem).with_suffix(".scanmseed")
         try:
-            scanmseed += read(str(file), starttime=readstart,
-                              endtime=readend, format="MSEED")
+            scanmseed += read(
+                str(file), starttime=readstart, endtime=readend, format="MSEED"
+            )
         except FileNotFoundError:
             logging.info(f"\n\t    No .scanmseed file found for day {fstem}!")
         dy += 1
@@ -296,17 +300,17 @@ def read_scanmseed(run, starttime, endtime, pad, ucf):
     data["COA_N"] = scanmseed.select(station="COA_N")[0].data / 1e5
     data["X"] = scanmseed.select(station="X")[0].data / 1e6
     data["Y"] = scanmseed.select(station="Y")[0].data / 1e6
-    data["Z"] = scanmseed.select(station="Z")[0].data / (1e3*ucf)
+    data["Z"] = scanmseed.select(station="Z")[0].data / (1e3 * ucf)
 
     # Check if the data covers the entirety of the requested period
     if stats.starttime > starttime:
-        logging.info("\n\t    Warning! .scanmseed starttime is later than "
-                     "trigger() starttime!")
+        logging.info(
+            "\n\t    Warning! .scanmseed starttime is later than trigger() starttime!"
+        )
     elif stats.starttime > readstart:
         logging.info("\t    Warning! No .scanmseed data found for pre-pad!")
     if stats.endtime < endtime - stats.delta:
-        logging.info("\n\t    Warning! .scanmseed endtime is before trigger() "
-                     "endtime!")
+        logging.info("\n\t    Warning! .scanmseed endtime is before trigger() endtime!")
     elif stats.endtime < readend:
         logging.info("\t    Warning! No .scanmseed data found for post-pad!")
     logging.info(f"\t    ...from {stats.starttime} - {stats.endtime}.")

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-The :mod:`quakemigrate.io` module handles the various input/output operations
-performed by QuakeMigrate. This includes:
+The :mod:`quakemigrate.io` module handles the various input/output operations performed
+by QuakeMigrate. This includes:
 
     * Reading waveform data - The submodule data.py can handle any waveform \
       data archive with a regular directory structure. It also provides \
@@ -20,7 +20,7 @@ performed by QuakeMigrate. This includes:
       for located events.
 
 :copyright:
-    2020 - 2021, QuakeMigrate developers.
+    2020–2023, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -32,8 +32,13 @@ from .availability import read_availability, write_availability  # NOQA
 from .cut_waveforms import write_cut_waveforms  # NOQA
 from .data import Archive  # NOQA
 from .event import Event  # NOQA
-from .core import (read_lut, read_response_inv, read_stations,  # NOQA
-                   read_vmodel, stations, Run)
+from .core import (
+    read_lut,  # NOQA
+    read_response_inv,  # NOQA
+    read_stations,  # NOQA
+    read_vmodel,  # NOQA
+    stations,  # NOQA
+    Run,  # NOQA
+)
 from .scanmseed import ScanmSEED, read_scanmseed  # NOQA
-from .triggered_events import (read_triggered_events,  # NOQA
-                               write_triggered_events)
+from .triggered_events import read_triggered_events, write_triggered_events  # NOQA

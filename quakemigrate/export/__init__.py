@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-The :mod:`quakemigrate.export` module provides some utility functions to export
-the outputs of QuakeMigrate to other catalogue formats/software inputs:
+The :mod:`quakemigrate.export` module provides some utility functions to export the
+outputs of QuakeMigrate to other catalogue formats/software inputs:
 
     * Input files for NonLinLoc
     * ObsPy Catalog object
@@ -15,7 +15,7 @@ functionality, please contact the QuakeMigrate developers at: \
 quakemigrate.developers@gmail.com .
 
 :copyright:
-    2020 - 2021, QuakeMigrate developers.
+    2020–2023, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)

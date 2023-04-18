@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-This module provides parsers to generate SAC waveform files from an ObsPy
-Catalog, with headers correctly populated for MFAST.
+This module provides parsers to generate SAC waveform files from an ObsPy Catalog, with
+headers correctly populated for MFAST.
 
 :copyright:
-    2020 - 2021, QuakeMigrate developers.
+    2020–2023, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -29,8 +29,7 @@ def sac_mfast(event, stations, output_path, units, filename=None):
     Parameters
     ----------
     event : `ObsPy.Event` object
-        Contains information about the origin time and a list of associated
-        picks.
+        Contains information about the origin time and a list of associated picks.
     stations : `pandas.DataFrame` object
         DataFrame containing station information.
     output_path : str

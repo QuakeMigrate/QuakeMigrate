@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 """
 A simple abstract base class with method stubs enabling simple modification of
-QuakeMigrate to use custom phase picking methods that remain compatible with
-the core of the package.
+QuakeMigrate to use custom phase picking methods that remain compatible with the core of
+the package.
 
 :copyright:
-    2020 - 2021, QuakeMigrate developers.
+    2020–2023, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -17,8 +17,8 @@ from abc import ABC, abstractmethod
 
 class PhasePicker(ABC):
     """
-    Abstract base class providing a simple way of modifying the default
-    picking function in QuakeMigrate.
+    Abstract base class providing a simple way of modifying the default picking function
+    in QuakeMigrate.
 
     Attributes
     ----------
@@ -42,9 +42,11 @@ class PhasePicker(ABC):
 
     def __str__(self):
         """Returns a short summary string of the PhasePicker object."""
-        return ("Abstract PhasePicker object - consider adding a __repr__ "
-                "method to your custom PhasePicker class that gives the user "
-                "relevant information about the object.")
+        return (
+            "Abstract PhasePicker object - consider adding a __repr__ "
+            "method to your custom PhasePicker class that gives the user "
+            "relevant information about the object."
+        )
 
     @abstractmethod
     def pick_phases(self):
@@ -78,8 +80,9 @@ class PhasePicker(ABC):
 
         # Set floating point precision for output file
         for col in ["PickError", "SNR"]:
-            phase_picks[col] = phase_picks[col].map(lambda x: f"{x:.3g}",
-                                                    na_action="ignore")
+            phase_picks[col] = phase_picks[col].map(
+                lambda x: f"{x:.3g}", na_action="ignore"
+            )
 
         fstem = f"{event_uid}"
         fname = (fpath / fstem).with_suffix(".picks")
@@ -87,5 +90,7 @@ class PhasePicker(ABC):
 
     def plot(self):
         """Method stub for phase pick plotting."""
-        print(("Consider adding a plot method to your custom PhasePicker"
-               " class - see the GaussianPicker class for reference."))
+        print(
+            "Consider adding a plot method to your custom PhasePicker"
+            " class - see the GaussianPicker class for reference."
+        )

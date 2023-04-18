@@ -1,19 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-A Python package for automatic earthquake detection and location using waveform
-migration and stacking.
-
-QuakeMigrate is a Python package for automatic earthquake detection and
-location using waveform migration and stacking. It can be used to produce
-catalogues of earthquakes, including hypocentres, origin times, phase arrival
-picks, and local magnitude estimates, as well as rigorous estimates of the
-associated uncertainties.
-
-The package has been built with a modular architecture, providing the potential
-for extension and adaptation at numerous entry points.
+QuakeMigrate: A Python package for automatic earthquake detection and location using
+waveform migration and stacking.
 
 :copyright:
-    2020-2022, QuakeMigrate developers.
+    2020–2023, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -29,18 +20,6 @@ import sys
 from distutils.ccompiler import get_default_compiler
 from setuptools import Extension, setup
 
-
-# The minimum python version which can be used to run QuakeMigrate
-MIN_PYTHON_VERSION = (3, 8)
-
-# Fail fast if the user is on an unsupported version of Python.
-if sys.version_info < MIN_PYTHON_VERSION:
-    msg = (
-        f"QuakeMigrate requires python version >= {MIN_PYTHON_VERSION}"
-        f" you are using python version {sys.version_info}"
-    )
-    print(msg, file=sys.stderr)
-    sys.exit(1)
 
 # Check if we are on RTD and don't build extensions if we are.
 READ_THE_DOCS = os.environ.get("READTHEDOCS", None) == "True"

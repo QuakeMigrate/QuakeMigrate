@@ -71,21 +71,21 @@ jobs:
       #     coverage run --source=quakemigrate --data-file=../../.coverage -a dike_intrusion_trigger.py
       #     coverage run --source=quakemigrate--data-file=../../.coverage  -a dike_intrusion_locate.py
 
-      - name: Run benchmark tests and module specific unittests
-        working-directory: ./tests
-        run: |
-          coverage run --source=quakemigrate --data-file=../.coverage -a test_benchmarks.py
-          coverage run --source=quakemigrate --data-file=../.coverage -a test_util.py
-
       - name: Convert raw reports to .xml file
         run: |
-          coverage xml .coverage -o coverage_report_py311.xml
+          coverage xml -o coverage_report_py311.xml .coverage
 
       - name: Upload coverage report (only for Python 3.11 build)
         uses: actions/upload-artifact@v3
         if: ${{ matrix.python-version == '3.11' }}
         with:
           path: coverage_report_py311.xml
+
+      - name: Run benchmark tests and module specific unittests
+        working-directory: ./tests
+        run: |
+          python test_benchmarks.py
+          python test_util.py
 
   produce_coverage_report:
     name: Produce a coverage report using (ubuntu-latest, Python 3.11)

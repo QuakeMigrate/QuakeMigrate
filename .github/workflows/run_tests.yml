@@ -72,7 +72,7 @@ jobs:
       #     coverage run --source=quakemigrate--data-file=../../.coverage  -a dike_intrusion_locate.py
 
       - name: Run benchmark tests and module specific unittests
-        working-directory: ./tests/Icequake_Iceland
+        working-directory: ./tests
         run: |
           coverage run --source=quakemigrate --data-file=../.coverage -a test_benchmarks.py
           coverage run --source=quakemigrate --data-file=../.coverage -a test_util.py

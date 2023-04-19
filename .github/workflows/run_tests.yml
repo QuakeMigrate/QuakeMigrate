@@ -25,7 +25,7 @@ jobs:
 
     strategy:
       matrix:
-        python-version: [3.8, 3.9, 3.10, 3.11]
+        python-version: ['3.8', '3.9', '3.10', '3.11']
 
     steps:
       - uses: actions/checkout@v3
@@ -83,7 +83,7 @@ jobs:
 
       - name: Upload coverage report (only for Python 3.11 build)
         uses: actions/upload-artifact@v3
-        if: ${{ matrix.python-version == 3.11 }}
+        if: ${{ matrix.python-version == '3.11' }}
         with:
           path: coverage_report_py311.xml
 

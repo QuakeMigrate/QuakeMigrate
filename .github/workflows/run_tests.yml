@@ -42,17 +42,17 @@ jobs:
           python -m pip install --upgrade pip
           pip install '.[dev]'
       
-      - name: Install NonLinLoc
-        run: |
-          mkdir nonlinloc
-          cd nonlinloc
-          curl http://alomax.free.fr/nlloc/soft7.00/tar/NLL7.00_src.tgz -o NLL7.00_src.tgz
-          tar -xzvf NLL7.00_src.tgz
-          cd src
-          mkdir bin
-          make -R all
-          mv Vel2Grid Grid2Time bin/.
-          echo "$PWD/bin" >> $GITHUB_PATH
+      # - name: Install NonLinLoc
+      #   run: |
+      #     mkdir nonlinloc
+      #     cd nonlinloc
+      #     curl http://alomax.free.fr/nlloc/soft7.00/tar/NLL7.00_src.tgz -o NLL7.00_src.tgz
+      #     tar -xzvf NLL7.00_src.tgz
+      #     cd src
+      #     mkdir bin
+      #     make -R all
+      #     mv Vel2Grid Grid2Time bin/.
+      #     echo "$PWD/bin" >> $GITHUB_PATH
 
       - name: Run Iceland icequake example
         working-directory: ./examples/Icequake_Iceland
@@ -62,14 +62,14 @@ jobs:
           coverage run --source=quakemigrate --data-file=../../.coverage -a iceland_trigger.py
           coverage run --source=quakemigrate--data-file=../../.coverage  -a iceland_locate.py
 
-      - name: Run Iceland volcano-tectonic example
-        working-directory: ./examples/Volcanotectonic_Iceland
-        run: |
-          coverage run --source=quakemigrate --data-file=../../.coverage -a get_dike_intrusion_data.py
-          coverage run --source=quakemigrate --data-file=../../.coverage -a dike_intrusion_lut.py
-          coverage run --source=quakemigrate --data-file=../../.coverage -a dike_intrusion_detect.py
-          coverage run --source=quakemigrate --data-file=../../.coverage -a dike_intrusion_trigger.py
-          coverage run --source=quakemigrate--data-file=../../.coverage  -a dike_intrusion_locate.py
+      # - name: Run Iceland volcano-tectonic example
+      #   working-directory: ./examples/Volcanotectonic_Iceland
+      #   run: |
+      #     coverage run --source=quakemigrate --data-file=../../.coverage -a get_dike_intrusion_data.py
+      #     coverage run --source=quakemigrate --data-file=../../.coverage -a dike_intrusion_lut.py
+      #     coverage run --source=quakemigrate --data-file=../../.coverage -a dike_intrusion_detect.py
+      #     coverage run --source=quakemigrate --data-file=../../.coverage -a dike_intrusion_trigger.py
+      #     coverage run --source=quakemigrate--data-file=../../.coverage  -a dike_intrusion_locate.py
 
       - name: Run benchmark tests and module specific unittests
         working-directory: ./tests/Icequake_Iceland

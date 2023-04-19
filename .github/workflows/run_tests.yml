@@ -41,26 +41,29 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install '.[dev]'
-      
+
+      # - name: Collect NonLinLoc sourcecode
+      #   uses: actions/checkout@v3
+      #   with:
+      #     fetch-depth: 0
+      #     path: NonLinLoc
+
       # - name: Install NonLinLoc
+      #   working-directory: ./NonLinLoc
       #   run: |
-      #     mkdir nonlinloc
-      #     cd nonlinloc
-      #     curl http://alomax.free.fr/nlloc/soft7.00/tar/NLL7.00_src.tgz -o NLL7.00_src.tgz
-      #     tar -xzvf NLL7.00_src.tgz
       #     cd src
       #     mkdir bin
-      #     make -R all
-      #     mv Vel2Grid Grid2Time bin/.
+      #     cmake .
+      #     make
       #     echo "$PWD/bin" >> $GITHUB_PATH
 
       - name: Run Iceland icequake example
         working-directory: ./examples/Icequake_Iceland
         run: |
-          coverage run --source=quakemigrate --data-file=../../.coverage -a iceland_lut.py 
+          coverage run --source=quakemigrate --data-file=../../.coverage -a iceland_lut.py
           coverage run --source=quakemigrate --data-file=../../.coverage -a iceland_detect.py
           coverage run --source=quakemigrate --data-file=../../.coverage -a iceland_trigger.py
-          coverage run --source=quakemigrate--data-file=../../.coverage  -a iceland_locate.py
+          coverage run --source=quakemigrate --data-file=../../.coverage -a iceland_locate.py
 
       # - name: Run Iceland volcano-tectonic example
       #   working-directory: ./examples/Volcanotectonic_Iceland
@@ -69,16 +72,17 @@ jobs:
       #     coverage run --source=quakemigrate --data-file=../../.coverage -a dike_intrusion_lut.py
       #     coverage run --source=quakemigrate --data-file=../../.coverage -a dike_intrusion_detect.py
       #     coverage run --source=quakemigrate --data-file=../../.coverage -a dike_intrusion_trigger.py
-      #     coverage run --source=quakemigrate--data-file=../../.coverage  -a dike_intrusion_locate.py
+      #     coverage run --source=quakemigrate --data-file=../../.coverage -a dike_intrusion_locate.py
 
       - name: Convert raw reports to .xml file
         run: |
-          coverage xml -o coverage_report_py311.xml .coverage
+          coverage xml -o coverage_report_py311.xml
 
       - name: Upload coverage report (only for Python 3.11 build)
         uses: actions/upload-artifact@v3
         if: ${{ matrix.python-version == '3.11' }}
         with:
+          name: coverage_artifact
           path: coverage_report_py311.xml
 
       - name: Run benchmark tests and module specific unittests
@@ -95,8 +99,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v3
         with:
-          name: artifact
-          path: coverage_report_py311.xml
+          name: coverage_artifact
 
       - uses: codecov/codecov-action@v3
         with:

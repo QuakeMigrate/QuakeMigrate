@@ -20,12 +20,12 @@ concurrency:
 
 jobs:
   run_tests:
-    name: Run tests on (ubuntu-latest, Python ${{ matrix.build }})
+    name: Run tests on (ubuntu-latest, Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
 
     strategy:
       matrix:
-        build: [cp38, cp39, cp310, cp311]
+        python-version: [3.8, 3.9, 3.10, 3.11]
 
     steps:
       - uses: actions/checkout@v3
@@ -83,7 +83,7 @@ jobs:
 
       - name: Upload coverage report (only for Python 3.11 build)
         uses: actions/upload-artifact@v3
-        if: ${{ matrix.python-version == cp311 }}
+        if: ${{ matrix.python-version == 3.11 }}
         with:
           path: coverage_report_py311.xml
 

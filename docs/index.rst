@@ -9,7 +9,7 @@ QuakeMigrate
 
 :mod:`QuakeMigrate` is a Python package for automatic earthquake detection and location using waveform migration and stacking.
 
-QuakeMigrate uses a waveform migration and stacking algorithm to search for coherent seismic phase arrivals across a network of instruments. It produces, from raw data, a catalogue of earthquakes with locations, origin times, phase arrival picks, and local magnitude estimates, as well as well as rigorous estimates of the associated uncertainties.
+QuakeMigrate uses a waveform migration and stacking algorithm to search for coherent seismic phase arrivals across a network of instruments. It produces, from raw data, a catalogue of earthquakes with locations, origin times, phase arrival picks, and local magnitude estimates, as well as rigorous estimates of the associated uncertainties.
 
 The package has been built with a modular architecture, providing the potential for extension and adaptation at numerous entry points. This includes, but is not limited to:
 
@@ -21,7 +21,7 @@ The package has been built with a modular architecture, providing the potential 
 The source code for the project is hosted on |github|.
 
 This package is written by the QuakeMigrate developers, and is distributed under
-the GPLv3 License, Copyright QuakeMigrate developers 2023.
+the GPLv3 License, Copyright QuakeMigrate developers 2020–2023.
 
 
 .. |github| raw:: html
@@ -51,7 +51,7 @@ Any additional comments/questions can be directed to:
 
 License
 -------
-This package is written and maintained by the QuakeMigrate developers, Copyright QuakeMigrate developers 2020-2021. It is distributed under the GPLv3 License. Please see the `LICENSE <https://www.gnu.org/licenses/gpl-3.0.html>`_ for a complete description of the rights and freedoms that this provides the user.
+This package is written and maintained by the QuakeMigrate developers, Copyright QuakeMigrate developers 2020–2023. It is distributed under the GPLv3 License. Please see the `LICENSE <https://www.gnu.org/licenses/gpl-3.0.html>`_ for a complete description of the rights and freedoms that this provides the user.
 
 Contents:
 ---------

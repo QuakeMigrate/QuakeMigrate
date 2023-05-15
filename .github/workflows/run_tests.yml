@@ -1,0 +1,112 @@
+name: Run tests and upload code coverage report
+on:
+  schedule:
+  - cron: 30 3 * * 0
+  push:
+    branches:
+      - "feature/*"
+      - "bugfix/*"
+      - "patch/*"
+      - "tests/*"
+  pull_request:
+    branches:
+      - "master"
+      - version/*"
+  release:
+    types: 
+      - published
+
+concurrency:
+  group: wheels-${{ github.event_name }}-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  run_tests:
+    name: Run tests on (ubuntu-latest, Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        python-version: ['3.8', '3.9', '3.10', '3.11']
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v3
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install QuakeMigrate
+        run: |
+          python -m pip install --upgrade pip
+          pip install '.[dev]'
+
+      - name: Collect NonLinLoc sourcecode
+        uses: actions/checkout@v3
+        with:
+          repository: alomax/NonLinLoc
+          path: NonLinLoc
+
+      - name: Install NonLinLoc
+        working-directory: ./NonLinLoc
+        run: |
+          cd src
+          mkdir bin
+          cmake .
+          make
+          echo "$PWD/bin" >> $GITHUB_PATH
+
+      - name: Run Iceland icequake example
+        working-directory: ./examples/Icequake_Iceland
+        run: |
+          coverage run --source=quakemigrate --data-file=../../.coverage -a iceland_lut.py
+          coverage run --source=quakemigrate --data-file=../../.coverage -a iceland_detect.py
+          coverage run --source=quakemigrate --data-file=../../.coverage -a iceland_trigger.py
+          coverage run --source=quakemigrate --data-file=../../.coverage -a iceland_locate.py
+
+      - name: Run Iceland volcano-tectonic example
+        working-directory: ./examples/Volcanotectonic_Iceland
+        run: |
+          coverage run --source=quakemigrate --data-file=../../.coverage -a get_dike_intrusion_data.py
+          coverage run --source=quakemigrate --data-file=../../.coverage -a dike_intrusion_lut.py
+          coverage run --source=quakemigrate --data-file=../../.coverage -a dike_intrusion_detect.py
+          coverage run --source=quakemigrate --data-file=../../.coverage -a dike_intrusion_trigger.py
+          coverage run --source=quakemigrate --data-file=../../.coverage -a dike_intrusion_locate.py
+
+      - name: Convert raw reports to .xml file
+        run: |
+          coverage xml -o coverage_report_py311.xml
+
+      - name: Upload coverage report as an artifact (only for Python 3.11 build)
+        uses: actions/upload-artifact@v3
+        if: ${{ matrix.python-version == '3.11' }}
+        with:
+          name: coverage_artifact
+          path: coverage_report_py311.xml
+
+      - name: Run benchmark tests and module specific unittests
+        working-directory: ./tests
+        run: |
+          python test_benchmarks.py
+          python test_util.py
+
+  upload_coverage_report:
+    name: Upload coverage report made using (ubuntu-latest, Python 3.11)
+    if: github.event_name == 'release'
+    needs: [run_tests]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v3
+        with:
+          name: coverage_artifact
+
+      - uses: codecov/codecov-action@v3
+        with:
+          name: QuakeMigrate-coverage-report
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage_report_py311.xml
+          flags: unittests
+          fail_ci_if_error: false

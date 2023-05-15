@@ -3,7 +3,7 @@
 Module to handle input/output of cut waveforms.
 
 :copyright:
-    2020 - 2021, QuakeMigrate developers.
+    2020–2023, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -18,27 +18,39 @@ from obspy import Stream
 import quakemigrate.util as util
 
 
-warnings.filterwarnings("ignore", message=("File will be written with more tha"
-                                           "n one different record lengths.\nT"
-                                           "his might have a negative influenc"
-                                           "e on the compatibility with other "
-                                           "programs."))
-warnings.filterwarnings("ignore", message=("File will be written with more tha"
-                                           "n one different encodings.\nThis m"
-                                           "ight have a negative influence on "
-                                           "the compatibility with other progr"
-                                           "ams."))
-warnings.filterwarnings("ignore", message=("The encoding specified in "
-                                           "trace.stats.mseed.encoding does "
-                                           "not match the dtype of the data.\n"
-                                           "A suitable encoding will be "
-                                           "chosen."))
-
+warnings.filterwarnings(
+    "ignore",
+    message=(
+        "File will be written with more than one different record lengths.\nThis might "
+        "have a negative influence on the compatibility with other programs."
+    ),
+)
+warnings.filterwarnings(
+    "ignore",
+    message=(
+        "File will be written with more than one different encodings.\nThis might have "
+        "a negative influence on the compatibility with other programs."
+    ),
+)
+warnings.filterwarnings(
+    "ignore",
+    message=(
+        "The encoding specified in trace.stats.mseed.encoding does not match the dtype "
+        "of the data.\nA suitable encoding will be chosen."
+    ),
+)
 
 
 @util.timeit("info")
-def write_cut_waveforms(run, event, file_format, pre_cut=0., post_cut=0.,
-                        waveform_type="raw", units="displacement"):
+def write_cut_waveforms(
+    run,
+    event,
+    file_format,
+    pre_cut=0.0,
+    post_cut=0.0,
+    waveform_type="raw",
+    units="displacement",
+):
     """
     Output cut waveform data as a waveform file -- defaults to miniSEED format.
 
@@ -47,30 +59,27 @@ def write_cut_waveforms(run, event, file_format, pre_cut=0., post_cut=0.,
     run : :class:`~quakemigrate.io.core.Run` object
         Light class encapsulating i/o path information for a given run.
     event : :class:`~quakemigrate.io.event.Event` object
-        Light class encapsulating waveforms, coalescence information, picks and
-        location information for a given event.
+        Light class encapsulating waveforms, coalescence information, picks and location
+        information for a given event.
     file_format : str, optional
-        File format to write waveform data to. Options are all file formats
-        supported by obspy, including: "MSEED" (default), "SAC", "SEGY",
-        "GSE2"
+        File format to write waveform data to. Options are all file formats supported by
+        ObsPy, including: "MSEED" (default), "SAC", "SEGY", "GSE2"
     pre_cut : float or None, optional
-        Specify how long before the event origin time to cut the waveform
-        data from.
+        Specify how long before the event origin time to cut the waveform data from.
     post_cut : float or None, optional
-        Specify how long after the event origin time to cut the waveform
-        data to.
+        Specify how long after the event origin time to cut the waveform data to.
     waveform_type : {"raw", "real", "wa"}, optional
         Whether to output raw, real or Wood-Anderson simulated waveforms.
         Default: "raw"
     units : {"displacement", "velocity"}, optional
-        Whether to output displacement waveforms or velocity waveforms for
-        real / Wood-Anderson corrected traces. Default: displacement
+        Whether to output displacement waveforms or velocity waveforms for real/
+        Wood-Anderson corrected traces. Default: displacement
 
     Raises
     ------
     AttributeError
-        If real or wa waveforms are requested and no response inventory has
-        been provided.
+        If real or wa waveforms are requested and no response inventory has been
+        provided.
 
     """
 
@@ -96,27 +105,33 @@ def write_cut_waveforms(run, event, file_format, pre_cut=0., post_cut=0.,
             st.remove(tr)
 
     if waveform_type == "real" or waveform_type == "wa":
-        if waveform_type == "real" and \
-            isinstance(event.data.real_waveforms, Stream) and not pre_cut \
-            and not post_cut:
+        if (
+            waveform_type == "real"
+            and isinstance(event.data.real_waveforms, Stream)
+            and not pre_cut
+            and not post_cut
+        ):
             st = event.data.real_waveforms
-        elif waveform_type == "wa" and \
-            isinstance(event.data.wa_waveforms, Stream) and not pre_cut \
-            and not post_cut:
+        elif (
+            waveform_type == "wa"
+            and isinstance(event.data.wa_waveforms, Stream)
+            and not pre_cut
+            and not post_cut
+        ):
             st = event.data.wa_waveforms
         else:
             try:
                 st = get_waveforms(st, event, waveform_type, units)
             except AttributeError as e:
-                raise AttributeError("To output real or Wood-Anderson"
-                                     " cut waveforms you must supply an "
-                                     "instrument response inventory.") from e
+                raise AttributeError(
+                    "To output real or Wood-Anderson cut waveforms you must supply an "
+                    "instrument response inventory."
+                ) from e
 
     if bool(st):
         write_waveforms(st, fpath, fstem, file_format)
     else:
-        logging.info(f"\t\tNo {waveform_type} cut waveform data for event "
-                     f"{event.uid} !")
+        logging.info(f"\t\tNo {waveform_type} cut waveform data for event{event.uid}!")
 
 
 @util.timeit("debug")
@@ -129,8 +144,8 @@ def get_waveforms(st, event, waveform_type, units):
     st : `obspy.Stream` object
         Stream for which to get real or simulated waveforms.
     event : :class:`~quakemigrate.io.event.Event` object
-        Light class encapsulating waveforms, coalescence information, picks and
-        location information for a given event.
+        Light class encapsulating waveforms, coalescence information, picks and location
+        information for a given event.
     waveform_type : {"real", "wa"}
         Whether to get real or Wood-Anderson simulated waveforms.
     units : {"displacement", "velocity"}
@@ -139,8 +154,7 @@ def get_waveforms(st, event, waveform_type, units):
     Returns
     -------
     st_out : `obspy.Stream` object
-        Stream of real or Wood-Anderson simulated waveforms in the requested
-        units.
+        Stream of real or Wood-Anderson simulated waveforms in the requested units.
 
     """
 
@@ -159,8 +173,7 @@ def get_waveforms(st, event, waveform_type, units):
                 else:
                     tr = event.data.get_wa_waveform(tr, velocity)
                 st_out.append(tr)
-            except (util.ResponseNotFoundError,
-                    util.ResponseRemovalError) as e:
+            except (util.ResponseNotFoundError, util.ResponseRemovalError) as e:
                 logging.warning(e)
 
     return st_out
@@ -180,9 +193,8 @@ def write_waveforms(st, fpath, fstem, file_format):
     fstem : str
         File name (without suffix).
     file_format : str
-        File format to write waveform data to. Options are all file formats
-        supported by obspy, including: "MSEED" (default), "SAC", "SEGY",
-        "GSE2"
+        File format to write waveform data to. Options are all file formats supported by
+        ObsPy, including: "MSEED" (default), "SAC", "SEGY", "GSE2"
 
     """
 

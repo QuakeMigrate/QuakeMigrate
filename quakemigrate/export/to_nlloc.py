@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-This module provides parsers to export an ObsPy Catalog to the NonLinLoc input
-file format. We prefer this to the one offered by ObsPy as it includes the
-additional weighting term.
+This module provides parsers to export an ObsPy Catalog to the NonLinLoc input file
+format. We prefer this to the one offered by ObsPy as it includes the additional
+weighting term.
 
 :copyright:
-    2020 - 2021, QuakeMigrate developers.
+    2020–2023, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -34,8 +34,8 @@ def nlloc_obs(event, filename, autopick=True):
     filename : str
         Name of NonLinLoc phase file.
     autopick : bool, optional
-        Whether to read the autopicks or the modelled arrival times. Default:
-        True (use autopicks).
+        Whether to read the autopicks or the modelled arrival times.
+        Default: True (use autopicks).
 
     """
 
@@ -47,13 +47,16 @@ def nlloc_obs(event, filename, autopick=True):
         method = "modelled"
 
     if not isinstance(event, Event):
-        msg = ("Writing NonLinLoc Phase file is only supported for a single "
-               " Event at a time. Use a for loop over the catalog and "
-               "provide an output file name for each event).")
-        raise ValueError(msg)
+        raise ValueError(
+            "Writing NonLinLoc Phase file is only supported for a single Event at a "
+            "time. Use a for loop over the catalog and provide an output file name for "
+            "each event)."
+        )
 
-    fmt = ("{:s} {:s} {:s} {:s} {:s} {:s} {:s} {:s} " +
-           "{:7.4f} GAU {:9.2e} {:9.2e} {:9.2e} {:9.2e} {:9.2e}")
+    fmt = (
+        "{:s} {:s} {:s} {:s} {:s} {:s} {:s} {:s} "
+        "{:7.4f} GAU {:9.2e} {:9.2e} {:9.2e} {:9.2e} {:9.2e}"
+    )
 
     for pick in event.picks:
         if pick.method_id != method:
@@ -72,21 +75,34 @@ def nlloc_obs(event, filename, autopick=True):
         time_error = pick.time_errors.uncertainty or -1
         if time_error == -1:
             try:
-                time_error = (pick.time_errors.upper_uncertainty +
-                              pick.time_errors.lower_uncertainty) / 2.0
+                time_error = (
+                    pick.time_errors.upper_uncertainty
+                    + pick.time_errors.lower_uncertainty
+                ) / 2.0
             except Exception:
                 pass
-        info_ = fmt.format(station.ljust(6), "?".ljust(4), component.ljust(4),
-                           onset.ljust(1), phase_type.ljust(6),
-                           polarity.ljust(1), date, hourminute, seconds,
-                           time_error, -1, -1, -1, 1)
+        info_ = fmt.format(
+            station.ljust(6),
+            "?".ljust(4),
+            component.ljust(4),
+            onset.ljust(1),
+            phase_type.ljust(6),
+            polarity.ljust(1),
+            date,
+            hourminute,
+            seconds,
+            time_error,
+            -1,
+            -1,
+            -1,
+            1,
+        )
         info.append(info_)
 
     if info:
         info = "\n".join(sorted(info) + [""])
     else:
-        msg = "No pick information, writing empty NLLOC OBS file."
-        warnings.warn(msg)
+        warnings.warn("No pick information, writing empty NLLOC OBS file.")
     with open(filename, "w") as fh:
         for line in info:
             fh.write(line)

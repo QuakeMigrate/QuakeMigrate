@@ -43,7 +43,7 @@
 
 Key Features
 ------------
-QuakeMigrate uses a waveform migration and stacking algorithm to search for coherent seismic phase arrivals across a network of instruments. It produces—from raw data—catalogues of earthquakes with locations, origin times, phase arrival picks, and local magnitude estimates, as well as well as rigorous estimates of the associated uncertainties.
+QuakeMigrate uses a waveform migration and stacking algorithm to search for coherent seismic phase arrivals across a network of instruments. It produces—from raw data—catalogues of earthquakes with locations, origin times, phase arrival picks, and local magnitude estimates, as well as rigorous estimates of the associated uncertainties.
 
 The package has been built with a modular architecture, providing the potential for extension and adaptation at numerous entry points. This includes, but is not limited to:
 * the calculation or import of traveltime grids
@@ -96,11 +96,9 @@ Winder, T., Bacon, C.A., Smith, J.D., Hudson, T.S., Drew, J., and White, R.S. Qu
 
 Contributing to QuakeMigrate
 ----------------------------
-Contributions to QuakeMigrate are welcomed. The first stop should be to reach out, either directly or—preferably—via the GitHub Issues panel, to discuss the proposed changes. Next, simply fork the QuakeMigrate repository, make your changes/add your new contribution, then make a [pull request](https://help.github.com/articles/about-pull-requests/).
+Contributions to QuakeMigrate are welcomed. Whether you have identified a bug or would like to request a new feature, your first stop should be to reach out, either directly or—preferably—via the GitHub Issues panel, to discuss the proposed changes. Once we have had a chance to scope out the proposed changes you can proceed with making your contribution following the instructions in our [contributions guidelines](https://github.com/QuakeMigrate/QuakeMigrate/blob/master/CONTRIBUTING.md).
 
 Bug reports, suggestions for new features and enhancements, and even links to projects that have made use of QuakeMigrate are most welcome.
-
-See our [contributions page](https://github.com/QuakeMigrate/QuakeMigrate/blob/master/CONTRIBUTING.md) for more information.
 
 Contact
 -------
@@ -112,4 +110,4 @@ Any additional comments/questions can be directed to:
 
 License
 -------
-This package is written and maintained by the QuakeMigrate developers, Copyright QuakeMigrate developers 2023. It is distributed under the GPLv3 License. Please see the [LICENSE](LICENSE) file for a complete description of the rights and freedoms that this provides the user.
+This package is written and maintained by the QuakeMigrate developers, Copyright QuakeMigrate developers 2020–2023. It is distributed under the GPLv3 License. Please see the [LICENSE](LICENSE) file for a complete description of the rights and freedoms that this provides the user.

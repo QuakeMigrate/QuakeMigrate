@@ -804,10 +804,11 @@ class NoOnsetPeak(Exception):
     """
 
     def __init__(self, pick_threshold):
-        super().__init__(
+        self.msg = (
             "\t\t    No onset signal exceeding pick threshold "
             f"({pick_threshold:5.3f}) - continuing."
         )
+        super().__init__(self.msg)
 
 
 class BadUpfactorException(Exception):

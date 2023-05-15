@@ -1,5 +1,7 @@
 name: Run tests and upload code coverage report
 on:
+  schedule:
+  - cron: 30 3 * * 0
   push:
     branches:
       - "feature/*"

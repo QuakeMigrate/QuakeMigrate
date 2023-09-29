@@ -110,7 +110,7 @@ def trigger_summary(
 
     # --- Plot LUT, coalescence traces, and station availability ---
     # for ax in fig.axes[:2]:
-        #ax.get_shared_x_axes().join(ax, fig.axes[2])
+        ###!!!ax.get_shared_x_axes().join(ax, fig.axes[2])
     _plot_coalescence(fig.axes[0], dt, data.COA.values, "Maximum coalescence")
     _plot_coalescence(
         fig.axes[1], dt, data.COA_N.values, "Normalised maximum coalescence"

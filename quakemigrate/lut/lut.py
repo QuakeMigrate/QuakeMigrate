@@ -674,8 +674,8 @@ class LUT(Grid3D):
         xz = plt.subplot2grid(gs, (7, 0), colspan=5, rowspan=2, fig=fig)
         yz = plt.subplot2grid(gs, (2, 5), colspan=2, rowspan=5, fig=fig)
 
-        xz.get_shared_x_axes().join(xy, xz)
-        yz.get_shared_y_axes().join(xy, yz)
+        ###!!!xz.get_shared_x_axes().join(xy, xz)
+        ###!!!yz.get_shared_y_axes().join(xy, yz)
 
         # --- Set aspect ratio ---
         # Aspect is defined such that a circle will be stretched so that its

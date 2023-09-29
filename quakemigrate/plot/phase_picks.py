@@ -62,7 +62,7 @@ def pick_summary(event, station, waveforms, picks, onsets, ttimes, windows):
     axes = fig.axes
 
     # Share P-pick x-axes and set title
-    axes[0].get_shared_x_axes().join(axes[0], axes[3])
+    ###!!!axes[0].get_shared_x_axes().join(axes[0], axes[3])
     axes[0].set_xticklabels([])
     axes[0].set_yticklabels([])
     axes[0].yaxis.set_ticks_position("none")
@@ -71,7 +71,7 @@ def pick_summary(event, station, waveforms, picks, onsets, ttimes, windows):
 
     # Share S-pick x-axes and set title
     for ax in axes[1:3]:
-        ax.get_shared_x_axes().join(ax, axes[4])
+        ###!!!ax.get_shared_x_axes().join(ax, axes[4])
         ax.set_xticklabels([])
         ax.set_yticklabels([])
         ax.yaxis.set_ticks_position("none")

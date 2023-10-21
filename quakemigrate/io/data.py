@@ -153,6 +153,7 @@ class Archive:
             )
             if self.pre_filt is not None:
                 response_str += f"\t\tPre-filter   = {self.pre_filt} Hz\n"
+
             response_str += (
                 "\t\tRemove full response (inc. FIR stages) = "
                 f"{self.remove_full_response}\n"
@@ -194,7 +195,8 @@ class Archive:
         Raises
         ------
         ArchivePathStructureError
-            If the `archive_format` specified by the user is not a valid option.
+            If the `archive_format` specified by the user is not a valid
+            option.
 
         """
 

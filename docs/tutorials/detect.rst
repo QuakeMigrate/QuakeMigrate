@@ -8,7 +8,7 @@ The migration of the data is performed for each node and timestep in a 4D sense 
 
 Before you start
 ----------------
-You will need an archive of waveform files organised into a regular structure (see the :class:`Archive <https://quakemigrate.readthedocs.io/en/docs-tutorials/tutorials/archive.html>`_), a traveltime LUT (as generated in the previous tutorial) and a station file (as used to generate the LUT). You will also need to choose a location to store your results and a name for your run. QuakeMigrate will automatically generate an output structure to store all your results and place this in a folder (named by the run name) in your chosen location. You may well run QuakeMigrate many times before you reach the final set of parameter values which produce the best results. It is therefore recommended you devise a naming scheme to help you distinguish between your trials. Information on the parameters for each run can be found at the head of the corresponding log file.
+You will need an archive of waveform files organised into a regular structure (see the `Archive tutorial <https://quakemigrate.readthedocs.io/en/docs-tutorials/tutorials/archive.html>`_), a traveltime LUT (as generated in the previous tutorial) and a station file (as used to generate the LUT). You will also need to choose a location to store your results and a name for your run. QuakeMigrate will automatically generate an output structure to store all your results and place this in a folder (named by the run name) in your chosen location. You may well run QuakeMigrate many times before you reach the final set of parameter values which produce the best results. It is therefore recommended you devise a naming scheme to help you distinguish between your trials. Information on the parameters for each run can be found at the head of the corresponding log file.
 
 .. note:: The output directory and run names are used to link the outputs from one stage to the next. As such, you must be consistent across ``detect``, ``trigger``, and ``locate`` for a full run.
 
@@ -120,6 +120,8 @@ When choosing your parameters, you should experiment with different values using
 ::
 
     import matplotlib.pyplot as plt
+    from obspy import UTCDateTime
+    
     from quakemigrate.signal.onsets import STALTAOnset
     from quakemigrate.io import Archive, read_stations
 
@@ -135,8 +137,8 @@ When choosing your parameters, you should experiment with different values using
     )
                     
     # Read a snippet of data (ideally around a known event)
-    starttime = "2018-001T10:00:00.0"
-    endtime = "2018-001T10:05:00.0"
+    starttime = UTCDateTime("2018-001T10:00:00.0")
+    endtime = UTCDateTime("2018-001T10:05:00.0")
     data = archive.read_waveform_data(starttime, endtime, sampling_rate)
 
     # Define the onset function

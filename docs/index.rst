@@ -2,59 +2,56 @@
    :figwidth: 70 %
    :width: 90%
    :align: center
-   :alt: QuakeMigrate: a Python package for earthquake detection and location using waveform migration and stacking.  
+   :alt: QuakeMigrate: a Python package for automatic earthquake detection and location using waveform migration and stacking.
 
 QuakeMigrate
 ============
 
-:mod:`QuakeMigrate` is a Python package for the detection and location of earthquakes using waveform migration and stacking.
+:mod:`QuakeMigrate` is a Python package for automatic earthquake detection and location using waveform migration and stacking.
 
-QuakeMigrate uses a waveform stacking algorithm to search for coherent seismic phase arrivals across a network of instruments. It produces, from raw data, a catalogue of earthquakes with locations, origin times and phase arrival picks, as well as estimates of the uncertainties associated with these measurements.
+QuakeMigrate uses a waveform migration and stacking algorithm to search for coherent seismic phase arrivals across a network of instruments. It produces, from raw data, a catalogue of earthquakes with locations, origin times, phase arrival picks, and local magnitude estimates, as well as rigorous estimates of the associated uncertainties.
+
+The package has been built with a modular architecture, providing the potential for extension and adaptation at numerous entry points. This includes, but is not limited to:
+
+* the calculation or import of traveltime grids
+* the choice of algorithm used to identify phase arrivals (for example by kurtosis, cross-covariance analysis between multiple components, machine learning techniques and more)
+* the stacking function used to combine onset functions
+* the algorithm used to perform phase picking
 
 The source code for the project is hosted on |github|.
 
 This package is written by the QuakeMigrate developers, and is distributed under
-the GPLv3 License, Copyright QuakeMigrate developers 2020.
+the GPLv3 License, Copyright QuakeMigrate developers 2020–2023.
 
 
 .. |github| raw:: html
 
-    <a href="https://github.com/QuakeMigrate/QuakeMigrate" target="_blank">github</a>
-
-Supported operating systems
----------------------------
-QuakeMigrate was developed and tested on Ubuntu 16.04/18.04, with the intention of being "platform agnostic". As of July 2020, the package has been successfully built and run on:
-
-- Ubuntu 16.04/18.04/20.04
-- Red Hat Enterprise Linux
-- Windows 10
-- macOSX High Sierra 10.13.6
+    <a href="https://github.com/QuakeMigrate/QuakeMigrate" target="_blank">GitHub</a>
 
 Citation
 --------
-If you use this package in your work, please cite the following paper:
+If you use this package in your work, please cite the following conference presentation:
 
-Bacon, C.A., Smith, J.D., Winder, T., Hudson, T., Greenfield, T. and White, R.S. QuakeMigrate: a Modular, Open-Source Python Package for Earthquake Detection and Location. In AGU Fall Meeting 2019. AGU.
+Winder, T., Bacon, C.A., Smith, J.D., Hudson, T., Greenfield, T. and White, R.S., 2020. QuakeMigrate: a Modular, Open-Source Python Package for Automatic Earthquake Detection and Location. AGUFM, 2020. pp.S38-0013.
 
-or, if this is not possible, please cite the following journal article:
-
-Smith, J.D., White, R.S., Avouac, JP, and S. Bourne (2020), Probabilistic earthquake locations of induced seismicity in the Groningen region, Netherlands, Geophysical Journal International.
+as well as the relevant version of the source code on `Zenodo <https://doi.org/10.5281/zenodo.4442749>`_.
 
 We hope to have a publication coming out soon:
 
-Winder, T., Smith, J.D., Bacon, C.A., Hudson, T.S., Drew, J., Greenfield, T. and White, R.S. QuakeMigrate: a Python Package for Automatic Earthquake Detection and Location Using Waveform Migration and Stacking. Seismological Research Letters.
+Winder, T., Bacon, C.A., Smith, J.D., Hudson, T.S., Drew, J., and White, R.S. QuakeMigrate: a Python Package for Automatic Earthquake Detection and Location Using Waveform Migration and Stacking. (to be submitted to *Seismica*).
 
 Contact
 -------
-You can contact us directly at - quakemigrate.developers@gmail.com
+You can contact us directly at quakemigrate.developers@gmail.com
 
 Any additional comments/questions can be directed to:
+
 * **Tom Winder** - tom.winder@esc.cam.ac.uk
-* **Conor Bacon** - conor.bacon@esc.cam.ac.uk
+* **Conor Bacon** - conor.bacon@cantab.net
 
 License
 -------
-This package is written and maintained by the QuakeMigrate developers, Copyright QuakeMigrate developers 2020. It is distributed under the GPLv3 License. Please see the [here](https://www.gnu.org/licenses/gpl-3.0.html) for a complete description of the rights and freedoms that this provides the user.
+This package is written and maintained by the QuakeMigrate developers, Copyright QuakeMigrate developers 2020–2023. It is distributed under the GPLv3 License. Please see the `LICENSE <https://www.gnu.org/licenses/gpl-3.0.html>`_ for a complete description of the rights and freedoms that this provides the user.
 
 Contents:
 ---------

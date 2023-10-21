@@ -1,3 +1,5 @@
+
+
 # Please use the following guidelines to format your commit messages:
 #
 #    <type>(<scope>): <subject>
@@ -12,14 +14,14 @@
 #            and a subject
 #      + <type> describes the kind of change that this commit is providing.
 #               Allowed types are:
-#                 * feat (feature)
-#                 * fix (bug fix)
-#                 * docs (documentation)
-#                 * style (formatting, missing semicolons, ...)
-#                 * refactor
-#                 * test (when adding missing tests)
-#                 * chore (maintain)
-#      + <scope> specifies the place of the commit change.
+#                 * feat or :atom: (feature)
+#                 * fix or :bug: (bug fix)
+#                 * docs or :bookmark_tabs: (documentation)
+#                 * style or :bookmark_tabs: (formatting, missing semicolons, ...)
+#                 * refactor or :wrench:
+#                 * test or :test_tube: (when adding missing tests)
+#                 * chore or :wrench: (maintain)
+#      + <scope> specifies the place of the commit change. Optional.
 #      + <subject> a very short description of the change.
 #                  Use the following format:
 #                    * imperative, present tense: "change" not

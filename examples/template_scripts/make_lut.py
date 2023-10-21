@@ -21,8 +21,8 @@ stations = read_stations(station_file)
 vmod = read_vmodel(vmodel_file)
 
 # --- Define the input and grid projections ---
-gproj = Proj(proj="lcc", units="km", lon_0=116.75, lat_0=6.25, lat_1=4.0,
-             lat_2=7.5, datum="WGS84", ellps="WGS84", no_defs=True)
+gproj = Proj(proj="lcc", units="km", lon_0=116.75, lat_0=6.25, lat_1=5.9,
+             lat_2=6.6, datum="WGS84", ellps="WGS84", no_defs=True)
 cproj = Proj(proj="longlat", datum="WGS84", ellps="WGS84", no_defs=True)
 
 # --- Define the grid specifications ---
@@ -48,12 +48,12 @@ lut = compute_traveltimes(grid_spec, stations, method="homogeneous",
 lut = compute_traveltimes(grid_spec, stations, method="1dfmm", vmod=vmod,
                           phases=["P", "S"], log=True, save_file=lut_file)
 
-# --- NLLoc sweep LUT generation ---
+# --- NonLinLoc LUT generation (using the Grid2Time eikonal solver) ---
 # For P & S you must specify a velocity model with both P and S velocities.
-lut = compute_traveltimes(grid_spec, stations, method="1dsweep", vmod=vmod,
+lut = compute_traveltimes(grid_spec, stations, method="1dnlloc", vmod=vmod,
                           phases=["P", "S"], block_model=False, log=True,
                           save_file=lut_file)
 
-# --- Read NLLoc lookup tables ---
+# --- Read NonLinLoc lookup tables ---
 lut = read_nlloc("/path/to/nlloc_files", stations, log=True,
                  save_file=lut_file)

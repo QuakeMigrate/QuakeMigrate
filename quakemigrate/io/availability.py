@@ -3,7 +3,7 @@
 Module to handle input/output of StationAvailability.csv files.
 
 :copyright:
-    2020, QuakeMigrate developers.
+    2020–2023, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -20,12 +20,12 @@ import quakemigrate.util as util
 
 def read_availability(run, starttime, endtime):
     """
-    Read in station availability data to a `pandas.DataFrame` from csv files
-    split by Julian day.
+    Read in station availability data to a `pandas.DataFrame` from csv files split by
+    Julian day.
 
     Parameters
     ----------
-    run : :class:`~quakemigrate.io.Run` object
+    run : :class:`~quakemigrate.io.core.Run` object
         Light class encapsulating i/o path information for a given run.
     starttime : `obspy.UTCDateTime` object
         Timestamp from which to read the station availability.
@@ -55,8 +55,10 @@ def read_availability(run, starttime, endtime):
                 tmp = _handle_old_structure(file)
                 availability = pd.concat([availability, tmp])
         except FileNotFoundError:
-            logging.info("\tNo .StationAvailability file found for "
-                         f"{readstart.year} - {readstart.julday:03d}")
+            logging.info(
+                "\tNo .StationAvailability file found for "
+                f"{readstart.year} - {readstart.julday:03d}"
+            )
         readstart += 86400
 
     if availability is None:
@@ -70,22 +72,22 @@ def read_availability(run, starttime, endtime):
 
 def _handle_old_structure(availability_in_file, permanent_conversion=False):
     """
-    A short utility function that dynamically converts the old style
-    availability files (with column names simply the station) to the new style
-    (with separate columns for each station/phase combination). This uses the
-    knowledge that an availability of '1' in the old style meant that all data
-    was available (e.g. <station>_P and <station>_S available).
+    A short utility function that dynamically converts the old style availability files
+    (with column names simply the station) to the new style (with separate columns for
+    each station/phase combination). This uses the knowledge that an availability of '1'
+    in the old style meant that all data was available (e.g. <station>_P and <station>_S
+    available).
 
-    This is only done if the file was in the old format - otherwise it just
-    returns the original, unaltered dataframe.
+    This is only done if the file was in the old format - otherwise it just returns the
+    original, unaltered dataframe.
 
     Parameters
     ----------
     availability_in_file : `pathlib.Path` object
         An availability file to be read in, tested and potentially converted.
     permanent_conversion : bool, optional
-        If toggled, the availability file will be permanently converted to the
-        new file structure.
+        If toggled, the availability file will be permanently converted to the new file
+        structure.
 
     Returns
     -------
@@ -103,8 +105,9 @@ def _handle_old_structure(availability_in_file, permanent_conversion=False):
         return availability_in
 
     availability_out = pd.DataFrame()
-    logging.info("\t\tWarning: an availability file is in the old format - "
-                 "converting...")
+    logging.info(
+        "\t\tWarning: an availability file is in the old format - converting..."
+    )
     for phase in "PS":
         for stat in cols:
             new_key = f"{stat[0]}_{phase}"
@@ -119,12 +122,11 @@ def _handle_old_structure(availability_in_file, permanent_conversion=False):
 
 def write_availability(run, availability):
     """
-    Write out csv files (split by Julian day) containing station availability
-    data.
+    Write out csv files (split by Julian day) containing station availability data.
 
     Parameters
     ----------
-    run : :class:`~quakemigrate.io.Run` object
+    run : :class:`~quakemigrate.io.core.Run` object
         Light class encapsulating i/o path information for a given run.
     availability : `pandas.DataFrame` object
         Details the availability of each station for each timestep of detect.

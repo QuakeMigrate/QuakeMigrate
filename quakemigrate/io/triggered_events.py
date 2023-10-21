@@ -3,7 +3,7 @@
 Module to handle input/output of TriggeredEvents.csv files.
 
 :copyright:
-    2020, QuakeMigrate developers.
+    2020–2023, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -24,7 +24,7 @@ def read_triggered_events(run, **kwargs):
 
     Parameters
     ----------
-    run : :class:`~quakemigrate.io.Run` object
+    run : :class:`~quakemigrate.io.core.Run` object
         Light class encapsulating i/o path information for a given run.
     starttime : `obspy.UTCDateTime` object, optional
         Timestamp from which to include events in the locate scan.
@@ -36,8 +36,8 @@ def read_triggered_events(run, **kwargs):
     Returns
     -------
     events : `pandas.DataFrame` object
-        Triggered events information. Columns: ["EventID", "CoaTime",
-        "TRIG_COA", "COA_X", "COA_Y", "COA_Z", "COA", "COA_NORM"].
+        Triggered events information. Columns: ["EventID", "CoaTime", "TRIG_COA",
+        "COA_X", "COA_Y", "COA_Z", "COA", "COA_NORM"].
 
     """
 
@@ -62,18 +62,19 @@ def read_triggered_events(run, **kwargs):
             readstart += 86400
         if len(trigger_files) == 0:
             raise util.NoTriggerFilesFound
-        events = pd.concat((pd.read_csv(f) for f in trigger_files),
-                           ignore_index=True)
+        events = pd.concat((pd.read_csv(f) for f in trigger_files), ignore_index=True)
 
     events["CoaTime"] = events["CoaTime"].apply(UTCDateTime)
 
     if starttime is not None and endtime is not None:
-        events = events[(events["CoaTime"] >= starttime) &
-                        (events["CoaTime"] <= endtime)]
+        events = events[
+            (events["CoaTime"] >= starttime) & (events["CoaTime"] <= endtime)
+        ]
 
     if len(events) == 0:
-        logging.info("\n\t    No triggered events found! Check your trigger "
-                     "output files.\n")
+        logging.info(
+            "\n\t    No triggered events found! Check your trigger output files.\n"
+        )
 
     return events.reset_index()
 
@@ -85,11 +86,11 @@ def write_triggered_events(run, events, starttime):
 
     Parameters
     ----------
-    run : :class:`~quakemigrate.io.Run` object
+    run : :class:`~quakemigrate.io.core.Run` object
         Light class encapsulating i/o path information for a given run.
     events : `pandas.DataFrame` object
-        Triggered events information. Columns: ["EventID", "CoaTime",
-        "TRIG_COA", "COA_X", "COA_Y", "COA_Z", "COA", "COA_NORM"].
+        Triggered events information. Columns: ["EventID", "CoaTime", "TRIG_COA",
+        "COA_X", "COA_Y", "COA_Z", "COA", "COA_NORM"].
     starttime : `obspy.UTCDateTime` object
         Timestamp from which events have been triggered.
 
@@ -100,8 +101,19 @@ def write_triggered_events(run, events, starttime):
 
     # Work on a copy
     events = events.copy()
-    events = events.loc[:, ["EventID", "CoaTime", "TRIG_COA", "COA_X", "COA_Y",
-                            "COA_Z", "COA", "COA_NORM"]]
+    events = events.loc[
+        :,
+        [
+            "EventID",
+            "CoaTime",
+            "TRIG_COA",
+            "COA_X",
+            "COA_Y",
+            "COA_Z",
+            "COA",
+            "COA_NORM",
+        ],
+    ]
 
     fstem = f"{run.name}_{starttime.year}_{starttime.julday:03d}"
     file = (fpath / f"{fstem}_TriggeredEvents").with_suffix(".csv")

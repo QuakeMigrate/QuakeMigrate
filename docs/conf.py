@@ -13,20 +13,25 @@
 import os
 import glob
 import sys
-sys.path.insert(0, os.path.abspath('..'))
+
 import sphinx_rtd_theme
 import mock
+
+
+sys.path.insert(0, os.path.abspath('..'))
+
 MOCK_MODULES = ["quakemigrate.core.libnames"]
 for mod_name in MOCK_MODULES:
     sys.modules[mod_name] = mock.Mock()
 
 # -- Project information -----------------------------------------------------
 project = 'QuakeMigrate'
-copyright = '2020, QuakeMigrate developers'
+copyright = '2023, QuakeMigrate developers'
 author = 'QuakeMigrate developers'
 
 # The full version, including alpha/beta/rc tags
-release = '1.0.0'
+from quakemigrate import __version__  # NOQA
+release = __version__
 
 # -- General configuration ---------------------------------------------------
 # Add any Sphinx extension module names here, as strings. They can be
@@ -38,6 +43,7 @@ extensions = [
     "sphinx.ext.autosummary",
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
+    "sphinx.ext.autosectionlabel",
 ]
 
 # Set master doc
@@ -51,7 +57,7 @@ templates_path = ['_templates']
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = []
 
-html_logo = 'img/QMlogoBig.png'
+html_logo = 'img/QMlogoBig_rounded.png'
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -67,3 +73,8 @@ autosummary_generate = glob.glob("submodules" + os.sep + "*.rst")
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = []
+
+# Make version number accessible within individual rst files
+rst_epilog = """
+.. |Version| replace:: {release}
+""".format(release=release)

@@ -25,7 +25,7 @@ run_name = "icequake_example"
 
 # --- Set time period over which to run detect ---
 starttime = "2009-01-21T04:00:05.0"
-endtime = "2009-01-21T04:00:15.0"
+endtime = "2009-01-21T04:00:10.0"
 
 # --- Read in station file ---
 stations = read_stations(station_file)
@@ -38,7 +38,7 @@ archive = Archive(archive_path=data_in, stations=stations,
 lut = read_lut(lut_file=lut_out)
 
 # --- Create new Onset ---
-onset = STALTAOnset(position="classic", sampling_rate=1000)
+onset = STALTAOnset(position="classic", sampling_rate=500)
 onset.phases = ["P", "S"]
 onset.bandpass_filters = {
     "P": [20, 200, 4],
@@ -53,7 +53,7 @@ scan = QuakeScan(archive, lut, onset=onset, run_path=run_path,
 
 # --- Set detect parameters ---
 scan.timestep = 0.75
-scan.threads = 12
+scan.threads = 4  # NOTE: increase as your system allows to increase speed!
 
 # --- Run detect ---
 scan.detect(starttime, endtime)

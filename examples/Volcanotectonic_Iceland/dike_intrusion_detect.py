@@ -54,7 +54,7 @@ scan = QuakeScan(archive, lut, onset=onset, run_path=run_path,
 
 # --- Set detect parameters ---
 scan.timestep = 300.
-scan.threads = 12
+scan.threads = 4  # NOTE: increase as your system allows to increase speed!
 
 # --- Run detect ---
 scan.detect(starttime, endtime)

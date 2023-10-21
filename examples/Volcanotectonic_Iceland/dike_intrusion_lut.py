@@ -36,6 +36,6 @@ grid_spec.node_spacing = [0.5, 0.5, 0.5]
 grid_spec.grid_proj = gproj
 grid_spec.coord_proj = cproj
 
-# --- 1-D velocity model LUT generation (using NonLinLoc 1-D Sweep) ---
-lut = compute_traveltimes(grid_spec, stations, method="1dsweep", vmod=vmodel,
+# --- 1-D velocity model LUT generation (using NonLinLoc eikonal solver) ---
+lut = compute_traveltimes(grid_spec, stations, method="1dnlloc", vmod=vmodel,
                           phases=["P", "S"], log=True, save_file=lut_out)

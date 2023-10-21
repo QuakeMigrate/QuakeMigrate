@@ -1,19 +1,28 @@
 # -*- coding: utf-8 -*-
+"""
+QuakeMigrate: A Python package for automatic earthquake detection and location using
+waveform migration and stacking.
+
+:copyright:
+    2020–2023, QuakeMigrate developers.
+:license:
+    GNU General Public License, Version 3
+    (https://www.gnu.org/licenses/gpl-3.0.html)
+
+"""
 
 import os
 import pathlib
-import re
+import platform
 import shutil
 import sys
+
 from distutils.ccompiler import get_default_compiler
-from pkg_resources import get_build_platform
-from setuptools import setup, Extension
-from setuptools.command.build_ext import build_ext
+from setuptools import Extension, setup
 
 
 # Check if we are on RTD and don't build extensions if we are.
 READ_THE_DOCS = os.environ.get("READTHEDOCS", None) == "True"
-
 if READ_THE_DOCS:
     try:
         environ = os.environb
@@ -27,202 +36,108 @@ if READ_THE_DOCS:
 # Directory of the current file
 SETUP_DIRECTORY = pathlib.Path.cwd()
 
+# Check for MSVC (Windows)
+if platform.system() == "Windows" and (
+    "msvc" in sys.argv or "-c" not in sys.argv and get_default_compiler() == "msvc"
+):
+    IS_MSVC = True
+else:
+    IS_MSVC = False
 
-long_description = """A Python package for the detection and location of
-                      seismicity, based on waveform backprojection and
-                      stacking"""
+# Monkey patch for MS Visual Studio
+if IS_MSVC:
+    # Remove 'init' entry in exported symbols
+    def _get_export_symbols(self, ext):
+        return ext.export_symbols
 
+    from setuptools.command.build_ext import build_ext
 
-def read(*parts):
-    """
-    Build an absolute path from *parts* and and return the contents of the
-    resulting file.
-    """
-    p = SETUP_DIRECTORY
-    for part in parts:
-        p /= part
-    with p.open("r") as f:
-        return f.read()
-
-
-META_FILE = read("quakemigrate", "__init__.py")
+    build_ext.get_export_symbols = _get_export_symbols
 
 
-def find_meta(meta):
-    """
-    Extract __*meta*__ from META_FILE.
-    """
-    meta_match = re.search(
-        r"^__{meta}__ = ['\"]([^'\"]*)['\"]".format(meta=meta),
-        META_FILE, re.M
-    )
-    if meta_match:
-        return meta_match.group(1)
-    raise RuntimeError("Unable to find __{meta}__ string.".format(meta=meta))
-
-
-def get_package_data():
-    package_data = {}
-    if not READ_THE_DOCS:
-        if get_build_platform() in ("win32", "win-amd64"):
-            package_data["quakemigrate.core"] = ["quakemigrate/core/src/*.dll"]
-
-    return package_data
-
-
-def get_package_dir():
-    package_dir = {}
-    if get_build_platform() in ("win32", "win-amd64"):
-        package_dir["quakemigrate.core"] = str(
-            pathlib.Path("quakemigrate") / "core")
-
-    return package_dir
-
-
-def get_extras_require():
-    if READ_THE_DOCS:
-        return {"docs": ['Sphinx >= 1.8.1', 'docutils']}
-    else:
-        return {"fmm": ["scikit-fmm==2019.1.30"]}
-
-
-def get_include_dirs():
-    import numpy
-
-    include_dirs = [str(pathlib.Path.cwd() / "quakemigrate" / "core" / "src"),
-                    numpy.get_include(),
-                    str(pathlib.Path(sys.prefix) / "include")]
-
-    if get_build_platform().startswith("freebsd"):
-        include_dirs.append("/usr/local/include")
-
-    return include_dirs
-
-
-def get_library_dirs():
-    library_dirs = []
-    if get_build_platform() in ("win32", "win-amd64"):
-        library_dirs.append(str(pathlib.Path.cwd() / "quakemigrate" / "core"))
-        library_dirs.append(str(pathlib.Path(sys.prefix) / "bin"))
-
-    library_dirs.append(str(pathlib.Path(sys.prefix) / "lib"))
-    if get_build_platform().startswith("freebsd"):
-        library_dirs.append("/usr/local/lib")
-
-    return library_dirs
-
-
-def export_symbols(*parts):
+def export_symbols(path):
     """
     Required for Windows systems - functions defined in qmlib.def.
     """
-    p = SETUP_DIRECTORY
-    for part in parts:
-        p /= part
-    with p.open("r") as f:
+    with (SETUP_DIRECTORY / path).open("r") as f:
         lines = f.readlines()[2:]
     return [s.strip() for s in lines if s.strip() != ""]
 
 
 def get_extensions():
+    """
+    Config function used to compile C code into a Python extension.
+    """
+    import numpy
+
+    extensions = []
+
     if READ_THE_DOCS:
         return []
 
-    common_extension_args = {
-        "include_dirs": get_include_dirs(),
-        "library_dirs": get_library_dirs()}
+    extension_args = {
+        "include_dirs": [
+            str(pathlib.Path.cwd() / "quakemigrate" / "core" / "src"),
+            str(pathlib.Path(sys.prefix) / "include"),
+            numpy.get_include(),
+        ],
+        "library_dirs": [str(pathlib.Path(sys.prefix) / "lib")],
+    }
+    if platform.system() == "Darwin":
+        extension_args["include_dirs"].extend(
+            ["/usr/local/include", "/usr/local/opt/llvm/include"]
+        )
+        extension_args["library_dirs"].extend(
+            ["/usr/local/lib", "/usr/local/opt/llvm/lib", "/usr/local/opt/libomp/lib"]
+        )
 
-    sources = [str(pathlib.Path("quakemigrate")
-               / "core" / "src" / "quakemigrate.c")]
-    exp_symbols = export_symbols("quakemigrate/core/src/qmlib.def")
+    sources = [str(pathlib.Path("quakemigrate") / "core/src/quakemigrate.c")]
 
-    if get_build_platform() not in ("win32", "win-amd64"):
-        if get_build_platform().startswith("freebsd"):
-            # Clang uses libomp not libgomp
-            extra_link_args = ["-lm", "-lomp"]
-        else:
-            extra_link_args = ["-lm", "-lgomp"]
-        extra_compile_args = ["-fopenmp", "-fPIC", "-Ofast"]
-    else:
-        extra_link_args = []
+    extra_link_args = []
+    if IS_MSVC:
         extra_compile_args = ["/openmp", "/TP", "/O2"]
-
-    common_extension_args["extra_link_args"] = extra_link_args
-    common_extension_args["extra_compile_args"] = extra_compile_args
-    common_extension_args["export_symbols"] = exp_symbols
-
-    ext_modules = [Extension("quakemigrate.core.src.qmlib", sources=sources,
-                   **common_extension_args)]
-
-    return ext_modules
-
-
-class CustomBuildExt(build_ext):
-    def finalize_options(self):
-        build_ext.finalize_options(self)
-
-        if self.compiler is None:
-            compiler = get_default_compiler()
+        extension_args["export_symbols"] = export_symbols(
+            "quakemigrate/core/src/qmlib.def"
+        )
+        extension_args["library_dirs"].extend(
+            [
+                str(pathlib.Path.cwd() / "quakemigrate" / "core"),
+                str(pathlib.Path(sys.prefix) / "bin"),
+            ]
+        )
+    else:
+        extra_compile_args = []
+        extra_link_args.extend(["-lm"])
+        if platform.system() == "Darwin":
+            extra_link_args.extend(["-lomp"])
+            extra_compile_args.extend(["-Xpreprocessor"])
         else:
-            compiler = self.compiler
+            extra_link_args.extend(["-lgomp"])
+        extra_compile_args.extend(["-fopenmp", "-fPIC", "-Ofast"])
 
-        if compiler == "msvc":
-            # Sort linking issues with init exported symbols
-            def _get_export_symbols(self, ext):
-                return ext.export_symbols
+    extension_args["extra_link_args"] = extra_link_args
+    extension_args["extra_compile_args"] = extra_compile_args
 
-            build_ext.get_export_symbols = _get_export_symbols
+    extensions.extend(
+        [Extension("quakemigrate.core.src.qmlib", sources=sources, **extension_args)]
+    )
+
+    return extensions
 
 
 def setup_package():
     """Setup package"""
 
-    if not READ_THE_DOCS:
-        install_requires = ["matplotlib<3.3", "numpy", "obspy>=1.2",
-                            "pandas<1.1", "pyproj>=2.5", "scipy"]
-    else:
-        install_requires = ["matplotlib<3.3", "mock", "numpy", "obspy>=1.2",
-                            "pandas<1.1", "pyproj>=2.5", "scipy"]
+    package_dir, package_data = {}, {}
+    if IS_MSVC:
+        package_dir["quakemigrate.core"] = str(pathlib.Path("quakemigrate") / "core")
+        package_data["quakemigrate.core"] = ["quakemigrate/core/src/*.dll"]
 
     setup_args = {
-        "name": "quakemigrate",
-        "version": find_meta("version"),
-        "description": find_meta("description"),
-        "long_description": long_description,
-        "url": "https://github.com/QuakeMigrate/QuakeMigrate",
-        "author": find_meta("author"),
-        "author_email": find_meta("email"),
-        "license": find_meta("license"),
-        "classifiers": [
-            "Development Status :: 5 - Production/Stable",
-            "Intended Audience :: Science/Research",
-            "Topic :: Scientific/Engineering",
-            "Natural Language :: English",
-            "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
-            "Operating System :: OS Independent",
-            "Programming Language :: Python :: 3.6",
-            "Programming Language :: Python :: 3.7",
-            "Programming Language :: Python :: 3.8",
-        ],
-        "keywords": "seismic waveform event detection location",
-        "install_requires": install_requires,
-        "extras_require": get_extras_require(),
-        "zip_safe": False,
-        "cmdclass": {"build_ext": CustomBuildExt},
-        "packages": ["quakemigrate",
-                     "quakemigrate.core",
-                     "quakemigrate.export",
-                     "quakemigrate.io",
-                     "quakemigrate.lut",
-                     "quakemigrate.plot",
-                     "quakemigrate.signal",
-                     "quakemigrate.signal.local_mag",
-                     "quakemigrate.signal.onsets",
-                     "quakemigrate.signal.pickers"],
         "ext_modules": get_extensions(),
-        "package_data": get_package_data(),
-        "package_dir": get_package_dir()
-                  }
+        "package_data": package_data,
+        "package_dir": package_dir,
+    }
 
     shutil.rmtree(str(SETUP_DIRECTORY / "build"), ignore_errors=True)
 

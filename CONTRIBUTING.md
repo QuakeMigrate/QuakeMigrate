@@ -1,8 +1,8 @@
 # Contributing
 
-When contributing to this repository, please first discuss the change you wish to make with the owners via submitting an issue, sending an email, or any other method before making a change. 
+Contributions to QuakeMigrate are welcomed. Whether you have identified a bug or would like to request a new feature, your first stop should be to reach out, either directly or—preferably—via the GitHub Issues panel, to discuss the proposed changes. Once we have had a chance to scope out the proposed changes you can proceed with making your contribution following the instructions below.
 
-Please note we have a code of conduct, please follow it in all your interactions with the project.
+Please review and abide by the Code of Conduct, set out at the end of this file, when interacting with this project.
 
 ## Getting Started
 
@@ -10,17 +10,31 @@ Please note we have a code of conduct, please follow it in all your interactions
  * [Download](https://git-scm.com/downloads) and install git
  * Read the [git documentation](https://git-scm.com/book/en/Git-Basics)
 
+## Submitting an Issue
+There are currently two types of Issue template to choose from: a [Bug Report](https://github.com/QuakeMigrate/QuakeMigrate/blob/master/.github/ISSUE_TEMPLATE/bug_report.md); or a [Feature Request](https://github.com/QuakeMigrate/QuakeMigrate/blob/master/.github/ISSUE_TEMPLATE/feature_request.md). These contain specific guidance on the information we need to address the respective issue. Please endeavour to complete these templates in as much detail as possible.
+
 ## Pull Request Process
 
-1. Fork the repo
-2. Make a new branch. For new features, your new branch should be from master. For bugfixes, your new branch should be from `maintenance_1.0.x`.
-1. Ensure all existing tests run with no (unexpected) errors to make merging as straightforward as possible.
-2. Any new features are accompanied by an appropriate test.
-3. Ensure any and all contributions are documented. We use the NumPy style guide documentation. For examples, the user is encouraged to look at the other functions/classes in QuakeMigrate
-4. Pull Request merging is handled by the QuakeMigrate project maintainers, whose responsibility it is to help you conform to the expected coding standards.
+1. Fork the repo. If you have already worked on this project before, you may need to bring your personal fork up to date with the main project repo using `git fetch upstream`. Note: This requires you have set an `upstream` for the local copy of your fork. Check this using `git remote -v`. If there is no `upstream`, you can add one with `git remote add upstream https://github.com/QuakeMigrate/QuakeMigrate.git`. Finally, merge the `upstream` version of `master` into your local with `git checkout master; git merge upstream/master`.
+2. Install the existing version of the code from source in a fresh virtual environment using `pip install .[dev]`. This will install additional packages that are used for development purposes, but that are not typically required to run QuakeMigrate. Note: If you use macOS or `zsh`, you may need to use `pip install '.[dev]'`.
+3. Install the pre-commit config using `pre-commit install` from the base project directory.
+4. Ensure all existing tests run with no (unexpected) errors.
+5. Make a new branch from `master` using `git checkout -b <branch_name>`. Please try to conform to the suggested naming scheme below, using a short but helpful description:
+    - For new features, name your branch `feature/<description>` e.g. `feature/kurtosis_onset`
+    - For bugfixes, name your branch `bugfix/<description>`
+    - For purely documentation changes, name your branch `docs/<description>`
+    - For a new example contribution, name your branch `example/<description>`
+6. Make your changes.
+    - If you are fixing a bug, consider writing a test that fails due to this bug before making any changes. This way, you can validate your bugfix with a passing test.
+    - Try to ensure your commits are atomic—if your contribution has an excessive number of commits for partially completed features/fixes, we will squash them during the merge process later.
+    - Any commits that do not conform to the expected standards (defined by the `.pre-commit-config.yaml` file) will be flagged prior to any commit. Address any issues flagged. This process will automatically format your code using Black, which we do to ensure consistency in the code base.
+    - Try to adhere to the commit message guidelines in our template. This can be installed locally using `git config commit.template .git-message-template` from the base QuakeMigrate source directory.
+7. Any new features are accompanied by an appropriate test.
+8. Ensure any and all contributions are properly documented. By this, we mean new functions have a docstring that describes the purpose of the function, as well as the arguments and outputs (including types). We use the NumPy style guide documentation. For examples, the user is encouraged to look at the other functions/classes in QuakeMigrate. We use a line-length of 88 for QuakeMigrate—try to stick to this for docstrings/comments. Code lines will be automatically formatted by Black at the commit stage.
+9. Push your local changes to your remote fork, then open a Pull Request to `master` from the GitHub interface. Pull Request merging is handled by the QuakeMigrate project maintainers, whose responsibility it is to help you conform to the expected coding standards.
 
 ## Licensing contributions
-All submitted contributions, whether features, fixes, or data, must be compatible with the GPLv3 and will be GPLv3 licensed as soon as they are part of QuakeMigrate. By submitting a pull request, you are acknowledging this and accepting the terms laid out in the LICENSE file.
+All submitted contributions, whether features, fixes, or data, must be compatible with the GPLv3 and will be GPLv3 licensed as soon as they are part of QuakeMigrate. By submitting a Pull Request, you are acknowledging this and accepting the terms laid out in the LICENSE file.
 
 ## Code of Conduct
 

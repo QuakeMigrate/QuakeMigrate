@@ -20,7 +20,9 @@ Please detail any tests that you have used to ensure your changes do not introdu
 Please state the systems on which you have tested this change.
 
 ### Final checklist
-- [ ] `develop` base branch selected?
+- [ ] Correct base branch selected?
+    - `master` (if a bugfix/patch update)
+    - `version/vX.X.X` if a new significant feature (discuss with developers)
 - [ ] All tests still pass.
 - [ ] Any new features or fixed regressions are covered by new tests.
 - [ ] Any new or changed features are fully documented.

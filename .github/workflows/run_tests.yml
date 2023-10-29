@@ -92,6 +92,9 @@ jobs:
         run: |
           python test_benchmarks.py
           python test_util.py
+      - name: Setup tmate session
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3
 
   upload_coverage_report:
     name: Upload coverage report made using (ubuntu-latest, Python 3.11)

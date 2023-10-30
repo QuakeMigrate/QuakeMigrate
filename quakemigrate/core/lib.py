@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Bindings for the C library functions, migrate and find_max_coa.
+Bindings for the QuakeMigrate C libraries.
 
 :copyright:
     2020–2023, QuakeMigrate developers.
@@ -9,6 +9,8 @@ Bindings for the C library functions, migrate and find_max_coa.
     (https://www.gnu.org/licenses/gpl-3.0.html)
 
 """
+
+from __future__ import annotations
 
 import numpy as np
 import numpy.ctypeslib as clib
@@ -19,12 +21,17 @@ import quakemigrate.util as util
 
 qmlib = _load_cdll("qmlib")
 
+# Make datatype aliases and build custom datatypes
 c_int32 = clib.ctypes.c_int32
 c_int64 = clib.ctypes.c_int64
 c_dPt = clib.ndpointer(dtype=np.float64, flags="C_CONTIGUOUS")
 c_i32Pt = clib.ndpointer(dtype=np.int32, flags="C_CONTIGUOUS")
 c_i64Pt = clib.ndpointer(dtype=np.int64, flags="C_CONTIGUOUS")
 
+stalta_header_t = np.dtype(
+    [("n", c_int32), ("nsta", c_int32), ("nlta", c_int32)], align=True
+)
+stalta_header_pt = clib.ndpointer(stalta_header_t, flags="C_CONTIGUOUS")
 
 qmlib.migrate.argtypes = [
     c_dPt,
@@ -41,30 +48,30 @@ qmlib.migrate.argtypes = [
 
 
 @util.timeit()
-def migrate(onsets, traveltimes, first_idx, last_idx, available, threads):
+def migrate(
+    onsets: np.ndarray[float],
+    traveltimes: np.ndarray[int],
+    first_idx: int,
+    last_idx: int,
+    available: int,
+    threads: int,
+) -> np.ndarray[np.double]:
     """
     Computes 4-D coalescence map by migrating seismic phase onset functions.
 
     Parameters
     ----------
-    onsets : `numpy.ndarry` of float
-        Onset functions for each seismic phase, shape(nonsets, nsamples).
-    traveltimes : `numpy.ndarry` of int
-        Grids of seismic phase traveltimes, converted to an integer multiple of the
-        sampling rate, shape(nx, ny, nz, nonsets).
-    first_idx : int
-        Index of first sample in array from which to scan.
-    last_idx : int
-        Index of last sample in array up to which to scan.
-    available : int
-        Number of available onset functions.
-    threads : int
-        Number of threads with which to perform the scan.
+    onsets: Onset functions for each seismic phase, shape(nonsets, nsamples).
+    traveltimes: Grids of seismic phase traveltimes, converted to an integer multiple of
+        the sampling rate, shape(nx, ny, nz, nonsets).
+    first_idx: Index of first sample in array from which to scan.
+    last_idx: Index of last sample in array up to which to scan.
+    available: Number of available onset functions.
+    threads: Number of threads with which to perform the scan.
 
     Returns
     -------
-    map4d : `numpy.ndarray` of `numpy.double`
-        4-D coalescence map, shape(nx, ny, nz, nsamples).
+    map4d: 4-D coalescence map, shape(nx, ny, nz, nsamples).
 
     Raises
     ------
@@ -80,7 +87,7 @@ def migrate(onsets, traveltimes, first_idx, last_idx, available, threads):
     *grid_dimensions, n_luts = traveltimes.shape
     n_onsets, t_samples = onsets.shape
     n_samples = t_samples - first_idx - last_idx
-    map4d = np.zeros(tuple(grid_dimensions) + (n_samples,), dtype=np.float64)
+    map4d = np.zeros(tuple(grid_dimensions) + (n_samples,), dtype=np.double)
     n_nodes = np.prod(grid_dimensions)
 
     if not n_luts == n_onsets:
@@ -110,26 +117,24 @@ qmlib.find_max_coa.argtypes = [c_dPt, c_dPt, c_dPt, c_i64Pt, c_int32, c_int64, c
 
 
 @util.timeit()
-def find_max_coa(map4d, threads):
+def find_max_coa(
+    map4d: np.ndarray[np.float64], threads: int
+) -> tuple[np.ndarray[np.double], np.ndarray[np.double], np.ndarray[int]]:
     """
     Finds time series of the maximum coalescence/normalised coalescence in the 3-D
     volume, and the corresponding grid indices.
 
     Parameters
     ----------
-    map4d : `numpy.ndarray` of `numpy.double`
-        4-D coalescence map, shape(nx, ny, nz, nsamples).
-    threads : int
-        Number of threads with which to perform the scan.
+    map4d: 4-D coalescence map, shape(nx, ny, nz, nsamples).
+    threads: Number of threads with which to perform the scan.
 
     Returns
     -------
-    max_coa : `numpy.ndarray` of `numpy.double`
-        Time series of the maximum coalescence value in the 3-D volume.
-    max_norm_coa : `numpy.ndarray` of `numpy.double`
-        Times series of the maximum normalised coalescence value in the 3-D volume.
-    max_coa_idx : `numpy.ndarray` of int
-        Time series of the flattened grid indices corresponding to the maximum
+    max_coa: Time series of the maximum coalescence value in the 3-D volume.
+    max_norm_coa: Times series of the maximum normalised coalescence value in the 3-D
+        volume.
+    max_coa_idx: Time series of the flattened grid indices corresponding to the maximum
         coalescence value in the 3-D volume.
 
     """
@@ -151,3 +156,118 @@ def find_max_coa(map4d, threads):
     )
 
     return max_coa, max_norm_coa, max_coa_idx
+
+
+qmlib.overlapping_sta_lta.argtypes = [c_dPt, stalta_header_pt, c_dPt]
+
+
+def overlapping_sta_lta(
+    signal: np.ndarray[float], nsta: int, nlta: int
+) -> np.ndarray[np.double]:
+    """
+    Compute the STA/LTA onset function with overlapping windows. The return
+    value is allocated to the last sample of the STA window.
+
+                                                 |--- STA ---|
+     |------------------------- LTA -------------------------|
+                                                             ^
+                                                    Value assigned here
+
+    Parameters
+    ----------
+    signal: Pre-processed waveform data to be processed into an onset function.
+    nsta: Number of samples in the short-term average window.
+    nlta: Number of samples in the long-term average window.
+
+    Returns
+    -------
+    onset: Overlapping STA/LTA onset function.
+
+    """
+
+    # Build header structure and ensure signal data is contiguous in memory
+    head = np.empty(1, dtype=stalta_header_t)
+    head[:] = (len(signal), nsta, nlta)
+    signal = np.ascontiguousarray(signal, dtype=np.double)
+    onset = np.zeros(len(signal), dtype=np.double)
+
+    qmlib.overlapping_sta_lta(signal, head, onset)
+
+    return onset
+
+
+qmlib.centred_sta_lta.argtypes = [c_dPt, stalta_header_pt, c_dPt]
+
+
+def centred_sta_lta(
+    signal: np.ndarray[float], nsta: int, nlta: int
+) -> np.ndarray[np.double]:
+    """
+    Compute the STA/LTA onset function with consecutive windows. The return
+    value is allocated to the last sample of the LTA window.
+
+                                                            |--- STA ---|
+         |---------------------- LTA ----------------------|
+                                                           ^
+                                                  Value assigned here
+
+    Parameters
+    ----------
+    signal: Pre-processed waveform data to be processed into an onset function.
+    nsta: Number of samples in the short-term average window.
+    nlta: Number of samples in the long-term average window.
+
+    Returns
+    -------
+    onset: Centred STA/LTA onset function.
+
+    """
+
+    # Build header structure and ensure signal data is contiguous in memory
+    head = np.empty(1, dtype=stalta_header_t)
+    head[:] = (len(signal), nsta, nlta)
+    signal = np.ascontiguousarray(signal, dtype=np.double)
+    onset = np.zeros(len(signal), dtype=np.double)
+
+    qmlib.centred_sta_lta(signal, head, onset)
+
+    return onset
+
+
+qmlib.recursive_sta_lta.argtypes = [c_dPt, stalta_header_pt, c_dPt]
+
+
+def recursive_sta_lta(
+    signal: np.ndarray[float], nsta: int, nlta: int
+) -> np.ndarray[np.double]:
+    """
+    Compute the STA/LTA onset function with consecutive windows using a
+    recursive method (minimises memory costs). Reproduces exactly the centred
+    STA/LTA onset.
+
+                                                           |--- STA ---|
+         |---------------------- LTA ----------------------|
+                                                           ^
+                                                  Value assigned here
+
+    Parameters
+    ----------
+    signal: Pre-processed waveform data to be processed into an onset function.
+    nsta: Number of samples in the short-term average window.
+    nlta: Number of samples in the long-term average window.
+
+    Returns
+    -------
+    onset: Recursive (centred) STA/LTA onset function.
+
+    """
+
+    # Build header structure and ensure signal data is contiguous in memory
+    head = np.empty(1, dtype=stalta_header_t)
+    head[:] = (len(signal), nsta, nlta)
+    signal = np.ascontiguousarray(signal, dtype=np.double)
+    onset = np.zeros(len(signal), dtype=np.double)
+
+    qmlib.recursive_sta_lta(signal, head, onset)
+
+    return onset

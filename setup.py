@@ -91,7 +91,10 @@ def get_extensions():
             ["/usr/local/lib", "/usr/local/opt/llvm/lib", "/usr/local/opt/libomp/lib"]
         )
 
-    sources = [str(pathlib.Path("quakemigrate") / "core/src/quakemigrate.c")]
+    sources = [
+        str(pathlib.Path("quakemigrate") / "core/src/migratelib.c"),
+        str(pathlib.Path("quakemigrate") / "core/src/onsetlib.c")
+    ]
 
     extra_link_args = []
     if IS_MSVC:

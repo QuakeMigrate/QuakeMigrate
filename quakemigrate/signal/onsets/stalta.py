@@ -15,59 +15,10 @@ import logging
 
 import numpy as np
 from obspy import Stream
-from obspy.signal.trigger import classic_sta_lta
 
 import quakemigrate.util as util
+from quakemigrate.core import overlapping_sta_lta, centred_sta_lta
 from .base import Onset, OnsetData
-
-
-def sta_lta_centred(signal, nsta, nlta):
-    """
-    Calculates the ratio of the average of a^2 in a short-term (signal) window to a
-    preceding long-term (noise) window. STA/LTA value is assigned to the end of the LTA
-    /one sample before the start of the STA.
-
-    Parameters
-    ----------
-    signal : array-like
-        Signal array
-    nsta : int
-        Number of samples in short-term window
-    nlta : int
-        Number of samples in long-term window
-
-    Returns
-    -------
-    sta / lta : array-like
-        Ratio of a^2 in a short term average window to a preceding long term average
-        window. STA/LTA value is assigned to end of LTA window / one sample before the
-        start of STA window -- "centred".
-
-    """
-
-    # Cumulative sum to calculate moving average
-    sta = np.cumsum(signal**2)
-    sta = np.require(sta, dtype=float)
-    lta = sta.copy()
-
-    # Compute the STA and the LTA
-    sta[nsta:] = sta[nsta:] - sta[:-nsta]
-    sta[nsta:-nsta] = sta[nsta * 2 :]
-    sta /= nsta
-
-    lta[nlta:] = lta[nlta:] - lta[:-nlta]
-    lta /= nlta
-
-    sta[: (nlta - 1)] = 0
-    sta[-nsta:] = 0
-
-    # Avoid division by zero by setting zero values to tiny float
-    dtiny = np.finfo(float).tiny
-    idx = lta < dtiny
-    lta[idx] = dtiny
-    sta[idx] = 0.0
-
-    return sta / lta
 
 
 def pre_process(stream, sampling_rate, resample, upfactor, filter_, starttime, endtime):
@@ -431,9 +382,9 @@ class STALTAOnset(Onset):
         """
 
         if self.position == "centred":
-            onsets = [sta_lta_centred(tr.data, stw, ltw) for tr in stream]
+            onsets = [centred_sta_lta(tr.data, stw, ltw) for tr in stream]
         elif self.position == "classic":
-            onsets = [classic_sta_lta(tr.data, stw, ltw) for tr in stream]
+            onsets = [overlapping_sta_lta(tr.data, stw, ltw) for tr in stream]
         onsets = np.array(onsets)
 
         if timespan:

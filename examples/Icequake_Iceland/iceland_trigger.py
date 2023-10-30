@@ -7,10 +7,13 @@ This script runs the trigger stage for the Iceland icequake example.
 # Stop numpy using all available threads (these environment variables must be
 # set before numpy is imported for the first time).
 import os
-os.environ.update(OMP_NUM_THREADS="1",
-                  OPENBLAS_NUM_THREADS="1",
-                  NUMEXPR_NUM_THREADS="1",
-                  MKL_NUM_THREADS="1")
+
+os.environ.update(
+    OMP_NUM_THREADS="1",
+    OPENBLAS_NUM_THREADS="1",
+    NUMEXPR_NUM_THREADS="1",
+    MKL_NUM_THREADS="1",
+)
 
 from quakemigrate import Trigger
 from quakemigrate.io import read_lut
@@ -28,14 +31,13 @@ endtime = "2014-06-29T18:42:20.0"
 lut = read_lut(lut_file=lut_file)
 
 # --- Create new Trigger ---
-trig = Trigger(lut, run_path=run_path, run_name=run_name, log=True,
-               loglevel="info")
+trig = Trigger(lut, run_path=run_path, run_name=run_name, log=True, loglevel="info")
 
 # --- Set trigger parameters ---
 # For a complete list of parameters and guidance on how to choose them, please
 # see the manual and read the docs.
-trig.marginal_window = 1.
-trig.min_event_interval = 6.
+trig.marginal_window = 1.0
+trig.min_event_interval = 6.0
 trig.normalise_coalescence = True
 
 # --- Static threshold ---

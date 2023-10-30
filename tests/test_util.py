@@ -24,17 +24,21 @@ def mseed_stream():
     """Create a stream for testing."""
 
     rand = np.random.RandomState(815)
-    header = {'network': 'Z7', 'station': 'FLUR',
-              'starttime': UTCDateTime(2007, 12, 31, 23, 59, 59, 915000),
-              'npts': 412, 'sampling_rate': 200.0,
-              'channel': 'HHE'}
+    header = {
+        "network": "Z7",
+        "station": "FLUR",
+        "starttime": UTCDateTime(2007, 12, 31, 23, 59, 59, 915000),
+        "npts": 412,
+        "sampling_rate": 200.0,
+        "channel": "HHE",
+    }
     data = rand.randint(0, 1000, 412).astype(np.int32)
     trace1 = Trace(data=data, header=deepcopy(header))
     # Trace 2 = copy of Trace 1 with different dtype
     trace2 = trace1.copy()
     trace2.data = trace2.data.astype(float)
     # Trace 3 = trace with different channel (here different component)
-    header['channel'] = "HHN"
+    header["channel"] = "HHN"
     trace3 = Trace(data=data, header=deepcopy(header))
 
     return Stream(traces=[trace1, trace2, trace3])

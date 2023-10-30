@@ -33,9 +33,13 @@ stations = read_stations(station_file)
 # --- Download instrument response inventory ---
 inv = Inventory()
 for station in stations["Name"]:
-    inv += client.get_stations(network=network, station=station,
-                               starttime=starttime, endtime=endtime,
-                               level="response")
+    inv += client.get_stations(
+        network=network,
+        station=station,
+        starttime=starttime,
+        endtime=endtime,
+        level="response",
+    )
 inv.write(response_file, format="STATIONXML")
 
 # --- Make directories to store waveform data ---
@@ -45,14 +49,18 @@ waveform_path.mkdir(parents=True, exist_ok=True)
 # --- Download waveform data ---
 for station in stations["Name"]:
     print(f"Downloading waveform data for station {station} from {datacentre}")
-    st = client.get_waveforms(network=network, station=station,
-                              location="*", channel="*H*",
-                              starttime=starttime, endtime=endtime)
+    st = client.get_waveforms(
+        network=network,
+        station=station,
+        location="*",
+        channel="*H*",
+        starttime=starttime,
+        endtime=endtime,
+    )
     st.merge(method=-1)
     for comp in ["E", "N", "Z"]:
         try:
             st_comp = st.select(component=comp)
-            st_comp.write(str(waveform_path / f"{station}_{comp}.m"),
-                          format="MSEED")
+            st_comp.write(str(waveform_path / f"{station}_{comp}.m"), format="MSEED")
         except IndexError:
             pass

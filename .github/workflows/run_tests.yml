@@ -55,6 +55,7 @@ jobs:
         run: |
           cd src
           mkdir bin
+          sed -i 's@/usr/local/bin/gcc-13@gcc@g' CMakeLists.txt 
           cmake .
           make
           echo "$PWD/bin" >> $GITHUB_PATH

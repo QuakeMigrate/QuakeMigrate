@@ -67,6 +67,10 @@ dependencies = [
     "scipy",
 ]
 
+[project.scripts]
+quakemigrate = "quakemigrate.cli:entry_point"
+qmctl = "quakemigrate.cli:entry_point"
+
 [project.optional-dependencies]
 dev = ["ipython", "pre-commit", "ruff", "coverage"]
 docs = ["docutils<0.17", "mock", "Sphinx >= 4.3.0", "sphinx_rtd_theme>=0.5.1"]

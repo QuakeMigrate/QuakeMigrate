@@ -1,0 +1,31 @@
+station_file = "inputs/iceland.sta"
+lut_name = "example"
+
+[grid_projection]
+proj = "lcc"
+units = "km"
+lon_0 = -17.224
+lat_0 = 64.328
+lat_1 = 64.32
+lat_2 = 64.355
+datum = "WGS84"
+ellps = "WGS84"
+no_defs = true
+
+[coordinate_projection]
+proj = "longlat"
+datum = "WGS84"
+ellps = "WGS84"
+no_defs = true
+
+[grid_specification]
+ll_corner = [-17.24363934275664, 64.31947715407385, -1.390]
+ur_corner = [-17.204348515198255, 64.3365202025144, 1.390]
+node_spacing = [0.1, 0.1, 0.02]
+
+[compute]
+method = "homogeneous"
+phases = ["P", "S"]
+vp = 3.630
+vs = 1.833
+log = true

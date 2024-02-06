@@ -1,0 +1,21 @@
+lut_file = "outputs/example.lut"
+run_name = "example_run"
+log_level = "info"
+
+[trigger]
+starttime = "2014-06-29T18:41:55.0"
+endtime = "2014-06-29T18:42:20.0"
+marginal_window = 1.0
+min_event_interval = 6.0
+normalise_coalescence = true
+interactive_plot = false
+
+[threshold]
+# Static threshold
+method = "static"
+static_threshold = 1.8
+# Dynamic threshold - MAD
+# method = "dynamic"
+# mad_window_length = 7200.0
+# mad_multiplier = 8.0
+

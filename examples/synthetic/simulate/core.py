@@ -169,7 +169,7 @@ def sta_lta_onset(
 
 
 def simulate_waveforms(
-    wavelet: GaussianDerivativeWavelet,
+    wavelet: Wavelet,
     earthquake_coords: tuple[float, float, float],
     lut: LUT,
     magnitude: int = 1,

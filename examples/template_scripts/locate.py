@@ -9,10 +9,13 @@ For more details, please see the manual and read the docs.
 # Stop numpy using all available threads (these environment variables must be
 # set before numpy is imported for the first time).
 import os
-os.environ.update(OMP_NUM_THREADS="1",
-                  OPENBLAS_NUM_THREADS="1",
-                  NUMEXPR_NUM_THREADS="1",
-                  MKL_NUM_THREADS="1")
+
+os.environ.update(
+    OMP_NUM_THREADS="1",
+    OPENBLAS_NUM_THREADS="1",
+    NUMEXPR_NUM_THREADS="1",
+    MKL_NUM_THREADS="1",
+)
 
 from obspy.core import AttribDict
 
@@ -50,9 +53,13 @@ response_params.water_level = 600
 response_params.remove_full_response = False
 
 # --- Create new Archive and set path structure ---
-archive = Archive(archive_path=archive_path, stations=stations,
-                  archive_format="YEAR/JD/STATION", response_inv=response_inv,
-                  response_removal_params=response_params)
+archive = Archive(
+    archive_path=archive_path,
+    stations=stations,
+    archive_format="YEAR/JD/STATION",
+    response_inv=response_inv,
+    response_removal_params=response_params,
+)
 # For custom structures...
 # archive.format = "custom/archive_{year}_{jday}/{month:02d}-{day:02d}.{station}_structure"
 
@@ -69,12 +76,8 @@ lut = read_lut(lut_file=lut_file)
 # --- Create new Onset function ---
 onset = STALTAOnset(position="centred", sampling_rate=50)
 onset.phases = ["P", "S"]
-onset.bandpass_filters = {
-    "P": [2, 16, 2],
-    "S": [2, 14, 2]}
-onset.sta_lta_windows = {
-    "P": [0.2, 1.0],
-    "S": [0.2, 1.0]}
+onset.bandpass_filters = {"P": [2, 16, 2], "S": [2, 14, 2]}
+onset.sta_lta_windows = {"P": [0.2, 1.0], "S": [0.2, 1.0]}
 
 # --- Create new PhasePicker ---
 # For a complete list of parameters and guidance on how to choose them, please
@@ -96,10 +99,10 @@ picker.plot_picks = True
 # --- Create new LocalMag object ---
 # All parameters are optional: see the documentation for a complete guide.
 amp_params = AttribDict()
-amp_params.signal_window = 5.
+amp_params.signal_window = 5.0
 amp_params.bandpass_filter = True
-amp_params.bandpass_lowcut = 2.
-amp_params.bandpass_highcut = 20.
+amp_params.bandpass_lowcut = 2.0
+amp_params.bandpass_highcut = 20.0
 
 # A0 attenuation function is required: see the documentation for several
 # built-in options, or specify your own function. All other parameters are
@@ -110,7 +113,7 @@ mag_params.use_hyp_dist = False
 mag_params.amp_feature = "S_amp"
 mag_params.station_corrections = {}
 mag_params.trace_filter = ".[BH]H[NE]$"
-mag_params.noise_filter = 3.
+mag_params.noise_filter = 3.0
 mag_params.station_filter = ["KVE", "LIND"]  # List of stations to exclude.
 mag_params.dist_filter = False
 
@@ -119,9 +122,17 @@ mags.plot_amplitudes = True
 
 # --- Create new QuakeScan ---
 # If you do not want to calculate local magnitudes, specify `mags=None`
-scan = QuakeScan(archive, lut, onset=onset, picker=picker, mags=mags,
-                 run_path=run_path, run_name=run_name, log=True,
-                 loglevel="info")
+scan = QuakeScan(
+    archive,
+    lut,
+    onset=onset,
+    picker=picker,
+    mags=mags,
+    run_path=run_path,
+    run_name=run_name,
+    log=True,
+    loglevel="info",
+)
 
 # --- Set locate parameters ---
 # For a complete list of parameters and guidance on how to choose them, please
@@ -141,8 +152,8 @@ scan.plot_event_summary = True
 
 # --- Toggle writing of cut waveforms ---
 scan.write_cut_waveforms = True
-scan.pre_cut = 20.
-scan.post_cut = 60.
+scan.pre_cut = 20.0
+scan.post_cut = 60.0
 
 # --- Run locate ---
 # Between two timestamps

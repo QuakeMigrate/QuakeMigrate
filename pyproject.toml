@@ -68,7 +68,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["black", "ipython", "pre-commit", "ruff", "coverage"]
+dev = ["ipython", "pre-commit", "ruff", "coverage"]
 docs = ["docutils<0.17", "mock", "Sphinx >= 4.3.0", "sphinx_rtd_theme>=0.5.1"]
 fmm = ["scikit-fmm"]
 
@@ -76,5 +76,5 @@ fmm = ["scikit-fmm"]
 GitHub = "https://github.com/QuakeMigrate/QuakeMigrate"
 Issues = "https://github.com/QuakeMigrate/QuakeMigrate/issues"
 
-[tool.black]
+[tool.ruff]
 line-length = 88

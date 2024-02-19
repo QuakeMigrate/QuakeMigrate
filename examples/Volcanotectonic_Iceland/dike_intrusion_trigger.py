@@ -7,10 +7,13 @@ This script runs Trigger for the Iceland dike intrusion example.
 # Stop numpy using all available threads (these environment variables must be
 # set before numpy is imported for the first time).
 import os
-os.environ.update(OMP_NUM_THREADS="1",
-                  OPENBLAS_NUM_THREADS="1",
-                  NUMEXPR_NUM_THREADS="1",
-                  MKL_NUM_THREADS="1")
+
+os.environ.update(
+    OMP_NUM_THREADS="1",
+    OPENBLAS_NUM_THREADS="1",
+    NUMEXPR_NUM_THREADS="1",
+    MKL_NUM_THREADS="1",
+)
 
 from quakemigrate import Trigger
 from quakemigrate.io import read_lut
@@ -28,8 +31,7 @@ endtime = "2014-08-24T00:11:00.0"
 lut = read_lut(lut_file=lut_file)
 
 # --- Create new Trigger ---
-trig = Trigger(lut, run_path=run_path, run_name=run_name, log=True,
-               loglevel="info")
+trig = Trigger(lut, run_path=run_path, run_name=run_name, log=True, loglevel="info")
 
 # --- Set trigger parameters ---
 # For a complete list of parameters and guidance on how to choose them, please
@@ -56,5 +58,9 @@ trig.xy_files = "./inputs/XY_FILES/dike_xyfiles.csv"
 # filter for the triggered events. Only candidate events that fall within this
 # geographic area will be retained. This is useful for removing clear
 # artefacts; for example at the very edges of the grid.
-trig.trigger(starttime, endtime, interactive_plot=False,
-             region=[-17.15, 64.72, 0.0, -16.65, 64.93, 14.0])
+trig.trigger(
+    starttime,
+    endtime,
+    interactive_plot=False,
+    region=[-17.15, 64.72, 0.0, -16.65, 64.93, 14.0],
+)

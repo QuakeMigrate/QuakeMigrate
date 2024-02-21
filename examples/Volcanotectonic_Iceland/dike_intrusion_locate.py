@@ -7,10 +7,13 @@ This script runs the locate stage for the Iceland dike intrusion example.
 # Stop numpy using all available threads (these environment variables must be
 # set before numpy is imported for the first time).
 import os
-os.environ.update(OMP_NUM_THREADS="1",
-                  OPENBLAS_NUM_THREADS="1",
-                  NUMEXPR_NUM_THREADS="1",
-                  MKL_NUM_THREADS="1")
+
+os.environ.update(
+    OMP_NUM_THREADS="1",
+    OPENBLAS_NUM_THREADS="1",
+    NUMEXPR_NUM_THREADS="1",
+    MKL_NUM_THREADS="1",
+)
 
 from obspy.core import AttribDict
 
@@ -44,9 +47,13 @@ response_params.pre_filt = (0.05, 0.06, 30, 35)
 response_params.water_level = 600
 
 # --- Create new Archive and set path structure ---
-archive = Archive(archive_path=data_in, stations=stations,
-                  archive_format="YEAR/JD/STATION", response_inv=response_inv,
-                  response_removal_params=response_params)
+archive = Archive(
+    archive_path=data_in,
+    stations=stations,
+    archive_format="YEAR/JD/STATION",
+    response_inv=response_inv,
+    response_removal_params=response_params,
+)
 
 # --- Specify parameters for amplitude measurement ---
 amp_params = AttribDict()
@@ -59,8 +66,7 @@ mag_params = AttribDict()
 mag_params.A0 = "Greenfield2018_bardarbunga"
 mag_params.amp_feature = "S_amp"
 
-mags = LocalMag(amp_params=amp_params, mag_params=mag_params,
-                plot_amplitudes=True)
+mags = LocalMag(amp_params=amp_params, mag_params=mag_params, plot_amplitudes=True)
 
 # --- Load the LUT ---
 lut = read_lut(lut_file=lut_file)
@@ -68,21 +74,25 @@ lut = read_lut(lut_file=lut_file)
 # --- Create new Onset ---
 onset = STALTAOnset(position="centred", sampling_rate=50)
 onset.phases = ["P", "S"]
-onset.bandpass_filters = {
-    "P": [2, 16, 2],
-    "S": [2, 16, 2]}
-onset.sta_lta_windows = {
-    "P": [0.2, 1.0],
-    "S": [0.2, 1.0]}
+onset.bandpass_filters = {"P": [2, 16, 2], "S": [2, 16, 2]}
+onset.sta_lta_windows = {"P": [0.2, 1.0], "S": [0.2, 1.0]}
 
 # --- Create new PhasePicker ---
 picker = GaussianPicker(onset=onset)
 picker.plot_picks = True
 
 # --- Create new QuakeScan ---
-scan = QuakeScan(archive, lut, onset=onset, picker=picker, mags=mags,
-                 run_path=run_path, run_name=run_name, log=True,
-                 loglevel="info")
+scan = QuakeScan(
+    archive,
+    lut,
+    onset=onset,
+    picker=picker,
+    mags=mags,
+    run_path=run_path,
+    run_name=run_name,
+    log=True,
+    loglevel="info",
+)
 
 # --- Set locate parameters ---
 # For a complete list of parameters and guidance on how to choose them, please

@@ -60,9 +60,9 @@ class TestExamples(unittest.TestCase):
             print("\t\t...'phases'...")
             self.assertEqual(b_lut.phases, t_lut.phases)
             print("\t\t...'station_data'...")
-            pd.testing.assert_frame_equal(b_lut.station_data,
-                                          t_lut.station_data,
-                                          check_exact=False)
+            pd.testing.assert_frame_equal(
+                b_lut.station_data, t_lut.station_data, check_exact=False
+            )
             print("\t\t...'grid_proj'...")
             self.assertEqual(b_lut.grid_proj, t_lut.grid_proj)
             print("\t\t...'coord_proj'...")
@@ -72,8 +72,7 @@ class TestExamples(unittest.TestCase):
             print("\t\t...'ur_corner'...")
             self.assertTrue(np.isclose(b_lut.ur_corner, t_lut.ur_corner).all())
             print("\t\t...'node_spacing'...")
-            self.assertTrue(np.equal(b_lut.node_spacing,
-                                     t_lut.node_spacing).all())
+            self.assertTrue(np.equal(b_lut.node_spacing, t_lut.node_spacing).all())
             print("\t\t...'node_count'...")
             self.assertTrue(np.equal(b_lut.node_count, t_lut.node_count).all())
             print("\t   ...passed!")
@@ -124,8 +123,7 @@ class TestExamples(unittest.TestCase):
 
             print("\t1: Assert triggered events files are identical...")
             b_trig = pd.read_csv(sorted(b_dir.glob("*Trigger*"))[0])
-            t_trig = pd.read_csv(sorted((t_dir / "events").glob(
-                "*Trigger*"))[0])
+            t_trig = pd.read_csv(sorted((t_dir / "events").glob("*Trigger*"))[0])
             self.assertTrue(b_trig.equals(t_trig))
             print("\t   ...passed!")
 
@@ -144,9 +142,9 @@ class TestExamples(unittest.TestCase):
             b_events = sorted(b_dir.glob("*.event"))
             t_events = sorted((t_dir / "events").glob("*.event"))
             for b_event, t_event in zip(b_events, t_events):
-                pd.testing.assert_frame_equal(pd.read_csv(b_event),
-                                              pd.read_csv(t_event),
-                                              check_exact=False)
+                pd.testing.assert_frame_equal(
+                    pd.read_csv(b_event), pd.read_csv(t_event), check_exact=False
+                )
             print("\t   ...passed!")
 
             print("\t2: Assert pick files are identical...")
@@ -156,9 +154,9 @@ class TestExamples(unittest.TestCase):
                 if "20140824000443240" in t_pick.name:
                     print("\t   ...skipping due to unidentified floating point issue.")
                     continue
-                pd.testing.assert_frame_equal(pd.read_csv(b_pick),
-                                            pd.read_csv(t_pick),
-                                            check_exact=False)
+                pd.testing.assert_frame_equal(
+                    pd.read_csv(b_pick), pd.read_csv(t_pick), check_exact=False
+                )
             print("\t   ...passed!")
 
             print("\t3: Assert same number of channels in cut waveforms...")
@@ -184,9 +182,9 @@ class TestExamples(unittest.TestCase):
                 t_amps = sorted((t_dir / "amplitudes").glob("*.amps"))
                 _ = b_amps[0]  # Check any files
                 for b_amp, t_amp in zip(b_amps, t_amps):
-                    pd.testing.assert_frame_equal(pd.read_csv(b_amp),
-                                                  pd.read_csv(t_amp),
-                                                  check_exact=False)
+                    pd.testing.assert_frame_equal(
+                        pd.read_csv(b_amp), pd.read_csv(t_amp), check_exact=False
+                    )
                 print("\t   ...passed!")
             except IndexError:
                 print("\t   ...no amplitude files found!")

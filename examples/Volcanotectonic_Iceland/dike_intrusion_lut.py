@@ -23,8 +23,17 @@ stations = read_stations(station_file)
 vmodel = read_vmodel(vmodel_file)
 
 # --- Define the input and grid projections ---
-gproj = Proj(proj="lcc", units="km", lon_0=-16.9, lat_0=64.8, lat_1=64.7,
-             lat_2=64.9, datum="WGS84", ellps="WGS84", no_defs=True)
+gproj = Proj(
+    proj="lcc",
+    units="km",
+    lon_0=-16.9,
+    lat_0=64.8,
+    lat_1=64.7,
+    lat_2=64.9,
+    datum="WGS84",
+    ellps="WGS84",
+    no_defs=True,
+)
 cproj = Proj(proj="longlat", datum="WGS84", ellps="WGS84", no_defs=True)
 
 # --- Define the grid specifications ---
@@ -37,5 +46,12 @@ grid_spec.grid_proj = gproj
 grid_spec.coord_proj = cproj
 
 # --- 1-D velocity model LUT generation (using NonLinLoc eikonal solver) ---
-lut = compute_traveltimes(grid_spec, stations, method="1dnlloc", vmod=vmodel,
-                          phases=["P", "S"], log=True, save_file=lut_out)
+lut = compute_traveltimes(
+    grid_spec,
+    stations,
+    method="1dnlloc",
+    vmod=vmodel,
+    phases=["P", "S"],
+    log=True,
+    save_file=lut_out,
+)

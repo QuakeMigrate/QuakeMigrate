@@ -9,10 +9,13 @@ For more details, please see the manual and read the docs.
 # Stop numpy using all available threads (these environment variables must be
 # set before numpy is imported for the first time).
 import os
-os.environ.update(OMP_NUM_THREADS="1",
-                  OPENBLAS_NUM_THREADS="1",
-                  NUMEXPR_NUM_THREADS="1",
-                  MKL_NUM_THREADS="1")
+
+os.environ.update(
+    OMP_NUM_THREADS="1",
+    OPENBLAS_NUM_THREADS="1",
+    NUMEXPR_NUM_THREADS="1",
+    MKL_NUM_THREADS="1",
+)
 
 from quakemigrate import QuakeScan
 from quakemigrate.io import Archive, read_lut, read_stations
@@ -34,8 +37,9 @@ endtime = "2018-002T00:00:00.0"
 stations = read_stations(station_file)
 
 # --- Create new Archive and set path structure ---
-archive = Archive(archive_path=archive_path, stations=stations,
-                  archive_format="YEAR/JD/STATION")
+archive = Archive(
+    archive_path=archive_path, stations=stations, archive_format="YEAR/JD/STATION"
+)
 # For custom structures...
 # archive.format = "custom/archive_{year}_{jday}/{month:02d}-{day:02d}.{station}_structure"
 
@@ -52,21 +56,24 @@ lut = lut.decimate([2, 2, 2])
 # --- Create new Onset ---
 onset = STALTAOnset(position="classic", sampling_rate=50)
 onset.phases = ["P", "S"]
-onset.bandpass_filters = {
-    "P": [2, 16, 2],
-    "S": [2, 14, 2]}
-onset.sta_lta_windows = {
-    "P": [0.2, 1.0],
-    "S": [0.2, 1.0]}
+onset.bandpass_filters = {"P": [2, 16, 2], "S": [2, 14, 2]}
+onset.sta_lta_windows = {"P": [0.2, 1.0], "S": [0.2, 1.0]}
 
 # --- Create new QuakeScan ---
-scan = QuakeScan(archive, lut, onset=onset, run_path=run_path,
-                 run_name=run_name, log=True, loglevel="info")
+scan = QuakeScan(
+    archive,
+    lut,
+    onset=onset,
+    run_path=run_path,
+    run_name=run_name,
+    log=True,
+    loglevel="info",
+)
 
 # --- Set detect parameters ---
 # For a complete list of parameters and guidance on how to choose them, please
 # see the manual and read the docs.
-scan.timestep = 120.
+scan.timestep = 120.0
 # NOTE: increase the thread-count as your system allows. The core migration
 # routines are compiled against OpenMP, so the compute time (particularly for
 # detect), will decrease roughly linearly with the number of threads used.

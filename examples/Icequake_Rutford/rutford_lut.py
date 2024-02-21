@@ -18,8 +18,17 @@ lut_out = "./outputs/lut/icequake.LUT"
 stations = read_stations(station_file)
 
 # --- Define the input and grid projections ---
-gproj = Proj(proj="lcc", units="km", lon_0=-83.932, lat_0=-78.144, lat_1=-78.1,
-             lat_2=-77.9, datum="WGS84", ellps="WGS84", no_defs=True)
+gproj = Proj(
+    proj="lcc",
+    units="km",
+    lon_0=-83.932,
+    lat_0=-78.144,
+    lat_1=-78.1,
+    lat_2=-77.9,
+    datum="WGS84",
+    ellps="WGS84",
+    no_defs=True,
+)
 cproj = Proj(proj="longlat", datum="WGS84", ellps="WGS84", no_defs=True)
 
 # --- Define the grid specifications ---
@@ -32,6 +41,13 @@ grid_spec.grid_proj = gproj
 grid_spec.coord_proj = cproj
 
 # --- Homogeneous LUT generation ---
-lut = compute_traveltimes(grid_spec, stations, method="homogeneous",
-                          phases=["P", "S"], vp=3.841, vs=1.970, log=True,
-                          save_file=lut_out)
+lut = compute_traveltimes(
+    grid_spec,
+    stations,
+    method="homogeneous",
+    phases=["P", "S"],
+    vp=3.841,
+    vs=1.970,
+    log=True,
+    save_file=lut_out,
+)

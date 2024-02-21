@@ -18,6 +18,7 @@ class TestImport(unittest.TestCase):
     def test_import(self):
         i = 0
         import sys
+
         if sys.version_info.major != 3:
             print("QuakeMigrate does not support Python 2.x")
             i += 1

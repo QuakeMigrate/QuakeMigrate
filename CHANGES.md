@@ -1,3 +1,20 @@
+1.0.3
+=====
+Make some minor updates to tooling used by the package and address some issues that had arisen from underlying dependencies. Further, we have added a backdoor that allows us to debug issues with our CI/CD testing.
+
+- Switched to Ruff autoformatter (9580ccf)
+- Addressed a Matplotlib bug arising from the deprecation of the method of sharing/joining axes we were previously using (a4fe6f8)
+- Resolved issue with test workflow failure (a11677b/1363a7a) and added tmate backdoor for debugging (9b433d3)
+- Updated an issue with the data downloading in the Iceland volcano-tectonic example. This had the added benefit of being faster, too! (b11a6b8)
+
+1.0.2
+=====
+This patch release introduces a few code management/styling tools to help maintain consistent styling across contributors, as well as re-establishing routine testing.
+
+- Introduced a pre-commit hook for developers that performs a number of checks that must pass before a commit can be made. Principle among these tests is the use of Black ("The uncompromising Python code formatter"). This ensures consistent styling across all commits.
+- A GitHub workflow now manages test running and coverage analysis. The workflow is triggered by a number of scenarios, such as a new PR being opened etc. For full details, see 24bdb2e. Importantly, the workflow is also scheduled to run on a regular basis. Once a week, all tests are run—any breaking changes introduced by our dependencies should be caught this way.
+- The Contributing guidelines were updated to reflect these changes to the developer workflow.
+
 1.0.1
 =====
 Add the ability to install QuakeMigrate from the Python Package Index. This involves building Python wheels for different operating systems / architectures / Python versions. This is done using a GitHub Action and build machines provided by GitHub.

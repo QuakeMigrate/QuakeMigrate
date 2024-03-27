@@ -5,7 +5,7 @@
  *
  *        Purpose:  Routines for calculating the onset functions
  *
- *      Copyright:  2020–2023, QuakeMigrate developers.
+ *      Copyright:  2020–2024, QuakeMigrate developers.
  *        License:  GNU General Public License, Version 3
  *                  (https://www.gnu.org/licenses/gpl-3.0.html)
  *
@@ -41,21 +41,21 @@ overlapping_sta_lta(const double * signal,
   double buf, sta = 0., lta;
 
   for (i = 0; i < head -> nsta; ++i) {
-    sta += pow(signal[i], 2);
-    onset[i] = 0.;
+    sta += signal[i];
+    onset[i] = 1.;
   }
   lta = sta;
   for (i = head -> nsta; i < head -> nlta; ++i) {
-    buf = pow(signal[i], 2);
+    buf = signal[i];
     lta += buf;
-    sta += buf - pow(signal[i - head -> nsta], 2);
-    onset[i] = 0.;
+    sta += buf - signal[i - head -> nsta];
+    onset[i] = 1.;
   }
   onset[head -> nlta - 1] = sta / lta * frac;
   for (i = head -> nlta; i < head -> n; ++i) {
-    buf = pow(signal[i], 2);
-    sta += buf - pow(signal[i - head -> nsta], 2);
-    lta += buf - pow(signal[i - head -> nlta], 2);
+    buf = signal[i];
+    sta += buf - signal[i - head -> nsta];
+    lta += buf - signal[i - head -> nlta];
     onset[i] = sta / lta * frac;
   }
 }
@@ -88,23 +88,23 @@ centred_sta_lta(const double * signal,
 
   // Calculate initial LTA
   for (i = 0; i < head -> nlta; ++i) {
-    lta += pow(signal[i], 2);
+    lta += signal[i];
   }
 
   // Calculate initial STA (starting from last sample of long-term window)
   for (i = head -> nlta; i < head -> nlta + head -> nsta; ++i) {
-    sta += pow(signal[i], 2);
+    sta += signal[i];
   }
 
   // Set first value, and loop over rest of signal
   onset[head -> nlta - 1] = sta / lta * frac;
   for (i = head -> nlta; i < head -> n - head -> nsta; ++i) {
-    sta += pow(signal[i + head -> nsta], 2) - pow(signal[i], 2);
-    lta += pow(signal[i], 2) - pow(signal[i - head -> nlta], 2);
+    sta += signal[i + head -> nsta] - signal[i];
+    lta += signal[i] - signal[i - head -> nlta];
     if (lta > 0.) {
       onset[i] = sta / lta * frac;
     } else {
-      onset[i] = 0.;
+      onset[i] = 1.;
     }
   }
 }
@@ -135,7 +135,7 @@ recursive_sta_lta(const double * signal,
   double buf, sta = 0., lta = 0.;
 
   for (i = 1; i < head -> n; ++i) {
-    buf = pow(signal[i], 2);
+    buf = signal[i];
     sta = csta * buf + (1 - csta) * sta;
     lta = clta * buf + (1 - clta) * lta;
     onset[i] = sta / lta;
@@ -144,7 +144,7 @@ recursive_sta_lta(const double * signal,
   // Zero first nlta to remove transient signal from "recursive" measure
   if (head -> nlta < head -> n) {
     for (i = 0; i < head -> nlta; ++i) {
-      onset[i] = 0.;
+      onset[i] = 1.;
     }
   }
 }

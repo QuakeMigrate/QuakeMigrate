@@ -3,7 +3,7 @@
 Bindings for the QuakeMigrate C libraries.
 
 :copyright:
-    2020–2023, QuakeMigrate developers.
+    2020–2024, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -83,6 +83,11 @@ def migrate(
         samples array is smaller than map4d[0, 0, 0, :].
 
     """
+
+    # By taking the log of the onsets, we can calculate the geometric mean as an
+    # arithmetic mean (we then exponentiate within the C function to return the
+    # correct coalescence value).
+    np.log(onsets, onsets)
 
     *grid_dimensions, n_luts = traveltimes.shape
     n_onsets, t_samples = onsets.shape

@@ -4,7 +4,7 @@ The default seismic phase picking class - fits a 1-D Gaussian to the calculated 
 functions.
 
 :copyright:
-    2020–2023, QuakeMigrate developers.
+    2020–2024, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -135,7 +135,7 @@ class GaussianPicker(PhasePicker):
 
         # Onsets are recalculated without logging
         _, onset_data = self.onset.calculate_onsets(
-            event.data, log=False, timespan=4 * event.marginal_window
+            event.data, timespan=4 * event.marginal_window
         )
 
         if self._fraction_tt is None:

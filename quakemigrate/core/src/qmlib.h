@@ -4,7 +4,7 @@
  *       Filename:  qmlib.h
  *
  *        Purpose:  Header file to bring together definitions used in the
- *                  quakemigrate.c library.
+ *                  QuakeMigrate C libraries.
  *
  *      Copyright:  2020-2023, QuakeMigrate developers.
  *        License:  GNU General Public License, Version 3
@@ -30,3 +30,15 @@ void migrate(double*, int32_t*, double*, int32_t, int32_t, int32_t, int32_t,
 
 void find_max_coa(double*, double*, double*, int64_t*, int32_t, int64_t,
                   int64_t);
+
+typedef struct {
+    int n;
+    int nsta;
+    int nlta;
+} stalta_header;
+
+void overlapping_sta_lta(const double*, const stalta_header*, double*);
+
+void centred_sta_lta(const double*, const stalta_header*, double*);
+
+void recursive_sta_lta(const double*, const stalta_header*, double*);

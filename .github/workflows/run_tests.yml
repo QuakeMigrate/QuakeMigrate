@@ -92,6 +92,8 @@ jobs:
         run: |
           python test_benchmarks.py
           python test_util.py
+          python test_onsets.py
+
       - name: Setup tmate session
         if: ${{ failure() }}
         uses: mxschmitt/action-tmate@v3

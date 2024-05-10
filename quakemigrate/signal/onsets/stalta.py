@@ -50,7 +50,7 @@ def centred_sta_lta_py(signal, nsta, nlta):
     sta = np.cumsum(signal)
 
     # Convert to float
-    sta = np.require(sta, dtype=np.float)
+    sta = np.require(sta, dtype=float)
 
     # Copy for LTA
     lta = sta.copy()
@@ -64,10 +64,10 @@ def centred_sta_lta_py(signal, nsta, nlta):
     lta /= nlta
 
     # Pad with ones (= null result)
-    sta[: (nlta - 1)] = 1
-    lta[: (nlta - 1)] = 1
-    sta[-nsta:] = 1
-    lta[-nsta:] = 1
+    sta[: nlta - 1] = 1.0
+    lta[: nlta - 1] = 1.0
+    sta[-nsta:] = 1.0
+    lta[-nsta:] = 1.0
 
     # Avoid division by zero by setting zero values to tiny float, giving an
     # STA/LTA of 1 (= null result)
@@ -109,7 +109,7 @@ def overlapping_sta_lta_py(signal, nsta, nlta):
     sta = np.cumsum(signal)
 
     # Convert to float
-    sta = np.require(sta, dtype=np.float)
+    sta = np.require(sta, dtype=float)
 
     # Copy for LTA
     lta = sta.copy()
@@ -121,7 +121,8 @@ def overlapping_sta_lta_py(signal, nsta, nlta):
     lta /= nlta
 
     # Pad with ones (= null result)
-    sta[: nlta - 1] = 1
+    sta[: nlta - 1] = 1.0
+    lta[: nlta - 1] = 1.0
 
     # Avoid division by zero by setting zero values to tiny float, giving an
     # STA/LTA of 1 (= null result)
@@ -537,7 +538,7 @@ class STALTAOnset(Onset):
 
         # Combine onsets when using multiple components
         onset = np.sqrt(np.sum([onset**2 for onset in onsets], axis=0) / len(onsets))
-    
+
         onset = np.clip(onset, self.min_onset_value, np.inf)
 
         return onset
@@ -573,8 +574,8 @@ class STALTAOnset(Onset):
         taper_pad = util.time2sample(pre_pad - self.pre_pad, self.sampling_rate)
 
         for onset in onsets:
-            onset[: (taper_pad + ltw - 1)] = 1.
-            onset[-(stw + taper_pad) :] = 1.
+            onset[: (taper_pad + ltw - 1)] = 1.0
+            onset[-(stw + taper_pad) :] = 1.0
 
         return onsets
 

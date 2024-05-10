@@ -194,7 +194,7 @@ def overlapping_sta_lta(
     head = np.empty(1, dtype=stalta_header_t)
     head[:] = (len(signal), nsta, nlta)
     signal = np.ascontiguousarray(signal, dtype=np.double)
-    onset = np.zeros(len(signal), dtype=np.double)
+    onset = np.ones(len(signal), dtype=np.double)
 
     qmlib.overlapping_sta_lta(signal, head, onset)
 
@@ -232,7 +232,7 @@ def centred_sta_lta(
     head = np.empty(1, dtype=stalta_header_t)
     head[:] = (len(signal), nsta, nlta)
     signal = np.ascontiguousarray(signal, dtype=np.double)
-    onset = np.zeros(len(signal), dtype=np.double)
+    onset = np.ones(len(signal), dtype=np.double)
 
     qmlib.centred_sta_lta(signal, head, onset)
 

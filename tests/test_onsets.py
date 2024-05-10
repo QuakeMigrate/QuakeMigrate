@@ -28,12 +28,12 @@ class OnsetTests(unittest.TestCase):
         signal = np.arange(6)
         nsta, nlta = 2, 3
         overlapping = overlapping_sta_lta(signal, nsta, nlta)
-        expected = np.array([0, 0, 1.5, 39./28, 75./58, 123./100])
+        expected = np.array([1.0, 1.0, 1.5, 1.25, 21./18, 27./24])
         print("\t1: Assert overlapping/classic STA/LTA onset correct...")
         self.assertTrue((expected == overlapping).all())
 
         centred = centred_sta_lta(signal, nsta, nlta)
-        expected = np.array([0, 0, 7.5, 123/28, 0, 0])
+        expected = np.array([1.0, 1.0, 3.5, 2.25, 1.0, 1.0])
         print("\t2: Assert centred STA/LTA onset correct...")
         self.assertTrue(np.allclose(centred, expected))
         print("\t   ...passed!")

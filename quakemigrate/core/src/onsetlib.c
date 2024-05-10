@@ -42,14 +42,12 @@ overlapping_sta_lta(const double * signal,
 
   for (i = 0; i < head -> nsta; ++i) {
     sta += signal[i];
-    onset[i] = 1.;
   }
   lta = sta;
   for (i = head -> nsta; i < head -> nlta; ++i) {
     buf = signal[i];
     lta += buf;
     sta += buf - signal[i - head -> nsta];
-    onset[i] = 1.;
   }
   onset[head -> nlta - 1] = sta / lta * frac;
   for (i = head -> nlta; i < head -> n; ++i) {
@@ -141,7 +139,7 @@ recursive_sta_lta(const double * signal,
     onset[i] = sta / lta;
   }
 
-  // Zero first nlta to remove transient signal from "recursive" measure
+  // Null first nlta to remove transient signal from "recursive" measure
   if (head -> nlta < head -> n) {
     for (i = 0; i < head -> nlta; ++i) {
       onset[i] = 1.;

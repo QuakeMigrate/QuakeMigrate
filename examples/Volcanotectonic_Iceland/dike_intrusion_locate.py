@@ -72,7 +72,9 @@ mags = LocalMag(amp_params=amp_params, mag_params=mag_params, plot_amplitudes=Tr
 lut = read_lut(lut_file=lut_file)
 
 # --- Create new Onset ---
-onset = STALTAOnset(position="centred", sampling_rate=50)
+onset = STALTAOnset(
+    position="centred", sampling_rate=50, signal_transform="env_squared"
+)
 onset.phases = ["P", "S"]
 onset.bandpass_filters = {"P": [2, 16, 2], "S": [2, 16, 2]}
 onset.sta_lta_windows = {"P": [0.2, 1.0], "S": [0.2, 1.0]}

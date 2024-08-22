@@ -24,8 +24,8 @@ run_path = "./outputs/runs"
 run_name = "example_run"
 
 # --- Set time period over which to run trigger ---
-starttime = "2014-06-29T18:41:55.0"
-endtime = "2014-06-29T18:42:20.0"
+starttime = "2014-06-29T18:42:05.0"
+endtime = "2014-06-29T18:42:15.0"
 
 # --- Load the LUT ---
 lut = read_lut(lut_file=lut_file)
@@ -37,12 +37,12 @@ trig = Trigger(lut, run_path=run_path, run_name=run_name, log=True, loglevel="in
 # For a complete list of parameters and guidance on how to choose them, please
 # see the manual and read the docs.
 trig.marginal_window = 1.0
-trig.min_event_interval = 6.0
+trig.min_event_interval = 2.0
 trig.normalise_coalescence = True
 
 # --- Static threshold ---
 trig.threshold_method = "static"
-trig.static_threshold = 1.8
+trig.static_threshold = 2.0
 
 # --- Dynamic (Median Absolute Deviation) threshold ---
 # trig.threshold_method = "dynamic"

@@ -27,8 +27,8 @@ run_path = "./outputs/runs"
 run_name = "example_run"
 
 # --- Set time period over which to run detect ---
-starttime = "2014-06-29T18:41:55.0"
-endtime = "2014-06-29T18:42:20.0"
+starttime = "2014-06-29T18:42:05.0"
+endtime = "2014-06-29T18:42:15.0"
 
 # --- Read in station file ---
 stations = read_stations(station_file)
@@ -59,7 +59,7 @@ scan = QuakeScan(
 )
 
 # --- Set detect parameters ---
-scan.timestep = 0.75
+scan.timestep = 2.5
 scan.threads = 4  # NOTE: increase as your system allows to increase speed!
 
 # --- Run detect ---

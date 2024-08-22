@@ -304,6 +304,7 @@ class STALTAOnset(Onset):
 
         # --- General parameters ---
         self.position = kwargs.get("position", "classic")
+        self.use_python_backend = kwargs.get("use_python_backend", False)
         self.signal_transform = kwargs.get("signal_transform", "energy")
         self.min_onset_value = kwargs.get("min_onset_value", 0.4)
         if self.min_onset_value < 0.01:
@@ -522,16 +523,19 @@ class STALTAOnset(Onset):
             transformed_waveforms = [np.abs(hilbert(tr.data)) ** 2 for tr in stream]
 
         if self.position == "centred":
-            onsets = [
-                centred_sta_lta(waveform, stw, ltw)
-                for waveform in transformed_waveforms
-            ]
+            if self.use_python_backend:
+                onset_fn = centred_sta_lta_py
+            else:
+                onset_fn = centred_sta_lta
         elif self.position == "classic":
-            onsets = [
-                overlapping_sta_lta(waveform, stw, ltw)
-                for waveform in transformed_waveforms
-            ]
-        onsets = np.array(onsets)
+            if self.use_python_backend:
+                onset_fn = overlapping_sta_lta_py
+            else:
+                onset_fn = overlapping_sta_lta
+
+        onsets = np.array(
+            [onset_fn(waveform, stw, ltw) for waveform in transformed_waveforms]
+        )
 
         if timespan:
             onsets = self._trim_taper_pad(onsets, stw, ltw, timespan)

@@ -48,7 +48,7 @@ migrate(double * onsets, int32_t * lookup_tables, double * map4d, int32_t fsmp,
 
   #pragma omp parallel\
   for private(station, stack, sample, traveltimes, traveltime) num_threads(threads)
-  for (node = 0; node < n_nodes; node++) {
+  for (node = 0; node < n_nodes; ++node) {
     stack = & map4d[node * (int64_t) n_samples];
     traveltimes = & lookup_tables[node * (int64_t) n_stations];
     for (station = 0; station < n_stations; ++station) {

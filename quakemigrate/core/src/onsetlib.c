@@ -108,7 +108,7 @@ centred_sta_lta(const double * signal,
 }
 
 /*
- * Function: overlapping_sta_lta
+ * Function: recursive_sta_lta
  * -----------------------------
  * Compute the STA/LTA onset function with consecutive windows using a
  * recursive method (minimises memory costs). Reproduces exactly the centred

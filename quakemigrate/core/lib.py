@@ -24,7 +24,7 @@ qmlib = _load_cdll("qmlib")
 # Make datatype aliases and build custom datatypes
 c_int32 = clib.ctypes.c_int32
 c_int64 = clib.ctypes.c_int64
-c_dPt = clib.ndpointer(dtype=np.float64, flags="C_CONTIGUOUS")
+c_dPt = clib.ndpointer(dtype=np.double, flags="C_CONTIGUOUS")
 c_i32Pt = clib.ndpointer(dtype=np.int32, flags="C_CONTIGUOUS")
 c_i64Pt = clib.ndpointer(dtype=np.int64, flags="C_CONTIGUOUS")
 
@@ -49,7 +49,7 @@ qmlib.migrate.argtypes = [
 
 @util.timeit()
 def migrate(
-    onsets: np.ndarray[float],
+    onsets: np.ndarray[np.double],
     traveltimes: np.ndarray[int],
     first_idx: int,
     last_idx: int,
@@ -86,8 +86,10 @@ def migrate(
 
     # By taking the log of the onsets, we can calculate the geometric mean as an
     # arithmetic mean (we then exponentiate within the C function to return the
-    # correct coalescence value).
-    np.log(onsets, onsets)
+    # correct coalescence value). Clip as a safety check to prevent trying to take
+    # log(0).
+    onsets = np.clip(onsets, 0.01, np.inf)
+    onsets = np.log(onsets)
 
     *grid_dimensions, n_luts = traveltimes.shape
     n_onsets, t_samples = onsets.shape
@@ -123,7 +125,7 @@ qmlib.find_max_coa.argtypes = [c_dPt, c_dPt, c_dPt, c_i64Pt, c_int32, c_int64, c
 
 @util.timeit()
 def find_max_coa(
-    map4d: np.ndarray[np.float64], threads: int
+    map4d: np.ndarray[np.double], threads: int
 ) -> tuple[np.ndarray[np.double], np.ndarray[np.double], np.ndarray[int]]:
     """
     Finds time series of the maximum coalescence/normalised coalescence in the 3-D
@@ -250,7 +252,7 @@ def recursive_sta_lta(
     recursive method (minimises memory costs). Reproduces exactly the centred
     STA/LTA onset.
 
-                                                           |--- STA ---|
+                                                            |--- STA ---|
          |---------------------- LTA ----------------------|
                                                            ^
                                                   Value assigned here

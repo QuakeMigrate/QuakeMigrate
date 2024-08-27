@@ -36,8 +36,8 @@ trig = Trigger(lut, run_path=run_path, run_name=run_name, log=True, loglevel="in
 # --- Set trigger parameters ---
 # For a complete list of parameters and guidance on how to choose them, please
 # see the manual and read the docs.
-trig.marginal_window = 1.0
-trig.min_event_interval = 2.0
+trig.marginal_window = 0.1
+trig.min_event_interval = 0.3
 trig.normalise_coalescence = True
 
 # --- Static threshold ---

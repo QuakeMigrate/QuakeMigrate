@@ -34,7 +34,7 @@ cproj = Proj(proj="longlat", datum="WGS84", ellps="WGS84", no_defs=True)
 # --- Define the grid specifications ---
 # AttribDict behaves like a Python dict, but also has '.'-style access.
 grid_spec = AttribDict()
-grid_spec.ll_corner = [-17.24, 64.322, -1.390]
+grid_spec.ll_corner = [-17.24, 64.322, -1.4]
 grid_spec.ur_corner = [-17.204, 64.336, 0.0]
 grid_spec.node_spacing = [0.025, 0.025, 0.025]
 grid_spec.grid_proj = gproj

@@ -36,13 +36,13 @@ trig = Trigger(lut, run_path=run_path, run_name=run_name, log=True, loglevel="in
 # --- Set trigger parameters ---
 # For a complete list of parameters and guidance on how to choose them, please
 # see the manual and read the docs.
-trig.marginal_window = 0.1
-trig.min_event_interval = 0.3
+trig.marginal_window = 0.06
+trig.min_event_interval = 0.12
 trig.normalise_coalescence = True
 
 # --- Static threshold ---
 trig.threshold_method = "static"
-trig.static_threshold = 2.0
+trig.static_threshold = 2.15
 
 # --- Dynamic (Median Absolute Deviation) threshold ---
 # trig.threshold_method = "dynamic"

@@ -18,11 +18,11 @@ include = ["quakemigrate*"]
 
 [project]
 name = "quakemigrate"
-version = "1.1.0rc1"
+version = "1.1.0"
 description = "A Python package for automatic earthquake detection and location using waveform migration and stacking."
 readme = "README.md"
 license = {text = "GPLv3"}
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 authors = [
     {name = "The QuakeMigrate Development Team", email = "quakemigrate.developers@gmail.com"},
     {name = "Tom Winder", email = "tom.winder@esc.cam.ac.uk"},
@@ -53,10 +53,10 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
 ]
 dependencies = [
     "matplotlib",

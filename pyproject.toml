@@ -10,7 +10,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.cibuildwheel.macos]
 before-all = [
-    "conda install -c conda-forge llvm-openmp clang_osx-arm64 clangxx_osx-arm64"
+    "conda install -c conda-forge llvm-openmp"
 ]
 
 [tool.setuptools.packages.find]
@@ -18,7 +18,7 @@ include = ["quakemigrate*"]
 
 [project]
 name = "quakemigrate"
-version = "1.1.0rc7"
+version = "1.1.0rc8"
 description = "A Python package for automatic earthquake detection and location using waveform migration and stacking."
 readme = "README.md"
 license = {text = "GPLv3"}

@@ -21,12 +21,12 @@ jobs:
     env:
       CIBW_BUILD: '${{ matrix.build }}-*'
       CIBW_ARCHS: 'native'
-      CIBW_ARCHS_MACOS: arm64
+      CIBW_ARCHS_MACOS: x86_64
       CIBW_SKIP: '*i686 *s390x *ppc64le *musllinux*'
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-13, windows-latest]
         build: [cp39, cp310, cp311, cp312]
 
     steps:
@@ -34,18 +34,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: conda-incubator/setup-miniconda@v3
-        with:
-          miniconda-version: "latest"
-          auto-update-conda: true
-          python-version: ${{ matrix.python-version }}
-
       - name: Build and test wheels
         uses: pypa/cibuildwheel@v2.20.0
 
       - uses: actions/upload-artifact@v4
         with:
           path: ./wheelhouse/*.whl
+          name: wheel-${{ matrix.os }}-${{ matrix.build }}
 
       - name: Setup tmate session
         if: ${{ failure() }}
@@ -65,6 +60,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           path: dist/*.tar.gz
+          name: sdist
 
   publish_test:
     name: Publish tag to testpypi

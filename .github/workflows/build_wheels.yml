@@ -36,8 +36,9 @@ jobs:
 
       - uses: conda-incubator/setup-miniconda@v3
         with:
-          auto-activate-base: true
-          activate-environment: ""
+          miniconda-version: "latest"
+          auto-update-conda: true
+          python-version: ${{ matrix.python-version }}
 
       - name: Build and test wheels
         uses: pypa/cibuildwheel@v2.16.5

@@ -34,12 +34,22 @@ jobs:
         with:
           fetch-depth: 0
 
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniconda-version: "latest"
+          auto-update-conda: true
+          python-version: ${{ matrix.python-version }}
+
       - name: Build and test wheels
         uses: pypa/cibuildwheel@v2.20.0
 
       - uses: actions/upload-artifact@v4
         with:
           path: ./wheelhouse/*.whl
+
+      - name: Setup tmate session
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3
 
   build_sdist:
     name: Build source distribution

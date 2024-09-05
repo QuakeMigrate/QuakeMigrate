@@ -64,14 +64,24 @@ jobs:
           path: dist/*.tar.gz
           name: sdist
 
+  merge_artifacts:
+    name: merge sdist and wheel artifacts together
+    needs: [build_wheels, build_sdist]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/upload-artifact/merge@v4
+        with:
+          name: artifact
+          delete-merged: true
+
   publish_test:
     name: Publish tag to testpypi
-    needs: [build_wheels, build_sdist]
+    needs: merge_artifacts
     runs-on: ubuntu-latest
     # Upload to PyPI on every tag starting with 'v'
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     steps:
-      - uses: actions/download-artifact@v4.1.7
+      - uses: actions/download-artifact@v4
         with:
           name: artifact
           path: dist
@@ -85,10 +95,10 @@ jobs:
   publish:
     name: Publish release
     if: github.event_name == 'release'
-    needs: [build_wheels, build_sdist]
+    needs: merge_artifacts
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4.1.7
+      - uses: actions/download-artifact@v4
         with:
           name: artifact
           path: dist

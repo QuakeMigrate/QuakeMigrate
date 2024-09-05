@@ -88,7 +88,7 @@ def get_extensions():
             ["/usr/local/include", "/usr/local/opt/llvm/include"]
         )
         extension_args["library_dirs"].extend(
-            ["/usr/local/lib", "/usr/local/opt/llvm/lib", "/usr/local/opt/libomp/lib", "/opt/homebrew/opt/libomp/lib"]
+            ["/usr/local/lib", "/usr/local/opt/llvm/lib", "/usr/local/opt/libomp/lib"]
         )
 
     sources = [

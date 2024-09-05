@@ -22,6 +22,9 @@ jobs:
       CIBW_BUILD: '${{ matrix.build }}-*'
       CIBW_ARCHS: 'native'
       CIBW_SKIP: '*i686 *s390x *ppc64le *musllinux*'
+      CIBW_ENVIRONMENT: >-
+       MACOSX_DEPLOYMENT_TARGET=14.0
+       LDFLAGS=-L/opt/homebrew/opt/libomp/lib
     strategy:
       fail-fast: false
       matrix:
@@ -34,7 +37,7 @@ jobs:
           fetch-depth: 0
 
       - name: Build and test wheels
-        uses: pypa/cibuildwheel@v2.16.5
+        uses: pypa/cibuildwheel@v2.20.0
 
       - uses: actions/upload-artifact@v4
         with:

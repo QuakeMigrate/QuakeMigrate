@@ -11,7 +11,7 @@ build-backend = "setuptools.build_meta"
 [tool.cibuildwheel.macos]
 before-all = [
     "brew install libomp",
-    "export LDFLAGS='-L/opt/homebrew/opt/libomp/lib'"
+    "export LDFLAGS='-L/opt/homebrew/opt/libomp/lib'",
     "export CPPFLAGS='-I/opt/homebrew/opt/libomp/include'"
 ]
 
@@ -20,7 +20,7 @@ include = ["quakemigrate*"]
 
 [project]
 name = "quakemigrate"
-version = "1.1.0rc11"
+version = "1.1.0rc12"
 description = "A Python package for automatic earthquake detection and location using waveform migration and stacking."
 readme = "README.md"
 license = {text = "GPLv3"}

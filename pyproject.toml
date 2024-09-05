@@ -10,7 +10,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.cibuildwheel.macos]
 before-all = [
-    "conda install -c conda-forge llvm-openmp"
+    "brew install libomp"
 ]
 
 [tool.setuptools.packages.find]

@@ -459,7 +459,11 @@ class Trigger:
             )
 
             triggers = pd.concat(
-                [triggers, trigger.to_frame().T.convert_dtypes()], ignore_index=True
+                [
+                    triggers if not triggers.empty else None,
+                    trigger.to_frame().T.convert_dtypes(),
+                ],
+                ignore_index=True,
             )
 
         return triggers
@@ -526,7 +530,11 @@ class Trigger:
             event["EventID"] = event_uid
 
             refined_events = pd.concat(
-                [refined_events, event.to_frame().T.convert_dtypes()], ignore_index=True
+                [
+                    refined_events if not refined_events.empty else None,
+                    event.to_frame().T.convert_dtypes(),
+                ],
+                ignore_index=True,
             )
 
         return refined_events

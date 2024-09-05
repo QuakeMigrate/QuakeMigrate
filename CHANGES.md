@@ -1,3 +1,22 @@
+1.1.0
+=====
+Move the onset function computation into a compiled C library. The ability to use the original Python backend is retained. Settings for the icequake examples were updated to improve the detections/locations, reflecting improvements to the core code that allows for higher resolutions to be computed without incurring prohibitive computational costs. We also added a feature to allow users to select the transformation applied to thea waveform data before onset functions are computed.
+
+Importantly, we addressed a bug in the ordering of when the onset functions for the horizontal (S) components were combined relative to when the log of the onset function was taken. This changes the values for the example benchmarks, which have been updated accordingly. This motivated the bump from version 1.0.x to 1.1.0.
+
+- Add C onset function library dd3b52d
+- Add Python backend for onset functions 907873a
+- Move the logging of the onset functions to the correct position (after combining the two horizontal components for the S onset) 1600f11
+- Update Rutford icequake example 5d7510f and 9e2c363
+- Update Iceland icequake example 8f61a64 and 9e2c363
+- Update minimum and maximum supported Python versions to 3.9 and 3.12, respectively 28d2537
+- Move onset log (breaking change, fixes a bug) 1600f11
+- Add the ability to select the type of signal transform applied to the raw data before computing the onset functions 1600f11
+  - Energy (waveform squared)
+  - Absolute value
+  - Envelope (absolute value of the analytic signal, i.e., the Hilbert transform)
+  - Envelope squared
+
 1.0.3
 =====
 Make some minor updates to tooling used by the package and address some issues that had arisen from underlying dependencies. Further, we have added a backdoor that allows us to debug issues with our CI/CD testing.

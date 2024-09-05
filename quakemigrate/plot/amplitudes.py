@@ -212,7 +212,7 @@ def label_stations(ax, tr_ids, amps, dists, rejected=False):
             continue
         elif tr_id[:-1] != stn:
             stn_end = i
-            distance = dists[i - 1]
+            distance = dists.iloc[i - 1]
             amp = max(amps[stn_start:stn_end])
             compstring = ""
             for comp in comps:
@@ -236,7 +236,7 @@ def label_stations(ax, tr_ids, amps, dists, rejected=False):
             stn_start = i
             comps = [tr_id[-1]]
             if i == len(tr_ids) - 1:
-                distance = dists[i]
+                distance = dists.iloc[i]
                 amp = max(amps[stn_start:])
                 compstring = ""
                 for comp in comps:
@@ -258,7 +258,7 @@ def label_stations(ax, tr_ids, amps, dists, rejected=False):
         elif i == len(tr_ids) - 1:
             stn = tr_id[:-1]
             comps.append(tr_id[-1])
-            distance = dists[i]
+            distance = dists.iloc[i]
             amp = max(amps[stn_start:])
             compstring = ""
             for comp in comps:

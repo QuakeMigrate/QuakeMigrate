@@ -21,7 +21,7 @@ from quakemigrate.io import read_lut
 # --- i/o paths ---
 lut_file = "./outputs/lut/icequake.LUT"
 run_path = "./outputs/runs"
-run_name = "icequake_example"
+run_name = "example_run"
 
 # --- Set time period over which to run trigger ---
 starttime = "2009-01-21T04:00:05.0"
@@ -36,13 +36,13 @@ trig = Trigger(lut, run_path=run_path, run_name=run_name, log=True, loglevel="in
 # --- Set trigger parameters ---
 # For a complete list of parameters and guidance on how to choose them, please
 # see the manual and read the docs.
-trig.marginal_window = 0.1
-trig.min_event_interval = 0.5
+trig.marginal_window = 0.06
+trig.min_event_interval = 0.12
 trig.normalise_coalescence = True
 
 # --- Static threshold ---
 trig.threshold_method = "static"
-trig.static_threshold = 2.75
+trig.static_threshold = 3.0
 
 # --- Dynamic (Median Absolute Deviation) threshold ---
 # trig.threshold_method = "dynamic"

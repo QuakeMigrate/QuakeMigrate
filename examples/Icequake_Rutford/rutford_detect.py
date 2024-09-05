@@ -24,7 +24,7 @@ station_file = "./inputs/rutford_stations.txt"
 data_in = "./inputs/mSEED"
 lut_out = "./outputs/lut/icequake.LUT"
 run_path = "./outputs/runs"
-run_name = "icequake_example"
+run_name = "example_run"
 
 # --- Set time period over which to run detect ---
 starttime = "2009-01-21T04:00:05.0"
@@ -42,9 +42,9 @@ archive = Archive(
 lut = read_lut(lut_file=lut_out)
 
 # --- Create new Onset ---
-onset = STALTAOnset(position="classic", sampling_rate=500)
+onset = STALTAOnset(position="classic", sampling_rate=250)
 onset.phases = ["P", "S"]
-onset.bandpass_filters = {"P": [20, 200, 4], "S": [10, 125, 4]}
+onset.bandpass_filters = {"P": [20, 124, 4], "S": [10, 124, 4]}
 onset.sta_lta_windows = {"P": [0.01, 0.25], "S": [0.05, 0.5]}
 
 # --- Create new QuakeScan ---
@@ -59,7 +59,7 @@ scan = QuakeScan(
 )
 
 # --- Set detect parameters ---
-scan.timestep = 0.75
+scan.timestep = 1.0
 scan.threads = 4  # NOTE: increase as your system allows to increase speed!
 
 # --- Run detect ---

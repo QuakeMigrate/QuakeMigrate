@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-The :mod:`quakemigrate.core` module provides Python bindings for the library of
-compiled C routines that form the core of QuakeMigrate:
+The :mod:`quakemigrate.core` module provides Python bindings for the libraries of
+compiled C routines that form the core of QuakeMigrate and do the heavy lifting:
 
-    * Migrate onsets - This routine performs the continuous migration through \
-    time and space of the onset functions. It has been parallelised with \
-    openMP.
-    * Find maximum coalescence - This routine finds the continuous maximum \
-    coalescence amplitude in the 4-D coalesence volume.
+    * :mod:`migratelib` - contains routines for computing the 4-D coalescence function \
+    by continuously migrating onset functions through time and space and determining \
+    the continuous maximum coalescence amplitude in the 4-D coalescence volume.
+    * :mod:`onsetlib` - contains routines for computing various onset functions, \
+    including the centred/overlapping STA/LTA, as well as a recursive implementation \
+    of the centred STA/LTA.
 
 :copyright:
     2020–2023, QuakeMigrate developers.
@@ -17,4 +18,18 @@ compiled C routines that form the core of QuakeMigrate:
 
 """
 
-from .lib import migrate, find_max_coa  # NOQA
+from .lib import (
+    migrate,
+    find_max_coa,
+    overlapping_sta_lta,
+    centred_sta_lta,
+    recursive_sta_lta,
+)
+
+__all__ = [
+    migrate,
+    find_max_coa,
+    overlapping_sta_lta,
+    centred_sta_lta,
+    recursive_sta_lta,
+]

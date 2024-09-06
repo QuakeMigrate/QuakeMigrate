@@ -3,7 +3,7 @@
 Module to plot the triggered events on a decimated grid.
 
 :copyright:
-    2020–2023, QuakeMigrate developers.
+    2020–2024, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -30,6 +30,7 @@ def trigger_summary(
     marginal_window,
     min_event_interval,
     detection_threshold,
+    threshold_method,
     normalise_coalescence,
     lut,
     data,
@@ -166,6 +167,7 @@ def trigger_summary(
         text,
         events,
         detection_threshold,
+        threshold_method,
         marginal_window,
         min_event_interval,
         normalise_coalescence,
@@ -442,7 +444,13 @@ def _plot_event_windows(axes, events, marginal_window, discarded=False):
 
 
 def _plot_text_summary(
-    ax, events, threshold, marginal_window, min_event_interval, normalise_coalescence
+    ax,
+    events,
+    threshold,
+    threshold_method,
+    marginal_window,
+    min_event_interval,
+    normalise_coalescence,
 ):
     """
     Utility function to plot the trigger summary information.
@@ -455,6 +463,8 @@ def _plot_text_summary(
         DataFrame of triggered events.
     threshold : array-like
         Coalescence value above which to trigger events.
+    threshold_method: string
+        Method used to determine the trigger threshold (static, dynamic, ..)
     marginal_window : float
         Time window over which to marginalise the 4-D coalescence function.
     min_event_interval : float
@@ -466,10 +476,10 @@ def _plot_text_summary(
     """
 
     # Get threshold info
-    if len(set(threshold)) == 1:
-        threshold = f"{threshold[0]} (static)"
+    if threshold_method == "static":
+        threshold_string = f"{threshold[0]} (static)"
     else:
-        threshold = "dynamic"
+        threshold_string = threshold_method
 
     # Get trigger on and event count info
     trig = "normalised coalescence" if normalise_coalescence else "coalescence"
@@ -477,7 +487,7 @@ def _plot_text_summary(
 
     with plt.rc_context({"font.size": 18}):
         ax.text(0.45, 0.65, "Trigger threshold:", ha="right", va="center")
-        ax.text(0.47, 0.65, f"{threshold}", ha="left", va="center")
+        ax.text(0.47, 0.65, f"{threshold_string}", ha="left", va="center")
         ax.text(0.45, 0.5, "Marginal window:", ha="right", va="center")
         ax.text(0.47, 0.5, f"{marginal_window} s", ha="left", va="center")
         ax.text(0.45, 0.35, "Minimum event interval:", ha="right", va="center")

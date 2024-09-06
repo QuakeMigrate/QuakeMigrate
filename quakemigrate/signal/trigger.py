@@ -3,7 +3,7 @@
 Module to perform the trigger stage of QuakeMigrate.
 
 :copyright:
-    2020–2023, QuakeMigrate developers.
+    2020–2024, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -40,7 +40,7 @@ def chunks2trace(a, new_shape):
     """
 
     b = np.broadcast_to(a[:, None], new_shape)
-    b = np.reshape(b, np.product(new_shape))
+    b = np.reshape(b, np.prod(new_shape))
 
     return b
 
@@ -191,6 +191,9 @@ class Trigger:
         elif self.threshold_method == "dynamic":
             self.mad_window_length = kwargs.get("mad_window_length", 3600.0)
             self.mad_multiplier = kwargs.get("mad_multiplier", 1.0)
+        elif self.threshold_method == "median_ratio":
+            self.median_window_length = kwargs.get("median_window_length", 3600.0)
+            self.median_multiplier = kwargs.get("median_multiplier", 1.0)
         else:
             raise util.InvalidTriggerThresholdMethodException
         self.marginal_window = kwargs.get("marginal_window", 2.0)
@@ -224,6 +227,11 @@ class Trigger:
             out += (
                 f"\t\tMAD Window     = {self.mad_window_length}\n"
                 f"\t\tMAD Multiplier = {self.mad_multiplier}\n"
+            )
+        elif self.threshold_method == "median_ratio":
+            out += (
+                f"\t\tMedian Window     = {self.median_window_length}\n"
+                f"\t\tMedian Multiplier = {self.median_multiplier}\n"
             )
 
         return out
@@ -336,6 +344,7 @@ class Trigger:
                 self.marginal_window,
                 self.min_event_interval,
                 threshold,
+                self.threshold_method,
                 self.normalise_coalescence,
                 self.lut,
                 data,
@@ -365,24 +374,32 @@ class Trigger:
 
         """
 
-        if self.threshold_method == "dynamic":
+        if self.threshold_method in ["dynamic", "median_ratio"]:
             # Split the data in window_length chunks
             breaks = np.arange(len(scandata))
-            breaks = breaks[breaks % int(self.mad_window_length * sampling_rate) == 0][
-                1:
-            ]
+            if self.threshold_method == "dynamic":
+                window_length = self.mad_window_length
+            else:
+                window_length = self.median_window_length
+            breaks = breaks[breaks % int(window_length * sampling_rate) == 0][1:]
             chunks = np.split(scandata.values, breaks)
 
-            # Calculate the mad and median values
-            mad_values = np.asarray([util.calculate_mad(chunk) for chunk in chunks])
+            # Calculate the median values
             median_values = np.asarray([np.median(chunk) for chunk in chunks])
-            mad_trace = chunks2trace(mad_values, (len(chunks), len(chunks[0])))
             median_trace = chunks2trace(median_values, (len(chunks), len(chunks[0])))
-            mad_trace = mad_trace[: len(scandata)]
             median_trace = median_trace[: len(scandata)]
 
-            # Set the dynamic threshold
-            threshold = median_trace + (mad_trace * self.mad_multiplier)
+            if self.threshold_method == "dynamic":
+                # If dynamic, also calculate the MAD values
+                mad_values = np.asarray([util.calculate_mad(chunk) for chunk in chunks])
+                mad_trace = chunks2trace(mad_values, (len(chunks), len(chunks[0])))
+                mad_trace = mad_trace[: len(scandata)]
+
+                # Set the dynamic threshold
+                threshold = median_trace + (mad_trace * self.mad_multiplier)
+            else:
+                # Set the dynamic threshold
+                threshold = median_trace * self.median_multiplier
         else:
             # Set static threshold
             threshold = np.zeros_like(scandata) + self.static_threshold

@@ -46,8 +46,13 @@ trig.static_threshold = 1.85
 
 # --- Dynamic (Median Absolute Deviation) threshold ---
 # trig.threshold_method = "dynamic"
-# trig.mad_window_length = 300.
-# trig.mad_multiplier = 5.
+# trig.mad_window_length = 300.0
+# trig.mad_multiplier = 5.0
+
+# --- Dynamic (Median Ratio) threshold ---
+# trig.threshold_method = "median_ratio"
+# trig.median_window_length = 300.0
+# trig.median_multiplier = 1.2
 
 # --- Toggle plotting options ---
 trig.plot_trigger_summary = True

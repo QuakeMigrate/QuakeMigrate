@@ -13,6 +13,7 @@ corrected displacement amplitude measurements.
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 
 
 def amplitudes_summary(
@@ -106,7 +107,7 @@ def amplitudes_summary(
         * np.power(10, used_mags["Station_Correction"]),
         xerr=dist_err,
         yerr=noise_amps[magnitudes["Used"]],
-        marker="x",
+        fmt="x",
         label=signal_label,
     )
     _ = [errorbar.set_alpha(0.3) for errorbar in bars]
@@ -132,8 +133,7 @@ def amplitudes_summary(
             * np.power(10, rejected_mags["Station_Correction"]),
             xerr=dist_err,
             yerr=noise_amps[~magnitudes["Used"]],
-            fmt="o",
-            marker="x",
+            fmt="x",
             c="gray",
             label=unused_label,
         )
@@ -157,7 +157,9 @@ def amplitudes_summary(
                 rej_dists.append(rejected_mags["Dist"].iloc[i])
 
         # Only one label per new station; faff once again.
-        ax, _ = label_stations(ax, rej_trids, rej_amps, rej_dists, rejected=True)
+        ax, _ = label_stations(
+            ax, rej_trids, pd.Series(rej_amps), pd.Series(rej_dists), rejected=True
+        )
 
     # Label r-squared value
     ax.text(

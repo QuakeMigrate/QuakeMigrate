@@ -1,3 +1,11 @@
+
+1.1.1
+=====
+Address a bug in amplitude plotting introduced in v1.1.0, and modify the Volcanotectonic_Iceland example such that this issue is now covered by tests going forwards.
+
+- Explicitly use `pandas.Series` for input to plot.amplitudes.label_stations(), and fix a minor plotting bug e63851f
+- Add filters for magnitude calculation in the Volcanotectonic_Iceland example, as well as making some additional improvements to the amp_params and mag_params configuration 7e5768a
+
 1.1.0
 =====
 Move the onset function computation into a compiled C library. The ability to use the original Python backend is retained. Settings for the icequake examples were updated to improve the detections/locations, reflecting improvements to the core code that allows for higher resolutions to be computed without incurring prohibitive computational costs. We also added a feature to allow users to select the transformation applied to thea waveform data before onset functions are computed.

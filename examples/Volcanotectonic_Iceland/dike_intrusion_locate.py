@@ -44,7 +44,8 @@ response_inv = read_response_inv(response_file)
 # --- Specify parameters for response removal ---
 response_params = AttribDict()
 response_params.pre_filt = (0.05, 0.06, 30, 35)
-response_params.water_level = 600
+response_params.water_level = 60.0
+response_params.remove_full_response = False
 
 # --- Create new Archive and set path structure ---
 archive = Archive(
@@ -57,14 +58,21 @@ archive = Archive(
 
 # --- Specify parameters for amplitude measurement ---
 amp_params = AttribDict()
-amp_params.signal_window = 5.0
-amp_params.highpass_filter = True
-amp_params.highpass_freq = 2.0
+amp_params.noise_window = 5.0
+amp_params.noise_measure = "ENV"
+amp_params.signal_window = 1.
+amp_params.bandpass_filter = True
+amp_params.bandpass_lowcut = 2.
+amp_params.bandpass_highcut = 20.
+amp_params.filter_corners = 4
 
 # --- Specify parameters for magnitude calculation ---
 mag_params = AttribDict()
 mag_params.A0 = "Greenfield2018_bardarbunga"
+mag_params.use_hyp_dist = True
 mag_params.amp_feature = "S_amp"
+mag_params.trace_filter = ".*H[NE]$"
+mag_params.noise_filter = 3.
 
 mags = LocalMag(amp_params=amp_params, mag_params=mag_params, plot_amplitudes=True)
 

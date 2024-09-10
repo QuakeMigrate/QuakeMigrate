@@ -104,13 +104,12 @@ class Trigger:
     Attributes
     ----------
     mad_window_length : float, optional
-        Length of window within which to calculate the Median Average
-        Deviation. Default: 3600 seconds (1 hour).
+        Length of window within which to calculate the Median Absolute Deviation,
+        for the "mad" trigger threshold method. Default: 3600 seconds (1 hour).
     mad_multiplier : float, optional
-        A scaling factor for the MAD output to make the calculated MAD factor a
-        consistent estimation of the standard deviation of the distribution.
-        Default: 1.4826, which is the appropriate scaling factor for a normal
-        distribution.
+        A scaling factor for the MAD output to determine the number of median absolute
+        deviations above the median value of the coalescence trace to set the trigger
+        threshold; for the "mad" trigger threshold method. Default: 8.0.
     marginal_window : float, optional
         Half-width of window centred on the maximum coalescence time. The 4-D
         coalescence functioned is marginalised over time across this window such that
@@ -122,6 +121,14 @@ class Trigger:
     min_event_interval : float, optional
         Minimum time interval between triggered events. Must be at least twice the
         marginal window. Default: 4 seconds.
+    median_window_length : float, optional
+        Length of window within which to calculate the median of the coalescence trace,
+        for the "median_ratio" trigger threshold method.
+        Default: 3600 seconds (1 hour).
+    median_multiplier : float, optional
+        A scaling factor by which to multiply the median of the coalescence trace to
+        set the trigger threshold; for the "median ratio" trigger threshold method.
+        Default: 1.2.
     normalise_coalescence : bool, optional
         If True, triggering is performed on the maximum coalescence normalised by the
         mean coalescence value in the 3-D grid. Default: False.
@@ -135,8 +142,9 @@ class Trigger:
     static_threshold : float, optional
         Static threshold value above which to trigger candidate events.
     threshold_method : str, optional
-        Toggle between a "static" threshold and a "dynamic" threshold, based on the
-        Median Average Deviation. Default: "static".
+        Toggle between a "static" threshold and a selection of dynamic threshold
+        methods; either based on the Median Absolute Deviation ("mad") or a multiple of
+        the median value of the coalescence trace ("median_ratio"). Default: "static".
     xy_files : str, optional
         Path to comma-separated value file (.csv) containing a series of coordinate
         files to plot. Columns: ["File", "Color", "Linewidth", "Linestyle"], where
@@ -188,12 +196,12 @@ class Trigger:
         self.threshold_method = kwargs.get("threshold_method", "static")
         if self.threshold_method == "static":
             self.static_threshold = kwargs.get("static_threshold", 1.5)
-        elif self.threshold_method == "dynamic":
+        elif self.threshold_method == "mad":
             self.mad_window_length = kwargs.get("mad_window_length", 3600.0)
-            self.mad_multiplier = kwargs.get("mad_multiplier", 1.0)
+            self.mad_multiplier = kwargs.get("mad_multiplier", 8.0)
         elif self.threshold_method == "median_ratio":
             self.median_window_length = kwargs.get("median_window_length", 3600.0)
-            self.median_multiplier = kwargs.get("median_multiplier", 1.0)
+            self.median_multiplier = kwargs.get("median_multiplier", 1.2)
         else:
             raise util.InvalidTriggerThresholdMethodException
         self.marginal_window = kwargs.get("marginal_window", 2.0)
@@ -223,7 +231,7 @@ class Trigger:
         out += f"\t\tTrigger threshold method: {self.threshold_method}\n"
         if self.threshold_method == "static":
             out += f"\t\tStatic threshold = {self.static_threshold}\n"
-        elif self.threshold_method == "dynamic":
+        elif self.threshold_method == "mad":
             out += (
                 f"\t\tMAD Window     = {self.mad_window_length}\n"
                 f"\t\tMAD Multiplier = {self.mad_multiplier}\n"
@@ -344,7 +352,7 @@ class Trigger:
                 self.marginal_window,
                 self.min_event_interval,
                 threshold,
-                self.threshold_method,
+                self._threshold_method_string(),
                 self.normalise_coalescence,
                 self.lut,
                 data,
@@ -354,6 +362,23 @@ class Trigger:
                 xy_files=self.xy_files,
                 plot_all_stns=self.plot_all_stns,
             )
+
+    def _threshold_method_string(self):
+        """Threshold parameter string for trigger summary plot."""
+
+        if self.threshold_method == "static":
+            threshold_string = f"{self.static_threshold} (static)"
+        elif self.threshold_method == "mad":
+            threshold_string = (
+                f"MAD ({self.mad_window_length} s / {self.mad_multiplier}x)"
+            )
+        elif self.threshold_method == "median_ratio":
+            threshold_string = (
+                f"Median Ratio ({self.median_window_length} s / "
+                f"{self.median_multiplier}x)"
+            )
+
+        return threshold_string
 
     @util.timeit()
     def _get_threshold(self, scandata, sampling_rate):
@@ -374,10 +399,10 @@ class Trigger:
 
         """
 
-        if self.threshold_method in ["dynamic", "median_ratio"]:
-            # Split the data in window_length chunks
+        if self.threshold_method in ["mad", "median_ratio"]:
+            # Split the coalescence trace into window_length chunks
             breaks = np.arange(len(scandata))
-            if self.threshold_method == "dynamic":
+            if self.threshold_method == "mad":
                 window_length = self.mad_window_length
             else:
                 window_length = self.median_window_length
@@ -389,8 +414,8 @@ class Trigger:
             median_trace = chunks2trace(median_values, (len(chunks), len(chunks[0])))
             median_trace = median_trace[: len(scandata)]
 
-            if self.threshold_method == "dynamic":
-                # If dynamic, also calculate the MAD values
+            if self.threshold_method == "mad":
+                # If MAD, also calculate the MAD values
                 mad_values = np.asarray([util.calculate_mad(chunk) for chunk in chunks])
                 mad_trace = chunks2trace(mad_values, (len(chunks), len(chunks[0])))
                 mad_trace = mad_trace[: len(scandata)]
@@ -634,3 +659,23 @@ class Trigger:
             "\t'minimum_repeat' -> 'min_event_interval'"
         )
         self._min_event_interval = value
+
+    # --- Deprecation/Future handling ---
+    @property
+    def threshold_method(self):
+        """Handle deprecated 'dynamic' threshold method."""
+        return self._threshold_method
+
+    @threshold_method.setter
+    def threshold_method(self, value):
+        """Handle deprecated threshold_method kwarg / attribute and print warning."""
+
+        if value == "dynamic":
+            # DEPRECATED
+            print(
+                "FutureWarning: This threshold method has been renamed - continuing.\n"
+                "To remove this message, change:\n\t'dynamic' -> 'mad'"
+            )
+            self._threshold_method = "mad"
+        else:
+            self._threshold_method = value

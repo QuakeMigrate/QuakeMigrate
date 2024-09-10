@@ -30,7 +30,7 @@ def trigger_summary(
     marginal_window,
     min_event_interval,
     detection_threshold,
-    threshold_method,
+    threshold_string,
     normalise_coalescence,
     lut,
     data,
@@ -62,6 +62,8 @@ def trigger_summary(
         Minimum time interval between triggered events.
     detection_threshold : array-like
         Coalescence value above which to trigger events.
+    threshold_string : string
+        String describing the threshold method and parameters used.
     normalise_coalescence : bool
         If True, use coalescence normalised by the average coalescence value in the 3-D
         grid at each timestep.
@@ -166,8 +168,7 @@ def trigger_summary(
     _plot_text_summary(
         text,
         events,
-        detection_threshold,
-        threshold_method,
+        threshold_string,
         marginal_window,
         min_event_interval,
         normalise_coalescence,
@@ -446,8 +447,7 @@ def _plot_event_windows(axes, events, marginal_window, discarded=False):
 def _plot_text_summary(
     ax,
     events,
-    threshold,
-    threshold_method,
+    threshold_string,
     marginal_window,
     min_event_interval,
     normalise_coalescence,
@@ -461,10 +461,8 @@ def _plot_text_summary(
         Axes on which to plot the text summary.
     events : `pandas.DataFrame` object
         DataFrame of triggered events.
-    threshold : array-like
-        Coalescence value above which to trigger events.
-    threshold_method: string
-        Method used to determine the trigger threshold (static, dynamic, ..)
+    threshold_string: string
+        String describing the threshold method and parameters used.
     marginal_window : float
         Time window over which to marginalise the 4-D coalescence function.
     min_event_interval : float
@@ -474,12 +472,6 @@ def _plot_text_summary(
         grid at each timestep.
 
     """
-
-    # Get threshold info
-    if threshold_method == "static":
-        threshold_string = f"{threshold[0]} (static)"
-    else:
-        threshold_string = threshold_method
 
     # Get trigger on and event count info
     trig = "normalised coalescence" if normalise_coalescence else "coalescence"

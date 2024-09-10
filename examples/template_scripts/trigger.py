@@ -56,6 +56,11 @@ trig.static_threshold = 1.75
 # trig.median_window_length = 300.0
 # trig.median_multiplier = 1.2
 
+# --- Apply smoothing to coalescence trace before triggering ---
+trig.smooth_coa = True
+trig.smoothing_kernel_sigma = 0.2
+trig.smoothing_kernel_width = 2
+
 # --- Toggle plotting options ---
 trig.plot_trigger_summary = True
 # It is possible to supply xy files to enhance and give context to the

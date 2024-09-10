@@ -15,6 +15,7 @@ import logging
 import numpy as np
 from obspy import UTCDateTime
 import pandas as pd
+from scipy.ndimage import gaussian_filter1d
 
 from quakemigrate.io import Run, read_scanmseed, write_triggered_events
 from quakemigrate.plot import trigger_summary
@@ -145,6 +146,16 @@ class Trigger:
         Toggle between a "static" threshold and a selection of dynamic threshold
         methods; either based on the Median Absolute Deviation ("mad") or a multiple of
         the median value of the coalescence trace ("median_ratio"). Default: "static".
+    smooth_coa : bool, optional
+        Whether to apply a gaussian smoothing to the coalescence trace before applying
+        the trigger threshold to identify candidate events. Default: False
+    smoothing_kernel_sigma : float, optional
+        Sigma (standard deviation) of the Gaussian kernel to convolve with the
+        coalescence trace, to be used with 'smooth_coa'. Default: 0.2 seconds.
+    smoothing_kernel_width : float, optional
+        Number of standard deviations at which to truncate the Gaussian kernel. See
+        `~scipy.ndimage.gaussian_filter1d` for more information. To be used with
+        'smooth_coa'. Default: 4.0.
     xy_files : str, optional
         Path to comma-separated value file (.csv) containing a series of coordinate
         files to plot. Columns: ["File", "Color", "Linewidth", "Linestyle"], where
@@ -210,6 +221,9 @@ class Trigger:
             self.minimum_repeat = kwargs.get("minimum_repeat")
         self.normalise_coalescence = kwargs.get("normalise_coalescence", False)
         self.pad = kwargs.get("pad", 120.0)
+        self.smooth_coa = kwargs.get("smooth_coa", False)
+        self.smoothing_kernel_sigma = kwargs.get("smoothing_kernel_sigma", 0.2)
+        self.smoothing_kernel_width = kwargs.get("smoothing_kernel_width", 4.0)
 
         # --- Plotting toggles and parameters ---
         self.plot_trigger_summary = kwargs.get("plot_trigger_summary", True)
@@ -313,6 +327,17 @@ class Trigger:
         data, stats = read_scanmseed(
             self.run, batchstart, batchend, self.pad, self.lut.unit_conversion_factor
         )
+
+        if self.smooth_coa:
+            # Convert kernel sigma from time to samples
+            st_dev = self.smoothing_kernel_sigma * stats.sampling_rate
+            logging.info("\n\tApplying smoothing...")
+            data.loc[:, "COA"] = gaussian_filter1d(
+                data["COA"], st_dev, truncate=self.smoothing_kernel_width
+            )
+            data.loc[:, "COA_N"] = gaussian_filter1d(
+                data["COA_N"], st_dev, truncate=self.smoothing_kernel_width
+            )
 
         logging.info("\n\tTriggering events...")
         trigger_on = "COA_N" if self.normalise_coalescence else "COA"

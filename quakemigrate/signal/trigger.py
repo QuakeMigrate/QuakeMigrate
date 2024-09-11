@@ -244,16 +244,23 @@ class Trigger:
         out += "maximum coalescence trace.\n\n"
         out += f"\t\tTrigger threshold method: {self.threshold_method}\n"
         if self.threshold_method == "static":
-            out += f"\t\tStatic threshold = {self.static_threshold}\n"
+            out += f"\t\tStatic threshold = {self.static_threshold}\n\n"
         elif self.threshold_method == "mad":
             out += (
                 f"\t\tMAD Window     = {self.mad_window_length}\n"
-                f"\t\tMAD Multiplier = {self.mad_multiplier}\n"
+                f"\t\tMAD Multiplier = {self.mad_multiplier}\n\n"
             )
         elif self.threshold_method == "median_ratio":
             out += (
                 f"\t\tMedian Window     = {self.median_window_length}\n"
-                f"\t\tMedian Multiplier = {self.median_multiplier}\n"
+                f"\t\tMedian Multiplier = {self.median_multiplier}\n\n"
+            )
+        if self.smooth_coa:
+            out += (
+                "\t\tApplying gaussian smoothing to the coalescence trace.\n"
+                f"\t\tGaussian kernel sigma = {self.smoothing_kernel_sigma} s\n"
+                f"\t\tGaussian kernel truncated at {self.smoothing_kernel_width} "
+                f"standard deviations.\n"
             )
 
         return out

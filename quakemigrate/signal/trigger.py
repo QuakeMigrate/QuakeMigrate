@@ -336,15 +336,7 @@ class Trigger:
         )
 
         if self.smooth_coa:
-            # Convert kernel sigma from time to samples
-            st_dev = self.smoothing_kernel_sigma * stats.sampling_rate
-            logging.info("\n\tApplying smoothing...")
-            data.loc[:, "COA"] = gaussian_filter1d(
-                data["COA"], st_dev, truncate=self.smoothing_kernel_width
-            )
-            data.loc[:, "COA_N"] = gaussian_filter1d(
-                data["COA_N"], st_dev, truncate=self.smoothing_kernel_width
-            )
+            data = self._smooth_coa(data, stats.sampling_rate)
 
         logging.info("\n\tTriggering events...")
         trigger_on = "COA_N" if self.normalise_coalescence else "COA"
@@ -411,6 +403,21 @@ class Trigger:
             )
 
         return threshold_string
+
+    def _smooth_coa(self, data, sampling_rate):
+        """Apply a Gaussian smoothing to the coalescence trace."""
+
+        # Convert kernel sigma from time to samples
+        st_dev = self.smoothing_kernel_sigma * sampling_rate
+        logging.info("\n\tApplying smoothing...")
+        data.loc[:, "COA"] = gaussian_filter1d(
+            data["COA"], st_dev, truncate=self.smoothing_kernel_width
+        )
+        data.loc[:, "COA_N"] = gaussian_filter1d(
+            data["COA_N"], st_dev, truncate=self.smoothing_kernel_width
+        )
+
+        return data
 
     @util.timeit()
     def _get_threshold(self, scandata, sampling_rate):

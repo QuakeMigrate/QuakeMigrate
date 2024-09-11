@@ -93,6 +93,7 @@ jobs:
           python test_benchmarks.py
           python test_util.py
           python test_onsets.py
+          python test_trigger.py
 
       - name: Setup tmate session
         if: ${{ failure() }}

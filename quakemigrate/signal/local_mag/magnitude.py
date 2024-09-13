@@ -413,9 +413,14 @@ class Magnitude:
         # normal distribution. In reality it will have a negative skew, making the mean
         # magnitude a slight underestimate.
         mean_mag = np.sum(mags * weights) / np.sum(weights)
-        mean_mag_err = np.sqrt(
-            np.sum(((mags - mean_mag) * weights) ** 2) / np.sum(weights)
-        )
+        # If more than one magnitude estimate, take the standard deviation. If only a
+        # single estimate, then take the uncertainty from that value.
+        if len(mags) > 1:
+            mean_mag_err = np.sqrt(
+                np.sum(((mags - mean_mag) * weights) ** 2) / np.sum(weights)
+            )
+        else:
+            mean_mag_err = used_mags["ML_Err"].values[0]
 
         # Pass the magnitudes (filtered & un-filtered) to the _mag_r_squared
         # function.
@@ -891,6 +896,16 @@ class Magnitude:
             * self.amp_multiplier
             * np.power(10, magnitudes["Station_Correction"])
         )
+
+        # Check there are at least 2 amplitude measurements, and that amplitude
+        # measurements aren't all the same (which would still lead to zero variance and
+        # a subsequent divide-by-zero error).
+        if len(amps) < 2 or amps.min() == amps.max():
+            logging.info(
+                "\t    Insufficient amplitude measurements to make an r2 "
+                "estimate - skipping."
+            )
+            return np.nan
 
         dist = magnitudes["Dist"]
         att = self._get_attenuation(dist)

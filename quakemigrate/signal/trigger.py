@@ -507,7 +507,11 @@ class Trigger:
 
         triggers = pd.DataFrame(columns=CANDIDATES_COLS)
         for i, candidate in enumerate(candidates):
-            peak = candidate.loc[candidate[trigger_on].idxmax()]
+            # Assign peak index based on the "COA" timeseries, irrespective of whether
+            # the user chose to use "COA_N" for trigger; this ensures a closer
+            # comparison with the origin time determination in locate(), which is fixed
+            # to using the COA timeseries.
+            peak = candidate.loc[candidate["COA"].idxmax()]
 
             # If first sample above threshold is within the marginal window
             if (peak["DT"] - candidate["DT"].iloc[0]) < self.marginal_window:

@@ -30,12 +30,12 @@ jobs:
         python-version: ['3.9', '3.10', '3.11', '3.12']
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -45,7 +45,7 @@ jobs:
           pip install '.[dev]'
 
       - name: Collect NonLinLoc sourcecode
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: alomax/NonLinLoc
           path: NonLinLoc
@@ -76,6 +76,13 @@ jobs:
           coverage run --source=quakemigrate --data-file=../../.coverage -a dike_intrusion_trigger.py
           coverage run --source=quakemigrate --data-file=../../.coverage -a dike_intrusion_locate.py
 
+      - name: Run benchmark tests and module specific unittests
+        working-directory: ./tests
+        run: |
+          coverage run --source=quakemigrate --data-file=../.coverage -a test_benchmarks.py
+          coverage run --source=quakemigrate --data-file=../.coverage -a test_util.py
+          coverage run --source=quakemigrate --data-file=../.coverage -a test_onsets.py
+
       - name: Convert raw reports to .xml file
         run: |
           coverage xml -o coverage_report_py311.xml
@@ -87,20 +94,12 @@ jobs:
           name: coverage_artifact
           path: coverage_report_py311.xml
 
-      - name: Run benchmark tests and module specific unittests
-        working-directory: ./tests
-        run: |
-          python test_benchmarks.py
-          python test_util.py
-          python test_onsets.py
-
       - name: Setup tmate session
         if: ${{ failure() }}
         uses: mxschmitt/action-tmate@v3
 
   upload_coverage_report:
     name: Upload coverage report made using (ubuntu-latest, Python 3.11)
-    if: github.event_name == 'release'
     needs: [run_tests]
     runs-on: ubuntu-latest
     steps:
@@ -108,7 +107,7 @@ jobs:
         with:
           name: coverage_artifact
 
-      - uses: codecov/codecov-action@v3
+      - uses: codecov/codecov-action@v4
         with:
           name: QuakeMigrate-coverage-report
           token: ${{ secrets.CODECOV_TOKEN }}

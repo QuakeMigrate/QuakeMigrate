@@ -4,7 +4,7 @@ Module to produce a summary plot for local magnitude calculation from Wood-Ander
 corrected displacement amplitude measurements.
 
 :copyright:
-    2020–2023, QuakeMigrate developers.
+    2020–2024, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -32,7 +32,7 @@ def amplitudes_summary(
         Columns = ["epi_dist", "z_dist", "P_amp", "P_freq", "P_time",
                    "P_avg_amp", "P_filter_gain", "S_amp", "S_freq",
                    "S_time", "S_avg_amp", "S_filter_gain", "Noise_amp",
-                   "is_picked", "ML", "ML_Err"], "Noise_Filter",
+                   "is_picked", "ML", "ML_Err", "Station_Correction", "Noise_Filter",
                    "Trace_Filter", "Station_Filter", "Dist_Filter", "Dist",
                    "Used"]
     amp_feature : {"S_amp", "P_amp"}
@@ -68,15 +68,13 @@ def amplitudes_summary(
     fig = plt.figure(figsize=(25, 15))
     ax = fig.add_subplot(111)
 
-    # Correct noise amplitudes according to station corrections
+    # Correct noise amplitudes according to station corrections. They have already been
+    # corrected for any filter_gain.
     noise_amps = (
         magnitudes["Noise_amp"].values
         * amp_multiplier
         * np.power(10, magnitudes["Station_Correction"])
     )
-    filter_gains = magnitudes[f"{amp_feature[0]}_filter_gain"]
-    if not filter_gains.isnull().values.any():
-        noise_amps /= filter_gains
 
     # Set to loglog scale
     ax.set_xscale("log")

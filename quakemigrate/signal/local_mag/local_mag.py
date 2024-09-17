@@ -183,7 +183,7 @@ class LocalMag:
                 " magnitude calculation"
             )
             write_amplitudes(run, amps, event)
-            event.add_local_magnitude(np.nan, np.nan, np.nan, amps)
+            event.add_local_magnitude(np.nan, np.nan, np.nan)
 
             return event, np.nan
 

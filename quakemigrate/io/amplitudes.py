@@ -54,8 +54,14 @@ def write_amplitudes(run, amplitudes, event):
         amplitudes[col] = amplitudes[col].map(lambda x: f"{x:.5g}", na_action="ignore")
     for col in ["P_freq", "S_freq"]:
         amplitudes[col] = amplitudes[col].map(lambda x: f"{x:.2g}", na_action="ignore")
-    for col in ["P_filter_gain", "S_filter_gain", "ML", "ML_Err"]:
+    for col in ["P_filter_gain", "S_filter_gain"]:
         amplitudes[col] = amplitudes[col].map(lambda x: f"{x:.3g}", na_action="ignore")
+    # Handle case where no amplitude measurement made
+    if "ML" in amplitudes.columns:
+        for col in ["ML", "ML_Err"]:
+            amplitudes[col] = amplitudes[col].map(
+                lambda x: f"{x:.3g}", na_action="ignore"
+            )
 
     fstem = f"{event.uid}"
     file = (fpath / fstem).with_suffix(".amps")

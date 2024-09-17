@@ -3,7 +3,7 @@
 Module to plot the triggered events on a decimated grid.
 
 :copyright:
-    2020–2023, QuakeMigrate developers.
+    2020–2024, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -30,6 +30,7 @@ def trigger_summary(
     marginal_window,
     min_event_interval,
     detection_threshold,
+    threshold_string,
     normalise_coalescence,
     lut,
     data,
@@ -61,6 +62,8 @@ def trigger_summary(
         Minimum time interval between triggered events.
     detection_threshold : array-like
         Coalescence value above which to trigger events.
+    threshold_string : string
+        String describing the threshold method and parameters used.
     normalise_coalescence : bool
         If True, use coalescence normalised by the average coalescence value in the 3-D
         grid at each timestep.
@@ -165,7 +168,7 @@ def trigger_summary(
     _plot_text_summary(
         text,
         events,
-        detection_threshold,
+        threshold_string,
         marginal_window,
         min_event_interval,
         normalise_coalescence,
@@ -442,7 +445,12 @@ def _plot_event_windows(axes, events, marginal_window, discarded=False):
 
 
 def _plot_text_summary(
-    ax, events, threshold, marginal_window, min_event_interval, normalise_coalescence
+    ax,
+    events,
+    threshold_string,
+    marginal_window,
+    min_event_interval,
+    normalise_coalescence,
 ):
     """
     Utility function to plot the trigger summary information.
@@ -453,8 +461,8 @@ def _plot_text_summary(
         Axes on which to plot the text summary.
     events : `pandas.DataFrame` object
         DataFrame of triggered events.
-    threshold : array-like
-        Coalescence value above which to trigger events.
+    threshold_string: string
+        String describing the threshold method and parameters used.
     marginal_window : float
         Time window over which to marginalise the 4-D coalescence function.
     min_event_interval : float
@@ -465,19 +473,13 @@ def _plot_text_summary(
 
     """
 
-    # Get threshold info
-    if len(set(threshold)) == 1:
-        threshold = f"{threshold[0]} (static)"
-    else:
-        threshold = "dynamic"
-
     # Get trigger on and event count info
     trig = "normalised coalescence" if normalise_coalescence else "coalescence"
     count = len(events) if events is not None else 0
 
     with plt.rc_context({"font.size": 18}):
         ax.text(0.45, 0.65, "Trigger threshold:", ha="right", va="center")
-        ax.text(0.47, 0.65, f"{threshold}", ha="left", va="center")
+        ax.text(0.47, 0.65, f"{threshold_string}", ha="left", va="center")
         ax.text(0.45, 0.5, "Marginal window:", ha="right", va="center")
         ax.text(0.47, 0.5, f"{marginal_window} s", ha="left", va="center")
         ax.text(0.45, 0.35, "Minimum event interval:", ha="right", va="center")

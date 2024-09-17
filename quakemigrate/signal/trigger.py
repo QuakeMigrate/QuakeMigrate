@@ -3,7 +3,7 @@
 Module to perform the trigger stage of QuakeMigrate.
 
 :copyright:
-    2020–2023, QuakeMigrate developers.
+    2020–2024, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -15,6 +15,7 @@ import logging
 import numpy as np
 from obspy import UTCDateTime
 import pandas as pd
+from scipy.ndimage import gaussian_filter1d
 
 from quakemigrate.io import Run, read_scanmseed, write_triggered_events
 from quakemigrate.plot import trigger_summary
@@ -40,7 +41,7 @@ def chunks2trace(a, new_shape):
     """
 
     b = np.broadcast_to(a[:, None], new_shape)
-    b = np.reshape(b, np.product(new_shape))
+    b = np.reshape(b, np.prod(new_shape))
 
     return b
 
@@ -104,13 +105,12 @@ class Trigger:
     Attributes
     ----------
     mad_window_length : float, optional
-        Length of window within which to calculate the Median Average
-        Deviation. Default: 3600 seconds (1 hour).
+        Length of window within which to calculate the Median Absolute Deviation,
+        for the "mad" trigger threshold method. Default: 3600 seconds (1 hour).
     mad_multiplier : float, optional
-        A scaling factor for the MAD output to make the calculated MAD factor a
-        consistent estimation of the standard deviation of the distribution.
-        Default: 1.4826, which is the appropriate scaling factor for a normal
-        distribution.
+        A scaling factor for the MAD output to determine the number of median absolute
+        deviations above the median value of the coalescence trace to set the trigger
+        threshold; for the "mad" trigger threshold method. Default: 8.0.
     marginal_window : float, optional
         Half-width of window centred on the maximum coalescence time. The 4-D
         coalescence functioned is marginalised over time across this window such that
@@ -122,6 +122,14 @@ class Trigger:
     min_event_interval : float, optional
         Minimum time interval between triggered events. Must be at least twice the
         marginal window. Default: 4 seconds.
+    median_window_length : float, optional
+        Length of window within which to calculate the median of the coalescence trace,
+        for the "median_ratio" trigger threshold method.
+        Default: 3600 seconds (1 hour).
+    median_multiplier : float, optional
+        A scaling factor by which to multiply the median of the coalescence trace to
+        set the trigger threshold; for the "median ratio" trigger threshold method.
+        Default: 1.2.
     normalise_coalescence : bool, optional
         If True, triggering is performed on the maximum coalescence normalised by the
         mean coalescence value in the 3-D grid. Default: False.
@@ -135,8 +143,19 @@ class Trigger:
     static_threshold : float, optional
         Static threshold value above which to trigger candidate events.
     threshold_method : str, optional
-        Toggle between a "static" threshold and a "dynamic" threshold, based on the
-        Median Average Deviation. Default: "static".
+        Toggle between a "static" threshold and a selection of dynamic threshold
+        methods; either based on the Median Absolute Deviation ("mad") or a multiple of
+        the median value of the coalescence trace ("median_ratio"). Default: "static".
+    smooth_coa : bool, optional
+        Whether to apply a gaussian smoothing to the coalescence trace before applying
+        the trigger threshold to identify candidate events. Default: False
+    smoothing_kernel_sigma : float, optional
+        Sigma (standard deviation) of the Gaussian kernel to convolve with the
+        coalescence trace, to be used with 'smooth_coa'. Default: 0.2 seconds.
+    smoothing_kernel_width : float, optional
+        Number of standard deviations at which to truncate the Gaussian kernel. See
+        `~scipy.ndimage.gaussian_filter1d` for more information. To be used with
+        'smooth_coa'. Default: 4.0.
     xy_files : str, optional
         Path to comma-separated value file (.csv) containing a series of coordinate
         files to plot. Columns: ["File", "Color", "Linewidth", "Linestyle"], where
@@ -188,9 +207,12 @@ class Trigger:
         self.threshold_method = kwargs.get("threshold_method", "static")
         if self.threshold_method == "static":
             self.static_threshold = kwargs.get("static_threshold", 1.5)
-        elif self.threshold_method == "dynamic":
+        elif self.threshold_method == "mad":
             self.mad_window_length = kwargs.get("mad_window_length", 3600.0)
-            self.mad_multiplier = kwargs.get("mad_multiplier", 1.0)
+            self.mad_multiplier = kwargs.get("mad_multiplier", 8.0)
+        elif self.threshold_method == "median_ratio":
+            self.median_window_length = kwargs.get("median_window_length", 3600.0)
+            self.median_multiplier = kwargs.get("median_multiplier", 1.2)
         else:
             raise util.InvalidTriggerThresholdMethodException
         self.marginal_window = kwargs.get("marginal_window", 2.0)
@@ -199,6 +221,9 @@ class Trigger:
             self.minimum_repeat = kwargs.get("minimum_repeat")
         self.normalise_coalescence = kwargs.get("normalise_coalescence", False)
         self.pad = kwargs.get("pad", 120.0)
+        self.smooth_coa = kwargs.get("smooth_coa", False)
+        self.smoothing_kernel_sigma = kwargs.get("smoothing_kernel_sigma", 0.2)
+        self.smoothing_kernel_width = kwargs.get("smoothing_kernel_width", 4.0)
 
         # --- Plotting toggles and parameters ---
         self.plot_trigger_summary = kwargs.get("plot_trigger_summary", True)
@@ -219,11 +244,23 @@ class Trigger:
         out += "maximum coalescence trace.\n\n"
         out += f"\t\tTrigger threshold method: {self.threshold_method}\n"
         if self.threshold_method == "static":
-            out += f"\t\tStatic threshold = {self.static_threshold}\n"
-        elif self.threshold_method == "dynamic":
+            out += f"\t\tStatic threshold = {self.static_threshold}\n\n"
+        elif self.threshold_method == "mad":
             out += (
                 f"\t\tMAD Window     = {self.mad_window_length}\n"
-                f"\t\tMAD Multiplier = {self.mad_multiplier}\n"
+                f"\t\tMAD Multiplier = {self.mad_multiplier}\n\n"
+            )
+        elif self.threshold_method == "median_ratio":
+            out += (
+                f"\t\tMedian Window     = {self.median_window_length}\n"
+                f"\t\tMedian Multiplier = {self.median_multiplier}\n\n"
+            )
+        if self.smooth_coa:
+            out += (
+                "\t\tApplying gaussian smoothing to the coalescence trace.\n"
+                f"\t\tGaussian kernel sigma = {self.smoothing_kernel_sigma} s\n"
+                f"\t\tGaussian kernel truncated at {self.smoothing_kernel_width} "
+                f"standard deviations.\n"
             )
 
         return out
@@ -298,6 +335,9 @@ class Trigger:
             self.run, batchstart, batchend, self.pad, self.lut.unit_conversion_factor
         )
 
+        if self.smooth_coa:
+            data = self._smooth_coa(data, stats.sampling_rate)
+
         logging.info("\n\tTriggering events...")
         trigger_on = "COA_N" if self.normalise_coalescence else "COA"
         threshold = self._get_threshold(data[trigger_on], stats.sampling_rate)
@@ -336,6 +376,7 @@ class Trigger:
                 self.marginal_window,
                 self.min_event_interval,
                 threshold,
+                self._threshold_method_string(),
                 self.normalise_coalescence,
                 self.lut,
                 data,
@@ -345,6 +386,38 @@ class Trigger:
                 xy_files=self.xy_files,
                 plot_all_stns=self.plot_all_stns,
             )
+
+    def _threshold_method_string(self):
+        """Threshold parameter string for trigger summary plot."""
+
+        if self.threshold_method == "static":
+            threshold_string = f"{self.static_threshold} (static)"
+        elif self.threshold_method == "mad":
+            threshold_string = (
+                f"MAD ({self.mad_window_length} s / {self.mad_multiplier}x)"
+            )
+        elif self.threshold_method == "median_ratio":
+            threshold_string = (
+                f"Median Ratio ({self.median_window_length} s / "
+                f"{self.median_multiplier}x)"
+            )
+
+        return threshold_string
+
+    def _smooth_coa(self, data, sampling_rate):
+        """Apply a Gaussian smoothing to the coalescence trace."""
+
+        # Convert kernel sigma from time to samples
+        st_dev = self.smoothing_kernel_sigma * sampling_rate
+        logging.info("\n\tApplying smoothing...")
+        data.loc[:, "COA"] = gaussian_filter1d(
+            data["COA"], st_dev, truncate=self.smoothing_kernel_width
+        )
+        data.loc[:, "COA_N"] = gaussian_filter1d(
+            data["COA_N"], st_dev, truncate=self.smoothing_kernel_width
+        )
+
+        return data
 
     @util.timeit()
     def _get_threshold(self, scandata, sampling_rate):
@@ -365,24 +438,32 @@ class Trigger:
 
         """
 
-        if self.threshold_method == "dynamic":
-            # Split the data in window_length chunks
+        if self.threshold_method in ["mad", "median_ratio"]:
+            # Split the coalescence trace into window_length chunks
             breaks = np.arange(len(scandata))
-            breaks = breaks[breaks % int(self.mad_window_length * sampling_rate) == 0][
-                1:
-            ]
+            if self.threshold_method == "mad":
+                window_length = self.mad_window_length
+            else:
+                window_length = self.median_window_length
+            breaks = breaks[breaks % int(window_length * sampling_rate) == 0][1:]
             chunks = np.split(scandata.values, breaks)
 
-            # Calculate the mad and median values
-            mad_values = np.asarray([util.calculate_mad(chunk) for chunk in chunks])
+            # Calculate the median values
             median_values = np.asarray([np.median(chunk) for chunk in chunks])
-            mad_trace = chunks2trace(mad_values, (len(chunks), len(chunks[0])))
             median_trace = chunks2trace(median_values, (len(chunks), len(chunks[0])))
-            mad_trace = mad_trace[: len(scandata)]
             median_trace = median_trace[: len(scandata)]
 
-            # Set the dynamic threshold
-            threshold = median_trace + (mad_trace * self.mad_multiplier)
+            if self.threshold_method == "mad":
+                # If MAD, also calculate the MAD values
+                mad_values = np.asarray([util.calculate_mad(chunk) for chunk in chunks])
+                mad_trace = chunks2trace(mad_values, (len(chunks), len(chunks[0])))
+                mad_trace = mad_trace[: len(scandata)]
+
+                # Set the dynamic threshold
+                threshold = median_trace + (mad_trace * self.mad_multiplier)
+            else:
+                # Set the dynamic threshold
+                threshold = median_trace * self.median_multiplier
         else:
             # Set static threshold
             threshold = np.zeros_like(scandata) + self.static_threshold
@@ -426,7 +507,11 @@ class Trigger:
 
         triggers = pd.DataFrame(columns=CANDIDATES_COLS)
         for i, candidate in enumerate(candidates):
-            peak = candidate.loc[candidate[trigger_on].idxmax()]
+            # Assign peak index based on the "COA" timeseries, irrespective of whether
+            # the user chose to use "COA_N" for trigger; this ensures a closer
+            # comparison with the origin time determination in locate(), which is fixed
+            # to using the COA timeseries.
+            peak = candidate.loc[candidate["COA"].idxmax()]
 
             # If first sample above threshold is within the marginal window
             if (peak["DT"] - candidate["DT"].iloc[0]) < self.marginal_window:
@@ -617,3 +702,23 @@ class Trigger:
             "\t'minimum_repeat' -> 'min_event_interval'"
         )
         self._min_event_interval = value
+
+    # --- Deprecation/Future handling ---
+    @property
+    def threshold_method(self):
+        """Handle deprecated 'dynamic' threshold method."""
+        return self._threshold_method
+
+    @threshold_method.setter
+    def threshold_method(self, value):
+        """Handle deprecated threshold_method kwarg / attribute and print warning."""
+
+        if value == "dynamic":
+            # DEPRECATED
+            print(
+                "FutureWarning: This threshold method has been renamed - continuing.\n"
+                "To remove this message, change:\n\t'dynamic' -> 'mad'"
+            )
+            self._threshold_method = "mad"
+        else:
+            self._threshold_method = value

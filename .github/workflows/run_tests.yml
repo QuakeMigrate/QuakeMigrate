@@ -82,6 +82,7 @@ jobs:
           coverage run --source=quakemigrate --data-file=../.coverage -a test_benchmarks.py
           coverage run --source=quakemigrate --data-file=../.coverage -a test_util.py
           coverage run --source=quakemigrate --data-file=../.coverage -a test_onsets.py
+          coverage run --source=quakemigrate --data-file=../.coverage -a test_trigger.py
 
       - name: Convert raw reports to .xml file
         run: |

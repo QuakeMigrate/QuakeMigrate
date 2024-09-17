@@ -1,4 +1,13 @@
 
+- quakemigrate.signal.trigger:
+  * Introduce the `median_ratio` method for determining a dynamic trigger threshold, by taking a multiplier of the median value of the coalescence trace in a user-defined window. 6d16f18
+  * Fix a bug in `trigger.chunks2trace()` - still using deprecated `numpy.product()` 6d16f18
+  * Rename the existing dynamic trigger threshold method (based on a multiple of the median absolute devation of the coalescence trace) from `dynamic` -> `mad` 9ef138a
+  * Introduce "trigger smoothing" functionality; the option to smooth the coalescence trace by convolving a gaussian kernel of user-defined sigma and width before determining and applying the trigger threshold to identify candidate events. 1ea643c
+  * Revert to always using the `COA` timeseries for determining the trigger peak index (i.e. candidate event origin time) to ensure better correspondence with origin times determined within locate() 836521a
+- tests.test_trigger:
+  * Add unit tests for trigger dynamic threshold and smoothing functions 78f3e73
+
 1.1.1
 =====
 Address a bug in amplitude plotting introduced in v1.1.0, and modify the Volcanotectonic_Iceland example such that this issue is now covered by tests going forwards.

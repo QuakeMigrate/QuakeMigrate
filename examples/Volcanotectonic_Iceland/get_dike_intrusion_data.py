@@ -65,7 +65,7 @@ mdl = MassDownloader(providers=datacentres)
 mdl.download(
     domain,
     restrictions,
-    threads_per_client=4,
+    threads_per_client=3,
     mseed_storage=get_mseed_storage,
     stationxml_storage=stationxml_storage,
 )

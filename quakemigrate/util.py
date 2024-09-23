@@ -669,6 +669,85 @@ def timeit(*args_, **kwargs_):
     return inner_function
 
 
+def get_phase_component_strings(channel_maps):
+    """
+    Get regex strings to select the correct waveform components to plot on each panel
+    of the pick summary plot, given the custom channel mapping specified by the user.
+
+    P phase components are assembled into a single list. S phase components labelled
+    with letters (e.g. "E", "N") are treated separately to those labelled numerically
+    (e.g. "1", "2"), to enable a data containing a mix of the above to be plotted. If
+    more than two different component labels are associated with the S phase, then only
+    the first two alphabetical and/or numeric labels are retained (sorted
+    alphabetically/numerically), in order to assure compatibility with our current (not
+    that flexible) plotting setup. If the use of this function is expanded beyond that
+    of a plotting utility, this might need to be revised.
+
+    Currently all P-phase components are retained; this means if more than one
+    component is specified for the P onset, the waveforms will be overlain.
+
+    Parameters
+    ----------
+    channel_maps : dict of str
+        Data component maps - keys are phases. (e.g. {"P": "Z"})
+
+    Returns
+    -------
+    p_str : str
+        Regex string (e.g. "[Z]") for selecting data from an `~obspy.Stream` object
+        by component.
+    s_str_1 : str
+        Regex string (e.g. "[N,1]") for selecting data from an `~obspy.Stream` object
+        by component.
+    s_str_2 : str
+        Regex string (e.g. "[E,2]") for selecting data from an `~obspy.Stream` object
+        by component.
+
+    """
+
+    p_comps = list(channel_maps["P"].strip("*").strip("[").strip("]"))[::2]
+    s_comps = list(channel_maps["S"].strip("*").strip("[").strip("]"))[::2]
+    p_str, s_str_1, s_str_2 = "", "", ""
+    for p_comp in p_comps:
+        p_str += f"{p_comp},"
+    s_comps_alpha = [
+        s_comps[i] for i in np.where([not x.isnumeric() for x in s_comps])[0]
+    ]
+    s_comps_numeric = [
+        s_comps[i] for i in np.where([x.isnumeric() for x in s_comps])[0]
+    ]
+    if s_comps_alpha and s_comps_numeric:
+        if len(s_comps_alpha) > 2 or len(s_comps_numeric) > 2:
+            logging.info(
+                "More than two pairs of S-phase components found in "
+                "channel maps. Only using first two for plotting!"
+            )
+        for i, (s_alpha, s_numeric) in enumerate(zip(s_comps_alpha, s_comps_numeric)):
+            if i == 0:
+                s_str_1 += f"{s_alpha},{s_numeric},"
+            elif i == 1:
+                s_str_2 += f"{s_alpha},{s_numeric},"
+            elif i > 1:
+                continue
+    else:
+        for s_comps_list in [s_comps_alpha, s_comps_numeric]:
+            if s_comps_list:
+                s_str_1 += f"{s_comps_list[0]},"
+                if len(s_comps_list) > 1:
+                    s_str_2 += f"{s_comps_list[1]},"
+            if len(s_comps_list) > 2:
+                logging.info(
+                    "More than two alphabetical or numeric S-phase components"
+                    " found in channel maps. Only using first two for plotting!"
+                )
+
+    p_str = f"[{p_str.rstrip(",")}]"
+    s_str_1 = f"[{s_str_1.rstrip(",")}]"
+    s_str_2 = f"[{s_str_2.rstrip(",")}]"
+
+    return p_str, s_str_1, s_str_2
+
+
 class StationFileHeaderException(Exception):
     """Custom exception to handle incorrect header columns in station file."""
 

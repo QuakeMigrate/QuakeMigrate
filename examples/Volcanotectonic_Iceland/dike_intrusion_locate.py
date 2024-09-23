@@ -89,7 +89,7 @@ onset.sta_lta_windows = {"P": [0.2, 1.0], "S": [0.2, 1.0]}
 
 # --- Create new PhasePicker ---
 picker = GaussianPicker(onset=onset)
-picker.plot_picks = True
+picker.plot_picks = False
 
 # --- Create new QuakeScan ---
 scan = QuakeScan(

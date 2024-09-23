@@ -741,9 +741,9 @@ def get_phase_component_strings(channel_maps):
                     " found in channel maps. Only using first two for plotting!"
                 )
 
-    p_str = f"[{p_str.rstrip(",")}]"
-    s_str_1 = f"[{s_str_1.rstrip(",")}]"
-    s_str_2 = f"[{s_str_2.rstrip(",")}]"
+    p_str = f"[{p_str.rstrip(',')}]"
+    s_str_1 = f"[{s_str_1.rstrip(',')}]"
+    s_str_2 = f"[{s_str_2.rstrip(',')}]"
 
     return p_str, s_str_1, s_str_2
 

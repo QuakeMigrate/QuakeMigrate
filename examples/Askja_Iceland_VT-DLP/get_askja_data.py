@@ -29,7 +29,7 @@ def get_mseed_storage(network, station, location, channel, starttime, endtime):
     fname = (
         data_path
         / f"{starttime.year}"
-        / f"{starttime.julday}"
+        / f"{starttime.julday:03d}"
         / f"{station}_{channel[2]}.m"
     ).as_posix()
 
@@ -46,7 +46,7 @@ domain = GlobalDomain()
 starttime = UTCDateTime("2011-299T17:30:00")
 endtime = UTCDateTime("2011-299T18:10:00")
 
-#  --- Read in station file ---
+# --- Read in station file ---
 stations = read_stations(station_file)
 stations_string = ",".join(stations["Name"])
 

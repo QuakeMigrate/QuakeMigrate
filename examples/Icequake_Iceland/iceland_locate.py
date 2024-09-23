@@ -36,7 +36,7 @@ stations = read_stations(station_file)
 
 # --- Create new Archive and set path structure ---
 archive = Archive(
-    archive_path=data_in, stations=stations, archive_format="YEAR/JD/*_STATION_*"
+    archive_path=data_in, stations=stations, archive_format="YEAR/JD/STATION"
 )
 
 # --- Load the LUT ---

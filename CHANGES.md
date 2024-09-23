@@ -1,4 +1,9 @@
 
+- Examples:
+  * Added a new example use-case from Askja volcano, Iceland, which will be featured in the forthcoming manuscript. This example showcases the capability of QuakeMigrate to detect and locate a wide variety of seismic events with different source types, and in this case simultaneously with the same set of parameters. febabcd
+- quakemigrate.io.marginal_coalescence:
+  * Introduce support for saving the marginalised 3D coalescence map generated within `locate()`, and also a utility function to read it for e.g. plotting purposes, or further interrogation of the topology of the coalescence peak. ebcae96
+- switched off pick plotting for the VT_Iceland example. 7bab86d
 - quakemigrate.signal.trigger:
   * Introduce the `median_ratio` method for determining a dynamic trigger threshold, by taking a multiplier of the median value of the coalescence trace in a user-defined window. 6d16f18
   * Fix a bug in `trigger.chunks2trace()` - still using deprecated `numpy.product()` 6d16f18

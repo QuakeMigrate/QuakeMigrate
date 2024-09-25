@@ -20,7 +20,7 @@ by QuakeMigrate. This includes:
       for located events.
 
 :copyright:
-    2020–2023, QuakeMigrate developers.
+    2020–2024, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -39,6 +39,10 @@ from .core import (
     read_vmodel,  # NOQA
     stations,  # NOQA
     Run,  # NOQA
+)
+from .marginal_coalescence import (
+    write_marginal_coalescence,  # NOQA
+    read_marginal_coalescence,  # NOQA
 )
 from .scanmseed import ScanmSEED, read_scanmseed  # NOQA
 from .triggered_events import read_triggered_events, write_triggered_events  # NOQA

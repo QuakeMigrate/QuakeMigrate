@@ -3,7 +3,7 @@
 Module containing methods to generate event summaries and videos.
 
 :copyright:
-    2020–2023, QuakeMigrate developers.
+    2020–2024, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -156,7 +156,7 @@ WAVEFORM_COLOURS2 = ["#33a02c", "#b2df8a", "#1f78b4"]
 PICK_COLOURS = ["#F03B20", "#3182BD"]
 
 
-def _plot_waveform_gather(ax, lut, event, idx):
+def _plot_waveform_gather(ax, lut, event, idx_max):
     """
     Utility function to bring all aspects of plotting the waveform gather into one
     place.
@@ -171,8 +171,8 @@ def _plot_waveform_gather(ax, lut, event, idx):
     event : :class:`~quakemigrate.io.event.Event` object
         Light class encapsulating waveforms, coalescence information, picks and location
         information for a given event.
-    idx : `numpy.ndarray` of `numpy.double`
-        Marginalised 3-D coalescence map, shape(nx, ny, nz).
+    idx_max : `numpy.ndarray` of `numpy.int64`
+        Index of maximum coalescence location in grid (ie hypocentre).
 
     """
 
@@ -181,11 +181,14 @@ def _plot_waveform_gather(ax, lut, event, idx):
 
     # --- Predicted traveltimes ---
     traveltimes = np.array(
-        [lut.traveltime_to(phase, idx, stations) for phase in phases]
+        [lut.traveltime_to(phase, idx_max, stations) for phase in phases]
     )
     arrivals = [[(event.otime + tt).datetime for tt in tt_f] for tt_f in traveltimes]
 
     range_order = abs(np.argsort(np.argsort(arrivals[0])) - len(arrivals[0])) * 2
+
+    # --- Plot modelled phase arrival times ---
+    # estimate the appropriate height for the pick marker line based on the plot height
     s = (ax.get_window_extent().height / (max(range_order) + 1) * 1.2) ** 2
 
     # Handle single-phase plotting
@@ -300,9 +303,9 @@ def _plot_text_summary(ax, lut, event):
     hypocentre = [round(dimh, dimp) for dimh, dimp in zip(event.hypocentre, precision)]
     gau_unc = [round(dim, precision[2]) for dim in event.loc_uncertainty / km_cf]
     hypo = (
-        f"{hypocentre[1]}\u00b0N \u00B1 {gau_unc[1]} km\n"
-        f"{hypocentre[0]}\u00b0E \u00B1 {gau_unc[0]} km\n"
-        f"{hypocentre[2]/km_cf} \u00B1 {gau_unc[2]} km"
+        f"{hypocentre[1]}\u00b0N \u00b1 {gau_unc[1]} km\n"
+        f"{hypocentre[0]}\u00b0E \u00b1 {gau_unc[0]} km\n"
+        f"{hypocentre[2]/km_cf} \u00b1 {gau_unc[2]} km"
     )
 
     # Grab the magnitude information
@@ -319,8 +322,8 @@ def _plot_text_summary(ax, lut, event):
         if mag_info is not None:
             mag, mag_err, mag_r2 = mag_info
             ax.text(0.35, 0.19, "Local magnitude:", ha="right")
-            ax.text(0.37, 0.19, f"{mag:.3g} \u00B1 {mag_err:.3g}", ha="left")
-            ax.text(0.35, 0.09, "Local magnitude r\u00B2:", ha="right")
+            ax.text(0.37, 0.19, f"{mag:.3g} \u00b1 {mag_err:.3g}", ha="left")
+            ax.text(0.35, 0.09, "Local magnitude r\u00b2:", ha="right")
             ax.text(0.37, 0.09, f"{mag_r2:.3g}", ha="left")
     ax.set_axis_off()
 

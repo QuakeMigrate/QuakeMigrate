@@ -15,5 +15,7 @@ logs/
 outputs/
 Z7_dataless.xml
 examples/Volcanotectonic_Iceland/inputs/mSEED/
+examples/Askja_Iceland_VT-DLP/inputs/mSEED/
+DATALESS/
 .DS_Store
 _build

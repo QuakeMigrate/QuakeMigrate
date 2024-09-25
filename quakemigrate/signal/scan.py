@@ -3,7 +3,7 @@
 Module to perform core QuakeMigrate functions: detect() and locate().
 
 :copyright:
-    2020–2023, QuakeMigrate developers.
+    2020–2024, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -28,6 +28,7 @@ from quakemigrate.io import (
     read_triggered_events,
     write_availability,
     write_cut_waveforms,
+    write_marginal_coalescence,
 )
 from quakemigrate.plot.event import event_summary
 from .onsets import Onset
@@ -126,6 +127,9 @@ class QuakeScan:
         located by locate(). See `~quakemigrate.io.data.Archive` parameter
         `read_all_stations`. Default: False.
         NOTE: this data has not been processed or quality-checked!
+    write_marginal_coalescence : bool, optional
+        Write the marginalised 3-D coalescence map to file (in .npy format).
+        Default: False.
     write_real_waveforms : bool, optional
         Write real cut waveforms for all data read from the archive for each event
         located by locate(). See `~quakemigrate.io.data.Archive` parameter
@@ -256,6 +260,9 @@ class QuakeScan:
         self.write_wa_waveforms = kwargs.get("write_wa_waveforms", False)
         self.wa_waveform_units = kwargs.get("wa_waveform_units", "displacement")
         self.cut_waveform_format = kwargs.get("cut_waveform_format", "MSEED")
+        self.write_marginal_coalescence = kwargs.get(
+            "write_marginal_coalescence", False
+        )
 
         # +++ TO BE REMOVED TO ARCHIVE CLASS +++
         self.pre_cut = None
@@ -496,6 +503,10 @@ class QuakeScan:
 
             logging.info("\tDetermining event location and uncertainty...")
             marginalised_coa_map = self._calculate_location(event)
+
+            if self.write_marginal_coalescence:
+                logging.info("\tSaving marginalised coalescence map...")
+                write_marginal_coalescence(self.run, marginalised_coa_map, event)
 
             logging.info("\tMaking phase picks...")
             event, _ = self.picker.pick_phases(event, self.lut, self.run)

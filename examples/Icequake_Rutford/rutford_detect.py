@@ -35,7 +35,7 @@ stations = read_stations(station_file)
 
 # --- Create new Archive and set path structure ---
 archive = Archive(
-    archive_path=data_in, stations=stations, archive_format="YEAR/JD/*_STATION_*"
+    archive_path=data_in, stations=stations, archive_format="YEAR/JD/STATION"
 )
 
 # --- Load the LUT ---
@@ -46,6 +46,7 @@ onset = STALTAOnset(position="classic", sampling_rate=250)
 onset.phases = ["P", "S"]
 onset.bandpass_filters = {"P": [20, 124, 4], "S": [10, 124, 4]}
 onset.sta_lta_windows = {"P": [0.01, 0.25], "S": [0.05, 0.5]}
+onset.channel_maps = {"P": "*1", "S": "*[2,3]"}
 
 # --- Create new QuakeScan ---
 scan = QuakeScan(

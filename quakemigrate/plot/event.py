@@ -100,13 +100,31 @@ def event_summary(run, event, marginalised_coa_map, lut, xy_files=None):
     _plot_text_summary(text, lut, event)
 
     # Deal with repeating labels in waveform gather legend; combine labels for
-    # ["N", "1"], ["E", "2"]
+    # e.g. ["N", "1"], ["E", "2"]; and same for P (e.g. ["Z", "1"]) -- based on
+    # components supplied for each phase in onset.channel_maps
+    p_str, s_str_1, s_str_2 = util.get_phase_component_strings(
+        event.onset_data.channel_maps
+    )
     handles, labels = fig.axes[0].get_legend_handles_labels()
-    for cp1, cp2 in [("N", "1"), ("E", "2")]:
-        if all(x in labels for x in [f"{cp1} component", f"{cp2} component"]):
+    # Component pairs (if they exist) for each
+    for ph, comp_pair in zip(
+        ["P", "S", "S"],
+        [tuple(p_str[1::2]), tuple(s_str_1[1::2]), tuple(s_str_2[1::2])],
+    ):
+        # Handle case where only one component is specified for a given phase
+        try:
+            cp1, cp2 = comp_pair
+        except ValueError:
+            logging.debug(
+                f"Only one component pair for {ph} - skipping label adjustment."
+            )
+            continue
+        if all(
+            x in labels for x in [f"{cp1} component ({ph})", f"{cp2} component ({ph})"]
+        ):
             labels = [
-                f"{cp2}, {cp1} component"
-                if x == f"{cp1} component" or x == f"{cp2} component"
+                f"{cp2}, {cp1} component ({ph})"
+                if x == f"{cp1} component ({ph})" or x == f"{cp2} component ({ph})"
                 else x
                 for x in labels
             ]
@@ -210,6 +228,9 @@ def _plot_waveform_gather(ax, lut, event, idx_max):
 
     # --- Waveforms ---
     waveforms = event.onset_data.filtered_waveforms
+    p_str, s_str_1, s_str_2 = util.get_phase_component_strings(
+        event.onset_data.channel_maps
+    )
     # Min and max times to plot
     mint = event.otime - 0.1
     maxt = min(event.otime + np.max(traveltimes) * 1.5, event.data.endtime)
@@ -218,25 +239,28 @@ def _plot_waveform_gather(ax, lut, event, idx_max):
     mint_i, maxt_i = [np.argmin(abs(times_utc - t)) for t in (mint, maxt)]
     for i, station in enumerate(stations):
         stn_waveforms = waveforms.select(station=station)
-        for c, comp in zip(WAVEFORM_COLOURS1, ["Z", "[N,1]", "[E,2]"]):
+        for c, comp, phase in zip(
+            WAVEFORM_COLOURS1, [p_str, s_str_1, s_str_2], ["P", "S", "S"]
+        ):
             st = stn_waveforms.select(component=comp)
             if not bool(st):
                 continue
-            tr = st[0]
-            comp = tr.stats.component
-            data = tr.data
+            # If multiple traces for a given phase, plot both in the same colour
+            for tr in st:
+                comp = tr.stats.component
+                data = tr.data
 
-            # Get station specific range for norm factor
-            stat_maxt = event.otime + max(traveltimes[:, i]) * 1.5
-            norm = max(abs(data[mint_i : np.argmin(abs(times_utc - stat_maxt))]))
+                # Get station specific range for norm factor
+                stat_maxt = event.otime + max(traveltimes[:, i]) * 1.5
+                norm = max(abs(data[mint_i : np.argmin(abs(times_utc - stat_maxt))]))
 
-            # Generate times for plotting
-            times = tr.times("matplotlib")[mint_i:maxt_i]
+                # Generate times for plotting
+                times = tr.times("matplotlib")[mint_i:maxt_i]
 
-            # Trim to plot limits, normalise, shift by range, then plot
-            y = data[mint_i:maxt_i] / norm + range_order[i]
-            label = f"{comp} component"
-            ax.plot(times, y, c=c, lw=0.3, label=label, alpha=0.85)
+                # Trim to plot limits, normalise, shift by range, then plot
+                y = data[mint_i:maxt_i] / norm + range_order[i]
+                label = f"{comp} component ({phase})"
+                ax.plot(times, y, c=c, lw=0.3, label=label, alpha=0.85)
 
     # --- Limits, annotations, and axis formatting ---
     ax.set_xlim([mint.datetime, maxt.datetime])

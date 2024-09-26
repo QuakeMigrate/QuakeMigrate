@@ -2,7 +2,7 @@
 """
 This script will download the waveform data and an instrument response
 inventory from IRIS (in miniSEED and STATIONXML formats, respectively)
-for the Iceland dike intrusion example.
+for the Iceland icequake example.
 
 """
 
@@ -36,14 +36,14 @@ def get_mseed_storage(network, station, location, channel, starttime, endtime):
 
 
 # --- Set network code & client ---
-network = "Z7"
+network = "ZK"
 datacentres = ["IRIS"]
 # global domain (specifying network and stations instead)
 domain = GlobalDomain()
 
 # --- Set time period over which download data ---
-starttime = UTCDateTime("2014-236T00:00:00")
-endtime = UTCDateTime("2014-236T00:15:00")
+starttime = UTCDateTime("2014-06-29T18:42:00.0")
+endtime = UTCDateTime("2014-06-29T18:42:20.0")
 
 # --- Read in station file ---
 stations = read_stations(station_file)
@@ -56,7 +56,7 @@ restrictions = Restrictions(
     chunklength_in_sec=86400,
     network=network,
     station=stations_string,
-    channel_priorities=["HH[ZNE]", "BH[ZNE]"],
+    channel_priorities=["CH[ZNE]", "DL[ZNE]"],
     minimum_interstation_distance_in_m=0,
 )
 

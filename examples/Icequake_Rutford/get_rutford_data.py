@@ -2,7 +2,7 @@
 """
 This script will download the waveform data and an instrument response
 inventory from IRIS (in miniSEED and STATIONXML formats, respectively)
-for the Iceland dike intrusion example.
+for the Rutford icequake example.
 
 """
 
@@ -18,7 +18,7 @@ from obspy.clients.fdsn.mass_downloader import (
 from quakemigrate.io import read_stations
 
 # --- i/o paths ---
-station_file = "./inputs/iceland_stations.txt"
+station_file = "./inputs/rutford_stations.txt"
 data_path = pathlib.Path("./inputs/mSEED")
 stationxml_storage = "./inputs/DATALESS"
 
@@ -36,14 +36,14 @@ def get_mseed_storage(network, station, location, channel, starttime, endtime):
 
 
 # --- Set network code & client ---
-network = "Z7"
+network = "YG"
 datacentres = ["IRIS"]
 # global domain (specifying network and stations instead)
 domain = GlobalDomain()
 
 # --- Set time period over which download data ---
-starttime = UTCDateTime("2014-236T00:00:00")
-endtime = UTCDateTime("2014-236T00:15:00")
+starttime = UTCDateTime("2009-01-21T04:00:00.0")
+endtime = UTCDateTime("2009-01-21T04:00:20.0")
 
 # --- Read in station file ---
 stations = read_stations(station_file)
@@ -56,7 +56,7 @@ restrictions = Restrictions(
     chunklength_in_sec=86400,
     network=network,
     station=stations_string,
-    channel_priorities=["HH[ZNE]", "BH[ZNE]"],
+    channel_priorities=["GL[123]"],
     minimum_interstation_distance_in_m=0,
 )
 

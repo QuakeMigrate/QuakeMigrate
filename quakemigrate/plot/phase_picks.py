@@ -18,7 +18,9 @@ import numpy as np
 import quakemigrate.util as util
 
 
-def pick_summary(event, station, waveforms, picks, onsets, ttimes, windows):
+def pick_summary(
+    event, station, waveforms, picks, onsets, channel_maps, ttimes, windows
+):
     """
     Plot a figure showing the pre-processed traces for each data component and the onset
     functions calculated from them for each phase. The search window to make a phase
@@ -40,6 +42,8 @@ def pick_summary(event, station, waveforms, picks, onsets, ttimes, windows):
         Each row contains the phase pick from one station/phase.
     onsets : dict of {str: `numpy.ndarray`}
         Keys are phases. Onset functions for each seismic phase.
+    channel_maps : dict of str
+        Data component maps - keys are phases. (e.g. {"P": "Z"})
     ttimes : list of float
         Modelled traveltimes from the event hypocentre to the station for each phase to
         be plotted.
@@ -125,29 +129,38 @@ def pick_summary(event, station, waveforms, picks, onsets, ttimes, windows):
         max_idx = len(times) - 1
 
     # --- Plot waveforms ---
-    for i, (ax, comp) in enumerate(zip(axes[:3], ["Z", "[N,1]", "[E,2]"])):
-        tr = waveforms.select(component=comp)
-        if not bool(tr):
+    p_str, s_str_1, s_str_2 = util.get_phase_component_strings(channel_maps)
+    for i, (ax, comp) in enumerate(zip(axes[:3], [p_str, s_str_1, s_str_2])):
+        st = waveforms.select(component=comp)
+        if not bool(st):
             continue
-        y = tr[0].data
-        ax.plot(
-            dtimes[min_idx : max_idx + 1],
-            y[min_idx : max_idx + 1],
-            c="k",
-            lw=0.5,
-            zorder=1,
-        )
+        # If multiple traces for a given phase, plot both in the same colour - could
+        # consider using different colours and adding a separate legend to this panel
+        # to distinguish them...
+        for tr in st:
+            y = tr.data
+            ax.plot(
+                dtimes[min_idx : max_idx + 1],
+                y[min_idx : max_idx + 1],
+                c="k",
+                lw=0.5,
+                zorder=1,
+            )
         # Add label (SEED id)
+        seed_str = ""
+        for tr in st:
+            seed_str += f"{tr.id}, "
+        seed_str = seed_str.rstrip(", ")
         ax.text(
             0.015,
             0.95,
-            f"{tr[0].id}",
+            seed_str,
             transform=ax.transAxes,
             bbox=dict(boxstyle="round", fc="w", alpha=0.8),
             va="top",
             ha="left",
             fontsize=18,
-            zorder=2,
+            zorder=10,
         )
         # Set ylim
         y_max = max(abs(y[min_win_idx : max_win_idx + 1]))

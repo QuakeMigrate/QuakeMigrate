@@ -567,6 +567,7 @@ class GaussianPicker(PhasePicker):
         fpath.mkdir(exist_ok=True, parents=True)
 
         onsets = onset_data.onsets[station]
+        channel_maps = onset_data.channel_maps
         waveforms = onset_data.filtered_waveforms.select(station=station)
         # Check if any data available to plot
         if not bool(waveforms):
@@ -576,7 +577,7 @@ class GaussianPicker(PhasePicker):
 
         # Call subroutine to plot phase pick figure
         fig = pick_summary(
-            event, station, waveforms, picks, onsets, traveltimes, windows
+            event, station, waveforms, picks, onsets, channel_maps, traveltimes, windows
         )
 
         fstem = f"{event.uid}_{station}"

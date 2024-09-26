@@ -62,6 +62,7 @@ jobs:
       - name: Run Iceland icequake example
         working-directory: ./examples/Icequake_Iceland
         run: |
+          coverage run --source=quakemigrate --data-file=../../.coverage -a get_iceland_icequake_data.py
           coverage run --source=quakemigrate --data-file=../../.coverage -a iceland_lut.py
           coverage run --source=quakemigrate --data-file=../../.coverage -a iceland_detect.py
           coverage run --source=quakemigrate --data-file=../../.coverage -a iceland_trigger.py

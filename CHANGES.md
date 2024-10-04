@@ -1,9 +1,13 @@
 
 - Examples:
+  * Switched to using the obspy `MassDownloader` to download data for all examples; thus removing the bundled data for the two icequake examples from the repo, and speeding up data download for the VT_Iceland example. 7788af7, 7e1e3d0, 6694459
+  * Corresponding fixes and updates to icequake example notebooks 56a1f88, 2f95095
   * Added a new example use-case from Askja volcano, Iceland, which will be featured in the forthcoming manuscript. This example showcases the capability of QuakeMigrate to detect and locate a wide variety of seismic events with different source types, and in this case simultaneously with the same set of parameters. febabcd
+  * switched off pick plotting for the VT_Iceland example. 7bab86d
 - quakemigrate.io.marginal_coalescence:
   * Introduce support for saving the marginalised 3D coalescence map generated within `locate()`, and also a utility function to read it for e.g. plotting purposes, or further interrogation of the topology of the coalescence peak. ebcae96
-- switched off pick plotting for the VT_Iceland example. 7bab86d
+- quakemigrate.plot:
+  * use `channel_maps` user kwarg to select components for waveform plotting, in both the event summary plot (waveform gather) and the phase pick plots. Previously this was hard-coded (P=Z; S=[N/1, E/2]), preventing waveforms being plotted if they did not conform to this, or leading to data being plotted for the wrong phase if the channel mapping was unusual. This is still not a perfect solution, but at least solves #158 64012e3
 - quakemigrate.signal.trigger:
   * Introduce the `median_ratio` method for determining a dynamic trigger threshold, by taking a multiplier of the median value of the coalescence trace in a user-defined window. 6d16f18
   * Fix a bug in `trigger.chunks2trace()` - still using deprecated `numpy.product()` 6d16f18

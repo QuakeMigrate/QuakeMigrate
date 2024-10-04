@@ -7,3 +7,4 @@ Here we provide a few tutorials that explore each element of the package in more
    :maxdepth: 1
 
    tutorials/lut
+   tutorials/synthetic

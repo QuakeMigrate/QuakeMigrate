@@ -4,7 +4,7 @@ The default onset function class - performs some pre-processing on raw seismic d
 calculates STA/LTA onset (characteristic) function.
 
 :copyright:
-    2020–2023, QuakeMigrate developers.
+    2020–2024, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -15,39 +15,44 @@ import logging
 
 import numpy as np
 from obspy import Stream
-from obspy.signal.trigger import classic_sta_lta
+from scipy.signal import hilbert
 
 import quakemigrate.util as util
+from quakemigrate.core import overlapping_sta_lta, centred_sta_lta
 from .base import Onset, OnsetData
 
 
-def sta_lta_centred(signal, nsta, nlta):
+def centred_sta_lta_py(signal, nsta, nlta):
     """
-    Calculates the ratio of the average of a^2 in a short-term (signal) window to a
-    preceding long-term (noise) window. STA/LTA value is assigned to the end of the LTA
-    /one sample before the start of the STA.
+    Calculates the ratio of the average of the signal in a short-term (signal) window to
+    a preceding long-term (noise) window. STA/LTA value is assigned to the end of the
+    LTA / one sample before the start of the STA.
+    NOTE: signal must be non-negative.
 
     Parameters
     ----------
     signal : array-like
-        Signal array
+        Transformed non-negative seismic waveform.
     nsta : int
-        Number of samples in short-term window
+        Number of samples in short-term window.
     nlta : int
-        Number of samples in long-term window
+        Number of samples in long-term window.
 
     Returns
     -------
     sta / lta : array-like
-        Ratio of a^2 in a short term average window to a preceding long term average
-        window. STA/LTA value is assigned to end of LTA window / one sample before the
-        start of STA window -- "centred".
+        Short-term average / long-term average ratio of the signal amplitude, computed
+        in adjacent STA/LTA windows.
 
     """
 
     # Cumulative sum to calculate moving average
-    sta = np.cumsum(signal**2)
+    sta = np.cumsum(signal)
+
+    # Convert to float
     sta = np.require(sta, dtype=float)
+
+    # Copy for LTA
     lta = sta.copy()
 
     # Compute the STA and the LTA
@@ -58,14 +63,73 @@ def sta_lta_centred(signal, nsta, nlta):
     lta[nlta:] = lta[nlta:] - lta[:-nlta]
     lta /= nlta
 
-    sta[: (nlta - 1)] = 0
-    sta[-nsta:] = 0
+    # Pad with ones (= null result)
+    sta[: nlta - 1] = 1.0
+    lta[: nlta - 1] = 1.0
+    sta[-nsta:] = 1.0
+    lta[-nsta:] = 1.0
 
-    # Avoid division by zero by setting zero values to tiny float
+    # Avoid division by zero by setting zero values to tiny float, giving an
+    # STA/LTA of 1 (= null result)
     dtiny = np.finfo(float).tiny
     idx = lta < dtiny
     lta[idx] = dtiny
-    sta[idx] = 0.0
+    sta[idx] = dtiny
+
+    return sta / lta
+
+
+def overlapping_sta_lta_py(signal, nsta, nlta):
+    """
+    Computes the standard STA/LTA from a given input array `signal`. The length of the
+    STA window is given by nsta (in samples), nlta is the length of the LTA window (in
+    samples). STA window fully overlaps with the LTA window, and is positioned to the
+    "right" i.e. the end of both of the windows is at the latest point in time; this is
+    where the STA / LTA value is assigned.
+    NOTE: signal must be non-negative.
+
+    Parameters
+    ----------
+    signal : `~numpy.ndarray`
+        Transformed non-negative seismic waveform.
+    nsta : int
+        Length of short time average window in samples.
+    nlta : int
+        Length of long time average window in samples.
+
+    Returns
+    -------
+    sta/lta :`~numpy.ndarray`
+        Short-term average / long-term average ratio of the signal amplitude, computed
+        in overlapping STA/LTA windows.
+
+    """
+
+    # Cumulative sum to calculate moving average
+    sta = np.cumsum(signal)
+
+    # Convert to float
+    sta = np.require(sta, dtype=float)
+
+    # Copy for LTA
+    lta = sta.copy()
+
+    # Compute the STA and the LTA
+    sta[nsta:] = sta[nsta:] - sta[:-nsta]
+    sta /= nsta
+    lta[nlta:] = lta[nlta:] - lta[:-nlta]
+    lta /= nlta
+
+    # Pad with ones (= null result)
+    sta[: nlta - 1] = 1.0
+    lta[: nlta - 1] = 1.0
+
+    # Avoid division by zero by setting zero values to tiny float, giving an
+    # STA/LTA of 1 (= null result)
+    dtiny = np.finfo(0.0).tiny
+    idx = lta < dtiny
+    lta[idx] = dtiny
+    sta[idx] = dtiny
 
     return sta / lta
 
@@ -208,6 +272,20 @@ class STALTAOnset(Onset):
     sampling_rate : int
         Desired sampling rate for input data, in Hz; sampling rate at which the onset
         functions will be computed.
+    signal_transform : {"energy", "abs", "env", "env_squared"}, optional
+        Transformation to apply to the signal before taking the STA/LTA, to
+        ensure the signal is always positive: energy (signal^2), absolute
+        value, envelope (absolute value of the analytic signal), or envelope^2
+        (analytic - arguably more correct - measure of the energy of the
+        signal).
+        Default: "energy"
+    min_onset_value : float, optional
+        Minimum value at which to clip the onset function. This is the
+        equivalent to setting a minimum SNR filter for which observations to
+        include. The appropriate value will depend on the signal and noise
+        characteristics, and the `signal_transform` selected.
+        Default: 0.4
+        NOTE: must be greater than 0.01
 
     Methods
     -------
@@ -224,7 +302,15 @@ class STALTAOnset(Onset):
 
         super().__init__(**kwargs)
 
+        # --- General parameters ---
         self.position = kwargs.get("position", "classic")
+        self.use_python_backend = kwargs.get("use_python_backend", False)
+        self.signal_transform = kwargs.get("signal_transform", "energy")
+        self.min_onset_value = kwargs.get("min_onset_value", 0.4)
+        if self.min_onset_value < 0.01:
+            raise ValueError("The `min_onset_value` must be greater than 0.01")
+
+        # --- Phase-specific parameters ---
         self.phases = kwargs.get("phases", ["P", "S"])
         self.bandpass_filters = kwargs.get(
             "bandpass_filters", {"P": [2.0, 16.0, 2], "S": [2.0, 16.0, 2]}
@@ -234,6 +320,8 @@ class STALTAOnset(Onset):
         )
         self.channel_maps = kwargs.get("channel_maps", {"P": "*Z", "S": "*[N,E,1,2]"})
         self.channel_counts = kwargs.get("channel_counts", {"P": 1, "S": 2})
+
+        # --- Data quality parameters ---
         self.all_channels = kwargs.get("all_channels", False)
         self.allow_gaps = kwargs.get("allow_gaps", False)
         self.full_timespan = kwargs.get("full_timespan", True)
@@ -262,7 +350,7 @@ class STALTAOnset(Onset):
 
         return out
 
-    def calculate_onsets(self, data, log=True, timespan=None):
+    def calculate_onsets(self, data, timespan=None):
         """
         Calculate onset functions for the requested stations and phases.
 
@@ -277,8 +365,6 @@ class STALTAOnset(Onset):
         ----------
         data : :class:`~quakemigrate.io.data.WaveformData` object
             Light class encapsulating data returned by an archive query.
-        log : bool
-            Calculate log(onset) if True, otherwise calculate the raw onset.
         timespan : float or None, optional
             If the timespan for which the onsets are being generated is provided, this
             will be used to calculate the tapered window of data at the start and end of
@@ -378,7 +464,7 @@ class STALTAOnset(Onset):
                 # waveforms that have passed the availability check to
                 # WaveformData.filtered_waveforms
                 onsets_dict.setdefault(station, {}).update(
-                    {phase: self._onset(waveforms, stw, ltw, log, timespan)}
+                    {phase: self._onset(waveforms, stw, ltw, timespan)}
                 )
                 onsets.append(onsets_dict[station][phase])
                 filtered_waveforms += waveforms
@@ -402,11 +488,10 @@ class STALTAOnset(Onset):
 
         return onsets, onset_data
 
-    def _onset(self, stream, stw, ltw, log, timespan):
+    def _onset(self, stream, stw, ltw, timespan):
         """
         Generates an onset (characteristic) function. If there are multiple components,
-        these are combined as the root-mean-square of the onset functions AFTER taking a
-        log (if requested).
+        these are combined as the root-mean-square of the onset functions.
 
         Parameters
         ----------
@@ -417,8 +502,6 @@ class STALTAOnset(Onset):
             Number of samples in the short-term window.
         ltw : int
             Number of samples in the long-term window.
-        log : bool
-            Calculate log(onset) if True, otherwise calculate the raw onset.
         timespan : float or None
             If a timespan is provided it will be used to calculate the tapered window of
             data at the start and end of the onset function which should be disregarded.
@@ -430,27 +513,44 @@ class STALTAOnset(Onset):
 
         """
 
+        if self.signal_transform == "energy":
+            transformed_waveforms = [tr.data**2 for tr in stream]
+        elif self.signal_transform == "abs":
+            transformed_waveforms = [np.abs(tr.data) for tr in stream]
+        elif self.signal_transform == "env":
+            transformed_waveforms = [np.abs(hilbert(tr.data)) for tr in stream]
+        elif self.signal_transform == "env_squared":
+            transformed_waveforms = [np.abs(hilbert(tr.data)) ** 2 for tr in stream]
+
         if self.position == "centred":
-            onsets = [sta_lta_centred(tr.data, stw, ltw) for tr in stream]
+            if self.use_python_backend:
+                onset_fn = centred_sta_lta_py
+            else:
+                onset_fn = centred_sta_lta
         elif self.position == "classic":
-            onsets = [classic_sta_lta(tr.data, stw, ltw) for tr in stream]
-        onsets = np.array(onsets)
+            if self.use_python_backend:
+                onset_fn = overlapping_sta_lta_py
+            else:
+                onset_fn = overlapping_sta_lta
+
+        onsets = np.array(
+            [onset_fn(waveform, stw, ltw) for waveform in transformed_waveforms]
+        )
 
         if timespan:
             onsets = self._trim_taper_pad(onsets, stw, ltw, timespan)
 
-        np.clip(1 + onsets, 0.8, np.inf, onsets)
-        if log:
-            np.log(onsets, onsets)
-
+        # Combine onsets when using multiple components
         onset = np.sqrt(np.sum([onset**2 for onset in onsets], axis=0) / len(onsets))
+
+        onset = np.clip(onset, self.min_onset_value, np.inf)
 
         return onset
 
     def _trim_taper_pad(self, onsets, stw, ltw, timespan):
         """
         Set the value of the tapered windows at the start and end of the onset function
-        (plus one long-term window and one short-term window, respectively) to 0.
+        (plus one long-term window and one short-term window, respectively) to 1.
 
         Parameters
         ----------
@@ -468,7 +568,7 @@ class STALTAOnset(Onset):
         -------
         onsets : `numpy.ndarray` of float
             STA/LTA onset function, with the value in the tapered regions of data set to
-            0.
+            1.
 
         """
 
@@ -478,8 +578,8 @@ class STALTAOnset(Onset):
         taper_pad = util.time2sample(pre_pad - self.pre_pad, self.sampling_rate)
 
         for onset in onsets:
-            onset[: (taper_pad + ltw - 1)] = 0
-            onset[-(stw + taper_pad) :] = 0
+            onset[: (taper_pad + ltw - 1)] = 1.0
+            onset[-(stw + taper_pad) :] = 1.0
 
         return onsets
 

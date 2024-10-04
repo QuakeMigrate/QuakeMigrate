@@ -47,9 +47,19 @@ trig.threshold_method = "static"
 trig.static_threshold = 1.75
 
 # --- Dynamic (Median Absolute Deviation) threshold ---
-# trig.threshold_method = "dynamic"
-# trig.mad_window_length = 7200.
-# trig.mad_multiplier = 8.
+# trig.threshold_method = "mad"
+# trig.mad_window_length = 7200.0
+# trig.mad_multiplier = 8.0
+
+# --- Dynamic (Median Ratio) threshold ---
+# trig.threshold_method = "median_ratio"
+# trig.median_window_length = 300.0
+# trig.median_multiplier = 1.2
+
+# --- Apply smoothing to coalescence trace before triggering ---
+trig.smooth_coa = True
+trig.smoothing_kernel_sigma = 0.2
+trig.smoothing_kernel_width = 2
 
 # --- Toggle plotting options ---
 trig.plot_trigger_summary = True

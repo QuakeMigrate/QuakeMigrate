@@ -36,18 +36,23 @@ trig = Trigger(lut, run_path=run_path, run_name=run_name, log=True, loglevel="in
 # --- Set trigger parameters ---
 # For a complete list of parameters and guidance on how to choose them, please
 # see the manual and read the docs.
-trig.marginal_window = 1.0
-trig.min_event_interval = 2.0
+trig.marginal_window = 0.75
+trig.min_event_interval = 1.5
 trig.normalise_coalescence = True
 
 # --- Static threshold ---
 trig.threshold_method = "static"
-trig.static_threshold = 1.45
+trig.static_threshold = 1.85
 
 # --- Dynamic (Median Absolute Deviation) threshold ---
-# trig.threshold_method = "dynamic"
-# trig.mad_window_length = 300.
-# trig.mad_multiplier = 5.
+# trig.threshold_method = "mad"
+# trig.mad_window_length = 300.0
+# trig.mad_multiplier = 5.0
+
+# --- Dynamic (Median Ratio) threshold ---
+# trig.threshold_method = "median_ratio"
+# trig.median_window_length = 300.0
+# trig.median_multiplier = 1.2
 
 # --- Toggle plotting options ---
 trig.plot_trigger_summary = True

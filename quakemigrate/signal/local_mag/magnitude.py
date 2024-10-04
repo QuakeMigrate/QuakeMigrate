@@ -5,7 +5,7 @@ amplitudes, earthquake location, station locations, and an estimated attenuation
 for the region of interest.
 
 :copyright:
-    2020–2023, QuakeMigrate developers.
+    2020–2024, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -228,7 +228,10 @@ class Magnitude:
         amps = amplitudes[self.amp_feature].values * self.amp_multiplier
         noise_amps = amplitudes["Noise_amp"].values * self.amp_multiplier
         filter_gains = amplitudes[f"{self.amp_feature[0]}_filter_gain"]
-        if not filter_gains.isnull().values.any():
+        # Check whether _all_ filter gains are null (= no filter was applied). If a
+        # filter was applied, remove the appropriate filter gain (P or S). Action is
+        # applied to the variable `noise_amps`; not the DataFrame.
+        if not filter_gains.isnull().values.all():
             noise_amps /= filter_gains
 
         # Remove those amplitudes where the noise is greater than the amplitude and set
@@ -338,6 +341,35 @@ class Magnitude:
             discriminate between 'real' events, for which the predicted amplitude vs.
             distance curve should provide a good fit to the observations, from
             artefacts, which in general will not.
+        magnitudes : `pandas.DataFrame` object
+            The input magnitudes DataFrame, but without amplitude observation lines
+            which feature null values for the signal or noise amplitude. Noise
+            amplitudes are also corrected for the relevant filter gain, according to
+            the phase (`amp_feature`) chosen for magnitude calculation. Additional
+            columns are added for Station correction terms and filtering parameters.
+            Columns = ["epi_dist", "z_dist", "P_amp", "P_freq", "P_time", "P_avg_amp",
+                       "P_filter_gain", "S_amp", "S_freq", "S_time", "S_avg_amp",
+                       "S_filter_gain", "Noise_amp", "is_picked", "ML", "ML_Err",
+                       "Station_Correction", "Noise_Filter", "Trace_Filter",
+                       "Station_Filter", "Dist_Filter", "Dist", "Used"]
+            Index = Trace ID (see `obspy.Trace.id`)
+            Additional columns:
+            Station_Correction : float
+                Magnitude correction term to apply to observations for this station,
+                optionally supplied by the user (see
+                `~quakemigrate.signal.local_mag.local_mag.station_corrections`).
+            Noise_Filter : bool
+                Whether this observation meets the noise filter.
+            Trace_Filter : bool
+                Whether this observation matches the trace filter.
+            Station_Filter : bool
+                Whether this observation is not excluded by the station filter.
+            Dist_Filter : bool
+                Whether this observation meets the distance filter.
+            Dist : float
+                The (epicentral or hypocentral) distance between the station and event.
+            Used : bool (== True)
+                Whether the observation meets all filter requirements.
 
         """
 
@@ -348,21 +380,25 @@ class Magnitude:
         ]
         magnitudes["Station_Correction"] = corrs
 
-        # Correct noise amps for filter gain, if applicable
+        # Correct noise amps for filter gain, if applicable: check whether _all_ filter
+        # gains are null (= no filter was applied). If a filter was applied, remove the
+        # appropriate filter gain (P or S). Action is applied _in-place_ on the
+        # DataFrame
         filter_gains = magnitudes[f"{self.amp_feature[0]}_filter_gain"]
-        if not filter_gains.isnull().values.any():
+        if not filter_gains.isnull().values.all():
             magnitudes.loc[:, "Noise_amp"] /= filter_gains
 
         # Do filtering
-        used_mags, all_mags = self._filter_mags(magnitudes)
+        magnitudes = self._filter_mags(magnitudes)
 
         # Check if there are still some magnitude observations left
+        used_mags = magnitudes[magnitudes["Used"]]
         if len(used_mags) == 0:
             logging.warning(
                 "\t    No magnitude observations match the "
                 "filtering criteria! Skipping."
             )
-            return np.nan, np.nan, np.nan, all_mags
+            return np.nan, np.nan, np.nan, magnitudes
 
         mags = used_mags["ML"].values
 
@@ -377,17 +413,22 @@ class Magnitude:
         # normal distribution. In reality it will have a negative skew, making the mean
         # magnitude a slight underestimate.
         mean_mag = np.sum(mags * weights) / np.sum(weights)
-        mean_mag_err = np.sqrt(
-            np.sum(((mags - mean_mag) * weights) ** 2) / np.sum(weights)
-        )
+        # If more than one magnitude estimate, take the standard deviation. If only a
+        # single estimate, then take the uncertainty from that value.
+        if len(mags) > 1:
+            mean_mag_err = np.sqrt(
+                np.sum(((mags - mean_mag) * weights) ** 2) / np.sum(weights)
+            )
+        else:
+            mean_mag_err = used_mags["ML_Err"].values[0]
 
         # Pass the magnitudes (filtered & un-filtered) to the _mag_r_squared
         # function.
         mag_r_squared = self._mag_r_squared(
-            all_mags, mean_mag, only_used=self.r2_only_used
+            magnitudes, mean_mag, only_used=self.r2_only_used
         )
 
-        return mean_mag, mean_mag_err, mag_r_squared, all_mags
+        return mean_mag, mean_mag_err, mag_r_squared, magnitudes
 
     def plot_amplitudes(
         self, magnitudes, event, run, unit_conversion_factor, noise_measure="RMS"
@@ -412,8 +453,8 @@ class Magnitude:
             Columns = ["epi_dist", "z_dist", "P_amp", "P_freq", "P_time", "P_avg_amp",
                        "P_filter_gain", "S_amp", "S_freq", "S_time", "S_avg_amp",
                        "S_filter_gain", "Noise_amp", "is_picked", "ML", "ML_Err",
-                       "Noise_Filter", "Trace_Filter", "Station_Filter", "Dist_Filter",
-                       "Dist", "Used"]
+                       "Station_Correction", "Noise_Filter", "Trace_Filter",
+                       "Station_Filter", "Dist_Filter", "Dist", "Used"]
         event : :class:`~quakemigrate.io.event.Event` object
             Light class encapsulating waveforms, coalescence information, picks and
             location information for a given event.
@@ -451,9 +492,6 @@ class Magnitude:
             * self.amp_multiplier
             * np.power(10, magnitudes["Station_Correction"])
         )
-        filter_gains = magnitudes[f"{self.amp_feature[0]}_filter_gain"]
-        if not filter_gains.isnull().values.any():
-            noise_amps /= filter_gains
 
         dist = magnitudes["Dist"]
 
@@ -682,14 +720,14 @@ class Magnitude:
             corrections, if provided.
             Columns = ["epi_dist", "z_dist", "P_amp", "P_freq", "P_time", "P_avg_amp",
                        "P_filter_gain", "S_amp", "S_freq", "S_time", "S_avg_amp",
-                       "S_filter_gain", "Noise_amp", "is_picked", "ML", "ML_Err"]
+                       "S_filter_gain", "Noise_amp", "is_picked", "ML", "ML_Err",
+                       "Station_Correction"]
 
         Returns
         -------
-        used_mags : `pandas.DataFrame` object
-            As input, but only including individual amplitude measurements / local
-            magnitude estimates that meet the filters specified by the user. Now with
-            additional columns:
+        magnitudes : `pandas.DataFrame` object
+            As input, but with amplitude measurements which feature null values for the
+            signal or noise amplitude removed. Now with additional columns:
             Noise_Filter : bool
                 Whether this observation meets the noise filter.
             Trace_Filter : bool
@@ -698,14 +736,10 @@ class Magnitude:
                 Whether this observation is not excluded by the station filter.
             Dist_Filter : bool
                 Whether this observation meets the distance filter.
-            Dist : bool
+            Dist : float
                 The (epicentral or hypocentral) distance between the station and event.
             Used : bool (== True)
                 Whether the observation meets all filter requirements.
-        all_mags : `pandas.DataFrame` object
-            As for used_mags, but containing all observations from the input magnitudes
-            DataFrame, other than those which feature null values for the signal or
-            noise amplitude.
 
         """
 
@@ -767,9 +801,7 @@ class Magnitude:
         if self.noise_filter != 0.0:
             magnitudes.loc[~magnitudes["Noise_Filter"], "Used"] = False
 
-        used_mags = magnitudes[magnitudes["Used"]]
-
-        return used_mags, magnitudes
+        return magnitudes
 
     def _mag_r_squared(self, magnitudes, mean_mag, only_used=True):
         """
@@ -794,8 +826,8 @@ class Magnitude:
             Columns = ["epi_dist", "z_dist", "P_amp", "P_freq", "P_time", "P_avg_amp",
                        "P_filter_gain", "S_amp", "S_freq", "S_time", "S_avg_amp",
                        "S_filter_gain", "Noise_amp", "is_picked", "ML", "ML_Err",
-                       "Noise_Filter", "Trace_Filter", "Station_Filter", "Dist_Filter",
-                       "Dist", "Used"]
+                       "Station_Correction", "Noise_Filter", "Trace_Filter",
+                       "Station_Filter", "Dist_Filter", "Dist", "Used"]
         mean_mag : float or NaN
             Network-averaged local magnitude estimate for the event. Mean (or weighted
             mean) of the magnitude estimates calculated from each individual channel
@@ -864,6 +896,16 @@ class Magnitude:
             * self.amp_multiplier
             * np.power(10, magnitudes["Station_Correction"])
         )
+
+        # Check there are at least 2 amplitude measurements, and that amplitude
+        # measurements aren't all the same (which would still lead to zero variance and
+        # a subsequent divide-by-zero error).
+        if len(amps) < 2 or amps.min() == amps.max():
+            logging.info(
+                "\t    Insufficient amplitude measurements to make an r2 "
+                "estimate - skipping."
+            )
+            return np.nan
 
         dist = magnitudes["Dist"]
         att = self._get_attenuation(dist)

@@ -21,10 +21,10 @@ stations = read_stations(station_file)
 gproj = Proj(
     proj="lcc",
     units="km",
-    lon_0=-83.932,
-    lat_0=-78.144,
-    lat_1=-78.1,
-    lat_2=-77.9,
+    lon_0=-83.925,
+    lat_0=-78.145,
+    lat_1=-78.16,
+    lat_2=-78.13,
     datum="WGS84",
     ellps="WGS84",
     no_defs=True,
@@ -34,9 +34,9 @@ cproj = Proj(proj="longlat", datum="WGS84", ellps="WGS84", no_defs=True)
 # --- Define the grid specifications ---
 # AttribDict behaves like a Python dict, but also has '.'-style access.
 grid_spec = AttribDict()
-grid_spec.ll_corner = [-84.14853353566141, -78.18825429331356, -0.350]
-grid_spec.ur_corner = [-83.71921885073093, -78.10003166259442, 3.550]
-grid_spec.node_spacing = [0.1, 0.1, 0.1]
+grid_spec.ll_corner = [-84.1, -78.17, 1.0]
+grid_spec.ur_corner = [-83.75, -78.12, 3.0]
+grid_spec.node_spacing = [0.025, 0.025, 0.025]
 grid_spec.grid_proj = gproj
 grid_spec.coord_proj = cproj
 

@@ -24,8 +24,8 @@
     <img src="https://mybinder.org/badge_logo.svg" />
   </a>
   <!-- Python version-->
-  <a href="https://www.python.org/downloads/release/python-380/">
-    <img src="https://img.shields.io/badge/python-3.8+-blue.svg" />
+  <a href="https://www.python.org/downloads/release/python-390/">
+    <img src="https://img.shields.io/badge/python-3.9+-blue.svg" />
   </a>
   <!-- License -->
   <a href="https://www.gnu.org/licenses/gpl-3.0">

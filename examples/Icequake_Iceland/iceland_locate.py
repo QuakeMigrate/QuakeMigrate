@@ -36,16 +36,16 @@ stations = read_stations(station_file)
 
 # --- Create new Archive and set path structure ---
 archive = Archive(
-    archive_path=data_in, stations=stations, archive_format="YEAR/JD/*_STATION_*"
+    archive_path=data_in, stations=stations, archive_format="YEAR/JD/STATION"
 )
 
 # --- Load the LUT ---
 lut = read_lut(lut_file=lut_out)
 
 # --- Create new Onset ---
-onset = STALTAOnset(position="centred", sampling_rate=500)
+onset = STALTAOnset(position="centred", sampling_rate=250)
 onset.phases = ["P", "S"]
-onset.bandpass_filters = {"P": [10, 125, 4], "S": [10, 125, 4]}
+onset.bandpass_filters = {"P": [10, 124, 4], "S": [10, 124, 4]}
 onset.sta_lta_windows = {"P": [0.01, 0.25], "S": [0.05, 0.5]}
 
 # --- Create new PhasePicker ---
@@ -67,7 +67,7 @@ scan = QuakeScan(
 # --- Set locate parameters ---
 # For a complete list of parameters and guidance on how to choose them, please
 # see the manual and read the docs.
-scan.marginal_window = 1.0
+scan.marginal_window = 0.06
 scan.threads = 4  # NOTE: increase as your system allows to increase speed!
 
 # --- Toggle plotting options ---

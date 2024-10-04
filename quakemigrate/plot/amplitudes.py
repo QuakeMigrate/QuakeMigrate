@@ -4,7 +4,7 @@ Module to produce a summary plot for local magnitude calculation from Wood-Ander
 corrected displacement amplitude measurements.
 
 :copyright:
-    2020–2023, QuakeMigrate developers.
+    2020–2024, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -13,6 +13,7 @@ corrected displacement amplitude measurements.
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 
 
 def amplitudes_summary(
@@ -31,7 +32,7 @@ def amplitudes_summary(
         Columns = ["epi_dist", "z_dist", "P_amp", "P_freq", "P_time",
                    "P_avg_amp", "P_filter_gain", "S_amp", "S_freq",
                    "S_time", "S_avg_amp", "S_filter_gain", "Noise_amp",
-                   "is_picked", "ML", "ML_Err"], "Noise_Filter",
+                   "is_picked", "ML", "ML_Err", "Station_Correction", "Noise_Filter",
                    "Trace_Filter", "Station_Filter", "Dist_Filter", "Dist",
                    "Used"]
     amp_feature : {"S_amp", "P_amp"}
@@ -67,15 +68,13 @@ def amplitudes_summary(
     fig = plt.figure(figsize=(25, 15))
     ax = fig.add_subplot(111)
 
-    # Correct noise amplitudes according to station corrections
+    # Correct noise amplitudes according to station corrections. They have already been
+    # corrected for any filter_gain.
     noise_amps = (
         magnitudes["Noise_amp"].values
         * amp_multiplier
         * np.power(10, magnitudes["Station_Correction"])
     )
-    filter_gains = magnitudes[f"{amp_feature[0]}_filter_gain"]
-    if not filter_gains.isnull().values.any():
-        noise_amps /= filter_gains
 
     # Set to loglog scale
     ax.set_xscale("log")
@@ -106,7 +105,7 @@ def amplitudes_summary(
         * np.power(10, used_mags["Station_Correction"]),
         xerr=dist_err,
         yerr=noise_amps[magnitudes["Used"]],
-        marker="x",
+        fmt="x",
         label=signal_label,
     )
     _ = [errorbar.set_alpha(0.3) for errorbar in bars]
@@ -132,8 +131,7 @@ def amplitudes_summary(
             * np.power(10, rejected_mags["Station_Correction"]),
             xerr=dist_err,
             yerr=noise_amps[~magnitudes["Used"]],
-            fmt="o",
-            marker="x",
+            fmt="x",
             c="gray",
             label=unused_label,
         )
@@ -157,7 +155,9 @@ def amplitudes_summary(
                 rej_dists.append(rejected_mags["Dist"].iloc[i])
 
         # Only one label per new station; faff once again.
-        ax, _ = label_stations(ax, rej_trids, rej_amps, rej_dists, rejected=True)
+        ax, _ = label_stations(
+            ax, rej_trids, pd.Series(rej_amps), pd.Series(rej_dists), rejected=True
+        )
 
     # Label r-squared value
     ax.text(
@@ -212,7 +212,7 @@ def label_stations(ax, tr_ids, amps, dists, rejected=False):
             continue
         elif tr_id[:-1] != stn:
             stn_end = i
-            distance = dists[i - 1]
+            distance = dists.iloc[i - 1]
             amp = max(amps[stn_start:stn_end])
             compstring = ""
             for comp in comps:
@@ -236,7 +236,7 @@ def label_stations(ax, tr_ids, amps, dists, rejected=False):
             stn_start = i
             comps = [tr_id[-1]]
             if i == len(tr_ids) - 1:
-                distance = dists[i]
+                distance = dists.iloc[i]
                 amp = max(amps[stn_start:])
                 compstring = ""
                 for comp in comps:
@@ -258,7 +258,7 @@ def label_stations(ax, tr_ids, amps, dists, rejected=False):
         elif i == len(tr_ids) - 1:
             stn = tr_id[:-1]
             comps.append(tr_id[-1])
-            distance = dists[i]
+            distance = dists.iloc[i]
             amp = max(amps[stn_start:])
             compstring = ""
             for comp in comps:

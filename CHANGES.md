@@ -1,3 +1,61 @@
+
+- Examples:
+  * Added a new example use-case from Askja volcano, Iceland, which will be featured in the forthcoming manuscript. This example showcases the capability of QuakeMigrate to detect and locate a wide variety of seismic events with different source types, and in this case simultaneously with the same set of parameters. febabcd
+- quakemigrate.io.marginal_coalescence:
+  * Introduce support for saving the marginalised 3D coalescence map generated within `locate()`, and also a utility function to read it for e.g. plotting purposes, or further interrogation of the topology of the coalescence peak. ebcae96
+- switched off pick plotting for the VT_Iceland example. 7bab86d
+- quakemigrate.signal.trigger:
+  * Introduce the `median_ratio` method for determining a dynamic trigger threshold, by taking a multiplier of the median value of the coalescence trace in a user-defined window. 6d16f18
+  * Fix a bug in `trigger.chunks2trace()` - still using deprecated `numpy.product()` 6d16f18
+  * Rename the existing dynamic trigger threshold method (based on a multiple of the median absolute devation of the coalescence trace) from `dynamic` -> `mad` 9ef138a
+  * Introduce "trigger smoothing" functionality; the option to smooth the coalescence trace by convolving a gaussian kernel of user-defined sigma and width before determining and applying the trigger threshold to identify candidate events. 1ea643c
+  * Revert to always using the `COA` timeseries for determining the trigger peak index (i.e. candidate event origin time) to ensure better correspondence with origin times determined within locate() 836521a
+- tests.test_trigger:
+  * Add unit tests for trigger dynamic threshold and smoothing functions 78f3e73
+
+1.1.1
+=====
+Address a bug in amplitude plotting introduced in v1.1.0, and modify the Volcanotectonic_Iceland example such that this issue is now covered by tests going forwards.
+
+- Explicitly use `pandas.Series` for input to plot.amplitudes.label_stations(), and fix a minor plotting bug e63851f
+- Add filters for magnitude calculation in the Volcanotectonic_Iceland example, as well as making some additional improvements to the amp_params and mag_params configuration 7e5768a
+
+1.1.0
+=====
+Move the onset function computation into a compiled C library. The ability to use the original Python backend is retained. Settings for the icequake examples were updated to improve the detections/locations, reflecting improvements to the core code that allows for higher resolutions to be computed without incurring prohibitive computational costs. We also added a feature to allow users to select the transformation applied to thea waveform data before onset functions are computed.
+
+Importantly, we addressed a bug in the ordering of when the onset functions for the horizontal (S) components were combined relative to when the log of the onset function was taken. This changes the values for the example benchmarks, which have been updated accordingly. This motivated the bump from version 1.0.x to 1.1.0.
+
+- Add C onset function library dd3b52d
+- Add Python backend for onset functions 907873a
+- Move the logging of the onset functions to the correct position (after combining the two horizontal components for the S onset) 1600f11
+- Update Rutford icequake example 5d7510f and 9e2c363
+- Update Iceland icequake example 8f61a64 and 9e2c363
+- Update minimum and maximum supported Python versions to 3.9 and 3.12, respectively 28d2537
+- Move onset log (breaking change, fixes a bug) 1600f11
+- Add the ability to select the type of signal transform applied to the raw data before computing the onset functions 1600f11
+  - Energy (waveform squared)
+  - Absolute value
+  - Envelope (absolute value of the analytic signal, i.e., the Hilbert transform)
+  - Envelope squared
+
+1.0.3
+=====
+Make some minor updates to tooling used by the package and address some issues that had arisen from underlying dependencies. Further, we have added a backdoor that allows us to debug issues with our CI/CD testing.
+
+- Switched to Ruff autoformatter (9580ccf)
+- Addressed a Matplotlib bug arising from the deprecation of the method of sharing/joining axes we were previously using (a4fe6f8)
+- Resolved issue with test workflow failure (a11677b/1363a7a) and added tmate backdoor for debugging (9b433d3)
+- Updated an issue with the data downloading in the Iceland volcano-tectonic example. This had the added benefit of being faster, too! (b11a6b8)
+
+1.0.2
+=====
+This patch release introduces a few code management/styling tools to help maintain consistent styling across contributors, as well as re-establishing routine testing.
+
+- Introduced a pre-commit hook for developers that performs a number of checks that must pass before a commit can be made. Principle among these tests is the use of Black ("The uncompromising Python code formatter"). This ensures consistent styling across all commits.
+- A GitHub workflow now manages test running and coverage analysis. The workflow is triggered by a number of scenarios, such as a new PR being opened etc. For full details, see 24bdb2e. Importantly, the workflow is also scheduled to run on a regular basis. Once a week, all tests are run—any breaking changes introduced by our dependencies should be caught this way.
+- The Contributing guidelines were updated to reflect these changes to the developer workflow.
+
 1.0.1
 =====
 Add the ability to install QuakeMigrate from the Python Package Index. This involves building Python wheels for different operating systems / architectures / Python versions. This is done using a GitHub Action and build machines provided by GitHub.

@@ -13,12 +13,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
+import pandas as pd
 from obspy import Trace, Stream, UTCDateTime
 from obspy.geodetics.base import gps2dist_azimuth
-import pandas as pd
-from quakemigrate.signal.onsets.stalta import sta_lta_centred
 from quakemigrate.lut import LUT
-from scipy.signal import butter, detrend, lfilter
 
 
 @dataclass
@@ -70,102 +68,6 @@ class GaussianDerivativeWavelet(Wavelet):
 
         # Roll wavelet so first motion is at ~midpoint of array
         self.data = np.roll(data, int(sps * 0.5 / frequency) + 3) / max(data)
-
-
-def rotation2d(θ: float) -> np.ndarray:
-    """
-    Create a 2-D rotation matrix for a given angle, θ (provided in degrees).
-
-    This is defined as:
-        | cos(θ) sin(θ)|
-        |-sin(θ) cos(θ)|
-
-    Parameters
-    ----------
-    θ: Angle of rotation of the rotation matrix.
-
-    Returns
-    -------
-    rotation_matrix: 2 x 2 rotation matrix.
-
-    """
-
-    # Convert from degrees to radians
-    θ_r = np.deg2rad(θ)
-
-    return np.array([[np.cos(θ_r), -np.sin(θ_r)], [np.sin(θ_r), np.cos(θ_r)]])
-
-
-def butter_bandpass(
-    lowcut: float, highcut: float, fs: float, order: int = 4
-) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Create a butterworth bandpass filter, to be applied using scipy lfilter.
-
-    Parameters
-    ----------
-    lowcut: Remove frequencies below this value (Hz).
-    highcut: Remove frequencies above this value (Hz).
-    fs: Sampling rate (Hz).
-    order: Filter order (# of corners).
-
-    Returns
-    -------
-    b, a: Numerator & denominator polynomials of the IIR filter.
-
-    """
-
-    nyq = 0.5 * fs
-    low = lowcut / nyq
-    high = highcut / nyq
-    b, a = butter(order, [low, high], btype="band")
-
-    return b, a
-
-
-def sta_lta_onset(
-    x: np.ndarray,
-    filt: tuple[float, float, int] = [1.0, 10.0, 2],
-    onset_params: tuple[float, float] = [0.1, 1.5],
-    fs: float = 50.0,
-) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Calculate the *centred* short-term average / long-term average onset function
-    as implemented in QuakeMigrate v1.0.0.as_integer_ratio
-
-                    value assigned here (last sample of LTA window)
-                          v
-    |---------------------||-------|
-               ^               ^
-           LTA window      STA window
-
-    Parameters
-    ----------
-    x: Input signal.
-    filt: Bandpass filter parameters: [low-cut (Hz), high-cut (Hz), corners]
-    onset_params: [STA window (secs), LTA window (secs)].
-    fs: Sampling rate.
-
-    Returns
-    -------
-    onset: Onset function.
-    filt_x: Filtered signal.
-
-    """
-
-    # Detrend
-    detrend(x, overwrite_data=True)
-    # Filter
-    b, a = butter_bandpass(filt[0], filt[1], fs, order=filt[2])
-    filt_x = lfilter(b, a, x)
-
-    # Calculate onset function
-    stw = int(round(onset_params[0] * fs))
-    ltw = int(round(onset_params[1] * fs))
-
-    onset = sta_lta_centred(detrend(filt_x), stw, ltw)
-
-    return onset, filt_x
 
 
 def simulate_waveforms(
@@ -308,7 +210,7 @@ def _attenuate(distance: float) -> float:
 
     Returns
     -------
-    attenuation_factor: Scaling factor as a function of stiance.
+    attenuation_factor: Scaling factor as a function of distance.
 
     """
 

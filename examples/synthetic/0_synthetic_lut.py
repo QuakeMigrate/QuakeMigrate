@@ -10,6 +10,17 @@ the tutorial in the online documentation.
 
 """
 
+# Stop numpy using all available threads (these environment variables must be
+# set before numpy is imported for the first time).
+import os
+
+os.environ.update(
+    OMP_NUM_THREADS="1",
+    OPENBLAS_NUM_THREADS="1",
+    NUMEXPR_NUM_THREADS="1",
+    MKL_NUM_THREADS="1",
+)
+
 import numpy as np
 from obspy.core import AttribDict
 import pandas as pd
@@ -19,7 +30,7 @@ from quakemigrate.lut import compute_traveltimes
 
 
 # Build synthetic lookup table
-station_file = "./inputs/synthetic_stations.sta"
+station_file = "./inputs/synthetic_stations.txt"
 vmodel_file = "./inputs/velocity_model.csv"
 lut_out = "./outputs/lut/example.LUT"
 
@@ -30,7 +41,7 @@ stations["Network"] = ["SC"] * 10
 stations["Name"] = [f"STA{i}" for i in range(10)]
 stations["Longitude"] = rng.uniform(low=-0.15, high=0.15, size=10)
 stations["Latitude"] = rng.uniform(low=-0.15, high=0.15, size=10)
-stations["Elevation"] = [-0.0] * 10
+stations["Elevation"] = rng.uniform(low=-0.0, high=1.0, size=10)
 stations.to_csv(station_file, index=False)
 
 # --- Read in the velocity model file ---
@@ -42,8 +53,8 @@ gproj = Proj(
     units="km",
     lon_0=0.0,
     lat_0=0.0,
-    lat_1=-0.149,
-    lat_2=0.1491,
+    lat_1=-0.10,
+    lat_2=0.101,
     datum="WGS84",
     ellps="WGS84",
     no_defs=True,

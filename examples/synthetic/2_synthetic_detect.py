@@ -10,13 +10,24 @@ in the online documentation.
 
 """
 
+# Stop numpy using all available threads (these environment variables must be
+# set before numpy is imported for the first time).
+import os
+
+os.environ.update(
+    OMP_NUM_THREADS="1",
+    OPENBLAS_NUM_THREADS="1",
+    NUMEXPR_NUM_THREADS="1",
+    MKL_NUM_THREADS="1",
+)
+
 from quakemigrate import QuakeScan
 from quakemigrate.io import Archive, read_lut, read_stations
 from quakemigrate.signal.onsets import STALTAOnset
 
 
 # --- i/o paths ---
-station_file = "./inputs/synthetic_stations.sta"
+station_file = "./inputs/synthetic_stations.txt"
 data_in = "./inputs/mSEED"
 lut_out = "./outputs/lut/example.LUT"
 run_path = "./outputs/runs"
@@ -36,12 +47,12 @@ archive = Archive(
 
 # --- Load the LUT ---
 lut = read_lut(lut_file=lut_out)
-lut.decimate([4, 4, 1], inplace=True)
+lut.decimate([4, 4, 4], inplace=True)
 
 # --- Create new Onset ---
-onset = STALTAOnset(position="centred", sampling_rate=50)
+onset = STALTAOnset(position="classic", sampling_rate=100)
 onset.phases = ["P", "S"]
-onset.bandpass_filters = {"P": [1, 10, 2], "S": [1, 10, 2]}
+onset.bandpass_filters = {"P": [1, 14, 2], "S": [1, 14, 2]}
 onset.sta_lta_windows = {"P": [0.2, 1.5], "S": [0.2, 1.5]}
 
 # --- Create new QuakeScan ---

@@ -9,7 +9,7 @@ Small module that provides basic waveform simulations routines.
 
 """
 
-from .core import GaussianDerivativeWavelet, simulate_waveforms, sta_lta_onset
+from .core import GaussianDerivativeWavelet, simulate_waveforms
 
 
-__all__ = [GaussianDerivativeWavelet, simulate_waveforms, sta_lta_onset]
+__all__ = [GaussianDerivativeWavelet, simulate_waveforms]

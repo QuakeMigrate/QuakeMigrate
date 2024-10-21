@@ -1,7 +1,9 @@
 Generate synthetic waveforms
 ============================
 
-Now that we have a traveltime lookup table, we can use it to build realistic simulated waveforms for our example. Waveform simulation is a vast topic—here, we have opted for a relatively simple implementation, as it is sufficient for the purpose of walking through each QuakeMigrate stage. The earthquake source is represented as a pair of Gaussian-derivative wavelets (one for each of the primary body phases, P and S), with some given dominant frequency. Then, for each station, we use the pre-computed traveltimes for each phase to time-shift these Gaussian wavelets. Noise, drawn from a Gaussian distribution, is added to both the waveform amplitudes—nominally to represent background seismic noise—and the traveltimes—as a proxy for uncertainties in the velocity model. As with when we built the lookup table, we use a fixed seed to generate our random numbers to ensure repeatability between runs.
+Now that we have a traveltime lookup table, we can use it to help build realistic simulated waveforms for our example. Waveform simulation is a vast topic—here, we have opted for a relatively simple implementation, as it is sufficient for the purpose of walking through each stage of running QuakeMigrate. The earthquake source is represented as a pair of Gaussian-derivative wavelets (one for each of the primary body phases, P and S), with some given dominant frequency. Then, for each station, we use the pre-computed traveltimes for each phase to time-shift these Gaussian wavelets. Noise, drawn from a Gaussian distribution, is added to both the waveform amplitudes—nominally to represent background seismic noise—and the traveltimes—as a proxy for uncertainties (e.g. due to unmodelled 3D structure) in the velocity model. As with when we built the lookup table, we use a fixed seed to generate our random numbers to ensure repeatability between runs.
+
+For users who are interested, this process is documented in detail below, but if you want to jump ahead to using these waveforms to step through a simple QuakeMigrate run, then you can move directly to :doc:`running detect</tutorials/synthetic/2_run-detect>`.
 
 The wavelets are represented using a light dataclass, with a base class provided for users interested in exploring alternative wavelets:
 
@@ -57,7 +59,7 @@ The wavelets are represented using a light dataclass, with a base class provided
             # Roll wavelet so first motion is at ~midpoint of array
             self.data = np.roll(data, int(sps * 0.5 / frequency) + 3) / max(data)
 
-For simplicity, we place the earthquake at the center of our grid. The synthetics are computed on the LQT coordinate system, before being rotated onto the ZNE coordinate system to emulate the directional nature of the waveform propagation from the source to the instruments in the seismic network. That is, there is some partitioning of the P- and S-phase waveforms onto the vertical (Z) and horizontal (N and E) components, based on some angle-of-incidence (fixed at 80° from horizontal, in this instance), as well as the azimuth from the source to receiver. Finally, we scale the amplitudes of the phase waveforms using a simple Hutton-Boore local magnitude scaling relationship. The magnitude of the earthquake can be varied to explore how QuakeMigrate performs at different scales (though, in reality, this would also be reflected by a corresponding change in the frequency content of the waveforms, which is not addressed here).
+For simplicity, we place the earthquake at the center of our grid. The synthetics are computed on the LQT coordinate system, before being rotated onto the ZNE coordinate system to emulate the directional nature of the waveform propagation from the source to the stations in the seismic network. That is, there is some partitioning of the P- and S-phase waveforms onto the vertical (Z) and horizontal (N and E) components, based on some angle-of-incidence (fixed at 80° from horizontal, in this instance), as well as the azimuth from the source to receiver. Finally, we scale the amplitudes of the phase waveforms using a simple Hutton-Boore local magnitude scaling relationship. The magnitude of the earthquake can be varied to explore how QuakeMigrate performs at different scales (though, in reality, this would also be reflected by a corresponding change in the frequency content of the waveforms, which is not addressed here).
 
 Here, we step through the underlying function within the small :mod:`simulate` module found in the example directory, which is used to simulated waveforms, starting with the function header:
 
@@ -173,12 +175,22 @@ The full script looks like this:
 
     """
 
+    # Stop numpy using all available threads (these environment variables must be
+    # set before numpy is imported for the first time).
+    import os
     import pathlib
+
+    os.environ.update(
+        OMP_NUM_THREADS="1",
+        OPENBLAS_NUM_THREADS="1",
+        NUMEXPR_NUM_THREADS="1",
+        MKL_NUM_THREADS="1",
+    )
 
     import numpy as np
     from quakemigrate.io import read_lut
 
-    import simulate as simulate
+    from simulate import GaussianDerivativeWavelet, simulate_waveforms
 
 
     lut = read_lut("./outputs/lut/example.LUT")
@@ -190,14 +202,14 @@ The full script looks like this:
     np.random.seed(4)  # Fix seed for reproducible results
 
     # --- Build wavelet ---
-    frequency, sps, time_span = 4.0, 100, 300.0
-    wavelet = simulate.GaussianDerivativeWavelet(frequency, sps, time_span)
+    frequency, sps, half_timespan = 4.0, 100, 300.0
+    wavelet = GaussianDerivativeWavelet(frequency, sps, half_timespan)
 
     earthquake_coords = [0.0, 0.0, 15.0]
     aoi = 80
     magnitude = 2.2
 
-    simulated_stream = simulate.simulate_waveforms(
+    simulated_stream = simulate_waveforms(
         wavelet, earthquake_coords, lut, magnitude=magnitude, angle_of_incidence=aoi
     )
 

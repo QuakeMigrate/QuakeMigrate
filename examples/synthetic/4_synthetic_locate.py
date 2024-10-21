@@ -79,8 +79,7 @@ scan.threads = 4  # NOTE: increase as your system allows to increase speed!
 scan.plot_event_summary = True
 
 # --- Toggle writing of waveforms ---
-scan.write_cut_waveforms = True
-scan.write_marginal_coalescence = True
+scan.write_cut_waveforms = False
 
 # --- Run locate ---
 scan.locate(starttime=starttime, endtime=endtime)

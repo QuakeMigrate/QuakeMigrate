@@ -21,7 +21,7 @@ When specifying the waveform archive, we can make use of one of the in-built arc
 .. code-block:: python
 
     archive = Archive(archive_path=data_in, stations=stations)
-    archive.format = "{year}/{jday:03d}/{station}_*.m"
+    archive.format = "{year}/{jday:03d}/{station}*"
 
 The above code block is equivalent to:
 
@@ -37,21 +37,21 @@ We now read in the traveltime lookup table we created in an earlier step, before
 
     # --- Load the LUT ---
     lut = read_lut(lut_file=lut_out)
-    lut.decimate([4, 4, 1], inplace=True)
+    lut.decimate([4, 4, 4], inplace=True)
 
-The next section of the run script is where we specify the Onset function to be used. The Onset function, as is explored in greater detail elsewhere in our documentation and the paper accompaniment, is a function that transforms the input waveform data into some representation that amplifies the presence of the component of information of interest. In our case, we use a short-term to long-term average ratio (or STA/LTA) onset function that is sensitive to sharp changes in waveform amplitudes, such as one would expect to see for the impulsive phase arrivals. This function has been shown to possess Gaussian qualities, making the resultant output an effective, continuous description of the probability of a phase arrival at a given time.
+The next section of the run script is where we specify the Onset function to be used. The Onset function, as is explored in greater detail elsewhere in our documentation and the paper accompaniment, is an algorithm that transforms the input waveform data into some always-positive representation that produces peaks around seismic phase arrivals. In our case, we use a short-term to long-term average ratio (or STA/LTA) onset function that is sensitive to sharp changes in waveform amplitudes, such as one would expect to see for the impulsive phase arrivals. This function has been shown to possess Gaussian qualities, making the resultant output an effective, continuous description of the probability of a phase arrival at a given time.
 
-We can tune such an Onset function to our specific dataset via a few parameters. Firstly, we specify the phases of interest. In the simplest case this could just be a single phase, such as the P-phase arrival. However, combining the P- and S-phase arrivals will often provide a greater degree of constraint on the earthquake location and is preferable when possible. For each selected phase, you must have a corresponding traveltime lookup table. After that, we tune the STA/LTA onset function to be maximally sensitive to the likely dominant frequency for each phase of interest. This is achieved using two parameters: a bandpass filter (here defined using a lowcut, highcut, and number of corners); and the lengths (in seconds) of the short-term and long-term windows.
+We can tune such an Onset function to our specific dataset via a few parameters. Firstly, we specify the phases of interest. In the simplest case this could just be a single phase, such as the P-phase arrival. However, combining the P- and S-phase arrivals will provide a much improved constraint on the earthquake location and is preferable whenever possible. For each selected phase, you must have calculated a corresponding traveltime lookup table. After that, we tune the STA/LTA onset function to be maximally sensitive to the likely dominant frequency for each phase of interest. This is achieved using two parameters: a bandpass filter (here defined using a lowcut, highcut, and number of corners); and the lengths (in seconds) of the short-term and long-term windows.
 
 .. code-block:: python
 
     # --- Create new Onset ---
-    onset = STALTAOnset(position="centred", sampling_rate=50)
+    onset = STALTAOnset(position="classic", sampling_rate=100)
     onset.phases = ["P", "S"]
-    onset.bandpass_filters = {"P": [1, 10, 2], "S": [1, 10, 2]}
+    onset.bandpass_filters = {"P": [1, 14, 2], "S": [1, 14, 2]}
     onset.sta_lta_windows = {"P": [0.2, 1.5], "S": [0.2, 1.5]}
 
-Finally, we combine these definitions into a :class:`QuakeScan` object. We can also adjust the scan to ensure each stage fits within the available computational resources (e.g., if you are memory-limited) by adjusting the timestep—that is, the length of time used for each chunk of the migration and stacking stage—and the number of threads to be used in multiprocessing.
+Finally, we combine these definitions into a :class:`QuakeScan` object. We can also adjust the scan hyperparameters to ensure each stage fits within the available computational resources (e.g., if you are memory-limited) by adjusting the timestep—that is, the length of time used for each chunk of the migration and stacking stage—and the number of threads to be used in multiprocessing.
 
 .. code-block:: python
 
@@ -95,13 +95,24 @@ The full script looks like this:
 
     """
 
+    # Stop numpy using all available threads (these environment variables must be
+    # set before numpy is imported for the first time).
+    import os
+
+    os.environ.update(
+        OMP_NUM_THREADS="1",
+        OPENBLAS_NUM_THREADS="1",
+        NUMEXPR_NUM_THREADS="1",
+        MKL_NUM_THREADS="1",
+    )
+
     from quakemigrate import QuakeScan
     from quakemigrate.io import Archive, read_lut, read_stations
     from quakemigrate.signal.onsets import STALTAOnset
 
 
     # --- i/o paths ---
-    station_file = "./inputs/synthetic_stations.sta"
+    station_file = "./inputs/synthetic_stations.txt"
     data_in = "./inputs/mSEED"
     lut_out = "./outputs/lut/example.LUT"
     run_path = "./outputs/runs"
@@ -121,12 +132,12 @@ The full script looks like this:
 
     # --- Load the LUT ---
     lut = read_lut(lut_file=lut_out)
-    lut.decimate([4, 4, 1], inplace=True)
+    lut.decimate([4, 4, 4], inplace=True)
 
     # --- Create new Onset ---
-    onset = STALTAOnset(position="centred", sampling_rate=50)
+    onset = STALTAOnset(position="classic", sampling_rate=100)
     onset.phases = ["P", "S"]
-    onset.bandpass_filters = {"P": [1, 10, 2], "S": [1, 10, 2]}
+    onset.bandpass_filters = {"P": [1, 14, 2], "S": [1, 14, 2]}
     onset.sta_lta_windows = {"P": [0.2, 1.5], "S": [0.2, 1.5]}
 
     # --- Create new QuakeScan ---

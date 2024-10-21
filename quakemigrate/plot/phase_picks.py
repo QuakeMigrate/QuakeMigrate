@@ -3,7 +3,7 @@
 Module to produce a summary plot for the phase picking.
 
 :copyright:
-    2020–2023, QuakeMigrate developers.
+    2020–2024, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -269,11 +269,6 @@ def pick_summary(
                 ax = axes[ind]
                 clr = c1 if ind % 3 == 0 else c2
                 _plot_phase_pick(ax, pick, clr)
-        # Calculate residual:
-        if pick.PickTime == -1:
-            resid = -1
-        else:
-            resid = pick.PickTime - pick.ModelledTime
         # Summary text
         text.text(
             0.1 + i * 0.5,
@@ -288,7 +283,7 @@ def pick_summary(
             f"Pick time: {pick.PickTime}\n"
             f"Pick error: {pick.PickError:5.3f} s\n"
             f"Pick SNR: {pick.SNR:5.3f}\n"
-            f"Pick residual: {resid:5.3f} s"
+            f"Pick residual: {pick.Residual:5.3f} s"
         )
         text.text(0.05 + i * 0.5, 0.4, pick_info, ha="left", va="center", fontsize=18)
     text.set_axis_off()

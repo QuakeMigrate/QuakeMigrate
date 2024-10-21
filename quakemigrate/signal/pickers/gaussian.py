@@ -156,6 +156,7 @@ class GaussianPicker(PhasePicker):
                 "PickTime",
                 "PickError",
                 "SNR",
+                "Residual",
             ],
         )
         gaussfits = {}
@@ -198,7 +199,11 @@ class GaussianPicker(PhasePicker):
 
                 traveltime = lut.traveltime_to(phase, e_ijk, station)[0]
                 model_time = event.otime + traveltime
-                picks.iloc[idx] = [station, phase, model_time, *pick]
+                if pick[0] == -1:
+                    residual = -1
+                else:
+                    residual = pick[0] - model_time
+                picks.iloc[idx] = [station, phase, model_time, *pick, residual]
                 idx += 1
 
         event.add_picks(picks, gaussfits=gaussfits, pick_windows=pick_windows)

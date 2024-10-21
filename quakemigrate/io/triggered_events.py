@@ -3,7 +3,7 @@
 Module to handle input/output of TriggeredEvents.csv files.
 
 :copyright:
-    2020–2023, QuakeMigrate developers.
+    2020–2024, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -13,6 +13,7 @@ Module to handle input/output of TriggeredEvents.csv files.
 import logging
 
 from obspy import UTCDateTime
+from datetime import time
 import pandas as pd
 
 import quakemigrate.util as util
@@ -67,9 +68,19 @@ def read_triggered_events(run, **kwargs):
     events["CoaTime"] = events["CoaTime"].apply(UTCDateTime)
 
     if starttime is not None and endtime is not None:
-        events = events[
-            (events["CoaTime"] >= starttime) & (events["CoaTime"] <= endtime)
-        ]
+        # Check if the batch extends to midnight; if so, use "less than" condition to
+        # ensure consistent treatment of multi-day runs (midnight = next day, so not
+        # included). We do not have access to the detect scan rate here any longer, but
+        # using "less than" is sufficient, and avoids hard-coding a (minimum) scan_rate
+        # sampling interval.
+        if endtime.time == time(0, 0):
+            events = events[
+                (events["CoaTime"] >= starttime) & (events["CoaTime"] < endtime)
+            ]
+        else:
+            events = events[
+                (events["CoaTime"] >= starttime) & (events["CoaTime"] <= endtime)
+            ]
 
     if len(events) == 0:
         logging.info(

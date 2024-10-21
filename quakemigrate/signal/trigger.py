@@ -14,6 +14,7 @@ import logging
 
 import numpy as np
 from obspy import UTCDateTime
+from datetime import time
 import pandas as pd
 from scipy.ndimage import gaussian_filter1d
 
@@ -334,6 +335,12 @@ class Trigger:
         data, stats = read_scanmseed(
             self.run, batchstart, batchend, self.pad, self.lut.unit_conversion_factor
         )
+
+        # Check if the batch extends to midnight; if so, reduce 'batchend' by one sample
+        # to ensure consistent treatment of multi-day runs (midnight = next day, so not
+        # included).
+        if batchend.time == time(0, 0):
+            batchend -= stats.delta
 
         if self.smooth_coa:
             data = self._smooth_coa(data, stats.sampling_rate)
@@ -656,7 +663,7 @@ class Trigger:
 
         # Remove events which occur in the pre-pad and post-pad:
         events = events.loc[
-            (events["CoaTime"] >= starttime) & (events["CoaTime"] < endtime), :
+            (events["CoaTime"] >= starttime) & (events["CoaTime"] <= endtime), :
         ].copy()
 
         if region is not None:

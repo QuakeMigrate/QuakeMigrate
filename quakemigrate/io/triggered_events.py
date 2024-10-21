@@ -52,7 +52,7 @@ def read_triggered_events(run, **kwargs):
         events = pd.read_csv(trigger_file)
     else:
         trigger_files = []
-        readstart = starttime
+        readstart = UTCDateTime(starttime.date)
         while readstart <= endtime:
             fstem = f"{run.name}_{readstart.year}_{readstart.julday:03d}"
             file = (fpath / f"{fstem}_TriggeredEvents").with_suffix(".csv")

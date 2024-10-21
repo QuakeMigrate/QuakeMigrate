@@ -355,8 +355,6 @@ def _plot_text_summary(ax, lut, event):
                 f"{mag:.3g} \u00b1 {mag_err:.3g}   r\u00b2 = {mag_r2:.3g}",
                 ha="left",
             )
-            # ax.text(0.35, 0.02, "Local magnitude r\u00b2:", ha="right")
-            # ax.text(0.37, 0.02, f"{mag_r2:.3g}", ha="left")
     ax.set_axis_off()
 
 

@@ -1,6 +1,7 @@
 
 - Examples:
   * Added a new example use-case from Askja volcano, Iceland, which will be featured in the forthcoming manuscript. This example showcases the capability of QuakeMigrate to detect and locate a wide variety of seismic events with different source types, and in this case simultaneously with the same set of parameters. febabcd
+  * Add an example that demonstrates the functioning of QuakeMigrate using a synthetic dataset. This dataset is one of the examples presented in the manuscript. The example is also accompanied by documentation covering the example, which is a great plus to our online documentation!
 - quakemigrate.io.marginal_coalescence:
   * Introduce support for saving the marginalised 3D coalescence map generated within `locate()`, and also a utility function to read it for e.g. plotting purposes, or further interrogation of the topology of the coalescence peak. ebcae96
 - switched off pick plotting for the VT_Iceland example. 7bab86d

@@ -1,5 +1,5 @@
-The traveltime lookup table
-===========================
+Traveltime lookup tables
+========================
 This tutorial will cover the basic ideas and definitions underpinning the traveltime lookup table, as well as showing how they can be created.
 
 In order to reduce computational costs during runtime, we pre-compute traveltime
@@ -11,7 +11,7 @@ Before we can create our traveltime lookup table, we first have to define the un
 
 Coordinate projections
 ######################
-First, we choose a pair of coordinate reference systems to represent the input coordinate space (``cproj``) and the Cartesian grid space (``gproj``). We do this using `pyproj`, which provides the Python bindings for the PROJ library. It is important to think about which projection is best suited to your particular study region. More information can be found `in their documentation <https://pyproj4.github.io/pyproj/stable/>`_.
+First, we choose a pair of coordinate reference systems to represent the input coordinate space (``cproj``) and the Cartesian grid space (``gproj``). We do this using :mod:`pyproj`, which provides the Python bindings for the :mod:`PROJ` library. It is important to think about which projection is best suited to your particular study region. More information can be found `in their documentation <https://pyproj4.github.io/pyproj/stable/>`_.
 
 .. warning:: The default units of :class:`Proj` are `metres`! It is strongly advised that you explicitly state which units you wish to use.
 
@@ -21,9 +21,19 @@ In this example we use the WGS84 reference ellipsoid (used as standard by the Gl
 
     from pyproj import Proj
 
+
     cproj = Proj(proj="longlat", ellps="WGS84", datum"=WGS84", no_defs=True)
-    gproj = Proj(proj="lcc", lon_0=116.75, lat_0=6.25, lat_1=5.9, lat_2=6.6,
-                 datum="WGS84", ellps="WGS84", units="km", no_defs=True)
+    gproj = Proj(
+        proj="lcc",
+        lon_0=116.75,
+        lat_0=6.25,
+        lat_1=4.0,
+        lat_2=7.5,
+        datum="WGS84",
+        ellps="WGS84",
+        units="km",
+        no_defs=True
+    )
 
 The units of the Cartesian grid space are specified as kilometres. ``lon_0`` and ``lat_0`` specify the geographic origin of the projection (which should be at roughly the centre of your grid), and ``lat_1`` and ``lat_2`` specify the two "standard parallels", which set the region in which the distortion from unit scale is minimised. We therefore recommend you choose latitudes at ~25% and 75% of the North-South extent of your grid (see :ref:`Geographical location and spatial extent`).
 
@@ -51,8 +61,8 @@ The final piece of information required to define the grid on which we will comp
 
 Bundling the grid specification
 ###############################
-The grid specification needs to be bundled into a dictionary to be used as an input for the :func:`compute_traveltimes` function. We use here the :class:`AttribDict` from ObsPy, which extends the standard Python `dict` data structure to also
-have `.`-style access.
+The grid specification needs to be bundled into a dictionary to be used as an input for the :func:`compute_traveltimes` function. We use here the :class:`AttribDict` from ObsPy, which extends the standard Python :class:`dict` data structure to also
+have ``.``-style access.
 
 ::
 
@@ -73,10 +83,11 @@ In addition to the grid specification, we need to provide a list of stations for
 
     from quakemigrate.io import read_stations
 
+
     stations = read_stations("/path/to/station_file")
 
 The :func:`read_stations` function is a passthrough for :func:`pandas.read_csv`, so we can handle any delimiting characters (e.g. by specifying ``read_stations("station_file", delimiter=",")``). There are four required (case-sensitive) column
-headers - "Name", "Longitude", "Latitude", "Elevation".
+headers - ``Name``, ``Longitude``, ``Latitude``, ``Elevation``.
 
 .. note:: Station elevations are in the positive-up/right-handed coordinate frame. An elevation of 2 would correspond to 2 (km) above sea level.
 
@@ -92,13 +103,19 @@ Simply calculates the straight line traveltimes between stations and points in t
 
     from quakemigrate.lut import compute_traveltimes
 
-    compute_traveltimes(grid_spec, stations, method="homogeneous",
-                        phases=["P", "S"], vp=5., vs=3., log=True,
-                        save_file=/path/to/save_file)
+    compute_traveltimes(
+        grid_spec,
+        stations,
+        method="homogeneous",
+        vp=5.,
+        vs=3.,
+        log=True,
+        save_file=/path/to/save_file
+    )
 
 1-D velocity models
 ###################
-Similarly to :ref:`station files<Station files>`, 1-D velocity models are read in from an (arbitrarily delimited) textfile using :func:`quakemigrate.io.read_vmodel` (see below for examples). There is only 1 required (case-sensitive) column header - "Depth", which contains the depths at the top of each layer in the velocity model. Each additional column should contain the seismic velocity for each layer corresponding to a particular seismic phase, with a (case-sensitive) header, e.g. `Vp` (Note: Uppercase `V`, lowercase phase code).
+Similarly to :ref:`station files<Station files>`, 1-D velocity models are read in from an (arbitrarily delimited) textfile using :func:`quakemigrate.io.read_vmodel` (see below for examples). There is only 1 required (case-sensitive) column header - ``Depth``, which contains the depths at the top of each layer in the velocity model. Each additional column should contain the seismic velocity for each layer corresponding to a particular seismic phase, with a (case-sensitive) header, e.g. ``Vp`` (Note: Uppercase ``V``, lowercase phase code).
 
 .. note:: The units for velocities should correspond to the units used in specifying the grid projection. km -> kms\ :sup:`-1`; m -> ms\ :sup:`-1`.
 
@@ -106,7 +123,7 @@ Similarly to :ref:`station files<Station files>`, 1-D velocity models are read i
 
 1-D fast-marching method
 ************************
-The fast-marching method calculates traveltimes by implicitly tracking the evolution of the wavefront. We use the `scikit-fmm` package as our backend to provide this functionality. It is possible to use this package to compute traveltimes from 1-D, 2-D, or 3-D velocity models, however currently we provide a utility function that computes traveltime tables from 1-D velocity models. The format of this velocity model file is specified below. See the `scikit-fmm documentation <https://scikit-fmm.readthedocs.io/en/latest/>`_ and `Rawlinson & Sambridge (2005) <http://www.publish.csiro.au/eg/EG05341>`_ for more details.
+The fast-marching method calculates traveltimes by implicitly tracking the evolution of the wavefront. We use the :mod:`scikit-fmm` package as our backend to provide this functionality. It is possible to use this package to compute traveltimes from 1-D, 2-D, or 3-D velocity models, however currently we provide a utility function that computes traveltime tables from 1-D velocity models. The format of this velocity model file is specified below. See the `scikit-fmm documentation <https://scikit-fmm.readthedocs.io/en/latest/>`_ and `Rawlinson & Sambridge (2005) <http://www.publish.csiro.au/eg/EG05341>`_ for more details.
 
 .. note:: Using this method, traveltime calculation can only be performed between grid nodes: the station location is therefore taken as the closest grid node. For large node spacings this may cause a modest error in the calculated traveltimes.
 
@@ -117,9 +134,16 @@ The fast-marching method calculates traveltimes by implicitly tracking the evolu
     from quakemigrate.lut import compute_traveltimes
     from quakemigrate.io import read_vmodel
 
+
     vmod = read_vmodel("/path/to/vmodel_file")
-    compute_traveltimes(grid_spec, stations, method="1dfmm", phases=["P", "S"],
-                        vmod=vmod, log=True, save_file=/path/to/save_file)
+    compute_traveltimes(
+        grid_spec,
+        stations,
+        method="1dfmm",
+        vmod=vmod,
+        log=True,
+        save_file=/path/to/save_file
+    )
 
 The format of the required input velocity model file is specified :ref:`above <1-D velocity models>`.
 
@@ -134,10 +158,17 @@ Uses the Grid2Time Eikonal solver from NonLinLoc under the hood to generate a 2D
     from quakemigrate.lut import compute_traveltimes
     from quakemigrate.io import read_vmodel
 
+
     vmod = read_vmodel("/path/to/vmodel_file")
-    compute_traveltimes(grid_spec, stations, method="1dnlloc",
-                        phases=["P", "S"], vmod=vmod, block_model=False,
-                        log=True, save_file=/path/to/save_file)
+    compute_traveltimes(
+        grid_spec,
+        stations,
+        method="1dsweep",
+        vmod=vmod,
+        block_model=True,
+        log=True,
+        save_file=/path/to/save_file
+    )
 
 The format of the required input velocity model file is specified :ref:`above <1-D velocity models>`.
 
@@ -148,13 +179,14 @@ It is also straightforward to import traveltime lookup tables generated by other
 ::
 
     lut.traveltimes.setdefault(STATION, {}).update(
-        {PHASE.upper(): traveltime_table})
+        {PHASE.upper(): traveltime_table}
+    )
 
 where ``STATION`` and ``PHASE`` are station name and seismic phase strings, respectively (e.g. `ST01` and `P`).
 
 Saving your LUT
 ---------------
-If you provided a ``save_file`` argument to the :func:`compute_traveltimes` function, the LUT will already be saved. We use the ``pickle`` library (a Python standard library) to serialise the LUT, which essentially freezes the state of the LUT. If you did not provide a ``save_file`` argument, or have added 3rd-party traveltime lookup tables to the LUT, you will need to save it using:
+If you provided a ``save_file`` argument to the :func:`compute_traveltimes` function, the LUT will already be saved. We use the :mod:`pickle` library (a Python standard library) to serialise the LUT, which essentially freezes the state of the LUT. If you did not provide a ``save_file`` argument, or have added 3rd-party traveltime lookup tables to the LUT, you will need to save it using:
 
 ::
 

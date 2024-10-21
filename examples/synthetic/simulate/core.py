@@ -57,8 +57,6 @@ class GaussianDerivativeWavelet(Wavelet):
         self.frequency = frequency
         self.sps = sps
 
-        half_timespan += 2 * delta_T
-
         self.time = np.arange(-half_timespan, half_timespan + 1 / sps, 1 / sps)
         data = (
             -self.time

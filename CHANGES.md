@@ -3,6 +3,7 @@
   * Switched to using the obspy `MassDownloader` to download data for all examples; thus removing the bundled data for the two icequake examples from the repo, and speeding up data download for the VT_Iceland example. 7788af7, 7e1e3d0, 6694459
   * Corresponding fixes and updates to icequake example notebooks 56a1f88, 2f95095
   * Added a new example use-case from Askja volcano, Iceland, which will be featured in the forthcoming manuscript. This example showcases the capability of QuakeMigrate to detect and locate a wide variety of seismic events with different source types, and in this case simultaneously with the same set of parameters. febabcd
+  * Add an example that demonstrates the functioning of QuakeMigrate using a synthetic dataset. This dataset is one of the examples presented in the manuscript. The example is also accompanied by documentation covering the example, which is a great plus to our online documentation!
   * switched off pick plotting for the VT_Iceland example. 7bab86d
 - quakemigrate.io.event:
   * pre-compute the geometric mean of the covariance errors (in X, Y and Z), and include this on the `Event` object within the covariance location information. This is then written out within the .event file. e6f01d0

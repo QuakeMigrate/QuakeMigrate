@@ -47,7 +47,7 @@ jobs:
       - name: Collect NonLinLoc sourcecode
         uses: actions/checkout@v4
         with:
-          repository: alomax/NonLinLoc
+          repository: ut-beg-texnet/NonLinLoc
           path: NonLinLoc
 
       - name: Install NonLinLoc

@@ -332,7 +332,8 @@ def _plot_text_summary(ax, lut, event):
         f"{hypocentre[2]/km_cf} \u00b1 {gau_unc[2]} km"
     )
 
-    # Grab the magnitude information
+    # Grab the covariance error and magnitude information
+    cov_err_xyz = event.locations["covariance"]["Err_XYZ"]
     mag_info = event.local_magnitude
 
     ax.text(0.25, 0.8, f"Event: {event.uid}", fontsize=20, fontweight="bold")
@@ -343,12 +344,17 @@ def _plot_text_summary(ax, lut, event):
         ax.text(0.37, 0.65, f"{ot_text}", ha="left", va="center")
         ax.text(0.35, 0.55, "Hypocentre:", ha="right", va="top")
         ax.text(0.37, 0.55, hypo, ha="left", va="top")
+        ax.text(0.35, 0.22, "Geometric mean covariance:", ha="right", va="center")
+        ax.text(0.37, 0.22, f"{cov_err_xyz:.3g}", ha="left", va="center")
         if mag_info is not None:
             mag, mag_err, mag_r2 = mag_info
-            ax.text(0.35, 0.19, "Local magnitude:", ha="right")
-            ax.text(0.37, 0.19, f"{mag:.3g} \u00b1 {mag_err:.3g}", ha="left")
-            ax.text(0.35, 0.09, "Local magnitude r\u00b2:", ha="right")
-            ax.text(0.37, 0.09, f"{mag_r2:.3g}", ha="left")
+            ax.text(0.35, 0.09, "Local magnitude:", ha="right")
+            ax.text(
+                0.37,
+                0.09,
+                f"{mag:.3g} \u00b1 {mag_err:.3g}   r\u00b2 = {mag_r2:.3g}",
+                ha="left",
+            )
     ax.set_axis_off()
 
 

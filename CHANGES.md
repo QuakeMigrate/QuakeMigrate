@@ -1,4 +1,11 @@
 
+1.1.2
+=====
+Address a bug in Trigger caused by a deprecated (renamed) function within `numpy` (#187).
+
+- quakemigrate.signal.trigger
+  * Replace `np.product()` (deprecated in numpy v2.0.0) with the new syntax `np.prod()`.
+
 1.1.1
 =====
 Address a bug in amplitude plotting introduced in v1.1.0, and modify the Volcanotectonic_Iceland example such that this issue is now covered by tests going forwards.

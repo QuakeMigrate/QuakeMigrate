@@ -4,9 +4,12 @@
   * Corresponding fixes and updates to icequake example notebooks 56a1f88, 2f95095
   * Added a new example use-case from Askja volcano, Iceland, which will be featured in the forthcoming manuscript. This example showcases the capability of QuakeMigrate to detect and locate a wide variety of seismic events with different source types, and in this case simultaneously with the same set of parameters. febabcd
   * switched off pick plotting for the VT_Iceland example. 7bab86d
+- quakemigrate.io.event:
+  * pre-compute the geometric mean of the covariance errors (in X, Y and Z), and include this on the `Event` object within the covariance location information. This is then written out within the .event file. e6f01d0
 - quakemigrate.io.marginal_coalescence:
   * Introduce support for saving the marginalised 3D coalescence map generated within `locate()`, and also a utility function to read it for e.g. plotting purposes, or further interrogation of the topology of the coalescence peak. ebcae96
 - quakemigrate.plot:
+  * Include the geometric mean of the covariance errors in the locate event summary plot text summary; move local magnitude r^2 to the same line as the remainder of the local magnitude to give room for this. e6f01d0
   * use `channel_maps` user kwarg to select components for waveform plotting, in both the event summary plot (waveform gather) and the phase pick plots. Previously this was hard-coded (P=Z; S=[N/1, E/2]), preventing waveforms being plotted if they did not conform to this, or leading to data being plotted for the wrong phase if the channel mapping was unusual. This is still not a perfect solution, but at least solves #158 64012e3
 - quakemigrate.signal.trigger:
   * Introduce the `median_ratio` method for determining a dynamic trigger threshold, by taking a multiplier of the median value of the coalescence trace in a user-defined window. 6d16f18
@@ -14,6 +17,11 @@
   * Rename the existing dynamic trigger threshold method (based on a multiple of the median absolute devation of the coalescence trace) from `dynamic` -> `mad` 9ef138a
   * Introduce "trigger smoothing" functionality; the option to smooth the coalescence trace by convolving a gaussian kernel of user-defined sigma and width before determining and applying the trigger threshold to identify candidate events. 1ea643c
   * Revert to always using the `COA` timeseries for determining the trigger peak index (i.e. candidate event origin time) to ensure better correspondence with origin times determined within locate() 836521a
+- quakemigrate.signal.pickers.gaussian:
+  * Calculate the pick residual within the picker, and write it out within the .picks file. f6a3f4d
+  * Optionally output the SEED id's of the traces used to make a given phase pick. b51de7f
+- tests.test_benchmarks:
+  * Re-instate .picks files for the `Volcanotectonic_Iceland` benchmark, and update the EventID of the event which has previously caused floating point errors within the .picks file benchmark comparison. e613623
 - tests.test_trigger:
   * Add unit tests for trigger dynamic threshold and smoothing functions 78f3e73
 

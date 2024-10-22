@@ -364,8 +364,8 @@ class Archive:
         # Loop through time period by day adding files to list
         # NOTE! This assumes the archive structure is split into days.
         files = []
-        loadstart = UTCDateTime(starttime)
-        while loadstart < endtime:
+        loadstart = UTCDateTime(starttime.date)
+        while loadstart <= endtime:
             temp_format = self.format.format(
                 year=loadstart.year,
                 month=loadstart.month,
@@ -382,7 +382,7 @@ class Archive:
                 for station in self.stations:
                     file_format = temp_format.format(station=station)
                     files = chain(files, self.archive_path.glob(file_format))
-            loadstart = UTCDateTime(loadstart.date) + 86400
+            loadstart += 86400
 
         return files
 

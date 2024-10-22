@@ -4,7 +4,7 @@ Module containing the Event class, which stores information related to an indivi
 event.
 
 :copyright:
-    2020–2023, QuakeMigrate developers.
+    2020–2024, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -37,6 +37,7 @@ EVENT_FILE_COLS = [
     "COV_ErrX",
     "COV_ErrY",
     "COV_ErrZ",
+    "COV_Err_XYZ",
     "TRIG_COA",
     "DEC_COA",
     "DEC_COA_NORM",
@@ -255,6 +256,9 @@ class Event:
 
         """
 
+        # Compute geometric mean of the covariance uncertainties, for use when filtering
+        cov_err_xyz = np.power(xyz_unc[0] * xyz_unc[1] * xyz_unc[2], 1 / 3)
+
         self.locations["covariance"] = {
             "X": xyz[0],
             "Y": xyz[1],
@@ -262,6 +266,7 @@ class Event:
             "ErrX": xyz_unc[0],
             "ErrY": xyz_unc[1],
             "ErrZ": xyz_unc[2],
+            "Err_XYZ": cov_err_xyz,
         }
 
     def add_gaussian_location(self, xyz, xyz_unc):
@@ -483,6 +488,7 @@ class Event:
                 unit_correction = 3 if lut.unit_name == "km" else 0
                 decimals = max((axis_precision + 2), 0 + unit_correction)
                 cols.extend(event_df.filter(regex="Err[X,Y,Z]"))
+                cols.extend(["COV_Err_XYZ"])
             else:
                 decimals = max((axis_precision + 2), 6)
             for col in cols:

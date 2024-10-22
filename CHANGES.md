@@ -6,12 +6,15 @@
   * switched off pick plotting for the VT_Iceland example. 7bab86d
 - quakemigrate.io.data:
   * fix `_load_from_path()` to read single sample over day-line (i.e. at midnight). 4494c6f
+- quakemigrate.io.event:
+  * pre-compute the geometric mean of the covariance errors (in X, Y and Z), and include this on the `Event` object within the covariance location information. This is then written out within the .event file. e6f01d0
 - quakemigrate.io.marginal_coalescence:
   * Introduce support for saving the marginalised 3D coalescence map generated within `locate()`, and also a utility function to read it for e.g. plotting purposes, or further interrogation of the topology of the coalescence peak. ebcae96
 - quakemigrate.io.triggered_events:
   * make handling of day-splitting consistent for making and reading triggers; midnight is now uniformly treated as the "next day" in a multi-day run. The endtime specified for a `trigger()` run is otherwise _inclusive_ (as for the starttime). This also makes behaviour consistent with `detect()` where midnight is implicitly not included (assuming a typical combination of starttime and timestep paramater choices). 7be2653
   * Fix #132, by setting day-looping behaviour to work the same as elsewhere in the package. bd1a4ea
 - quakemigrate.plot:
+  * Include the geometric mean of the covariance errors in the locate event summary plot text summary; move local magnitude r^2 to the same line as the remainder of the local magnitude to give room for this. e6f01d0
   * use `channel_maps` user kwarg to select components for waveform plotting, in both the event summary plot (waveform gather) and the phase pick plots. Previously this was hard-coded (P=Z; S=[N/1, E/2]), preventing waveforms being plotted if they did not conform to this, or leading to data being plotted for the wrong phase if the channel mapping was unusual. This is still not a perfect solution, but at least solves #158 64012e3
 - quakemigrate.signal.trigger:
   * Introduce the `median_ratio` method for determining a dynamic trigger threshold, by taking a multiplier of the median value of the coalescence trace in a user-defined window. 6d16f18
@@ -20,7 +23,11 @@
   * Introduce "trigger smoothing" functionality; the option to smooth the coalescence trace by convolving a gaussian kernel of user-defined sigma and width before determining and applying the trigger threshold to identify candidate events. 1ea643c
   * Revert to always using the `COA` timeseries for determining the trigger peak index (i.e. candidate event origin time) to ensure better correspondence with origin times determined within locate() 836521a
   * make handling of day-splitting consistent for making and reading triggers; midnight is now uniformly treated as the "next day" in a multi-day run. The endtime specified for a `trigger()` run is otherwise _inclusive_ (as for the starttime). This also makes behaviour consistent with `detect()` where midnight is implicitly not included (assuming a typical combination of starttime and timestep paramater choices). 7be2653
-
+- quakemigrate.signal.pickers.gaussian:
+  * Calculate the pick residual within the picker, and write it out within the .picks file. f6a3f4d
+  * Optionally output the SEED id's of the traces used to make a given phase pick. b51de7f
+- tests.test_benchmarks:
+  * Re-instate .picks files for the `Volcanotectonic_Iceland` benchmark, and update the EventID of the event which has previously caused floating point errors within the .picks file benchmark comparison. e613623
 - tests.test_trigger:
   * Add unit tests for trigger dynamic threshold and smoothing functions 78f3e73
 

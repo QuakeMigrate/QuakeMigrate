@@ -309,7 +309,7 @@ def read_scanmseed(run, starttime, endtime, pad, ucf):
         )
     elif stats.starttime > readstart:
         logging.info("\t    Warning! No .scanmseed data found for pre-pad!")
-    if stats.endtime < endtime - stats.delta:
+    if stats.endtime < endtime:
         logging.info("\n\t    Warning! .scanmseed endtime is before trigger() endtime!")
     elif stats.endtime < readend:
         logging.info("\t    Warning! No .scanmseed data found for post-pad!")

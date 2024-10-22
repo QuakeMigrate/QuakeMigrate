@@ -11,10 +11,10 @@ Module to perform the trigger stage of QuakeMigrate.
 """
 
 import logging
+from datetime import time
 
 import numpy as np
 from obspy import UTCDateTime
-from datetime import time
 import pandas as pd
 from scipy.ndimage import gaussian_filter1d
 

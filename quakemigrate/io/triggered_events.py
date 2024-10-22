@@ -11,9 +11,9 @@ Module to handle input/output of TriggeredEvents.csv files.
 """
 
 import logging
+from datetime import time
 
 from obspy import UTCDateTime
-from datetime import time
 import pandas as pd
 
 import quakemigrate.util as util

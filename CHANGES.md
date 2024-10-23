@@ -1,4 +1,20 @@
 
+1.1.2
+=====
+Address a bug in Trigger caused by a deprecated numpy function, minor bugfixes within the local magnitudes sub-module, and fix coverage reporting with CodeCov.
+
+- quakemigrate.io.amplitudes
+  * Handle the case where no amplitude measurements are made for an event. acc6bd9
+- quakemigrate.signal.local_mag.local_mag
+  * Fix handling of no amplitude measurements when adding a local magnitude to an event. 1f60f64
+- quakemigrate.signal.local_mag.magnitude
+  * Fix application of `filter_gain` to noise amplitude measurements, within magnitude calculation and amplitudes plotting.
+  * Fix handling of `ML_Err` and `ML_r2` calculation where only a single magnitude estimate is available for event. 03a3032
+- quakemigrate.signal.trigger
+  * Replace `np.product()` (deprecated in numpy v2.0.0) with the new syntax `np.prod()`. bee2b34
+- tests:
+  * Update the process for analysing package coverage of the tests, including fixing path issue that was breaking CodeCov report parsing via adding `codecov.yml`, and updating versions of all component actions. 6dd40ba
+
 1.1.1
 =====
 Address a bug in amplitude plotting introduced in v1.1.0, and modify the Volcanotectonic_Iceland example such that this issue is now covered by tests going forwards.

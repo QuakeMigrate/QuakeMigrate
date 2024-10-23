@@ -3,7 +3,7 @@
 Module to perform the trigger stage of QuakeMigrate.
 
 :copyright:
-    2020–2023, QuakeMigrate developers.
+    2020–2024, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -40,7 +40,7 @@ def chunks2trace(a, new_shape):
     """
 
     b = np.broadcast_to(a[:, None], new_shape)
-    b = np.reshape(b, np.product(new_shape))
+    b = np.reshape(b, np.prod(new_shape))
 
     return b
 

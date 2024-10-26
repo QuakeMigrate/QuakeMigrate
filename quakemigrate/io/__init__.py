@@ -40,9 +40,9 @@ from .core import (
     stations,  # NOQA
     Run,  # NOQA
 )
-from .marginal_coalescence import (
-    write_marginal_coalescence,  # NOQA
-    read_marginal_coalescence,  # NOQA
+from .coalescence import (
+    write_coalescence,  # NOQA
+    read_coalescence,  # NOQA
 )
 from .scanmseed import ScanmSEED, read_scanmseed  # NOQA
 from .triggered_events import read_triggered_events, write_triggered_events  # NOQA

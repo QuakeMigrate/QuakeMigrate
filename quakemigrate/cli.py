@@ -37,7 +37,7 @@ def _init_project(args: dict) -> None:
     (project_dir / ".qm-project").touch()
 
     # Copy a set of default config files into the new project directory
-    default_config_dir = pathlib.Path(__file__).parent / "artifacts"
+    default_config_dir = pathlib.Path(__file__).parent / "assets"
     for config_file in default_config_dir.glob("*"):
         if (project_dir / config_file.name).exists():
             continue  # Protection against overwriting a project

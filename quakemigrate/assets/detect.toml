@@ -1,4 +1,4 @@
-station_file = "inputs/iceland.sta"
+station_file = "inputs/iceland_stations.txt"
 lut_file = "outputs/example.lut"
 run_name = "example_run"
 log_level = "info"
@@ -8,19 +8,19 @@ waveform_data = "inputs/mSEED"
 archive_format = "YEAR/JD/*_STATION_*"
 
 [scan]
-starttime = "2014-06-29T18:41:55.0"
-endtime = "2014-06-29T18:42:20.0"
-timestep = 0.75
+starttime = "2014-06-29T18:42:05.0"
+endtime = "2014-06-29T18:42:15.0"
+timestep = 2.5
 threads = 4
 
 [onset]
 name = "STALTA-classic"
-sampling_rate = 500
+sampling_rate = 250
 phases = ["P", "S"]
 
 [onset.bandpass_filters]
-P = [10, 125, 4]
-S = [10, 125, 4]
+P = [10, 124, 4]
+S = [10, 124, 4]
 
 [onset.sta_lta_windows]
 P = [0.01, 0.25]

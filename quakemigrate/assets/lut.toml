@@ -1,13 +1,16 @@
-station_file = "inputs/iceland.sta"
+station_file = "inputs/iceland_stations.txt"
 lut_name = "example"
 
 [grid_projection]
+# Note: The following parameters are for a Lambert-Conformal Conic projection
+# When using other projections, be sure to include entries for each of the
+# required keyword arguments
 proj = "lcc"
 units = "km"
-lon_0 = -17.224
-lat_0 = 64.328
-lat_1 = 64.32
-lat_2 = 64.355
+lon_0 = -17.222
+lat_0 = 64.329
+lat_1 = 64.323
+lat_2 = 64.335
 datum = "WGS84"
 ellps = "WGS84"
 no_defs = true
@@ -19,13 +22,18 @@ ellps = "WGS84"
 no_defs = true
 
 [grid_specification]
-ll_corner = [-17.24363934275664, 64.31947715407385, -1.390]
-ur_corner = [-17.204348515198255, 64.3365202025144, 1.390]
-node_spacing = [0.1, 0.1, 0.02]
+ll_corner = [-17.24, 64.322, -1.4]
+ur_corner = [-17.204, 64.336, 0.0]
+node_spacing = [0.025, 0.025, 0.025]
 
 [compute]
+# Homogeneous velocity model
 method = "homogeneous"
 phases = ["P", "S"]
 vp = 3.630
 vs = 1.833
 log = true
+
+# 1-D model: NonLinLoc
+
+# 1-D model: skfmm

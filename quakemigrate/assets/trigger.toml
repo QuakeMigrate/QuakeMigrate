@@ -3,10 +3,10 @@ run_name = "example_run"
 log_level = "info"
 
 [trigger]
-starttime = "2014-06-29T18:41:55.0"
-endtime = "2014-06-29T18:42:20.0"
-marginal_window = 1.0
-min_event_interval = 6.0
+starttime = "2014-06-29T18:42:05.0"
+endtime = "2014-06-29T18:42:15.0"
+marginal_window = 0.06
+min_event_interval = 0.12
 normalise_coalescence = true
 interactive_plot = false
 
@@ -15,7 +15,6 @@ interactive_plot = false
 method = "static"
 static_threshold = 1.8
 # Dynamic threshold - MAD
-# method = "dynamic"
+# method = "mad"
 # mad_window_length = 7200.0
 # mad_multiplier = 8.0
-

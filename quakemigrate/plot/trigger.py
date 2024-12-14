@@ -148,12 +148,12 @@ def trigger_summary(
         _plot_event_scatter(fig, discarded_events, discarded=True)
 
     # --- Plot event scatter on LUT and windows on coalescence traces ---
-    if events is not None:
+    ax_i = 1 if normalise_coalescence else 0
+    if not events.empty:
         _plot_event_windows(fig.axes[:2], events, marginal_window)
         _plot_event_scatter(fig, events)
 
         # Add trigger threshold to the correct coalescence trace
-        ax_i = 1 if normalise_coalescence else 0
         fig.axes[ax_i].step(
             dt, detection_threshold, where="mid", c="g", label="Detection threshold"
         )

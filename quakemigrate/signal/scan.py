@@ -93,6 +93,10 @@ class QuakeScan:
         Default: 2 seconds.
     picker : :class:`~quakemigrate.signal.pickers.base.PhasePicker` object, optional
         Provides callback methods for phase picking, performed during locate.
+    plot_all_stns : bool, optional
+        If true, plot all stations in the LUT. Otherwise, only plot stations which were
+        used for migration (i.e. omitting stations for which there was no data, or data
+        did not pass the specified quality checks). Default: True.
     plot_event_summary : bool, optional
         Plot event summary figure - see `quakemigrate.plot` for more details.
         Default: True.
@@ -247,6 +251,7 @@ class QuakeScan:
 
         # Plotting toggles and parameters
         self.plot_event_summary = kwargs.get("plot_event_summary", True)
+        self.plot_all_stns = kwargs.get("plot_all_stns", True)
         self.plot_event_video = kwargs.get("plot_event_video", False)
         self.xy_files = kwargs.get("xy_files")
 
@@ -524,6 +529,7 @@ class QuakeScan:
                     marginalised_coa_map,
                     self.lut,
                     xy_files=self.xy_files,
+                    plot_all_stns=self.plot_all_stns,
                 )
 
             if self.plot_event_video:

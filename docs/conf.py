@@ -13,16 +13,16 @@
 import os
 import glob
 import sys
+from unittest.mock import Mock
 
 import sphinx_rtd_theme
-import mock
 
 
 sys.path.insert(0, os.path.abspath('..'))
 
 MOCK_MODULES = ["quakemigrate.core.libnames"]
 for mod_name in MOCK_MODULES:
-    sys.modules[mod_name] = mock.Mock()
+    sys.modules[mod_name] = Mock()
 
 # -- Project information -----------------------------------------------------
 project = 'QuakeMigrate'

@@ -310,7 +310,8 @@ class QuakeScan:
         if starttime > endtime:
             raise util.TimeSpanException
         # Shift endtime one sample earlier if it is at midnight (not necessary for
-        # typical combinations of starttimes and timesteps, but here to cover edge cases)
+        # typical combinations of starttimes and timesteps, but here to cover edge
+        # cases)
         if endtime.time == time(0, 0):
             endtime -= 1 / self.scan_rate
 
@@ -321,9 +322,9 @@ class QuakeScan:
         calc_endtime = starttime + n_steps * self.timestep - 1 / self.scan_rate
         if calc_endtime - endtime > 1 / self.scan_rate:
             logging.info(
-                f"Warning: chosen run duration {endtime - starttime} s is not divisible "
-                f"by the specified timestep {self.timestep} s.Detect will instead "
-                f"compute up to {calc_endtime}\n"
+                f"Warning: chosen run duration {endtime - starttime} s is not "
+                f"divisible by the specified timestep {self.timestep} s. Detect will "
+                f"instead compute up to {calc_endtime}\n"
             )
 
         logging.info(util.log_spacer)
@@ -352,8 +353,8 @@ class QuakeScan:
             Timestamp from which to include events in the locate scan.
         endtime : str, optional
             Timestamp up to which to include events in the locate scan. Note: if the
-            endtime is set to midnight, then only events during the previous day will be
-            included.
+            endtime is set to midnight, then only events during the previous day will
+            be included.
         trigger_file : str, optional
             File containing triggered events to be located.
 
@@ -436,7 +437,7 @@ class QuakeScan:
             try:
                 data = self.archive.read_waveform_data(w_beg, w_end)
                 time, max_coa, max_coa_n, coord, onset_data = self._compute(data)
-                logging.debug(max_coa.shape)
+                logging.debug(f"1-D con shape : {max_coa.shape}")
                 coalescence.append(
                     time, max_coa, max_coa_n, coord, self.lut.unit_conversion_factor
                 )

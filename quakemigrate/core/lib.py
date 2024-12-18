@@ -95,11 +95,11 @@ def migrate(
 
     *grid_dimensions, n_luts = traveltimes.shape
     n_onsets, t_samples = onsets.shape
-    logging.debug((n_onsets, t_samples))
+    logging.debug(f"(n_onsets, t_samples) : ({n_onsets}, {t_samples})")
     n_samples = t_samples - first_idx - last_idx
-    logging.debug(n_samples)
+    logging.debug(f"n_samples : {n_samples}")
     map4d = np.zeros(tuple(grid_dimensions) + (n_samples,), dtype=np.double)
-    logging.debug(map4d.shape)
+    logging.debug(f"map4d shape : {map4d.shape}")
     n_nodes = np.prod(grid_dimensions)
 
     if not n_luts == n_onsets:

@@ -609,7 +609,9 @@ class WaveformData:
                         continue
                     elif st_id[0].stats.npts < n_samples:
                         logging.debug("Trace has too few samples.")
-                        logging.debug((n_samples, st_id[0].stats.npts))
+                        logging.debug(
+                            f"(n_samples, trace_npts) : ({n_samples}, {st_id[0].stats.npts})"
+                        )
                         continue
                 # Check start and end times of trace are exactly correct
                 if check_start_end_times:

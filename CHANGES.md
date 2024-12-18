@@ -11,12 +11,18 @@
   * pre-compute the geometric mean of the covariance errors (in X, Y and Z), and include this on the `Event` object within the covariance location information. This is then written out within the .event file. e6f01d0
 - quakemigrate.io.marginal_coalescence:
   * Introduce support for saving the marginalised 3D coalescence map generated within `locate()`, and also a utility function to read it for e.g. plotting purposes, or further interrogation of the topology of the coalescence peak. ebcae96
+- quakemigrate.io.scanmseed:
+  * where a timestep crosses a day boundary but not all data from the timestep is written, `self.written` is now set back to `False`, so it will be caught by the `if not self.written` designed to mop up any residual data. c98c6e3
+  * fudged fencepost correction is removed (now handled explicitly in `quakemigrate.signal.scan`). c98c6e3
 - quakemigrate.io.triggered_events:
   * make handling of day-splitting consistent for making and reading triggers; midnight is now uniformly treated as the "next day" in a multi-day run. The endtime specified for a `trigger()` run is otherwise _inclusive_ (as for the starttime). This also makes behaviour consistent with `detect()` where midnight is implicitly not included (assuming a typical combination of starttime and timestep paramater choices). 7be2653
   * Fix #132, by setting day-looping behaviour to work the same as elsewhere in the package. bd1a4ea
 - quakemigrate.plot:
   * Include the geometric mean of the covariance errors in the locate event summary plot text summary; move local magnitude r^2 to the same line as the remainder of the local magnitude to give room for this. e6f01d0
   * use `channel_maps` user kwarg to select components for waveform plotting, in both the event summary plot (waveform gather) and the phase pick plots. Previously this was hard-coded (P=Z; S=[N/1, E/2]), preventing waveforms being plotted if they did not conform to this, or leading to data being plotted for the wrong phase if the channel mapping was unusual. This is still not a perfect solution, but at least solves #158 64012e3
+- quakemigrate.signal.scan:
+  * explicitly calculate the timestep end / endtime of a run, and warn user if the two are incompatible. If endtime is exactly midnight, adjust it to be one sample earlier, to match the (now) package-wide day-splitting strategy. If endtime doesn't encompass an integer number of timesteps, extend automatically. c98c6e3
+  * adjust w_end specification in _continuous_compute(), to address a fenceposts bug. c98c6e3
 - quakemigrate.signal.trigger:
   * Introduce the `median_ratio` method for determining a dynamic trigger threshold, by taking a multiplier of the median value of the coalescence trace in a user-defined window. 6d16f18
   * Fix a bug in `trigger.chunks2trace()` - still using deprecated `numpy.product()` 6d16f18

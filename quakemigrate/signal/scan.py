@@ -28,7 +28,7 @@ from quakemigrate.io import (
     read_triggered_events,
     write_availability,
     write_cut_waveforms,
-    write_marginal_coalescence,
+    write_coalescence,
 )
 from quakemigrate.plot.event import event_summary
 from .onsets import Onset
@@ -129,6 +129,9 @@ class QuakeScan:
         NOTE: this data has not been processed or quality-checked!
     write_marginal_coalescence : bool, optional
         Write the marginalised 3-D coalescence map to file (in .npy format).
+        Default: False.
+    write_coalescence : bool, optional
+        Write the raw 4-D coalescence map from locate to file (in .npy format).
         Default: False.
     write_real_waveforms : bool, optional
         Write real cut waveforms for all data read from the archive for each event
@@ -263,6 +266,7 @@ class QuakeScan:
         self.write_marginal_coalescence = kwargs.get(
             "write_marginal_coalescence", False
         )
+        self.write_coalescence = kwargs.get("write_coalescence", False)
 
         # +++ TO BE REMOVED TO ARCHIVE CLASS +++
         self.pre_cut = None
@@ -494,6 +498,10 @@ class QuakeScan:
                 logging.info(e.msg)
                 continue
 
+            if self.write_coalescence:
+                logging.info("\tSaving full coalescence map...")
+                write_coalescence(self.run, event.map4d, event)
+
             # --- Trim coalescence map to marginal window ---
             if event.in_marginal_window():
                 event.trim2window()
@@ -506,7 +514,9 @@ class QuakeScan:
 
             if self.write_marginal_coalescence:
                 logging.info("\tSaving marginalised coalescence map...")
-                write_marginal_coalescence(self.run, marginalised_coa_map, event)
+                write_coalescence(
+                    self.run, marginalised_coa_map, event, marginalised=True
+                )
 
             logging.info("\tMaking phase picks...")
             event, _ = self.picker.pick_phases(event, self.lut, self.run)

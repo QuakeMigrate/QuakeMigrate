@@ -17,6 +17,8 @@
 - quakemigrate.plot:
   * Include the geometric mean of the covariance errors in the locate event summary plot text summary; move local magnitude r^2 to the same line as the remainder of the local magnitude to give room for this. e6f01d0
   * use `channel_maps` user kwarg to select components for waveform plotting, in both the event summary plot (waveform gather) and the phase pick plots. Previously this was hard-coded (P=Z; S=[N/1, E/2]), preventing waveforms being plotted if they did not conform to this, or leading to data being plotted for the wrong phase if the channel mapping was unusual. This is still not a perfect solution, but at least solves #158 64012e3
+- quakemigrate.signal.scan:
+  * Add the option to plot only stations that have contributed onset functions in the map/XS of the locate event summary plots. 3c9953c
 - quakemigrate.signal.trigger:
   * Introduce the `median_ratio` method for determining a dynamic trigger threshold, by taking a multiplier of the median value of the coalescence trace in a user-defined window. 6d16f18
   * Fix a bug in `trigger.chunks2trace()` - still using deprecated `numpy.product()` 6d16f18

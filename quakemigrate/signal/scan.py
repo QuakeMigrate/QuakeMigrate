@@ -12,6 +12,7 @@ Module to perform core QuakeMigrate functions: detect() and locate().
 
 import logging
 import warnings
+from datetime import time
 
 import numpy as np
 from obspy import UTCDateTime
@@ -28,7 +29,7 @@ from quakemigrate.io import (
     read_triggered_events,
     write_availability,
     write_cut_waveforms,
-    write_marginal_coalescence,
+    write_coalescence,
 )
 from quakemigrate.plot.event import event_summary
 from .onsets import Onset
@@ -133,6 +134,9 @@ class QuakeScan:
         NOTE: this data has not been processed or quality-checked!
     write_marginal_coalescence : bool, optional
         Write the marginalised 3-D coalescence map to file (in .npy format).
+        Default: False.
+    write_coalescence : bool, optional
+        Write the raw 4-D coalescence map from locate to file (in .npy format).
         Default: False.
     write_real_waveforms : bool, optional
         Write real cut waveforms for all data read from the archive for each event
@@ -268,6 +272,7 @@ class QuakeScan:
         self.write_marginal_coalescence = kwargs.get(
             "write_marginal_coalescence", False
         )
+        self.write_coalescence = kwargs.get("write_coalescence", False)
 
         # +++ TO BE REMOVED TO ARCHIVE CLASS +++
         self.pre_cut = None
@@ -299,9 +304,10 @@ class QuakeScan:
         starttime : str
             Timestamp from which to run continuous scan.
         endtime : str
-            Timestamp up to which to run continuous scan.
-            Note: the last sample returned will be that which immediately precedes this
-            timestamp.
+            Timestamp up to which to run continuous scan. Note: if the duration is not
+            divisible by the specified timestep, the endtime will be extended to
+            accommodate. If the endtime is set to midnight, then it will be automatically
+            adjusted to one sample prior.
 
         """
 
@@ -312,16 +318,33 @@ class QuakeScan:
         starttime, endtime = UTCDateTime(starttime), UTCDateTime(endtime)
         if starttime > endtime:
             raise util.TimeSpanException
+        # Shift endtime one sample earlier if it is at midnight (not necessary for
+        # typical combinations of starttimes and timesteps, but here to cover edge
+        # cases)
+        if endtime.time == time(0, 0):
+            endtime -= 1 / self.scan_rate
+
+        # Number of steps to break run duration into
+        n_steps = int(np.ceil((endtime - starttime) / self.timestep))
+
+        # Check if chosen start & endtimes and timestep are compatible
+        calc_endtime = starttime + n_steps * self.timestep - 1 / self.scan_rate
+        if calc_endtime - endtime > 1 / self.scan_rate:
+            logging.info(
+                f"Warning: chosen run duration {endtime - starttime} s is not "
+                f"divisible by the specified timestep {self.timestep} s. Detect will "
+                f"instead compute up to {calc_endtime}\n"
+            )
 
         logging.info(util.log_spacer)
         logging.info("\tDETECT - Continuous coalescence scan")
         logging.info(util.log_spacer)
-        logging.info(f"\n\tScanning from {starttime} to {endtime}\n")
+        logging.info(f"\n\tScanning from {starttime} to {calc_endtime}\n")
         logging.info(self)
         logging.info(self.onset)
         logging.info(util.log_spacer)
 
-        self._continuous_compute(starttime, endtime)
+        self._continuous_compute(starttime, n_steps)
 
         logging.info(util.log_spacer)
 
@@ -338,7 +361,9 @@ class QuakeScan:
         starttime : str, optional
             Timestamp from which to include events in the locate scan.
         endtime : str, optional
-            Timestamp up to which to include events in the locate scan.
+            Timestamp up to which to include events in the locate scan. Note: if the
+            endtime is set to midnight, then only events during the previous day will
+            be included.
         trigger_file : str, optional
             File containing triggered events to be located.
 
@@ -379,7 +404,7 @@ class QuakeScan:
 
         logging.info(util.log_spacer)
 
-    def _continuous_compute(self, starttime, endtime):
+    def _continuous_compute(self, starttime, n_steps):
         """
         Compute coalescence between two timestamps, divided into increments of
         `timestep`. Outputs coalescence and station availability data to file.
@@ -388,10 +413,8 @@ class QuakeScan:
         ----------
         starttime : `obspy.UTCDateTime` object
             Timestamp from which to compute continuous coalescence.
-        endtime : `obspy.UTCDateTime` object
-            Timestamp up to which to compute continuous compute.
-            Note: the last sample returned will be that which immediately precedes this
-            timestamp.
+        n_steps : int
+            Number of timesteps (of length `timestep`) to compute.
 
         """
 
@@ -400,7 +423,6 @@ class QuakeScan:
         )
 
         self.pre_pad, self.post_pad = self.onset.pad(self.timestep)
-        n_steps = int(np.ceil((endtime - starttime) / self.timestep))
         availability_cols = np.array(
             [
                 [f"{stat}_{ph}" for stat in self.archive.stations]
@@ -411,7 +433,9 @@ class QuakeScan:
 
         for i in range(n_steps):
             w_beg = starttime + self.timestep * i - self.pre_pad
-            w_end = starttime + self.timestep * (i + 1) + self.post_pad
+            w_end = (
+                starttime + self.timestep * (i + 1) - 1 / self.scan_rate + self.post_pad
+            )
             logging.debug(f" Processing : {w_beg}-{w_end} ".center(110, "~"))
             logging.info(
                 (
@@ -422,6 +446,7 @@ class QuakeScan:
             try:
                 data = self.archive.read_waveform_data(w_beg, w_end)
                 time, max_coa, max_coa_n, coord, onset_data = self._compute(data)
+                logging.debug(f"1-D con shape : {max_coa.shape}")
                 coalescence.append(
                     time, max_coa, max_coa_n, coord, self.lut.unit_conversion_factor
                 )
@@ -499,6 +524,10 @@ class QuakeScan:
                 logging.info(e.msg)
                 continue
 
+            if self.write_coalescence:
+                logging.info("\tSaving full coalescence map...")
+                write_coalescence(self.run, event.map4d, event)
+
             # --- Trim coalescence map to marginal window ---
             if event.in_marginal_window():
                 event.trim2window()
@@ -511,7 +540,9 @@ class QuakeScan:
 
             if self.write_marginal_coalescence:
                 logging.info("\tSaving marginalised coalescence map...")
-                write_marginal_coalescence(self.run, marginalised_coa_map, event)
+                write_coalescence(
+                    self.run, marginalised_coa_map, event, marginalised=True
+                )
 
             logging.info("\tMaking phase picks...")
             event, _ = self.picker.pick_phases(event, self.lut, self.run)

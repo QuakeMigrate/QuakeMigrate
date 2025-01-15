@@ -205,7 +205,7 @@ class Trigger:
         self.run.logger(kwargs.get("log", False))
 
         # --- Grab Trigger parameters or set defaults ---
-        self.threshold_method = kwargs.get("threshold_method", "static")
+        self.threshold_method = kwargs.get("threshold_method")
         if self.threshold_method == "static":
             self.static_threshold = kwargs.get("static_threshold", 1.5)
         elif self.threshold_method == "mad":

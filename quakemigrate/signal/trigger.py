@@ -205,17 +205,13 @@ class Trigger:
         self.run.logger(kwargs.get("log", False))
 
         # --- Grab Trigger parameters or set defaults ---
-        self.threshold_method = kwargs.get("threshold_method")
-        if self.threshold_method == "static":
-            self.static_threshold = kwargs.get("static_threshold", 1.5)
-        elif self.threshold_method == "mad":
-            self.mad_window_length = kwargs.get("mad_window_length", 3600.0)
-            self.mad_multiplier = kwargs.get("mad_multiplier", 8.0)
-        elif self.threshold_method == "median_ratio":
-            self.median_window_length = kwargs.get("median_window_length", 3600.0)
-            self.median_multiplier = kwargs.get("median_multiplier", 1.2)
-        else:
-            raise util.InvalidTriggerThresholdMethodException
+        self.threshold_method = kwargs.get("threshold_method", "static")
+        self.static_threshold = kwargs.get("static_threshold", 1.5)
+        self.mad_window_length = kwargs.get("mad_window_length", 3600.0)
+        self.mad_multiplier = kwargs.get("mad_multiplier", 8.0)
+        self.median_window_length = kwargs.get("median_window_length", 3600.0)
+        self.median_multiplier = kwargs.get("median_multiplier", 1.2)
+
         self.marginal_window = kwargs.get("marginal_window", 2.0)
         self.min_event_interval = kwargs.get("min_event_interval", 4.0)
         if kwargs.get("minimum_repeat"):
@@ -692,6 +688,26 @@ class Trigger:
         else:
             self._min_event_interval = value
 
+    @property
+    def threshold_method(self):
+        """Get and set the threshold method."""
+
+        return self._threshold_method
+
+    @threshold_method.setter
+    def threshold_method(self, value):
+        if value in ["static", "mad", "median_ratio"]:
+            self._threshold_method = value
+        elif value == "dynamic":
+            # DEPRECATED
+            print(
+                "FutureWarning: This threshold method has been renamed - continuing.\n"
+                "To remove this message, change:\n\t'dynamic' -> 'mad'"
+            )
+            self._threshold_method = "mad"
+        else:
+            raise util.InvalidTriggerThresholdMethodException
+
     # --- Deprecation/Future handling ---
     @property
     def minimum_repeat(self):
@@ -709,23 +725,3 @@ class Trigger:
             "\t'minimum_repeat' -> 'min_event_interval'"
         )
         self._min_event_interval = value
-
-    # --- Deprecation/Future handling ---
-    @property
-    def threshold_method(self):
-        """Handle deprecated 'dynamic' threshold method."""
-        return self._threshold_method
-
-    @threshold_method.setter
-    def threshold_method(self, value):
-        """Handle deprecated threshold_method kwarg / attribute and print warning."""
-
-        if value == "dynamic":
-            # DEPRECATED
-            print(
-                "FutureWarning: This threshold method has been renamed - continuing.\n"
-                "To remove this message, change:\n\t'dynamic' -> 'mad'"
-            )
-            self._threshold_method = "mad"
-        else:
-            self._threshold_method = value

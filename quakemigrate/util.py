@@ -1070,7 +1070,9 @@ class InvalidTriggerThresholdMethodException(Exception):
     """
 
     def __init__(self):
-        super().__init__("Only 'static' or 'dynamic' thresholds are supported.")
+        super().__init__(
+            "Only 'static', 'mad' or 'median_ratio' thresholds are " "supported."
+        )
 
 
 class InvalidPickThresholdMethodException(Exception):

@@ -22,7 +22,9 @@ import quakemigrate.util as util
 
 
 @util.timeit("info")
-def event_summary(run, event, marginalised_coa_map, lut, xy_files=None):
+def event_summary(
+    run, event, marginalised_coa_map, lut, xy_files=None, plot_all_stns=True
+):
     """
     Plots an event summary illustrating the locate results: slices through the
     marginalised coalescence map with the best location estimate (peak of interpolated
@@ -54,6 +56,10 @@ def event_summary(run, event, marginalised_coa_map, lut, xy_files=None):
         a comment - this can be used to include references. See the
         Volcanotectonic_Iceland example XY_files for a template.\n
         .. note:: Do not include a header line in either file.
+    plot_all_stns : bool, optional
+        If true, plot all stations in the LUT. Otherwise, only plot stations which were
+        used for migration (i.e. omitting stations for which there was no data, or data
+        did not pass the specified quality checks). Default: True.
 
     """
 
@@ -79,8 +85,18 @@ def event_summary(run, event, marginalised_coa_map, lut, xy_files=None):
     fig.add_subplot(coa_spec)
 
     # --- Plot LUT, waveform gather, and max coalescence trace ---
-    lut.plot(fig, (9, 15), slices, event.hypocentre, "white", event.data.stations)
-    _plot_waveform_gather(fig.axes[0], lut, event, idx_max)
+    if not plot_all_stns:
+        station_list = []
+        for key, available in event.onset_data.availability.items():
+            station, _ = key.split("_")
+            if available == 1:
+                station_list.append(station)
+        station_list = list(set(sorted(station_list)))
+    else:
+        station_list = event.data.stations
+    lut.plot(fig, (9, 15), slices, event.hypocentre, "white", station_list)
+
+    _plot_waveform_gather(fig.axes[0], lut, event, idx_max, station_list)
     _plot_coalescence_trace(fig.axes[1], event)
 
     # --- Plot xy files on map ---
@@ -174,7 +190,7 @@ WAVEFORM_COLOURS2 = ["#33a02c", "#b2df8a", "#1f78b4"]
 PICK_COLOURS = ["#F03B20", "#3182BD"]
 
 
-def _plot_waveform_gather(ax, lut, event, idx_max):
+def _plot_waveform_gather(ax, lut, event, idx_max, stations):
     """
     Utility function to bring all aspects of plotting the waveform gather into one
     place.
@@ -195,7 +211,6 @@ def _plot_waveform_gather(ax, lut, event, idx_max):
     """
 
     phases = event.onset_data.phases
-    stations = event.data.stations
 
     # --- Predicted traveltimes ---
     traveltimes = np.array(

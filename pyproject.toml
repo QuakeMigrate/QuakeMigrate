@@ -69,7 +69,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["ipython", "pre-commit", "ruff", "coverage"]
-docs = ["docutils<0.17", "mock", "Sphinx >= 4.3.0", "sphinx_rtd_theme>=0.5.1"]
+docs = ["docutils<0.17", "Sphinx >= 4.3.0", "sphinx_rtd_theme>=0.5.1"]
 fmm = ["scikit-fmm"]
 
 [project.urls]

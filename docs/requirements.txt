@@ -1,5 +1,4 @@
 matplotlib
-mock
 sphinx_rtd_theme>=0.5.1
 numpy
 sphinx>=4.3.0

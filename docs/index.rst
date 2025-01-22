@@ -21,7 +21,7 @@ The package has been built with a modular architecture, providing the potential 
 The source code for the project is hosted on |github|.
 
 This package is written by the QuakeMigrate developers, and is distributed under
-the GPLv3 License, Copyright QuakeMigrate developers 2020–2023.
+the GPLv3 License, Copyright QuakeMigrate developers 2020–2025.
 
 
 .. |github| raw:: html
@@ -51,7 +51,7 @@ Any additional comments/questions can be directed to:
 
 License
 -------
-This package is written and maintained by the QuakeMigrate developers, Copyright QuakeMigrate developers 2020–2023. It is distributed under the GPLv3 License. Please see the `LICENSE <https://www.gnu.org/licenses/gpl-3.0.html>`_ for a complete description of the rights and freedoms that this provides the user.
+This package is written and maintained by the QuakeMigrate developers, Copyright QuakeMigrate developers 2020–2025. It is distributed under the GPLv3 License. Please see the `LICENSE <https://www.gnu.org/licenses/gpl-3.0.html>`_ for a complete description of the rights and freedoms that this provides the user.
 
 Contents:
 ---------

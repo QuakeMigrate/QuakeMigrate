@@ -1,4 +1,5 @@
-
+1.2.0
+=====
 - Examples:
   * Switched to using the obspy `MassDownloader` to download data for all examples; thus removing the bundled data for the two icequake examples from the repo, and speeding up data download for the VT_Iceland example. 7788af7, 7e1e3d0, 6694459
   * Corresponding fixes and updates to icequake example notebooks 56a1f88, 2f95095

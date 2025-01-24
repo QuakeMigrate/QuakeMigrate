@@ -451,17 +451,11 @@ class QuakeScan:
                     time, max_coa, max_coa_n, coord, self.lut.unit_conversion_factor
                 )
                 availability.loc[i] = onset_data.availability
-            except util.ArchiveEmptyException as e:
-                coalescence.empty(
-                    starttime, self.timestep, i, e.msg, self.lut.unit_conversion_factor
-                )
-                availability.loc[i] = np.zeros(len(availability_cols), dtype=int)
-            except util.DataGapException as e:
-                coalescence.empty(
-                    starttime, self.timestep, i, e.msg, self.lut.unit_conversion_factor
-                )
-                availability.loc[i] = np.zeros(len(availability_cols), dtype=int)
-            except util.DataAvailabilityException as e:
+            except (
+                util.ArchiveEmptyException,
+                util.DataGapException,
+                util.DataAvailabilityException,
+            ) as e:
                 coalescence.empty(
                     starttime, self.timestep, i, e.msg, self.lut.unit_conversion_factor
                 )
@@ -514,13 +508,11 @@ class QuakeScan:
                 event.add_compute_output(  # pylint: disable=E1120
                     *self._compute(event.data, event)
                 )
-            except util.ArchiveEmptyException as e:
-                logging.info(e.msg)
-                continue
-            except util.DataGapException as e:
-                logging.info(e.msg)
-                continue
-            except util.DataAvailabilityException as e:
+            except (
+                util.ArchiveEmptyException,
+                util.DataGapException,
+                util.DataAvailabilityException,
+            ) as e:
                 logging.info(e.msg)
                 continue
 

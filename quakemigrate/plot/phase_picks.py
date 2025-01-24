@@ -3,7 +3,7 @@
 Module to produce a summary plot for the phase picking.
 
 :copyright:
-    2020–2023, QuakeMigrate developers.
+    2020–2024, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -18,7 +18,9 @@ import numpy as np
 import quakemigrate.util as util
 
 
-def pick_summary(event, station, waveforms, picks, onsets, ttimes, windows):
+def pick_summary(
+    event, station, waveforms, picks, onsets, channel_maps, ttimes, windows
+):
     """
     Plot a figure showing the pre-processed traces for each data component and the onset
     functions calculated from them for each phase. The search window to make a phase
@@ -40,6 +42,8 @@ def pick_summary(event, station, waveforms, picks, onsets, ttimes, windows):
         Each row contains the phase pick from one station/phase.
     onsets : dict of {str: `numpy.ndarray`}
         Keys are phases. Onset functions for each seismic phase.
+    channel_maps : dict of str
+        Data component maps - keys are phases. (e.g. {"P": "Z"})
     ttimes : list of float
         Modelled traveltimes from the event hypocentre to the station for each phase to
         be plotted.
@@ -125,29 +129,38 @@ def pick_summary(event, station, waveforms, picks, onsets, ttimes, windows):
         max_idx = len(times) - 1
 
     # --- Plot waveforms ---
-    for i, (ax, comp) in enumerate(zip(axes[:3], ["Z", "[N,1]", "[E,2]"])):
-        tr = waveforms.select(component=comp)
-        if not bool(tr):
+    p_str, s_str_1, s_str_2 = util.get_phase_component_strings(channel_maps)
+    for i, (ax, comp) in enumerate(zip(axes[:3], [p_str, s_str_1, s_str_2])):
+        st = waveforms.select(component=comp)
+        if not bool(st):
             continue
-        y = tr[0].data
-        ax.plot(
-            dtimes[min_idx : max_idx + 1],
-            y[min_idx : max_idx + 1],
-            c="k",
-            lw=0.5,
-            zorder=1,
-        )
+        # If multiple traces for a given phase, plot both in the same colour - could
+        # consider using different colours and adding a separate legend to this panel
+        # to distinguish them...
+        for tr in st:
+            y = tr.data
+            ax.plot(
+                dtimes[min_idx : max_idx + 1],
+                y[min_idx : max_idx + 1],
+                c="k",
+                lw=0.5,
+                zorder=1,
+            )
         # Add label (SEED id)
+        seed_str = ""
+        for tr in st:
+            seed_str += f"{tr.id}, "
+        seed_str = seed_str.rstrip(", ")
         ax.text(
             0.015,
             0.95,
-            f"{tr[0].id}",
+            seed_str,
             transform=ax.transAxes,
             bbox=dict(boxstyle="round", fc="w", alpha=0.8),
             va="top",
             ha="left",
             fontsize=18,
-            zorder=2,
+            zorder=10,
         )
         # Set ylim
         y_max = max(abs(y[min_win_idx : max_win_idx + 1]))
@@ -256,11 +269,6 @@ def pick_summary(event, station, waveforms, picks, onsets, ttimes, windows):
                 ax = axes[ind]
                 clr = c1 if ind % 3 == 0 else c2
                 _plot_phase_pick(ax, pick, clr)
-        # Calculate residual:
-        if pick.PickTime == -1:
-            resid = -1
-        else:
-            resid = pick.PickTime - pick.ModelledTime
         # Summary text
         text.text(
             0.1 + i * 0.5,
@@ -275,7 +283,7 @@ def pick_summary(event, station, waveforms, picks, onsets, ttimes, windows):
             f"Pick time: {pick.PickTime}\n"
             f"Pick error: {pick.PickError:5.3f} s\n"
             f"Pick SNR: {pick.SNR:5.3f}\n"
-            f"Pick residual: {resid:5.3f} s"
+            f"Pick residual: {pick.Residual:5.3f} s"
         )
         text.text(0.05 + i * 0.5, 0.4, pick_info, ha="left", va="center", fontsize=18)
     text.set_axis_off()

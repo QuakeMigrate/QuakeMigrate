@@ -13,7 +13,7 @@ runs/
 LUT/
 logs/
 outputs/
-Z7_dataless.xml
-examples/Volcanotectonic_Iceland/inputs/mSEED/
+mSEED/
+DATALESS/
 .DS_Store
 _build

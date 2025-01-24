@@ -25,7 +25,7 @@ from quakemigrate.signal.local_mag import LocalMag
 
 # --- i/o paths ---
 station_file = "./inputs/iceland_stations.txt"
-response_file = "./inputs/Z7_dataless.xml"
+response_file = "./inputs/DATALESS/Z7*.xml"
 data_in = "./inputs/mSEED"
 lut_file = "./outputs/lut/dike_intrusion.LUT"
 run_path = "./outputs/runs"
@@ -89,7 +89,7 @@ onset.sta_lta_windows = {"P": [0.2, 1.0], "S": [0.2, 1.0]}
 
 # --- Create new PhasePicker ---
 picker = GaussianPicker(onset=onset)
-picker.plot_picks = True
+picker.plot_picks = False
 
 # --- Create new QuakeScan ---
 scan = QuakeScan(

@@ -151,15 +151,15 @@ def trigger_summary(
         _plot_event_scatter(fig, discarded_events, discarded=True)
 
     # --- Plot event scatter on LUT and windows on coalescence traces ---
-    if events is not None:
+    if not events.empty:
         _plot_event_windows(fig.axes[:2], events, marginal_window)
         _plot_event_scatter(fig, events)
 
-        # Add trigger threshold to the correct coalescence trace
-        ax_i = 1 if normalise_coalescence else 0
-        fig.axes[ax_i].step(
-            dt, detection_threshold, where="mid", c="g", label="Detection threshold"
-        )
+    # --- Add trigger threshold to the correct coalescence trace ---
+    ax_i = 1 if normalise_coalescence else 0
+    fig.axes[ax_i].step(
+        dt, detection_threshold, where="mid", c="g", label="Detection threshold"
+    )
 
     # --- Write summary information ---
     text = plt.subplot2grid(gs, (0, 0), colspan=8, rowspan=2, fig=fig)
@@ -475,7 +475,7 @@ def _plot_text_summary(
 
     # Get trigger on and event count info
     trig = "normalised coalescence" if normalise_coalescence else "coalescence"
-    count = len(events) if events is not None else 0
+    count = len(events)
 
     with plt.rc_context({"font.size": 18}):
         ax.text(0.45, 0.65, "Trigger threshold:", ha="right", va="center")

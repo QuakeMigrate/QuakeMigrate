@@ -3,7 +3,7 @@
 Module containing methods to generate event summaries and videos.
 
 :copyright:
-    2020–2023, QuakeMigrate developers.
+    2020–2024, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -22,7 +22,9 @@ import quakemigrate.util as util
 
 
 @util.timeit("info")
-def event_summary(run, event, marginalised_coa_map, lut, xy_files=None):
+def event_summary(
+    run, event, marginalised_coa_map, lut, xy_files=None, plot_all_stns=True
+):
     """
     Plots an event summary illustrating the locate results: slices through the
     marginalised coalescence map with the best location estimate (peak of interpolated
@@ -54,6 +56,10 @@ def event_summary(run, event, marginalised_coa_map, lut, xy_files=None):
         a comment - this can be used to include references. See the
         Volcanotectonic_Iceland example XY_files for a template.\n
         .. note:: Do not include a header line in either file.
+    plot_all_stns : bool, optional
+        If true, plot all stations in the LUT. Otherwise, only plot stations which were
+        used for migration (i.e. omitting stations for which there was no data, or data
+        did not pass the specified quality checks). Default: True.
 
     """
 
@@ -79,8 +85,18 @@ def event_summary(run, event, marginalised_coa_map, lut, xy_files=None):
     fig.add_subplot(coa_spec)
 
     # --- Plot LUT, waveform gather, and max coalescence trace ---
-    lut.plot(fig, (9, 15), slices, event.hypocentre, "white", event.data.stations)
-    _plot_waveform_gather(fig.axes[0], lut, event, idx_max)
+    if not plot_all_stns:
+        station_list = []
+        for key, available in event.onset_data.availability.items():
+            station, _ = key.split("_")
+            if available == 1:
+                station_list.append(station)
+        station_list = list(set(sorted(station_list)))
+    else:
+        station_list = event.data.stations
+    lut.plot(fig, (9, 15), slices, event.hypocentre, "white", station_list)
+
+    _plot_waveform_gather(fig.axes[0], lut, event, idx_max, station_list)
     _plot_coalescence_trace(fig.axes[1], event)
 
     # --- Plot xy files on map ---
@@ -100,13 +116,31 @@ def event_summary(run, event, marginalised_coa_map, lut, xy_files=None):
     _plot_text_summary(text, lut, event)
 
     # Deal with repeating labels in waveform gather legend; combine labels for
-    # ["N", "1"], ["E", "2"]
+    # e.g. ["N", "1"], ["E", "2"]; and same for P (e.g. ["Z", "1"]) -- based on
+    # components supplied for each phase in onset.channel_maps
+    p_str, s_str_1, s_str_2 = util.get_phase_component_strings(
+        event.onset_data.channel_maps
+    )
     handles, labels = fig.axes[0].get_legend_handles_labels()
-    for cp1, cp2 in [("N", "1"), ("E", "2")]:
-        if all(x in labels for x in [f"{cp1} component", f"{cp2} component"]):
+    # Component pairs (if they exist) for each
+    for ph, comp_pair in zip(
+        ["P", "S", "S"],
+        [tuple(p_str[1::2]), tuple(s_str_1[1::2]), tuple(s_str_2[1::2])],
+    ):
+        # Handle case where only one component is specified for a given phase
+        try:
+            cp1, cp2 = comp_pair
+        except ValueError:
+            logging.debug(
+                f"Only one component pair for {ph} - skipping label adjustment."
+            )
+            continue
+        if all(
+            x in labels for x in [f"{cp1} component ({ph})", f"{cp2} component ({ph})"]
+        ):
             labels = [
-                f"{cp2}, {cp1} component"
-                if x == f"{cp1} component" or x == f"{cp2} component"
+                f"{cp2}, {cp1} component ({ph})"
+                if x == f"{cp1} component ({ph})" or x == f"{cp2} component ({ph})"
                 else x
                 for x in labels
             ]
@@ -156,7 +190,7 @@ WAVEFORM_COLOURS2 = ["#33a02c", "#b2df8a", "#1f78b4"]
 PICK_COLOURS = ["#F03B20", "#3182BD"]
 
 
-def _plot_waveform_gather(ax, lut, event, idx):
+def _plot_waveform_gather(ax, lut, event, idx_max, stations):
     """
     Utility function to bring all aspects of plotting the waveform gather into one
     place.
@@ -171,21 +205,23 @@ def _plot_waveform_gather(ax, lut, event, idx):
     event : :class:`~quakemigrate.io.event.Event` object
         Light class encapsulating waveforms, coalescence information, picks and location
         information for a given event.
-    idx : `numpy.ndarray` of `numpy.double`
-        Marginalised 3-D coalescence map, shape(nx, ny, nz).
+    idx_max : `numpy.ndarray` of `numpy.int64`
+        Index of maximum coalescence location in grid (ie hypocentre).
 
     """
 
     phases = event.onset_data.phases
-    stations = event.data.stations
 
     # --- Predicted traveltimes ---
     traveltimes = np.array(
-        [lut.traveltime_to(phase, idx, stations) for phase in phases]
+        [lut.traveltime_to(phase, idx_max, stations) for phase in phases]
     )
     arrivals = [[(event.otime + tt).datetime for tt in tt_f] for tt_f in traveltimes]
 
     range_order = abs(np.argsort(np.argsort(arrivals[0])) - len(arrivals[0])) * 2
+
+    # --- Plot modelled phase arrival times ---
+    # estimate the appropriate height for the pick marker line based on the plot height
     s = (ax.get_window_extent().height / (max(range_order) + 1) * 1.2) ** 2
 
     # Handle single-phase plotting
@@ -207,6 +243,9 @@ def _plot_waveform_gather(ax, lut, event, idx):
 
     # --- Waveforms ---
     waveforms = event.onset_data.filtered_waveforms
+    p_str, s_str_1, s_str_2 = util.get_phase_component_strings(
+        event.onset_data.channel_maps
+    )
     # Min and max times to plot
     mint = event.otime - 0.1
     maxt = min(event.otime + np.max(traveltimes) * 1.5, event.data.endtime)
@@ -215,25 +254,28 @@ def _plot_waveform_gather(ax, lut, event, idx):
     mint_i, maxt_i = [np.argmin(abs(times_utc - t)) for t in (mint, maxt)]
     for i, station in enumerate(stations):
         stn_waveforms = waveforms.select(station=station)
-        for c, comp in zip(WAVEFORM_COLOURS1, ["Z", "[N,1]", "[E,2]"]):
+        for c, comp, phase in zip(
+            WAVEFORM_COLOURS1, [p_str, s_str_1, s_str_2], ["P", "S", "S"]
+        ):
             st = stn_waveforms.select(component=comp)
             if not bool(st):
                 continue
-            tr = st[0]
-            comp = tr.stats.component
-            data = tr.data
+            # If multiple traces for a given phase, plot both in the same colour
+            for tr in st:
+                comp = tr.stats.component
+                data = tr.data
 
-            # Get station specific range for norm factor
-            stat_maxt = event.otime + max(traveltimes[:, i]) * 1.5
-            norm = max(abs(data[mint_i : np.argmin(abs(times_utc - stat_maxt))]))
+                # Get station specific range for norm factor
+                stat_maxt = event.otime + max(traveltimes[:, i]) * 1.5
+                norm = max(abs(data[mint_i : np.argmin(abs(times_utc - stat_maxt))]))
 
-            # Generate times for plotting
-            times = tr.times("matplotlib")[mint_i:maxt_i]
+                # Generate times for plotting
+                times = tr.times("matplotlib")[mint_i:maxt_i]
 
-            # Trim to plot limits, normalise, shift by range, then plot
-            y = data[mint_i:maxt_i] / norm + range_order[i]
-            label = f"{comp} component"
-            ax.plot(times, y, c=c, lw=0.3, label=label, alpha=0.85)
+                # Trim to plot limits, normalise, shift by range, then plot
+                y = data[mint_i:maxt_i] / norm + range_order[i]
+                label = f"{comp} component ({phase})"
+                ax.plot(times, y, c=c, lw=0.3, label=label, alpha=0.85)
 
     # --- Limits, annotations, and axis formatting ---
     ax.set_xlim([mint.datetime, maxt.datetime])
@@ -300,12 +342,13 @@ def _plot_text_summary(ax, lut, event):
     hypocentre = [round(dimh, dimp) for dimh, dimp in zip(event.hypocentre, precision)]
     gau_unc = [round(dim, precision[2]) for dim in event.loc_uncertainty / km_cf]
     hypo = (
-        f"{hypocentre[1]}\u00b0N \u00B1 {gau_unc[1]} km\n"
-        f"{hypocentre[0]}\u00b0E \u00B1 {gau_unc[0]} km\n"
-        f"{hypocentre[2]/km_cf} \u00B1 {gau_unc[2]} km"
+        f"{hypocentre[1]}\u00b0N \u00b1 {gau_unc[1]} km\n"
+        f"{hypocentre[0]}\u00b0E \u00b1 {gau_unc[0]} km\n"
+        f"{hypocentre[2]/km_cf} \u00b1 {gau_unc[2]} km"
     )
 
-    # Grab the magnitude information
+    # Grab the covariance error and magnitude information
+    cov_err_xyz = event.locations["covariance"]["Err_XYZ"]
     mag_info = event.local_magnitude
 
     ax.text(0.25, 0.8, f"Event: {event.uid}", fontsize=20, fontweight="bold")
@@ -316,12 +359,17 @@ def _plot_text_summary(ax, lut, event):
         ax.text(0.37, 0.65, f"{ot_text}", ha="left", va="center")
         ax.text(0.35, 0.55, "Hypocentre:", ha="right", va="top")
         ax.text(0.37, 0.55, hypo, ha="left", va="top")
+        ax.text(0.35, 0.22, "Geometric mean covariance:", ha="right", va="center")
+        ax.text(0.37, 0.22, f"{cov_err_xyz:.3g}", ha="left", va="center")
         if mag_info is not None:
             mag, mag_err, mag_r2 = mag_info
-            ax.text(0.35, 0.19, "Local magnitude:", ha="right")
-            ax.text(0.37, 0.19, f"{mag:.3g} \u00B1 {mag_err:.3g}", ha="left")
-            ax.text(0.35, 0.09, "Local magnitude r\u00B2:", ha="right")
-            ax.text(0.37, 0.09, f"{mag_r2:.3g}", ha="left")
+            ax.text(0.35, 0.09, "Local magnitude:", ha="right")
+            ax.text(
+                0.37,
+                0.09,
+                f"{mag:.3g} \u00b1 {mag_err:.3g}   r\u00b2 = {mag_r2:.3g}",
+                ha="left",
+            )
     ax.set_axis_off()
 
 

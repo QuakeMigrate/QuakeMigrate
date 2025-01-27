@@ -3,7 +3,7 @@
 Module to handle input/output of .scanmseed files.
 
 :copyright:
-    2020–2023, QuakeMigrate developers.
+    2020–2024, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -105,27 +105,27 @@ class ScanmSEED:
 
         meta = {
             "network": "NW",
-            "npts": len(max_coa) - 1,
+            "npts": len(max_coa),
             "sampling_rate": self.sampling_rate,
             "starttime": starttime,
         }
 
         self.stream += Trace(
-            data=self._data2int(max_coa[:-1], 1e5),
+            data=self._data2int(max_coa, 1e5),
             header={**{"station": "COA"}, **meta},
         )
         self.stream += Trace(
-            data=self._data2int(max_coa_n[:-1], 1e5),
+            data=self._data2int(max_coa_n, 1e5),
             header={**{"station": "COA_N"}, **meta},
         )
         self.stream += Trace(
-            data=self._data2int(coord[:-1, 0], 1e6), header={**{"station": "X"}, **meta}
+            data=self._data2int(coord[:, 0], 1e6), header={**{"station": "X"}, **meta}
         )
         self.stream += Trace(
-            data=self._data2int(coord[:-1, 1], 1e6), header={**{"station": "Y"}, **meta}
+            data=self._data2int(coord[:, 1], 1e6), header={**{"station": "Y"}, **meta}
         )
         self.stream += Trace(
-            data=self._data2int(coord[:-1, 2], 1e3 * ucf),
+            data=self._data2int(coord[:, 2], 1e3 * ucf),
             header={**{"station": "Z"}, **meta},
         )
         self.stream.merge(method=-1)
@@ -133,11 +133,18 @@ class ScanmSEED:
         # Write to file if passed day line
         self.written = False
         stats = self.stream[0].stats
-        if stats.starttime.julday != stats.endtime.julday:
+        if stats.endtime == UTCDateTime(stats.starttime.date) + 86400 - stats.delta:
+            self.write()
+            self.stream = Stream()
+        elif stats.starttime.julday != stats.endtime.julday:
+            logging.debug("Timestep doesn't fall at midnight!")
             write_start = stats.starttime
             write_end = UTCDateTime(stats.endtime.date) - stats.delta
             self.write(write_start, write_end)
             self.stream.trim(starttime=write_end + stats.delta)
+            # Set written to false, because there is residual data that has not yet been
+            # written to file.
+            self.written = False
 
         if self.continuous_write and not self.written:
             self.write()
@@ -167,7 +174,7 @@ class ScanmSEED:
         logging.info(msg)
 
         starttime = starttime + timestep * i
-        n = util.time2sample(timestep, self.sampling_rate) + 1
+        n = util.time2sample(timestep, self.sampling_rate)
         max_coa = max_coa_n = np.full(n, 0)
         coord = np.full((n, 3), 0)
 
@@ -309,7 +316,7 @@ def read_scanmseed(run, starttime, endtime, pad, ucf):
         )
     elif stats.starttime > readstart:
         logging.info("\t    Warning! No .scanmseed data found for pre-pad!")
-    if stats.endtime < endtime - stats.delta:
+    if stats.endtime < endtime:
         logging.info("\n\t    Warning! .scanmseed endtime is before trigger() endtime!")
     elif stats.endtime < readend:
         logging.info("\t    Warning! No .scanmseed data found for post-pad!")

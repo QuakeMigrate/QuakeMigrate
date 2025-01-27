@@ -52,6 +52,9 @@ class GaussianPicker(PhasePicker):
         (Default: 8)
     plot_picks : bool
         Toggle plotting of phase picks.
+    write_seed_ids : bool
+        Toggle writing the SEED id's of the traces that have contributed to a given phase
+        pick within the .picks file. Default: False.
 
     Methods
     -------
@@ -84,6 +87,8 @@ class GaussianPicker(PhasePicker):
             self.pick_threshold = kwargs["pick_threshold"]
 
         self.plot_picks = kwargs.get("plot_picks", False)
+
+        self.write_seed_ids = kwargs.get("write_seed_ids", False)
 
         if "fraction_tt" in kwargs.keys():
             print(
@@ -147,17 +152,18 @@ class GaussianPicker(PhasePicker):
 
         # Pre-define pick DataFrame and fit params and pick windows dicts
         p_idx = np.arange(sum([len(v) for _, v in onset_data.onsets.items()]))
-        picks = pd.DataFrame(
-            index=p_idx,
-            columns=[
-                "Station",
-                "Phase",
-                "ModelledTime",
-                "PickTime",
-                "PickError",
-                "SNR",
-            ],
-        )
+        columns = [
+            "Station",
+            "Phase",
+            "ModelledTime",
+            "PickTime",
+            "PickError",
+            "SNR",
+            "Residual",
+        ]
+        if self.write_seed_ids:
+            columns = [columns[0], "SEED_ids", *columns[1:]]
+        picks = pd.DataFrame(index=p_idx, columns=columns)
         gaussfits = {}
         pick_windows = {}
         idx = 0
@@ -198,7 +204,27 @@ class GaussianPicker(PhasePicker):
 
                 traveltime = lut.traveltime_to(phase, e_ijk, station)[0]
                 model_time = event.otime + traveltime
-                picks.iloc[idx] = [station, phase, model_time, *pick]
+                if pick[0] == -1:
+                    residual = -1
+                else:
+                    residual = pick[0] - model_time
+
+                if self.write_seed_ids:
+                    stream = onset_data.filtered_waveforms.select(
+                        station=station,
+                        channel=self.onset.channel_maps[phase],
+                    )
+                    seed_ids = sorted(set([tr.id for tr in stream]))
+                    picks.iloc[idx] = [
+                        station,
+                        seed_ids,
+                        phase,
+                        model_time,
+                        *pick,
+                        residual,
+                    ]
+                else:
+                    picks.iloc[idx] = [station, phase, model_time, *pick, residual]
                 idx += 1
 
         event.add_picks(picks, gaussfits=gaussfits, pick_windows=pick_windows)
@@ -567,6 +593,7 @@ class GaussianPicker(PhasePicker):
         fpath.mkdir(exist_ok=True, parents=True)
 
         onsets = onset_data.onsets[station]
+        channel_maps = onset_data.channel_maps
         waveforms = onset_data.filtered_waveforms.select(station=station)
         # Check if any data available to plot
         if not bool(waveforms):
@@ -576,7 +603,7 @@ class GaussianPicker(PhasePicker):
 
         # Call subroutine to plot phase pick figure
         fig = pick_summary(
-            event, station, waveforms, picks, onsets, traveltimes, windows
+            event, station, waveforms, picks, onsets, channel_maps, traveltimes, windows
         )
 
         fstem = f"{event.uid}_{station}"

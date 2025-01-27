@@ -18,7 +18,7 @@ include = ["quakemigrate*"]
 
 [project]
 name = "quakemigrate"
-version = "1.1.2"
+version = "1.2.0"
 description = "A Python package for automatic earthquake detection and location using waveform migration and stacking."
 readme = "README.md"
 license = {text = "GPLv3"}
@@ -69,7 +69,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["ipython", "pre-commit", "ruff", "coverage"]
-docs = ["docutils<0.17", "mock", "Sphinx >= 4.3.0", "sphinx_rtd_theme>=0.5.1"]
+docs = ["docutils<0.17", "Sphinx >= 4.3.0", "sphinx_rtd_theme>=0.5.1"]
 fmm = ["scikit-fmm"]
 
 [project.urls]

@@ -151,7 +151,7 @@ class TestExamples(unittest.TestCase):
             b_picks = sorted(b_dir.glob("*.picks"))
             t_picks = sorted((t_dir / "picks").glob("*.picks"))
             for b_pick, t_pick in zip(b_picks, t_picks):
-                if "20140824000443240" in t_pick.name:
+                if "20140824000443260" in t_pick.name:
                     print("\t   ...skipping due to unidentified floating point issue.")
                     continue
                 pd.testing.assert_frame_equal(

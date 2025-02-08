@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 The :mod:`quakemigrate.signal` module handles the core of the QuakeMigrate methods.
 This includes:
@@ -10,7 +9,7 @@ This includes:
       magnitudes.
 
 :copyright:
-    2020–2023, QuakeMigrate developers.
+    2020–2025, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)

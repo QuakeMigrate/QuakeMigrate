@@ -1,8 +1,13 @@
-# -*- coding: utf-8 -*-
 """
 This script demonstrates how to run the locate stage of QuakeMigrate.
 
 For more details, please see the manual and read the docs.
+
+:copyright:
+    2020–2025, QuakeMigrate developers.
+:license:
+    GNU General Public License, Version 3
+    (https://www.gnu.org/licenses/gpl-3.0.html)
 
 """
 

@@ -1,10 +1,9 @@
-# -*- coding: utf-8 -*-
 """
 The :mod:`quakemigrate.lut` module handles the definition and generation of the
 traveltime lookup tables used in QuakeMigrate.
 
 :copyright:
-    2020–2023, QuakeMigrate developers.
+    2020–2025, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)

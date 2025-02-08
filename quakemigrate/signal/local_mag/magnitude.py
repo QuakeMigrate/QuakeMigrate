@@ -1,11 +1,10 @@
-# -*- coding: utf-8 -*-
 """
 Module that supplies functions to calculate magnitudes from observations of trace
 amplitudes, earthquake location, station locations, and an estimated attenuation curve
 for the region of interest.
 
 :copyright:
-    2020–2024, QuakeMigrate developers.
+    2020–2025, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)

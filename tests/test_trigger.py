@@ -1,9 +1,8 @@
-# -*- coding: utf-8 -*-
 """
 Short test script for trigger functions (thresholds, smoothing, ...).
 
 :copyright:
-    2020–2024, QuakeMigrate developers.
+    2020–2025, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -16,6 +15,7 @@ import numpy as np
 import pandas as pd
 
 from quakemigrate import Trigger
+from quakemigrate.signal.trigger import chunks2trace
 
 
 class TriggerTests(unittest.TestCase):
@@ -73,6 +73,22 @@ class TriggerTests(unittest.TestCase):
         print("\t2: Assert smooth_coa output is correct...")
         self.assertTrue(np.allclose(data["COA"], expected))
         print("\t   ...passed!")
+
+    def test_chunks2trace(self):
+
+        print("Testing `chunks2trace` function...")
+        a = np.ones(30)
+
+        breaks = np.arange(len(a))
+        breaks = breaks[breaks % int(6) == 0][1:]
+
+        chunks = np.split(a, breaks)
+        medians = np.asarray([np.median(chunk) for chunk in chunks])
+
+        trace = chunks2trace(medians, (len(chunks), len(chunks[0])))
+
+        self.assertTrue(np.all(np.equal(a, trace)))
+        print("...passed!")
 
 
 if __name__ == "__main__":

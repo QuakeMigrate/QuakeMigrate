@@ -1,10 +1,9 @@
-# -*- coding: utf-8 -*-
 """
 Script that will run the examples required to run the QuakeMigrate benchmark
 tests.
 
 :copyright:
-    2020--2022, QuakeMigrate developers.
+    2020–2025, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)

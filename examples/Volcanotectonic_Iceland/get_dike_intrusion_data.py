@@ -1,8 +1,13 @@
-# -*- coding: utf-8 -*-
 """
 This script will download the waveform data and an instrument response
 inventory from IRIS (in miniSEED and STATIONXML formats, respectively)
 for the Iceland dike intrusion example.
+
+:copyright:
+    2020–2025, QuakeMigrate developers.
+:license:
+    GNU General Public License, Version 3
+    (https://www.gnu.org/licenses/gpl-3.0.html)
 
 """
 

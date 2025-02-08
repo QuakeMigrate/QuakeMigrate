@@ -1,10 +1,9 @@
-# -*- coding: utf-8 -*-
 """
 Module containing methods to measure Wood-Anderson corrected waveform amplitudes to be
 used for local magnitude calculation.
 
 :copyright:
-    2020–2023, QuakeMigrate developers.
+    2020–2025, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)

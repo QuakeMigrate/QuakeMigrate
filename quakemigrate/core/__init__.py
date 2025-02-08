@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 The :mod:`quakemigrate.core` module provides Python bindings for the libraries of
 compiled C routines that form the core of QuakeMigrate and do the heavy lifting:
@@ -11,7 +10,7 @@ compiled C routines that form the core of QuakeMigrate and do the heavy lifting:
     of the centred STA/LTA.
 
 :copyright:
-    2020–2023, QuakeMigrate developers.
+    2020–2025, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)

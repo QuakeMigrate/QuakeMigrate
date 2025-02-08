@@ -1,11 +1,10 @@
-# -*- coding: utf-8 -*-
 """
 A simple abstract base class with method stubs enabling simple modification of
 QuakeMigrate to use custom phase picking methods that remain compatible with the core of
 the package.
 
 :copyright:
-    2020–2023, QuakeMigrate developers.
+    2020–2025, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)

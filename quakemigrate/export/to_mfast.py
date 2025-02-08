@@ -1,10 +1,9 @@
-# -*- coding: utf-8 -*-
 """
 This module provides parsers to generate SAC waveform files from an ObsPy Catalog, with
 headers correctly populated for MFAST.
 
 :copyright:
-    2020–2023, QuakeMigrate developers.
+    2020–2025, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)

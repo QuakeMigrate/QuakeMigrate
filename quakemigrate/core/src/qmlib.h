@@ -6,7 +6,7 @@
  *        Purpose:  Header file to bring together definitions used in the
  *                  QuakeMigrate C libraries.
  *
- *      Copyright:  2020-2023, QuakeMigrate developers.
+ *      Copyright:  2020-2025, QuakeMigrate developers.
  *        License:  GNU General Public License, Version 3
  *                  (https://www.gnu.org/licenses/gpl-3.0.html)
  *

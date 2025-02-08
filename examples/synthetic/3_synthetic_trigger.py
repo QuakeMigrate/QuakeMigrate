@@ -3,7 +3,7 @@ This script runs the trigger stage for the synthetic example described in the tu
 in the online documentation. 
 
 :copyright:
-    2020–2024, QuakeMigrate developers.
+    2020–2025, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)

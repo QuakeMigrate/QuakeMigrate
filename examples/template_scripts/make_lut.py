@@ -1,7 +1,12 @@
-# -*- coding: utf-8 -*-
 """
 This script demonstrates how to generate traveltime look-up tables (LUT's) for
 QuakeMigrate.
+
+:copyright:
+    2020–2025, QuakeMigrate developers.
+:license:
+    GNU General Public License, Version 3
+    (https://www.gnu.org/licenses/gpl-3.0.html)
 
 """
 

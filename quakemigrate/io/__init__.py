@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 The :mod:`quakemigrate.io` module handles the various input/output operations performed
 by QuakeMigrate. This includes:
@@ -20,7 +19,7 @@ by QuakeMigrate. This includes:
       for located events.
 
 :copyright:
-    2020–2024, QuakeMigrate developers.
+    2020–2025, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)

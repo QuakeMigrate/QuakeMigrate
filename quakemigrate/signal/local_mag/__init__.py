@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 The :mod:`quakemigrate.local_mag` extension module handles the calculation of local
 magnitudes from Wood-Anderson simulated waveforms.
@@ -10,7 +9,7 @@ developers at: quakemigrate.developers@gmail.com, or submit an issue on \
 GitHub.
 
 :copyright:
-    2020–2023, QuakeMigrate developers.
+    2020–2025, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)

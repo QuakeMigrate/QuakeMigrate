@@ -1,9 +1,8 @@
-# -*- coding: utf-8 -*-
 """
 Short test script for C onset functions.
 
 :copyright:
-    2020–2023, QuakeMigrate developers.
+    2020–2025, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -15,7 +14,7 @@ import unittest
 import numpy as np
 
 from quakemigrate.core import overlapping_sta_lta, centred_sta_lta
-
+    
 
 class OnsetTests(unittest.TestCase):
     """Suite of tests to check the onset functions are working as expected."""

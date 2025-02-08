@@ -1,9 +1,8 @@
-# -*- coding: utf-8 -*-
 """
 Module to perform the trigger stage of QuakeMigrate.
 
 :copyright:
-    2020–2024, QuakeMigrate developers.
+    2020–2025, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)

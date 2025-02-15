@@ -9,6 +9,8 @@ Module to perform core QuakeMigrate functions: detect() and locate().
 
 """
 
+from __future__ import annotations
+
 import logging
 import warnings
 from datetime import time
@@ -19,6 +21,7 @@ import pandas as pd
 from scipy.interpolate import Rbf
 from scipy.signal import fftconvolve
 
+import quakemigrate
 import quakemigrate.util as util
 from quakemigrate.core import find_max_coa, migrate
 from quakemigrate.io import (
@@ -50,18 +53,18 @@ class QuakeScan:
 
     Parameters
     ----------
-    archive : :class:`~quakemigrate.io.data.Archive` object
+    archive:
         Details the structure and location of a data archive and provides methods for
         reading data from file.
-    lut : :class:`~quakemigrate.lut.lut.LUT` object
+    lut:
         Contains the traveltime lookup tables for seismic phases, computed for some
         pre-defined velocity model.
-    onset : :class:`~quakemigrate.signal.onsets.base.Onset` object
+    onset:
         Provides callback methods for calculation of onset functions.
-    run_path : str
+    run_path:
         Points to the top level directory containing all input files, under which the
         specific run directory will be created.
-    run_name : str
+    run_name:
         Name of the current QuakeMigrate run.
     kwargs : **dict
         See QuakeScan Attributes for details. In addition to these:
@@ -174,17 +177,6 @@ class QuakeScan:
         data to
     +++ TO BE REMOVED TO ARCHIVE CLASS +++
 
-    Methods
-    -------
-    detect(starttime, endtime)
-        Core detection method -- compute decimated 3-D coalescence continuously
-        throughout entire time period; output as .scanmseed (in mSEED format).
-    locate(starttime, endtime) or locate(file)
-        Core locate method -- compute 3-D coalescence over short time window around
-        candidate earthquake triggered from continuous detect output; output location &
-        uncertainties (.event file), phase picks (.picks file), plus multiple optional
-        plots / data for further analysis and processing.
-
     Raises
     ------
     OnsetTypeError
@@ -200,7 +192,15 @@ class QuakeScan:
 
     """
 
-    def __init__(self, archive, lut, onset, run_path, run_name, **kwargs):
+    def __init__(
+        self,
+        archive: quakemigrate.io.data.Archive,
+        lut: quakemigrate.lut.LUT,
+        onset: Onset,
+        run_path: str,
+        run_name: str,
+        **kwargs,
+    ) -> None:
         """Instantiate the QuakeScan object."""
 
         self.archive = archive
@@ -278,7 +278,7 @@ class QuakeScan:
         self.post_cut = None
         # +++ TO BE REMOVED TO ARCHIVE CLASS +++
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return short summary string of the QuakeScan object."""
 
         out = (
@@ -293,16 +293,16 @@ class QuakeScan:
 
         return out
 
-    def detect(self, starttime, endtime):
+    def detect(self, starttime: str, endtime: str) -> None:
         """
         Scans through data calculating coalescence in a (decimated) 3-D grid by
         continuously migrating onset functions.
 
         Parameters
         ----------
-        starttime : str
+        starttime:
             Timestamp from which to run continuous scan.
-        endtime : str
+        endtime:
             Timestamp up to which to run continuous scan. Note: if the duration is not
             divisible by the specified timestep, the endtime will be extended to
             accommodate. If the endtime is set to midnight, then it will be automatically
@@ -347,7 +347,12 @@ class QuakeScan:
 
         logging.info(util.log_spacer)
 
-    def locate(self, starttime=None, endtime=None, trigger_file=None):
+    def locate(
+        self,
+        starttime: UTCDateTime | None = None,
+        endtime: UTCDateTime | None = None,
+        trigger_file: str | None = None,
+    ) -> None:
         """
         Re-computes the coalescence on an undecimated grid for a short time window
         around each candidate earthquake triggered from the (decimated) continuous
@@ -357,13 +362,13 @@ class QuakeScan:
 
         Parameters
         ----------
-        starttime : str, optional
+        starttime:
             Timestamp from which to include events in the locate scan.
-        endtime : str, optional
+        endtime:
             Timestamp up to which to include events in the locate scan. Note: if the
             endtime is set to midnight, then only events during the previous day will
             be included.
-        trigger_file : str, optional
+        trigger_file:
             File containing triggered events to be located.
 
         """
@@ -403,16 +408,16 @@ class QuakeScan:
 
         logging.info(util.log_spacer)
 
-    def _continuous_compute(self, starttime, n_steps):
+    def _continuous_compute(self, starttime: UTCDateTime, n_steps: int) -> None:
         """
         Compute coalescence between two timestamps, divided into increments of
         `timestep`. Outputs coalescence and station availability data to file.
 
         Parameters
         ----------
-        starttime : `obspy.UTCDateTime` object
+        starttime:
             Timestamp from which to compute continuous coalescence.
-        n_steps : int
+        n_steps:
             Number of timesteps (of length `timestep`) to compute.
 
         """
@@ -468,7 +473,7 @@ class QuakeScan:
             coalescence.write()
         write_availability(self.run, availability)
 
-    def _locate_events(self, **kwargs):
+    def _locate_events(self, **kwargs) -> None:
         """
         Loop through list of earthquakes read in from trigger results and re-compute
         coalescence; output phase picks, event location and uncertainty, plus optional
@@ -590,26 +595,32 @@ class QuakeScan:
             logging.info(util.log_spacer)
 
     @util.timeit("info")
-    def _compute(self, data, event=None):
+    def _compute(
+        self,
+        data: quakemigrate.io.data.WaveformData,
+        event: quakemigrate.io.event.Event | None = None,
+    ) -> tuple[
+        np.ndarray[UTCDateTime], np.ndarray[float], np.ndarray[float], np.ndarray[float]
+    ]:
         """
         Compute 3-D coalescence between two time stamps.
 
         Parameters
         ----------
-        data : :class:`~quakemigrate.io.data.WaveformData` object
+        data:
             Light class encapsulating data returned by an archive query.
 
         Returns
         -------
-        times : `numpy.ndarray` of `obspy.UTCDateTime` objects, shape(nsamples)
+         :
             Timestamps for the coalescence data.
-        max_coa : `numpy.ndarray` of floats, shape(nsamples)
+         :
             Coalescence value through time.
-        max_coa_n : `numpy.ndarray` of floats, shape(nsamples)
+         :
             Normalised coalescence value through time.
-        coord : `numpy.ndarray` of floats, shape(nsamples)
+         :
             Location of maximum coalescence through time in input projection space.
-        map4d : `numpy.ndarry`, shape(nx, ny, nz, nsamp), optional
+         :
             4-D coalescence map.
 
         """
@@ -646,20 +657,22 @@ class QuakeScan:
             return times, max_coa, max_coa_n, coord, map4d, onset_data
 
     @util.timeit("info")
-    def _read_event_waveform_data(self, w_beg, w_end):
+    def _read_event_waveform_data(
+        self, w_beg: UTCDateTime, w_end: UTCDateTime
+    ) -> quakemigrate.io.data.WaveformData:
         """
         Read waveform data for a triggered event.
 
         Parameters
         ----------
-        w_beg : `obpsy.UTCDateTime` object
+        w_beg:
             Timestamp from which to read waveform data.
-        w_end : `obspy.UTCDateTime` object
+        w_end:
             Timestamp up to which to read waveform data.
 
         Returns
         -------
-        data : :class:`~quakemigrate.io.data.WaveformData` object
+         :
             Light class encapsulating data returned by an archive query.
 
         """
@@ -692,7 +705,7 @@ class QuakeScan:
         return self.archive.read_waveform_data(w_beg, w_end, pre_pad, post_pad)
 
     @util.timeit("info")
-    def _calculate_location(self, event):
+    def _calculate_location(self, event: quakemigrate.io.event.Event) -> np.ndarray:
         """
         Marginalise the 4-D coalescence grid and calculate a set of locations and
         associated uncertainties by:
@@ -704,13 +717,13 @@ class QuakeScan:
 
         Parameters
         ----------
-        event : :class:`~quakemigrate.io.event.Event` object
+        event:
             Light class encapsulating waveforms, coalescence information, picks and
             location information for a given event.
 
         Returns
         -------
-        coa_map : array-like
+         :
             Marginalised 3-D coalescence map.
 
         """
@@ -732,7 +745,9 @@ class QuakeScan:
         return coa_map
 
     @util.timeit()
-    def _splineloc(self, coa_map, win=5, upscale=10):
+    def _splineloc(
+        self, coa_map: np.ndarray, win: int = 5, upscale: int = 10
+    ) -> list[float]:
         """
         Fit a 3-D spline function to a region around the maximum coalescence in the
         marginalised coalescence map and interpolate by factor `upscale` to return a
@@ -740,17 +755,17 @@ class QuakeScan:
 
         Parameters
         ----------
-        coa_map : array-like
+        coa_map:
             Marginalised 3-D coalescence map.
-        win : int
+        win:
             Window of grid nodes (+/-(win-1)//2 in x, y and z) around max value in
             coa_map to perform the fit over.
-        upscale : int
+        upscale:
             Upscaling factor to interpolate the fitted 3-D spline function by.
 
         Returns
         -------
-        location : array-like, [x, y, z]
+         :
             Max coalescence location from spline interpolation.
 
         """
@@ -840,7 +855,9 @@ class QuakeScan:
         return location
 
     @util.timeit()
-    def _gaufit3d(self, coa_map, thresh=0.0, win=7):
+    def _gaufit3d(
+        self, coa_map: np.ndarray, thresh: float = 0.0, win: int = 7
+    ) -> tuple[list[float], list[float]]:
         """
         Fit a 3-D Gaussian function to a region around the maximum coalescence location
         in the 3-D marginalised coalescence map: return expectation location and
@@ -848,20 +865,20 @@ class QuakeScan:
 
         Parameters
         ----------
-        coa_map : array-like
+        coa_map:
             Marginalised 3-D coalescence map.
-        thresh : float (between 0 and 1), optional
+        thresh:
             Cut-off threshold (percentile) to trim coa_map: only data above this
             percentile will be retained.
-        win : int, optional
+        win:
             Window of grid nodes (+/-(win-1)//2 in x, y and z) around max value in
             coa_map to perform the fit over.
 
         Returns
         -------
-        location : array-like, [x, y, z]
+         :
             Expectation location from 3-D Gaussian fit.
-        uncertainty : array-like, [sx, sy, sz]
+         :
             One sigma uncertainties on expectation location from 3-D Gaussian fit.
 
         """
@@ -935,7 +952,9 @@ class QuakeScan:
         return location, uncertainty
 
     @util.timeit()
-    def _covfit3d(self, coa_map, thresh=0.90, win=None):
+    def _covfit3d(
+        self, coa_map: np.ndarray, thresh: float = 0.90, win: int | None = None
+    ) -> tuple[list[float], list[float]]:
         """
         Calculate the 3-D covariance of the marginalised coalescence map, filtered above
         a percentile threshold `thresh`. Optionally can also perform the fit on a
@@ -943,20 +962,20 @@ class QuakeScan:
 
         Parameters
         ----------
-        coa_map : array-like
+        coa_map:
             Marginalised 3-D coalescence map.
-        thresh : float (between 0 and 1), optional
+        thresh:
             Cut-off threshold (fractional percentile) to trim coa_map; only data above
             this percentile will be retained.
-        win : int, optional
+        win:
             Window of grid nodes (+/-(win-1)//2 in x, y and z) around max value in
             coa_map to perform the fit over.
 
         Returns
         -------
-        location : array-like, [x, y, z]
+         :
             Expectation location from covariance fit.
-        uncertainty : array-like, [sx, sy, sz]
+         :
             One sigma uncertainties on expectation location from covariance fit.
 
         """
@@ -1004,24 +1023,26 @@ class QuakeScan:
         return location, uncertainty
 
     @util.timeit()
-    def _gaufilt3d(self, map3d, sgm=0.8, shp=None):
+    def _gaufilt3d(
+        self, map3d: np.ndarray, sgm: float = 0.8, shp: list | None = None
+    ) -> np.ndarray:
         """
         Smooth the 3-D marginalised coalescence map using a 3-D Gaussian function to
         enable a better Gaussian fit to the data to be calculated.
 
         Parameters
         ----------
-        map3d : array-like
+        map3d:
             Marginalised 3-D coalescence map.
-        sgm : float
+        sgm:
             Sigma value (in grid nodes) for the 3-D Gaussian filter function; bigger
             sigma leads to more aggressive (long wavelength) smoothing.
-        shp : array-like, optional
+        shp:
             Shape of volume.
 
         Returns
         -------
-        smoothed_map : array-like
+         :
             Gaussian smoothed 3-D coalescence map.
 
         """
@@ -1041,23 +1062,25 @@ class QuakeScan:
 
         return smoothed_map
 
-    def _mask3d(self, n, i, window):
+    def _mask3d(
+        self, n: np.ndarray[int], i: np.ndarray[int], window: int
+    ) -> np.ndarray:
         """
         Creates a mask that can be applied to a 3-D grid.
 
         Parameters
         ----------
-        n : array-like, int
+        n:
             Shape of grid.
-        i : array-like, int
+        i:
             Location of node around which to mask.
-        window : int
+        window:
             Size of window around node to mask - window of grid nodes is
             +/-(win-1)//2 in x, y and z.
 
         Returns
         -------
-        mask : array-like
+         :
             Masking array.
 
         """

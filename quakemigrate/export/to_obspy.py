@@ -38,7 +38,9 @@ import quakemigrate
 ns = "http://quakemigrate.github.io/xmlns/event"
 
 
-def read_quakemigrate(run_dir, units, run_subname="", local_mag_ph="S"):
+def read_quakemigrate(
+    run_dir: str, units: str, run_subname: str | None = None, local_mag_ph: str = "S"
+) -> Catalog:
     """
     Reads the .event and .picks outputs, and .amps outputs if available, from a
     QuakeMigrate run into an obspy Catalog object.
@@ -50,22 +52,25 @@ def read_quakemigrate(run_dir, units, run_subname="", local_mag_ph="S"):
 
     Parameters
     ----------
-    run_dir : str
+    run_dir:
         Path to QuakeMigrate run directory.
-    units : {"km", "m"}
+    units:
         Grid projection coordinates for QM LUT (determines units of depths and
         uncertainties in the .event files).
-    run_subname : str, optional
+    run_subname:
         Run_subname string (if applicable).
-    local_mag_ph : {"S", "P"}, optional
+    local_mag_ph:
         Amplitude measurement used to calculate local magnitudes. (Default "S").
 
     Returns
     -------
-    cat : `obspy.Catalog` object
+     :
         Catalog containing events in the specified QuakeMigrate run directory.
 
     """
+
+    if run_subname is None:
+        run_subname = ""
 
     locate_dir = pathlib.Path(run_dir) / "locate" / run_subname
     events_dir = locate_dir / "events"
@@ -93,25 +98,27 @@ def read_quakemigrate(run_dir, units, run_subname="", local_mag_ph="S"):
     return cat
 
 
-def _read_single_event(event_file, locate_dir, units, local_mag_ph):
+def _read_single_event(
+    event_file: pathlib.Path, locate_dir: pathlib.Path, units: str, local_mag_ph: str
+) -> Event:
     """
     Parse an event file from QuakeMigrate into an obspy Event object.
 
     Parameters
     ----------
-    event_file : `pathlib.Path` object
+    event_file:
         Path to .event file to read.
-    locate_dir : `pathlib.Path` object
+    locate_dir:
         Path to locate directory (contains "events", "picks" etc. directories).
-    units : {"km", "m"}
+    units:
         Grid projection coordinates for QM LUT (determines units of depths and
         uncertainties in the .event files).
-    local_mag_ph : {"S", "P"}
+    local_mag_ph:
         Amplitude measurement used to calculate local magnitudes.
 
     Returns
     -------
-    event : `obspy.Event` object
+     :
         Event object populated with all available information output by
         :class:`~quakemigrate.signal.scan.locate()`, including event locations and
         uncertainties, picks, and amplitudes and magnitudes if available.

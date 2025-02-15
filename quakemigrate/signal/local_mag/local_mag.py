@@ -10,9 +10,13 @@ Module containing methods to calculate the local magnitude for an event located 
 
 """
 
+from __future__ import annotations
+
 import logging
+
 import numpy as np
 
+import quakemigrate
 import quakemigrate.util as util
 from quakemigrate.io import write_amplitudes
 from .amplitude import Amplitude
@@ -28,7 +32,7 @@ class LocalMag:
 
     Parameters
     ----------
-    amp_params : dict
+    amp_params:
         All keys are optional, including:
         signal_window : float
             Length of S-wave signal window, in addition to the time window associated
@@ -62,7 +66,7 @@ class LocalMag:
             NOTE: not recommended for use in combination with a filter; filter
             gain corrections can lead to spurious results. Please see the
             `scipy.signal.find_peaks` documentation for further guidance.
-    mag_params : dict
+    mag_params:
         Required keys:
         A0 : str or func
             Name of the attenuation function to use. Available options include
@@ -100,7 +104,7 @@ class LocalMag:
         weighted_mean : bool
             Whether to do a weighted mean of the magnitudes when calculating the
             mean_magnitude. (Default False)
-    plot_amplitudes : bool, optional
+    plot_amplitudes:
         Plot amplitudes vs. distance plot for each event. (Default True)
 
     Attributes
@@ -113,13 +117,11 @@ class LocalMag:
         calculate magnitudes from Wood-Anderson corrected displacement amplitudes, and
         to combine them into a single magnitude estimate for the event.
 
-    Methods
-    -------
-    calc_magnitude(event, lut, run)
-
     """
 
-    def __init__(self, amp_params, mag_params, plot_amplitudes=True):
+    def __init__(
+        self, amp_params: dict, mag_params: dict, plot_amplitudes: bool = True
+    ):
         """Instantiate the LocalMag object."""
 
         self.amp = Amplitude(amp_params)
@@ -138,7 +140,12 @@ class LocalMag:
         return out
 
     @util.timeit("info")
-    def calc_magnitude(self, event, lut, run):
+    def calc_magnitude(
+        self,
+        event: quakemigrate.io.event.Event,
+        lut: quakemigrate.lut.LUT,
+        run: quakemigrate.io.core.Run,
+    ) -> tuple[quakemigrate.io.event.Event, float]:
         """
         Wrapper function to calculate the local magnitude of an event by first making
         Wood-Anderson corrected displacement amplitude measurements on each trace, then

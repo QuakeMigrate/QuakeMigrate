@@ -9,13 +9,17 @@ Module to handle input/output of .scanmseed files.
 
 """
 
+from __future__ import annotations
+
 import logging
 
 import numpy as np
-from obspy import read, Stream, Trace, UTCDateTime
-from obspy.io.mseed import InternalMSEEDError
 import pandas as pd
+from obspy import read, Stream, Trace, UTCDateTime
+from obspy.core.trace import Stats
+from obspy.io.mseed import InternalMSEEDError
 
+import quakemigrate
 import quakemigrate.util as util
 
 
@@ -27,13 +31,13 @@ class ScanmSEED:
 
     Parameters
     ----------
-    run : :class:`~quakemigrate.io.core.Run` object
+    run:
         Light class encapsulating i/o path information for a given run.
-    continuous_write : bool
+    continuous_write:
         Option to continuously write the .scanmseed file output by
         :func:`~quakemigrate.signal.scan.QuakeScan.detect()` at the end of every time
         step. Default behaviour is to write in day chunks where possible.
-    sampling_rate : int
+    sampling_rate:
         Desired sampling rate of input data; sampling rate at which to compute the
         coalescence function. Default: 50 Hz.
 
@@ -47,20 +51,11 @@ class ScanmSEED:
     written : bool
         Tracker for whether the data appended has been written recently.
 
-    Methods
-    -------
-    append(times, max_coa, max_coa_n, coord, map4d=None)
-        Append the output of :func:`~quakemigrate.signal.scan.QuakeScan._compute()` to
-        the coalescence stream.
-    empty(starttime, timestep, i, msg)
-        Create an set of empty arrays for a given timestep and append to the coalescence
-        stream.
-    write(write_start=None, write_end=None)
-        Write the coalescence stream to a .scanmseed file.
-
     """
 
-    def __init__(self, run, continuous_write, sampling_rate):
+    def __init__(
+        self, run: quakemigrate.io.core.Run, continuous_write: bool, sampling_rate: int
+    ) -> None:
         """Instantiate the ScanmSEED object."""
 
         self.run = run
@@ -70,7 +65,14 @@ class ScanmSEED:
         self.written = False
         self.stream = Stream()
 
-    def append(self, starttime, max_coa, max_coa_n, coord, ucf):
+    def append(
+        self,
+        starttime: UTCDateTime,
+        max_coa: np.ndarray[float],
+        max_coa_n: np.ndarray[float],
+        coord: np.ndarray[float],
+        ucf: float,
+    ) -> None:
         """
         Append latest timestep of :func:`~quakemigrate.signal.scan.QuakeScan.detect()`
         output to `obspy.Stream` object.
@@ -83,15 +85,16 @@ class ScanmSEED:
 
         Parameters
         ----------
-        starttime : `obspy.UTCDateTime` object
+        starttime:
             Timestamp of first sample of coalescence data.
-        max_coa : `numpy.ndarray` of floats, shape(nsamples)
-            Coalescence value through time.
-        max_coa_n : `numpy.ndarray` of floats, shape(nsamples)
-            Normalised coalescence value through time.
-        coord : `numpy.ndarray` of floats, shape(nsamples)
-            Location of maximum coalescence through time in input projection space.
-        ucf : float
+        max_coa:
+            Coalescence value through time, shape(nsamples).
+        max_coa_n:
+            Normalised coalescence value through time, shape(nsamples).
+        coord:
+            Location of maximum coalescence through time in input projection space,
+            shape(nsamples).
+        ucf:
             A conversion factor based on the lookup table grid projection. Used to
             ensure the same level of precision (millimetre) is retained during
             compression, irrespective of the units of the grid projection.
@@ -148,22 +151,24 @@ class ScanmSEED:
         if self.continuous_write and not self.written:
             self.write()
 
-    def empty(self, starttime, timestep, i, msg, ucf):
+    def empty(
+        self, starttime: UTCDateTime, timestep: float, i: int, msg: str, ucf: float
+    ) -> None:
         """
         Create an empty set of arrays to write to .scanmseed; used where there is no
         data available to run :func:`~quakemigrate.signal.scan.QuakeScan._compute()`.
 
         Parameters
         ----------
-        starttime : `obspy.UTCDateTime` object
+        starttime:
             Timestamp of first sample in the given timestep.
-        timestep : float
+        timestep:
             Length (in seconds) of timestep used in detect().
-        i : int
+        i:
             The ith timestep of the continuous compute.
-        msg : str
+        msg:
             Message to output to log giving details as to why this timestep is empty.
-        ucf : float
+        ucf:
             A conversion factor based on the lookup table grid projection. Used to
             ensure the same level of precision (millimetre) is retained during
             compression, irrespective of the units of the grid projection.
@@ -179,7 +184,11 @@ class ScanmSEED:
 
         self.append(starttime, max_coa, max_coa_n, coord, ucf)
 
-    def write(self, write_start=None, write_end=None):
+    def write(
+        self,
+        write_start: UTCDateTime | None = None,
+        write_end: UTCDateTime | None = None,
+    ) -> None:
         """
         Write a new .scanmseed file from an `obspy.Stream` object containing the data
         output from detect(). Note: values have been multiplied by a power of ten,
@@ -189,9 +198,9 @@ class ScanmSEED:
 
         Parameters
         ----------
-        write_start : `obspy.UTCDateTime` object, optional
+        write_start:
             Timestamp from which to write the coalescence stream to file.
-        write_end : `obspy.UTCDateTime` object, optional
+        write_end:
             Timestamp up to which to write the coalescence stream to file.
 
         """
@@ -218,20 +227,20 @@ class ScanmSEED:
             st.write(str(file), format="MSEED", encoding="STEIM1")
         self.written = True
 
-    def _data2int(self, data, factor):
+    def _data2int(self, data: np.ndarray[float], factor: float) -> np.ndarray[np.int32]:
         """
         Utility function to convert data to ints before writing.
 
         Parameters
         ----------
-        data : `numpy.Array`
+        data:
             Data stream to convert to integer values.
-        factor : float
+        factor:
             Scaling factor used to control the number of decimal places saved.
 
         Returns
         -------
-        out : `numpy.Array`, int
+         :
             Original data stream multiplied by factor and converted to int.
 
         """
@@ -240,34 +249,40 @@ class ScanmSEED:
 
 
 @util.timeit()
-def read_scanmseed(run, starttime, endtime, pad, ucf):
+def read_scanmseed(
+    run: quakemigrate.io.core.Run,
+    starttime: UTCDateTime,
+    endtime: UTCDateTime,
+    pad: float,
+    ucf: float,
+) -> tuple[pd.DataFrame, Stats]:
     """
     Read .scanmseed files between two time stamps. Files are labelled by year and Julian
     day.
 
     Parameters
     ----------
-    run : :class:`~quakemigrate.io.core.Run` object
+    run:
         Light class encapsulating i/o path information for a given run.
-    starttime : `obspy.UTCDateTime` object
+    starttime:
         Timestamp from which to read the coalescence stream.
-    endtime : `obspy.UTCDateTime` object
+    endtime:
         Timestamp up to which to read the coalescence stream.
-    pad : float
+    pad:
         Read in "pad" seconds of additional data on either end.
-    ucf : float
+    ucf:
         A conversion factor based on the lookup table grid projection. Used to ensure
         the same level of precision (millimetre) is retained during compression,
         irrespective of the units of the grid projection.
 
     Returns
     -------
-    data : `pandas.DataFrame` object
+     :
         Data output by detect() -- decimated scan.
         Columns: ["DT", "COA", "COA_N", "X", "Y", "Z"] - X/Y/Z as lon/lat/units
         where units is the user-selected units of the lookup table grid projection
         (either metres or kilometres).
-    stats : `obspy.trace.Stats` object
+     :
         Container for additional header information for coalescence trace.
         Contains keys: network, station, channel, starttime, endtime,
                        sampling_rate, delta, npts, calib, _format, mseed

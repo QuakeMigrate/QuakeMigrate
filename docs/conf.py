@@ -28,6 +28,7 @@ for mod_name in MOCK_MODULES:
 project = 'QuakeMigrate'
 copyright = '2023, QuakeMigrate developers'
 author = 'QuakeMigrate developers'
+autodoc_typehints = "description"
 
 # The full version, including alpha/beta/rc tags
 from quakemigrate import __version__  # NOQA

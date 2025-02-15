@@ -11,7 +11,13 @@ the package.
 
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
+
+import pandas as pd
+
+import quakemigrate
 
 
 class PhasePicker(ABC):
@@ -24,22 +30,13 @@ class PhasePicker(ABC):
     plot_picks : bool
         Toggle plotting of phase picks.
 
-    Methods
-    -------
-    pick_phases
-        Abstract method stub providing interface with QuakeMigrate scan.
-    write(event_uid, phase_picks, output)
-        Outputs phase picks to file.
-    plot
-        Method stub for phase pick plotting.
-
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         """Instantiate the PhasePicker object."""
         self.plot_picks = kwargs.get("plot_picks", True)
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Returns a short summary string of the PhasePicker object."""
         return (
             "Abstract PhasePicker object - consider adding a __repr__ "
@@ -52,22 +49,22 @@ class PhasePicker(ABC):
         """Method stub for phase picking."""
         pass
 
-    def write(self, run, event_uid, phase_picks):
+    def write(
+        self, run: quakemigrate.io.core.Run, event_uid: str, phase_picks: pd.DataFrame
+    ) -> None:
         """
         Write phase picks to a new .picks file.
 
         Parameters
         ----------
-        event_uid : str
+        run:
+            Light class encapsulating i/o path information for a given run.
+        event_uid:
             Unique identifier for the event.
-        phase_picks : pandas DataFrame object
-            Phase pick times with columns: ["Name", "Phase",
-                                            "ModelledTime",
-                                            "PickTime", "PickError",
-                                            "SNR"]
+        phase_picks:
+            Phase pick times with columns: ["Name", "Phase", "ModelledTime",
+            "PickTime", "PickError", "SNR"]
             Each row contains the phase pick from one station/phase.
-        output : QuakeMigrate input/output control object
-            Contains useful methods controlling output for the scan.
 
         """
 
@@ -87,7 +84,7 @@ class PhasePicker(ABC):
         fname = (fpath / fstem).with_suffix(".picks")
         phase_picks.to_csv(fname, index=False)
 
-    def plot(self):
+    def plot(self) -> None:
         """Method stub for phase pick plotting."""
         print(
             "Consider adding a plot method to your custom PhasePicker"

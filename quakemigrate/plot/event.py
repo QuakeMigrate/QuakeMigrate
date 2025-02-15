@@ -9,6 +9,8 @@ Module containing methods to generate event summaries and videos.
 
 """
 
+from __future__ import annotations
+
 import logging
 
 import matplotlib.pyplot as plt
@@ -17,13 +19,19 @@ from matplotlib.gridspec import GridSpec
 import numpy as np
 import pandas as pd
 
+import quakemigrate
 import quakemigrate.util as util
 
 
 @util.timeit("info")
 def event_summary(
-    run, event, marginalised_coa_map, lut, xy_files=None, plot_all_stns=True
-):
+    run: quakemigrate.io.core.Run,
+    event: quakemigrate.io.event.Event,
+    marginalised_coa_map: np.ndarray,
+    lut: quakemigrate.lut.LUT,
+    xy_files: str | None = None,
+    plot_all_stns: bool = True,
+) -> None:
     """
     Plots an event summary illustrating the locate results: slices through the
     marginalised coalescence map with the best location estimate (peak of interpolated
@@ -35,17 +43,17 @@ def event_summary(
 
     Parameters
     ----------
-    run : :class:`~quakemigrate.io.core.Run` object
+    run:
         Light class encapsulating i/o path information for a given run.
-    event : :class:`~quakemigrate.io.event.Event` object
+    event:
         Light class encapsulating waveforms, coalescence information, picks and location
         information for a given event.
-    marginalised_coa_map : `numpy.ndarray` of `numpy.double`
+    marginalised_coa_map:
         Marginalised 3-D coalescence map, shape(nx, ny, nz).
-    lut : :class:`~quakemigrate.lut.lut.LUT` object
+    lut:
         Contains the traveltime lookup tables for seismic phases, computed for some
         pre-defined velocity model.
-    xy_files : str, optional
+    xy_files:
         Path to comma-separated value file (.csv) containing a series of coordinate
         files to plot. Columns: ["File", "Color", "Linewidth", "Linestyle"], where
         "File" is the absolute path to the file containing the coordinates to be
@@ -55,7 +63,7 @@ def event_summary(
         a comment - this can be used to include references. See the
         Volcanotectonic_Iceland example XY_files for a template.\n
         .. note:: Do not include a header line in either file.
-    plot_all_stns : bool, optional
+    plot_all_stns:
         If true, plot all stations in the LUT. Otherwise, only plot stations which were
         used for migration (i.e. omitting stations for which there was no data, or data
         did not pass the specified quality checks). Default: True.
@@ -189,23 +197,31 @@ WAVEFORM_COLOURS2 = ["#33a02c", "#b2df8a", "#1f78b4"]
 PICK_COLOURS = ["#F03B20", "#3182BD"]
 
 
-def _plot_waveform_gather(ax, lut, event, idx_max, stations):
+def _plot_waveform_gather(
+    ax: plt.Axes,
+    lut: quakemigrate.lut.LUT,
+    event: quakemigrate.io.event.Event,
+    idx_max: np.ndarray[int],
+    stations: list[str],
+) -> None:
     """
     Utility function to bring all aspects of plotting the waveform gather into one
     place.
 
     Parameters
     ----------
-    ax : `matplotlib.Axes` object
+    ax:
         Axes on which to plot the waveform gather.
-    lut : :class:`~quakemigrate.lut.lut.LUT` object
+    lut:
         Contains the traveltime lookup tables for seismic phases, computed for some
         pre-defined velocity model.
-    event : :class:`~quakemigrate.io.event.Event` object
+    event:
         Light class encapsulating waveforms, coalescence information, picks and location
         information for a given event.
-    idx_max : `numpy.ndarray` of `numpy.int64`
-        Index of maximum coalescence location in grid (ie hypocentre).
+    idx_max:
+        Index of maximum coalescence location in grid (i.e., hypocentre).
+    stations:
+        List of stations to be plotted.
 
     """
 
@@ -284,15 +300,15 @@ def _plot_waveform_gather(ax, lut, event, idx_max, stations):
     ax.yaxis.set_ticklabels(stations, fontsize=14)
 
 
-def _plot_coalescence_trace(ax, event):
+def _plot_coalescence_trace(ax: plt.Axes, event: quakemigrate.io.event.Event) -> None:
     """
     Utility function to plot the maximum coalescence trace around the event origin time.
 
     Parameters
     ----------
-    ax : `matplotlib.Axes` object
+    ax:
         Axes on which to plot the coalescence trace.
-    event : :class:`~quakemigrate.io.event.Event` object
+    event:
         Light class encapsulating waveforms, coalescence information, picks and location
         information for a given event.
 
@@ -313,18 +329,20 @@ def _plot_coalescence_trace(ax, event):
     ax.xaxis.set_major_formatter(util.DateFormatter("%H:%M:%S.{ms}", 2))
 
 
-def _plot_text_summary(ax, lut, event):
+def _plot_text_summary(
+    ax: plt.Axes, lut: quakemigrate.lut.LUT, event: quakemigrate.io.event.Event
+) -> None:
     """
     Utility function to plot the event summary information.
 
     Parameters
     ----------
-    ax : `matplotlib.Axes` object
+    ax:
         Axes on which to plot the text summary.
-    lut : :class:`~quakemigrate.lut.lut.LUT` object
+    lut:
         Contains the traveltime lookup tables for seismic phases, computed for some
         pre-defined velocity model.
-    event : :class:`~quakemigrate.io.event.Event` object
+    event:
         Light class encapsulating waveforms, coalescence information, picks and location
         information for a given event.
 
@@ -372,26 +390,32 @@ def _plot_text_summary(ax, lut, event):
     ax.set_axis_off()
 
 
-def _make_ellipses(lut, event, uncertainty, clr):
+def _make_ellipses(
+    lut: quakemigrate.lut.LUT,
+    event: quakemigrate.io.event.Event,
+    uncertainty: str,
+    clr: str,
+) -> tuple[Ellipse, Ellipse, Ellipse]:
     """
     Utility function to create uncertainty ellipses for plotting.
 
     Parameters
     ----------
-    lut : :class:`~quakemigrate.lut.lut.LUT` object
+    lut:
         Contains the traveltime lookup tables for seismic phases, computed for some
         pre-defined velocity model.
-    event : :class:`~quakemigrate.io.event.Event` object
+    event:
         Light class encapsulating waveforms, coalescence information, picks and location
         information for a given event.
-    uncertainty : {"covariance", "gaussian"}
+    uncertainty:
         Choice of uncertainty for which to generate ellipses.
-    clr : str
+        Options: {"covariance", "gaussian"}
+    clr:
         Colour for the ellipses - see matplotlib documentation for more details.
 
     Returns
     -------
-    xy, yz, xz : `matplotlib.Ellipse` (Patch) objects
+     :
         Ellipses for the requested uncertainty measure.
 
     """
@@ -420,7 +444,7 @@ def _make_ellipses(lut, event, uncertainty, clr):
     return xy, xz, yz
 
 
-def _plot_xy_files(xy_files, ax):
+def _plot_xy_files(xy_files: str, ax: plt.Axes) -> None:
     """
     Plot xy files supplied by user.
 
@@ -439,10 +463,10 @@ def _plot_xy_files(xy_files, ax):
 
     Parameters
     ----------
-    xy_files : str
+    xy_files:
         Path to .csv file containing a list of coordinates files to plot, and the
         linecolor and style to plot them with.
-    ax : `matplotlib.Axes` object
+    ax:
         Axes on which to plot the xy files.
 
     """

@@ -15,23 +15,24 @@ import pickle
 
 import pandas as pd
 from obspy import read_inventory
+from obspy.core.inventory import Inventory
 
 import quakemigrate.util as util
 from quakemigrate.lut import LUT
 
 
-def read_lut(lut_file):
+def read_lut(lut_file: str) -> LUT:
     """
     Read the contents of a pickle file and restore state of the lookup table object.
 
     Parameters
     ----------
-    lut_file : str
+    lut_file:
         Path to pickle file to load.
 
     Returns
     -------
-    lut : :class:`~quakemigrate.lut.lut.LUT` object
+     :
         Lookup table populated with grid specification and traveltimes.
 
     """
@@ -50,7 +51,7 @@ def read_lut(lut_file):
     return lut
 
 
-def stations(station_file, **kwargs):
+def stations(station_file: str, **kwargs) -> pd.DataFrame:
     """Alias for read_stations."""
     print(
         "FutureWarning: function name has changed - continuing.\n"
@@ -60,24 +61,26 @@ def stations(station_file, **kwargs):
     return read_stations(station_file, **kwargs)
 
 
-def read_stations(station_file, **kwargs):
+def read_stations(station_file: str, **kwargs) -> pd.DataFrame:
     """
     Reads station information from file.
 
     Parameters
     ----------
-    station_file : str
+    station_file:
         Path to station file.
+
         File format (header line is REQUIRED, case sensitive, any order):
             Latitude, Longitude, Elevation (units matching LUT grid projection;
             either metres or kilometres; positive upwards), Name
-    kwargs : dict
+    kwargs:
         Passthrough for `pandas.read_csv` kwargs.
 
     Returns
     -------
-    stn_data : `pandas.DataFrame` object
-        Columns: "Latitude", "Longitude", "Elevation", "Name"
+     :
+        Columns:
+            "Latitude", "Longitude", "Elevation", "Name"
 
     Raises
     ------
@@ -99,24 +102,24 @@ def read_stations(station_file, **kwargs):
     return stn_data
 
 
-def read_response_inv(response_file, sac_pz_format=False):
+def read_response_inv(response_file: str, sac_pz_format: bool = False) -> Inventory:
     """
     Reads response information from file, returning it as a `obspy.Inventory` object.
 
     Parameters
     ----------
-    response_file : str
+    response_file:
         Path to response file.
         Please see the `obspy.read_inventory()` documentation for a full list of
         supported file formats. This includes a dataless.seed volume, a concatenated
         series of RESP files or a stationXML file.
-    sac_pz_format : bool, optional
+    sac_pz_format:
         Toggle to indicate that response information is being provided in SAC Pole-Zero
         files. NOTE: not yet supported.
 
     Returns
     -------
-    response_inv : `obspy.Inventory` object
+     :
         ObsPy response inventory.
 
     Raises
@@ -144,29 +147,32 @@ def read_response_inv(response_file, sac_pz_format=False):
     return response_inv
 
 
-def read_vmodel(vmodel_file, **kwargs):
+def read_vmodel(vmodel_file: str, **kwargs) -> pd.DataFrame:
     """
     Reads velocity model information from file.
 
     Parameters
     ----------
-    vmodel_file : str
+    vmodel_file:
         Path to velocity model file.
+
         File format: (header line is REQUIRED, case sensitive, any order):
             "Depth" of each layer in the model (units matching the LUT grid
             projection; positive-down)
+
             "V<phase>" velocity for each layer in the model, for each phase
             the user wishes to calculate traveltimes for (units matching the
             LUT grid projection). There are no required phases, and no maximum
-            number of separate phases. E.g. "Vp", "Vs", "Vsh".
+            number of separate phases, e.g. "Vp", "Vs", "Vsh".
     kwargs : dict
         Passthrough for `pandas.read_csv` kwargs.
 
     Returns
     -------
-    vmodel_data : `pandas.DataFrame` object
+     :
         Columns:
             "Depth" of each layer in model (positive down)
+
             "V<phase>" velocity for each layer in model (e.g. "Vp")
 
     Raises
@@ -190,42 +196,34 @@ class Run:
 
     Parameters
     ----------
-    stage : str
-        Specifies run stage of QuakeMigrate ("detect", "trigger", or "locate").
-    path : str
+    path:
         Points to the top level directory containing all input files, under which the
         specific run directory will be created.
-    name : str
+    name:
         Name of the current QuakeMigrate run.
-    subname : str, optional
-        Optional name of a sub-run - useful when testing different trigger parameters,
-        for example.
+    subname:
+        Optional name of a sub-run—useful when testing different trigger parameters, for
+        example.
+    stage:
+        Specifies run stage of QuakeMigrate ("detect", "trigger", or "locate").
+    loglevel:
+        Set the logging level. (Default "info")
 
     Attributes
     ----------
-    path : `pathlib.Path` object
-        Points to the top level directory containing all input files, under which the
-        specific run directory will be created.
-    name : str
+    name:
         Name of the current QuakeMigrate run.
-    run_path : `pathlib.Path` object
-        Points to the run directory into which files will be written.
-    subname : str
-        Optional name of a sub-run - useful when testing different trigger parameters,
-        for example.
-    stage : {"detect", "trigger", "locate"}, optional
-        Track which stage of QuakeMigrate is being run.
-    loglevel : {"info", "debug"}, optional
-        Set the logging level. (Default "info")
-
-    Methods
-    -------
-    logger(log)
-        Spins up a logger configured to output to stdout or stdout + log file.
 
     """
 
-    def __init__(self, path, name, subname="", stage=None, loglevel="info"):
+    def __init__(
+        self,
+        path: pathlib.Path,
+        name: str,
+        subname: str = "",
+        stage: str = None,
+        loglevel: str = "info",
+    ) -> None:
         """Instantiate the Run object."""
 
         if "." in name or "." in subname:
@@ -242,7 +240,7 @@ class Run:
         self.subname = subname
         self.loglevel = loglevel
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return short summary string of the Run object."""
 
         return (
@@ -251,13 +249,13 @@ class Run:
             f"{util.log_spacer}\n{util.log_spacer}\n"
         )
 
-    def logger(self, log):
+    def logger(self, log: bool) -> None:
         """
         Configures the logging feature.
 
         Parameters
         ----------
-        log : bool
+        log:
             Toggle for logging. If True, will output to stdout and generate a log file.
 
         """
@@ -267,7 +265,7 @@ class Run:
         logging.info(self)
 
     @property
-    def name(self):
+    def name(self) -> str:
         """Get the run name as a formatted string."""
         if self.subname == "":
             return self._name

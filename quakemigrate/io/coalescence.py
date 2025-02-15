@@ -9,24 +9,27 @@ Module to handle input/output of coalescence maps.
 
 """
 
+from __future__ import annotations
+
 import numpy as np
 
+import quakemigrate
 import quakemigrate.util as util
 
 
-def read_coalescence(fname):
+def read_coalescence(fname: str) -> np.ndarray[np.double]:
     """
-    Read a coalescence map from .npy file. This function is primarily
-    intended as a convenience tool for post-hoc plotting or analysis.
+    Read a coalescence map from .npy file. This function is primarily intended as a
+    convenience tool for post-hoc plotting or analysis.
 
     Parameters
     ----------
-    fname : str
+    fname:
         File containing coalescence map.
 
     Returns
     -------
-    coa_map : array-like
+     :
         3- or 4-D coalescence map.
 
     """
@@ -37,20 +40,25 @@ def read_coalescence(fname):
 
 
 @util.timeit("info")
-def write_coalescence(run, coalescence_map, event, marginalised=False):
+def write_coalescence(
+    run: quakemigrate.io.core.Run,
+    coalescence_map: np.ndarray,
+    event: quakemigrate.io.event.Event,
+    marginalised: bool = False,
+) -> None:
     """
     Write coalescence map to file. Can be 3-D (marginalised) or 4-D.
 
     Parameters
     ----------
-    run : :class:`~quakemigrate.io.core.Run` object
+    run:
         Light class encapsulating i/o path information for a given run.
-    coalescence_map : array-like
+    coalescence_map:
         Coalescence map.
-    event : :class:`~quakemigrate.io.event.Event` object
+    event:
         Light class encapsulating waveforms, coalescence information, picks and
         location information for a given event.
-    marginalised : bool
+    marginalised:
         Toggle for whether the coalescence map has been marginalised (3-D) or not (4-D).
 
     """

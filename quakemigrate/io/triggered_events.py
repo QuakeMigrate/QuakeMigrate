@@ -9,41 +9,45 @@ Module to handle input/output of TriggeredEvents.csv files.
 
 """
 
+from __future__ import annotations
+
 import logging
 from datetime import time
 
-from obspy import UTCDateTime
 import pandas as pd
+from obspy import UTCDateTime
 
+import quakemigrate
 import quakemigrate.util as util
 
 
-def read_triggered_events(run, **kwargs):
+def read_triggered_events(
+    run: quakemigrate.io.core.Run,
+    starttime: UTCDateTime | None = None,
+    endtime: UTCDateTime | None = None,
+    trigger_file: str | None = None,
+) -> pd.DataFrame:
     """
     Read triggered events from .csv file.
 
     Parameters
     ----------
-    run : :class:`~quakemigrate.io.core.Run` object
+    run:
         Light class encapsulating i/o path information for a given run.
-    starttime : `obspy.UTCDateTime` object, optional
+    starttime:
         Timestamp from which to include events in the locate scan.
-    endtime : `obspy.UTCDateTime` object, optional
+    endtime:
         Timestamp up to which to include events in the locate scan.
-    trigger_file : str, optional
+    trigger_file:
         File containing triggered events to be located.
 
     Returns
     -------
-    events : `pandas.DataFrame` object
+     :
         Triggered events information. Columns: ["EventID", "CoaTime", "TRIG_COA",
         "COA_X", "COA_Y", "COA_Z", "COA", "COA_NORM"].
 
     """
-
-    starttime = kwargs.get("starttime", None)
-    endtime = kwargs.get("endtime", None)
-    trigger_file = kwargs.get("trigger_file", None)
 
     fpath = run.path / "trigger" / run.subname / "events"
 
@@ -90,18 +94,20 @@ def read_triggered_events(run, **kwargs):
 
 
 @util.timeit("info")
-def write_triggered_events(run, events, starttime):
+def write_triggered_events(
+    run: quakemigrate.io.core.Run, events: pd.DataFrame, starttime: UTCDateTime
+) -> None:
     """
     Write triggered events to a .csv file.
 
     Parameters
     ----------
-    run : :class:`~quakemigrate.io.core.Run` object
+    run:
         Light class encapsulating i/o path information for a given run.
-    events : `pandas.DataFrame` object
+    events:
         Triggered events information. Columns: ["EventID", "CoaTime", "TRIG_COA",
         "COA_X", "COA_Y", "COA_Z", "COA", "COA_NORM"].
-    starttime : `obspy.UTCDateTime` object
+    starttime:
         Timestamp from which events have been triggered.
 
     """

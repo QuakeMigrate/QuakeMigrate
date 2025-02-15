@@ -16,7 +16,7 @@ import pickle
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from pyproj import Transformer
+from pyproj import Proj, Transformer
 from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 from scipy.interpolate import RegularGridInterpolator
 
@@ -67,23 +67,16 @@ class Grid3D:
         Location of the upper-right corner of the grid in the grid projection. Should
         also contain the maximum depth in the grid.
 
-    Methods
-    -------
-    coord2grid(value, inverse=False, clip=False)
-        Provides a transformation between the input projection and grid coordinate
-        spaces.
-    decimate(df, inplace=False)
-        Downsamples the traveltime lookup tables by some decimation factor.
-    index2coord(value, inverse=False, unravel=False, clip=False)
-        Provides a transformation between grid indices (can be a flattened index or an
-        [i, j, k] position) and the input projection coordinate space.
-    index2grid(value, inverse=False, unravel=False)
-        Provides a transformation between grid indices (can be a flattened index or an
-        [i, j, k] position) and the grid coordinate space.
-
     """
 
-    def __init__(self, ll_corner, ur_corner, node_spacing, grid_proj, coord_proj):
+    def __init__(
+        self,
+        ll_corner: list[float],
+        ur_corner: list[float],
+        node_spacing: list[int | int],
+        grid_proj: Proj,
+        coord_proj: Proj,
+    ) -> None:
         """Instantiate the Grid3D object."""
 
         self.grid_proj = grid_proj
@@ -98,15 +91,15 @@ class Grid3D:
         self.node_spacing = node_spacing
         self.node_count = np.ceil(grid_dims / self.node_spacing) + 1
 
-    def decimate(self, df, inplace=False):
+    def decimate(self, df: list[int], inplace: bool = False):
         """
         Resample the traveltime lookup tables by decimation by some factor.
 
         Parameters
         ----------
-        df : array-like [int, int, int]
+        df:
             Decimation factor in each dimension.
-        inplace : bool, optional
+        inplace:
             Perform the operation on the lookup table object or a copy.
 
         Returns
@@ -138,25 +131,27 @@ class Grid3D:
         if not inplace:
             return grid
 
-    def index2grid(self, value, inverse=False, unravel=False):
+    def index2grid(
+        self, value: np.ndarray, inverse: bool = False, unravel: bool = False
+    ) -> np.ndarray:
         """
         Convert between grid indices and grid coordinate space.
 
         Parameters
         ----------
-        value : array-like
+        value:
             Array (of arrays) containing the grid indices (grid coordinates) to be
             transformed. Can be an array of flattened indices.
-        inverse : bool, optionale
+        inverse:
             Reverses the direction of the transform.
             Default indices -> grid coordinates.
-        unravel : bool, optional
+        unravel:
             Convert a flat index or array of flat indices into a tuple of coordinate
             arrays.
 
         Returns
         -------
-        out : array-like
+         :
             Returns an array of arrays of the transformed values.
 
         """
@@ -178,22 +173,22 @@ class Grid3D:
 
         return out
 
-    def coord2grid(self, value, inverse=False):
+    def coord2grid(self, value: np.ndarray, inverse: bool = False) -> np.ndarray:
         """
         Convert between input coordinate space and grid coordinate space.
 
         Parameters
         ----------
-        value : array-like
+        value:
             Array (of arrays) containing the coordinate locations to be transformed.
             Each sub-array should describe a single point in the 3-D input space.
-        inverse : bool, optional
+        inverse:
             Reverses the direction of the transform.
             Default input coordinates -> grid coordinates
 
         Returns
         -------
-        out : array-like
+         :
             Returns an array of arrays of the transformed values.
 
         """
@@ -207,7 +202,9 @@ class Grid3D:
 
         return np.column_stack(transformer.transform(v1, v2, v3))
 
-    def index2coord(self, value, inverse=False, unravel=False):
+    def index2coord(
+        self, value: np.ndarray, inverse: bool = False, unravel: bool = False
+    ) -> np.ndarray:
         """
         Convert between grid indices and input coordinate space.
 
@@ -215,19 +212,19 @@ class Grid3D:
 
         Parameters
         ----------
-        value : array-like
+        value:
             Array (of arrays) containing the grid indices (grid coordinates) to be
             transformed. Can be an array of flattened indices.
-        inverse : bool, optional
+        inverse:
             Reverses the direction of the transform.
             Default indices -> input projection coordinates.
-        unravel : bool, optional
+        unravel:
             Convert a flat index or array of flat indices into a tuple of coordinate
             arrays.
 
         Returns
         -------
-        out : array-like
+         :
             Returns an array of arrays of the transformed values.
 
         """
@@ -242,7 +239,7 @@ class Grid3D:
         return out
 
     @property
-    def node_count(self):
+    def node_count(self) -> int:
         """Get and set the number of nodes in each dimension of the grid."""
 
         try:
@@ -256,13 +253,13 @@ class Grid3D:
             return self._cell_count
 
     @node_count.setter
-    def node_count(self, value):
+    def node_count(self, value: int) -> None:
         value = np.array(value, dtype="int32")
         assert np.all(value > 0), "Node count must be greater than [0]"
         self._node_count = value
 
     @property
-    def node_spacing(self):
+    def node_spacing(self) -> np.ndarray:
         """Get and set the spacing of nodes in each dimension of the grid."""
 
         try:
@@ -276,7 +273,7 @@ class Grid3D:
             return self._cell_size
 
     @node_spacing.setter
-    def node_spacing(self, value):
+    def node_spacing(self, value: float) -> None:
         value = np.array(value, dtype="float64")
         if value.size == 1:
             value = np.repeat(value, 3)
@@ -286,7 +283,7 @@ class Grid3D:
         self._node_spacing = value
 
     @property
-    def grid_corners(self):
+    def grid_corners(self) -> np.ndarray:
         """Get the xyz positions of the nodes on the corners of the grid."""
 
         c = self.node_count - 1
@@ -294,7 +291,7 @@ class Grid3D:
 
         return self.index2grid(np.c_[i.flatten(), j.flatten(), k.flatten()])
 
-    def get_grid_extent(self, cells=False):
+    def get_grid_extent(self, cells: bool = False) -> np.ndarray:
         """
         Get the minimum/maximum extent of each dimension of the grid.
 
@@ -304,12 +301,12 @@ class Grid3D:
 
         Parameters
         ----------
-        cells : bool, optional
+        cells:
             Specifies the grid mode (nodes / cells) for which to calculate the extent.
 
         Returns
         -------
-        extent : array-like
+         :
             Pair of arrays representing two corners for the grid.
 
         """
@@ -325,7 +322,7 @@ class Grid3D:
     grid_extent = property(get_grid_extent)
 
     @property
-    def grid_xyz(self):
+    def grid_xyz(self) -> list[np.ndarray]:
         """Get the xyz positions of all of the nodes in the grid."""
 
         nc = self.node_count
@@ -335,7 +332,7 @@ class Grid3D:
         return [xyz[:, dim].reshape(nc) for dim in range(3)]
 
     @property
-    def precision(self):
+    def precision(self) -> int:
         """
         Get appropriate number of decimal places as a function of the node spacing and
         coordinate projection.
@@ -348,13 +345,13 @@ class Grid3D:
         ]
 
     @property
-    def unit_conversion_factor(self):
+    def unit_conversion_factor(self) -> float:
         """Expose unit_conversion_factor of the grid projection."""
 
         return self.grid_proj.crs.axis_info[0].unit_conversion_factor
 
     @property
-    def unit_name(self):
+    def unit_name(self) -> str:
         """Expose unit_name of the grid_projection and return shorthand."""
 
         unit_name = self.grid_proj.crs.axis_info[0].unit_name
@@ -432,24 +429,11 @@ class LUT(Grid3D):
     velocity_model : `pandas.DataFrame` object
         Contains the input velocity model specification.
 
-    Methods
-    -------
-    serve_traveltimes(sampling_rate)
-        Serve up the traveltime lookup tables.
-    traveltime_to(phase, ijk)
-        Query traveltimes to a grid location (in terms of indices) for a particular
-        phase.
-    save(filename)
-        Dumps the current state of the lookup table object to a pickle file.
-    load(filename)
-        Restore the state of the saved LUT object from a pickle file.
-    plot(fig, gs, slices=None, hypocentre=None, station_clr="k")
-        Plot cross-sections of the LUT with station locations. Optionally plot slices
-        through a coalescence image.
-
     """
 
-    def __init__(self, fraction_tt=0.1, lut_file=None, **grid_spec):
+    def __init__(
+        self, fraction_tt: float = 0.1, lut_file: str | None = None, **grid_spec
+    ) -> None:
         """Instantiate the LUT object."""
 
         if grid_spec:
@@ -466,7 +450,7 @@ class LUT(Grid3D):
 
         self.station_data = pd.DataFrame()
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return short summary string of the lookup table object."""
 
         ll, *_, ur = self.coord2grid(self.grid_corners, inverse=True)
@@ -498,7 +482,9 @@ class LUT(Grid3D):
 
         return out
 
-    def serve_traveltimes(self, sampling_rate, availability=None):
+    def serve_traveltimes(
+        self, sampling_rate: int, availability: dict | None = None
+    ) -> np.ndarray:
         """
         Serve up the traveltime lookup tables.
 
@@ -507,15 +493,15 @@ class LUT(Grid3D):
 
         Parameters
         ----------
-        sampling_rate : int
+        sampling_rate:
             Samples per second used in the scan run.
-        availability : dict, optional
+        availability:
             Dict of stations and phases for which to serve traveltime lookup tables:
             keys "station_phase".
 
         Returns
         -------
-        traveltimes : `numpy.ndarray` of `numpy.int`
+         :
             Stacked traveltime lookup tables for all seismic phases, stacked along the
             station axis, with shape(nx, ny, nz, nstations)
 
@@ -536,23 +522,25 @@ class LUT(Grid3D):
             traveltimes = np.stack(traveltimes, axis=-1)
         return np.rint(traveltimes * sampling_rate).astype(np.int32)
 
-    def traveltime_to(self, phase, ijk, station=None):
+    def traveltime_to(
+        self, phase: str, ijk: np.ndarray, station: list[str] | None = None
+    ):
         """
         Serve up the traveltimes to a grid location for a particular phase.
 
         Parameters
         ----------
-        phase : str
+        phase:
             The seismic phase to lookup.
-        ijk : array-like
+        ijk:
             Grid indices for which to serve traveltime.
-        station : str or list-like (of str), optional
+        station:
             Station or stations for which to serve traveltimes. Can be str (for a single
             station) or list / `pandas.Series` object for multiple.
 
         Returns
         -------
-        traveltimes : array-like
+         :
             Array of interpolated traveltimes to the requested grid position.
 
         """
@@ -572,20 +560,22 @@ class LUT(Grid3D):
 
         return interpolator(ijk)[0]
 
-    def _serve_traveltimes(self, phases, stations=None):
+    def _serve_traveltimes(
+        self, phases: list[str], stations: list[str] | None = None
+    ) -> np.ndarray:
         """
         Utility function to serve up traveltimes for a list of phases.
 
         Parameters
         ----------
-        phases : list of str
+        phases:
             List of phases for which to serve traveltime lookup tables.
-        stations : list-like of str, optional
+        stations:
             List of stations for which to serve traveltime lookup tables.
 
         Returns
         -------
-        traveltimes : `numpy.ndarray` of float
+         :
             Array of stacked traveltimes, per the requested phases and stations.
 
         """
@@ -601,13 +591,13 @@ class LUT(Grid3D):
                     traveltimes.append(self[station][f"TIME_{phase}"])
         return np.stack(traveltimes, axis=-1)
 
-    def save(self, filename):
+    def save(self, filename: str) -> None:
         """
         Dump the current state of the lookup table object to a pickle file.
 
         Parameters
         ----------
-        filename : str
+        filename:
             Path to location to save pickled lookup table.
 
         """
@@ -618,13 +608,13 @@ class LUT(Grid3D):
         with open(filename, "wb") as f:
             pickle.dump(self.__dict__, f, 4)
 
-    def load(self, filename):
+    def load(self, filename: str) -> None:
         """
         Read the contents of a pickle file and restore state of the lookup table object.
 
         Parameters
         ----------
-        filename : str
+        filename:
             Path to pickle file to load.
 
         """
@@ -646,24 +636,30 @@ class LUT(Grid3D):
             )
 
     def plot(
-        self, fig, gs, slices=None, hypocentre=None, station_clr="k", station_list=None
-    ):
+        self,
+        fig: plt.Figure,
+        gs: tuple[int, int],
+        slices: np.ndarray | None = None,
+        hypocentre: np.ndarray | None = None,
+        station_clr: str = "k",
+        station_list: list[str] | None = None,
+    ) -> None:
         """
         Plot the lookup table for a particular station.
 
         Parameters
         ----------
-        fig : `matplotlib.Figure` object
+        fig:
             Canvas on which LUT is plotted.
-        gs : tuple(int, int)
+        gs:
             Grid specification for the plot.
-        slices : array of arrays, optional
+        slices:
             Slices through a coalescence image to plot.
-        hypocentre : array of floats
+        hypocentre:
             Event hypocentre - will add cross-hair to plot.
-        station_clr : str, optional
+        station_clr:
             Plot the stations with a particular colour.
-        station_list : list-like of str, optional
+        station_list:
             List of stations from the LUT to plot - useful if only a subset have been
             selected to be used in e.g. locate.
 
@@ -822,7 +818,7 @@ class LUT(Grid3D):
         yz.xaxis.set_label_position("bottom")
 
     @property
-    def max_extent(self):
+    def max_extent(self) -> np.ndarray:
         """Get the minimum/maximum geographical extent of the stations/grid."""
 
         stat_min, stat_max = self.station_extent
@@ -838,13 +834,13 @@ class LUT(Grid3D):
         return np.array([min_extent, max_extent])
 
     @property
-    def max_traveltime(self):
+    def max_traveltime(self) -> float:
         """Get the maximum traveltime from any station across the grid."""
 
         return np.max(self._serve_traveltimes(self.phases))
 
     @property
-    def station_extent(self):
+    def station_extent(self) -> np.ndarray:
         """Get the minimum/maximum extent of the seismic network."""
 
         coordinates = self.station_data[["Longitude", "Latitude", "Elevation"]]
@@ -852,14 +848,14 @@ class LUT(Grid3D):
         return [[f(dim) for dim in coordinates.values.T] for f in (min, max)]
 
     @property
-    def stations_xyz(self):
+    def stations_xyz(self) -> np.ndarray:
         """Get station locations in the grid space [X, Y, Z]."""
 
         coordinates = self.station_data[["Longitude", "Latitude", "Elevation"]]
 
         return self.coord2grid(coordinates.values)
 
-    def __add__(self, other):
+    def __add__(self, other) -> None:
         """
         Define behaviour for the rich addition operator, "+".
 
@@ -884,7 +880,7 @@ class LUT(Grid3D):
             else:
                 print("Grid definitions do not match - cannot combine.")
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         """
         Define behaviour for the rich equality operator, "==".
 
@@ -917,19 +913,19 @@ class LUT(Grid3D):
 
             return eq_corners and eq_sizes and eq_projections
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: str) -> dict:
         """
         Provide a method to directly access traveltime tables by station key without
         having to go through the traveltimes dictionary.
 
         Parameters
         ----------
-        key : str
+        key:
             Station ID for which to search.
 
         Returns
         -------
-        station_traveltimes : dict
+         :
             Traveltime lookup table for key (station), if key exists.
 
         """

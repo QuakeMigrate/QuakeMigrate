@@ -9,8 +9,18 @@ Module to handle input/output of .amps files.
 
 """
 
+from __future__ import annotations
 
-def write_amplitudes(run, amplitudes, event):
+import pandas as pd
+
+import quakemigrate
+
+
+def write_amplitudes(
+    run: quakemigrate.io.core.Run,
+    amplitudes: pd.DataFrame,
+    event: quakemigrate.io.event.Event,
+) -> None:
     """
     Write amplitude results to a new .amps file. This includes amplitude measurements,
     and the magnitude estimates derived from them (with station correction terms
@@ -18,9 +28,9 @@ def write_amplitudes(run, amplitudes, event):
 
     Parameters
     ----------
-    run : :class:`~quakemigrate.io.core.Run` object
+    run:
         Light class encapsulating i/o path information for a given run.
-    amplitudes : `pandas.DataFrame` object
+    amplitudes:
         P- and S-wave amplitude measurements for each component of each station in the
         station file, and individual local magnitude estimates derived from them.
         Columns = ["epi_dist", "z_dist", "P_amp", "P_freq", "P_time",
@@ -28,7 +38,7 @@ def write_amplitudes(run, amplitudes, event):
                    "S_avg_amp", "S_filter_gain", "Noise_amp", "is_picked",
                    "ML", "ML_Err"]
         Index = Trace ID (see `obspy.Trace` object property 'id')
-    event : :class:`~quakemigrate.io.event.Event` object
+    event:
         Light class encapsulating waveforms, coalescence information, picks and
         location information for a given event.
 

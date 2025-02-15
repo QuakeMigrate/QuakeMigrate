@@ -17,6 +17,7 @@ import struct
 from shutil import rmtree
 
 import numpy as np
+import pandas as pd
 from pyproj import Proj, Transformer
 from scipy.interpolate import interp1d
 
@@ -25,8 +26,13 @@ from .lut import LUT
 
 
 def read_nlloc(
-    path, stations, phases=["P", "S"], fraction_tt=0.1, save_file=None, log=False
-):
+    path: str,
+    stations: pd.DataFrame,
+    phases: list[str] = ["P", "S"],
+    fraction_tt: float = 0.1,
+    save_file: str | None = None,
+    log: bool = False,
+) -> LUT:
     """
     Read in a traveltime lookup table that is saved in the NonLinLoc format.
 
@@ -112,15 +118,15 @@ def read_nlloc(
 
 
 def compute_traveltimes(
-    grid_spec,
-    stations,
-    method,
-    phases=["P", "S"],
-    fraction_tt=0.1,
-    save_file=None,
-    log=False,
+    grid_spec: dict,
+    stations: pd.DataFrame,
+    method: str,
+    phases: list[str] = ["P", "S"],
+    fraction_tt: float = 0.1,
+    save_file: str | None = None,
+    log: bool = False,
     **kwargs,
-):
+) -> LUT:
     """
     Top-level method for computing traveltime lookup tables.
 
@@ -129,13 +135,13 @@ def compute_traveltimes(
 
     Parameters
     ----------
-    grid_spec : dict
+    grid_spec:
         Dictionary containing all of the defining parameters for the underlying 3-D grid
         on which the traveltimes are to be calculated. For expected keys, see
         :class:`~quakemigrate.lut.lut.Grid3D`.
-    stations : `pandas.DataFrame`
+    stations:
         DataFrame containing station information (lat/lon/elev).
-    method : str
+    method:
         Method to be used when computing the traveltime lookup tables.\n
             "homogeneous" - straight line velocities.\n
             "1dfmm" - 1-D fast-marching method using scikit-fmm.\n
@@ -143,23 +149,23 @@ def compute_traveltimes(
                         velocity model using the Grid2Time eikonal solver in\
                         NonLinLoc, then swept over the 3-D grid using a\
                         bilinear interpolation scheme.
-    phases : list of str, optional
+    phases:
         List of seismic phases for which to calculate traveltimes.
-    fraction_tt : float, optional
+    fraction_tt:
         An estimate of the uncertainty in the velocity model as a function of a fraction
         of the traveltime. (Default 0.1 == 10%)
-    save_file : str, optional
+    save_file:
         Path to location to save pickled lookup table.
-    log : bool, optional
+    log:
         Toggle for logging - default is to only print information to stdout.
         If True, will also create a log file.
-    kwargs : dict
+    kwargs:
         Dictionary of all keyword arguments passed to compute when called.
         For lists of valid arguments, please refer to the relevant method.
 
     Returns
     -------
-    lut : :class:`~quakemigrate.lut.lut.LUT` object
+     :
         Lookup table populated with traveltimes.
 
     Raises
@@ -237,17 +243,17 @@ def compute_traveltimes(
     return lut
 
 
-def _compute_homogeneous(lut, phase, velocity):
+def _compute_homogeneous(lut: LUT, phase: str, velocity: float) -> None:
     """
     Calculate the traveltime lookup table for a station in a homogeneous velocity model.
 
     Parameters
     ----------
-    lut : :class:`~quakemigrate.lut.lut.LUT` object
+    lut:
         Defines the grid on which the traveltimes are to be calculated.
-    phase : str
+    phase:
         The seismic phase for which to calculate traveltimes.
-    velocity : float
+    velocity:
         Seismic phase velocity.
 
     """
@@ -264,18 +270,18 @@ def _compute_homogeneous(lut, phase, velocity):
         lut.traveltimes.setdefault(station, {}).update({phase: dist / velocity})
 
 
-def _compute_1d_fmm(lut, phase, vmodel):
+def _compute_1d_fmm(lut: LUT, phase: str, vmodel: pd.DataFrame) -> None:
     """
     Calculate traveltime lookup tables for each station in a 1-D velocity model using
     the fast-marching method.
 
     Parameters
     ----------
-    lut : :class:`~quakemigrate.lut.lut.LUT` object
+    lut:
         Defines the grid on which the traveltimes are to be calculated.
-    phase : str
+    phase:
         The seismic phase for which to calculate traveltimes.
-    vmodel : `pandas.DataFrame` object
+    vmodel:
         DataFrame containing the velocity model to be used to generate the LUT.
         Columns:
             "Depth" of each layer in model (positive down)
@@ -327,7 +333,12 @@ def _compute_1d_fmm(lut, phase, vmodel):
         )
 
 
-def _eikonal_fmm(grid_xyz, node_spacing, velocity_grid, station_xyz):
+def _eikonal_fmm(
+    grid_xyz: np.ndarray,
+    node_spacing: np.ndarray,
+    velocity_grid: np.ndarray,
+    station_xyz: np.ndarray,
+) -> np.ndarray:
     """
     Calculates the traveltime lookup tables by solving the eikonal equation using an
     implementation of the fast-marching algorithm.
@@ -340,18 +351,18 @@ def _eikonal_fmm(grid_xyz, node_spacing, velocity_grid, station_xyz):
 
     Parameters
     ----------
-    grid_xyz : array-like
+    grid_xyz:
         [X, Y, Z] coordinates of each node.
-    node_spacing : array-like
+    node_spacing:
         [X, Y, Z] distances between each node.
-    velocity_grid : array-like
+    velocity_grid:
         Contains the speed of interface propagation at each point in the domain.
-    station_xyz : array-like
+    station_xyz:
         Station location (in grid xyz).
 
     Returns
     -------
-    traveltimes : array-like, same shape as grid_xyz
+     :
         Contains the traveltime from the zero contour (zero level set) of phi to each
         point in the array given the scalar velocity field speed. If the input array
         speed has values less than or equal to zero the return value will be a masked
@@ -385,7 +396,7 @@ def _eikonal_fmm(grid_xyz, node_spacing, velocity_grid, station_xyz):
     return skfmm.travel_time(phi, velocity_grid, dx=node_spacing)
 
 
-def _compute_1d_nlloc(lut, phase, vmodel, **kwargs):
+def _compute_1d_nlloc(lut: LUT, phase: str, vmodel: pd.DataFrame, **kwargs) -> None:
     """
     Calculate 3-D traveltime lookup tables from a 1-D velocity model.
 
@@ -399,16 +410,16 @@ def _compute_1d_nlloc(lut, phase, vmodel, **kwargs):
 
     Parameters
     ----------
-    lut : :class:`~quakemigrate.lut.lut.LUT` object
+    lut:
         Defines the grid on which the traveltimes are to be calculated.
-    phase : str
+    phase:
         The seismic phase for which to calculate traveltimes.
-    vmodel : `pandas.DataFrame` object
+    vmodel:
         DataFrame containing the velocity model to be used to generate the LUT.
         Columns:
             "Depth" of each layer in model (positive down)
             "V<phase>" velocity for each layer in model (e.g. "Vp")
-    kwargs : dict
+    kwargs:
         Can contain:
         nlloc_dx : float, optional
             NLLoc 2D grid spacing (default: 0.1 km). Note: units must be km.
@@ -533,31 +544,38 @@ def _compute_1d_nlloc(lut, phase, vmodel, **kwargs):
 
 
 def _write_control_file(
-    station_xyz, station, max_dist, vmodel, depth_span, phase, dx, block_model
-):
+    station_xyz: np.ndarray,
+    station: str,
+    max_dist: float,
+    vmodel: pd.DataFrame,
+    depth_span: list[float, float],
+    phase: str,
+    dx: float,
+    block_model: bool,
+) -> None:
     """
     Write out a control file for NonLinLoc.
 
     Parameters
     ----------
-    station_xyz : array-like
+    station_xyz:
         Station location expressed in the coordinate space of the grid, in km.
-    station : str
+    station:
         Station name.
-    max_dist : float
+    max_dist:
         Maximum distance between the station and any point in the grid, in km.
-    vmodel : `pandas.DataFrame` object
+    vmodel:
         DataFrame containing the velocity model to be used to generate the LUT.
         Columns:
             "Depth" of each layer in model (positive down), in km.
             "V<phase>" velocity for each layer in model (e.g. "Vp"), in km / s.
-    depth_span : array-like
+    depth_span:
         Minimum/maximum extent of the grid in the z-dimension, in km.
-    phase : str
+    phase:
         The seismic phase for which to calculate traveltimes.
-    dx : float
+    dx:
         NLLoc 2D grid spacing, in km.
-    block_model : bool
+    block_model:
         Toggle to choose whether to interpret velocity model with constant velocity
         blocks or a linear gradient.
 
@@ -593,7 +611,9 @@ def _write_control_file(
         f.write(out)
 
 
-def _read_nlloc(fname, ignore_proj=False):
+def _read_nlloc(
+    fname: str, ignore_proj: bool = False
+) -> tuple[np.ndarray, list[Proj, Proj], np.ndarray]:
     """
     Read traveltime lookup tables saved in the NonLinLoc format.
 
@@ -603,20 +623,20 @@ def _read_nlloc(fname, ignore_proj=False):
 
     Parameters
     ----------
-    fname : str
+    fname:
         Path to file containing NonLinLoc traveltime lookup tables, without the
         extension.
-    ignore_proj : bool, optional
+    ignore_proj:
         Flag to suppress the "No projection specified" message.
 
     Returns
     -------
-    gridspec : array-like
+     :
         Details on the NonLinLoc grid specification. Contains the number of nodes, the
         grid origin and the node spacings.
-    transform : array of `pyproj.Proj` objects
+     :
         Array containing the grid and coordinate projections, respectively.
-    traveltimes : array-like
+     :
         Traveltimes for the station.
 
     """
@@ -712,7 +732,12 @@ def _read_nlloc(fname, ignore_proj=False):
     return gridspec, transform, traveltimes
 
 
-def _bilinear_interpolate(xz, xz_origin, xz_dimensions, traveltimes):
+def _bilinear_interpolate(
+    xz: np.ndarray,
+    xz_origin: np.ndarray,
+    xz_dimensions: np.ndarray,
+    traveltimes: np.ndarray,
+):
     """
     Perform a bi-linear interpolation between 4 data points on the input 2-D lookup
     table to calculate the traveltime to nodes on the 3-D grid.
@@ -723,20 +748,20 @@ def _bilinear_interpolate(xz, xz_origin, xz_dimensions, traveltimes):
 
     Parameters
     ----------
-    xz : array-like
+    xz:
         Column-stacked array of distances from the station and depths for all points in
         grid.
-    xz_origin : array-like
+    xz_origin:
         The x (actually y) and z values of the grid origin.
-    xz_dimensions : array-like
+    xz_dimensions:
         The x (actually y) and z values of the node spacing.
-    traveltimes : array-like
+    traveltimes:
         A slice through the traveltime grid at x = 0, on which to perform the
         interpolation.
 
     Returns
     -------
-    int_traveltimes : array-like
+     :
         Interpolated 3-D traveltime lookup table.
 
     """
@@ -761,26 +786,26 @@ def _bilinear_interpolate(xz, xz_origin, xz_dimensions, traveltimes):
     return c0 * (1 - z_d) + c1 * z_d
 
 
-def _vmodel_string(vmodel, block_model, phase):
+def _vmodel_string(vmodel: pd.DataFrame, block_model: bool, phase: str) -> str:
     """
     Creates a string representation of the velocity model for the control file.
 
     Parameters
     ----------
-    vmodel : `pandas.DataFrame` object
+    vmodel:
         DataFrame containing the velocity model to be used to generate the LUT.
         Columns:
             "Depth" of each layer in model (positive down), in km.
             "V<phase>" velocity for each layer in model (e.g. "Vp"), in km / s.
-    block_model : bool
+    block_model:
         Toggle to choose whether to interpret velocity model with constant velocity
         blocks or a linear gradient.
-    phase : str
+    phase:
         The seismic phase for which to calculate traveltimes.
 
     Returns
     -------
-    str_vmodel : str
+     :
         NonLinLoc formatted string describing the velocity model.
 
     """
@@ -809,25 +834,25 @@ def _vmodel_string(vmodel, block_model, phase):
     return "\n".join(out)
 
 
-def _velocity_gradient(i, vmodel, phase):
+def _velocity_gradient(i: int, vmodel: pd.DataFrame, phase: str) -> float:
     """
     Calculate the linear gradient of the velocity model between two layers.
 
     Parameters
     ----------
-    i : int
+    i:
         Index of upper layer.
-    vmodel : `pandas.DataFrame` object
+    vmodel:
         DataFrame containing the velocity model to be used to generate the LUT.
         Columns:
             "Depth" of each layer in model (positive down), in km.
             "V<phase>" velocity for each layer in model (e.g. "Vp"), in km / s.
-    phase : str
+    phase:
         The seismic phase for which to calculate traveltimes.
 
     Returns
     -------
-    dvdx : float
+     :
         Velocity gradients for the linear gradient model.
 
     """
@@ -838,22 +863,22 @@ def _velocity_gradient(i, vmodel, phase):
     return d_vel / d_depth
 
 
-def _grid_string(max_dist, depth_limits, dx):
+def _grid_string(max_dist: float, depth_limits: list[float, float], dx: float) -> str:
     """
     Creates a string representation of the grid for the control file.
 
     Parameters
     ----------
-    max_dist : float
+    max_dist:
         Maximum distance between the station and any point in the grid, in km.
-    depth_limits : array-like
+    depth_limits:
         Minimum/maximum extent of the grid in the z-dimension, in km.
-    dx : float
+    dx:
         NLLoc 2D grid spacing (default: 0.1 km).
 
     Returns
     -------
-    str_grid : str
+     :
         NonLinLoc formatted string describing the grid.
 
     """

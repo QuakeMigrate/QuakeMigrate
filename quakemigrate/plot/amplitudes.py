@@ -16,14 +16,19 @@ import pandas as pd
 
 
 def amplitudes_summary(
-    magnitudes, amp_feature, amp_multiplier, dist_err, r_squared, noise_measure="RMS"
-):
+    magnitudes: pd.DataFrame,
+    amp_feature: str,
+    amp_multiplier: float,
+    dist_err: float,
+    r_squared: float,
+    noise_measure: str = "RMS",
+) -> tuple[plt.Figure, plt.Axes]:
     """
     Plot figure showing the measured signal amplitudes against distance from the event.
 
     Parameters
     ----------
-    magnitudes : `pandas.DataFrame` object
+    magnitudes:
         Contains P- and S-wave amplitude measurements for each component of each station
         in the station file, and local magnitude estimates calculated from them (output
         by calculate_magnitudes()). Note that the amplitude observations are raw, but
@@ -34,31 +39,32 @@ def amplitudes_summary(
                    "is_picked", "ML", "ML_Err", "Station_Correction", "Noise_Filter",
                    "Trace_Filter", "Station_Filter", "Dist_Filter", "Dist",
                    "Used"]
-    amp_feature : {"S_amp", "P_amp"}
+    amp_feature:
         Which phase amplitude measurement to use to calculate local magnitude.
         (Default "S_amp")
-    amp_multiplier : float
+    amp_multiplier:
         Factor by which to multiply all measured amplitudes.
-    dist_err : float
+    dist_err:
         (Epicentral or hypocentral) distance uncertainty - calculated from the
         LocalGaussian location uncertainties.
-    r_squared : float
+    r_squared:
         r-squared statistic describing the fit of the amplitude vs. distance curve
         predicted by the calculated mean_mag and chosen attenuation model to the
         measured amplitude observations. This is intended to be used to help
         discriminate between 'real' events, for which the predicted amplitude vs.
         distance curve should provide a good fit to the observations, from artefacts,
         which in general will not.
-    noise_measure : {"RMS", "STD", "ENV"}, optional
+    noise_measure:
         The method by which to measure the amplitude of the signal in the noise window:
         root-mean-square, standard deviation or average amplitude of the envelope of the
         signal. (Default "RMS")
+        Options: {"RMS", "STD", "ENV"}
 
     Returns
     -------
-    fig : `matplotlib.pyplot.Figure` object
+     :
         Figure showing the measured amplitudes against distance from the event.
-    ax : `matplotlib.axes.Axes` object
+     :
         Figure axes.
 
     """
@@ -173,29 +179,35 @@ def amplitudes_summary(
     return fig, ax
 
 
-def label_stations(ax, tr_ids, amps, dists, rejected=False):
+def label_stations(
+    ax: plt.Axes,
+    tr_ids: list[str],
+    amps: np.ndarray[float],
+    dists: np.ndarray[float],
+    rejected: bool = False,
+) -> tuple[plt.Axes, list[str]]:
     """
     Add station labels to the amplitudes vs. distance plot: only one label for each
     station, above the highest observed amplitude. Much faff.
 
     Parameters
     ----------
-    ax : `matplotlib.axes.Axes` object
+    ax:
         Axes on which to add the station labels.
-    tr_ids : list of str
+    tr_ids:
         List of trace ID's for which there are amplitude observations to label.
-    amps : array-like (floats)
+    amps:
         Amplitudes (y-axis) coordinates
-    dists : array-like (floats)
+    dists:
         Distances (x-axis) coordinates
-    rejected : bool, optional
+    rejected:
         Whether these are labels for rejected measurements (plotted in grey).
 
     Returns
     -------
-    ax : `matplotlib.axes.Axes` object
-        Now with the labels added
-    stns : list
+     :
+        Axes with the labels added.
+     :
         List of stations that have been labelled.
 
     """

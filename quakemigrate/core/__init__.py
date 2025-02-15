@@ -25,6 +25,7 @@ from .lib import (
     recursive_sta_lta,
 )
 
+
 __all__ = [
     migrate,
     find_max_coa,

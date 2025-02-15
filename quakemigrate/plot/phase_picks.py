@@ -9,17 +9,29 @@ Module to produce a summary plot for the phase picking.
 
 """
 
+from __future__ import annotations
+
 import logging
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+from obspy import Stream
 
+import quakemigrate
 import quakemigrate.util as util
 
 
 def pick_summary(
-    event, station, waveforms, picks, onsets, channel_maps, ttimes, windows
-):
+    event: quakemigrate.io.event.Event,
+    station: str,
+    waveforms: Stream,
+    picks: pd.DataFrame,
+    onsets: dict,
+    channel_maps: dict,
+    ttimes: list[float],
+    windows: dict,
+) -> plt.Figure:
     """
     Plot a figure showing the pre-processed traces for each data component and the onset
     functions calculated from them for each phase. The search window to make a phase
@@ -28,31 +40,31 @@ def pick_summary(
 
     Parameters
     ----------
-    event : :class:`~quakemigrate.io.event.Event` object
+    event:
         Light class encapsulating waveforms, coalescence information, picks and location
         information for a given event.
-    station : str
+    station:
         Station code.
-    waveforms : `obspy.Stream` object
+    waveforms:
         Filtered seismic data used to calculate the onset functions.
-    picks : `pandas.DataFrame` object
+    picks:
         Phase pick times with columns ["Name", "Phase", "ModelledTime",
         "PickTime", "PickError", "SNR"]
         Each row contains the phase pick from one station/phase.
-    onsets : dict of {str: `numpy.ndarray`}
+    onsets:
         Keys are phases. Onset functions for each seismic phase.
     channel_maps : dict of str
-        Data component maps - keys are phases. (e.g. {"P": "Z"})
-    ttimes : list of float
+        Data component maps - keys are phases. (e.g., {"P": "Z"})
+    ttimes:
         Modelled traveltimes from the event hypocentre to the station for each phase to
         be plotted.
-    windows : dict of list, [int, int, int]
+    windows:
         Keys are phase. Indices specifying the window within which the pick was made
         [start, modelled_arrival, end].
 
     Returns
     -------
-    fig : `matplotlib.Figure` object
+     :
         Figure showing phase picking information.
 
     """
@@ -298,17 +310,17 @@ def pick_summary(
     return fig
 
 
-def _plot_phase_pick(ax, pick, clr):
+def _plot_phase_pick(ax: plt.Axes, pick: pd.DataFrame, clr: str) -> None:
     """
     Plot the phase pick time with the associated uncertainty.
 
     Parameters
     ----------
-    ax : `matplotlib.Axes` object
+    ax:
         Axes on which to plot the pick.
-    pick : `pandas.DataFrame` object
+    pick:
         Contains information on the phase pick.
-    clr : str
+    clr:
         Colour to use when plotting the phase pick.
 
     """

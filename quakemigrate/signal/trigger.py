@@ -9,6 +9,8 @@ Module to perform the trigger stage of QuakeMigrate.
 
 """
 
+from __future__ import annotations
+
 import logging
 from datetime import time
 
@@ -17,25 +19,26 @@ from obspy import UTCDateTime
 import pandas as pd
 from scipy.ndimage import gaussian_filter1d
 
+import quakemigrate
+import quakemigrate.util as util
 from quakemigrate.io import Run, read_scanmseed, write_triggered_events
 from quakemigrate.plot import trigger_summary
-import quakemigrate.util as util
 
 
-def chunks2trace(a, new_shape):
+def chunks2trace(a: np.ndarray, new_shape: tuple[int, int]) -> np.ndarray:
     """
     Create a trace filled with chunks of the same value.
 
     Parameters:
     -----------
-    a : array-like
+    a:
         Array of chunks.
-    new_shape : tuple of ints
+    new_shape:
         (number of chunks, chunk_length).
 
     Returns:
     --------
-    b : array-like
+     :
         Single array of values contained in `a`.
 
     """
@@ -82,15 +85,15 @@ class Trigger:
 
     Parameters
     ----------
-    lut : :class:`~quakemigrate.lut.lut.LUT` object
+    lut:
         Contains the traveltime lookup tables for the selected seismic phases, computed
         for some pre-defined velocity model.
-    run_path : str
+    run_path:
         Points to the top level directory containing all input files, under which the
         specific run directory will be created.
-    run_name : str
+    run_name:
         Name of the current QuakeMigrate run.
-    kwargs : **dict
+    kwargs:
         See Trigger Attributes for details. In addition to these:
         log : bool, optional
             Toggle for logging. If True, will output to stdout and generate a log file.
@@ -172,11 +175,6 @@ class Trigger:
         station availability data is found, all stations in the LUT will be plotted.
         (Default: True)
 
-    Methods
-    -------
-    trigger(starttime, endtime, region=None, interactive_plot=False)
-        Trigger candidate earthquakes from decimated detect scan results.
-
     Raises
     ------
     ValueError
@@ -188,7 +186,9 @@ class Trigger:
 
     """
 
-    def __init__(self, lut, run_path, run_name, **kwargs):
+    def __init__(
+        self, lut: quakemigrate.lut.LUT, run_path: str, run_name: str, **kwargs
+    ) -> None:
         """Instantiate the Trigger object."""
 
         self.lut = lut
@@ -226,7 +226,7 @@ class Trigger:
         self.xy_files = kwargs.get("xy_files")
         self.plot_all_stns = kwargs.get("plot_all_stns", True)
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return short summary string of the Trigger object."""
 
         out = (
@@ -261,22 +261,28 @@ class Trigger:
 
         return out
 
-    def trigger(self, starttime, endtime, region=None, interactive_plot=False):
+    def trigger(
+        self,
+        starttime: UTCDateTime,
+        endtime: UTCDateTime,
+        region: list[float] | None = None,
+        interactive_plot: bool = False,
+    ) -> None:
         """
         Trigger candidate earthquakes from decimated scan data.
 
         Parameters
         ----------
-        starttime : str
+        starttime:
             Timestamp from which to trigger events.
-        endtime : str
+        endtime:
             Timestamp up to which to trigger events.
-        region : list of floats, optional
+        region:
             Only retain triggered events located within this region. Format is:
                 [Xmin, Ymin, Zmin, Xmax, Ymax, Zmax]
             As longitude / latitude / depth (units corresponding to the lookup table
             grid projection; in positive-down frame).
-        interactive_plot : bool, optional
+        interactive_plot:
             Toggles whether to produce an interactive plot. Default: False.
 
         Raises
@@ -306,22 +312,28 @@ class Trigger:
 
         logging.info(util.log_spacer)
 
-    def _trigger_batch(self, batchstart, batchend, region, interactive_plot):
+    def _trigger_batch(
+        self,
+        batchstart: UTCDateTime,
+        batchend: UTCDateTime,
+        region: list[float],
+        interactive_plot: bool,
+    ) -> None:
         """
         Wraps all of the methods used in sequence to determine triggers.
 
         Parameters
         ----------
-        batchstart : `obspy.UTCDateTime` object
+        batchstart:
             Timestamp from which to trigger events.
-        batchend : `obspy.UTCDateTime` object
+        batchend:
             Timestamp up to which to trigger events.
-        region : list of floats
+        region:
             Only retain triggered events located within this region. Format is:
                 [Xmin, Ymin, Zmin, Xmax, Ymax, Zmax]
             As longitude / latitude / depth (units corresponding to the lookup table
             grid projection; in positive-down frame).
-        interactive_plot : bool
+        interactive_plot:
             Toggles whether to produce an interactive plot. Default: False.
 
         """
@@ -389,7 +401,7 @@ class Trigger:
                 plot_all_stns=self.plot_all_stns,
             )
 
-    def _threshold_method_string(self):
+    def _threshold_method_string(self) -> str:
         """Threshold parameter string for trigger summary plot."""
 
         if self.threshold_method == "static":
@@ -406,8 +418,23 @@ class Trigger:
 
         return threshold_string
 
-    def _smooth_coa(self, data, sampling_rate):
-        """Apply a Gaussian smoothing to the coalescence trace."""
+    def _smooth_coa(self, data: np.ndarray, sampling_rate: int) -> np.ndarray:
+        """
+        Apply a Gaussian smoothing to the coalescence trace.
+
+        Parameters
+        ----------
+        data:
+            (Normalised) 1-D coalescence function to be smoothed.
+        sampling_rate:
+            Number of samples per second of the coalescence scan data.
+
+        Returns
+        -------
+         :
+            Smoothed 1-D coalescence function.
+
+        """
 
         # Convert kernel sigma from time to samples
         st_dev = self.smoothing_kernel_sigma * sampling_rate
@@ -422,20 +449,20 @@ class Trigger:
         return data
 
     @util.timeit()
-    def _get_threshold(self, scandata, sampling_rate):
+    def _get_threshold(self, scandata: pd.Series, sampling_rate: int) -> np.ndarray:
         """
         Determine the threshold to use when triggering candidate events.
 
         Parameters
         ----------
-        scandata : `pandas.Series` object
+        scandata:
             (Normalised) coalescence values for which to calculate the threshold.
-        sampling_rate : int
+        sampling_rate:
             Number of samples per second of the coalescence scan data.
 
         Returns
         -------
-        threshold : `numpy.ndarray` object
+         :
             Array of threshold values.
 
         """
@@ -473,25 +500,27 @@ class Trigger:
         return threshold
 
     @util.timeit()
-    def _identify_candidates(self, scandata, trigger_on, threshold):
+    def _identify_candidates(
+        self, scandata: pd.DataFrame, trigger_on: str, threshold: np.ndarray
+    ) -> pd.DataFrame:
         """
         Identify distinct periods of time for which the maximum (normalised) coalescence
         trace exceeds the chosen threshold.
 
         Parameters
         ----------
-        scandata : `pandas.DataFrame` object
+        scandata:
             Data output by detect() -- decimated scan.
             Columns: ["DT", "COA", "COA_N", "X", "Y", "Z"] - X/Y/Z as lon/lat/
             z-units corresponding to the units of the lookup table grid projection.
-        trigger_on : str
+        trigger_on:
             Specifies the maximum coalescence data on which to trigger events.
-        threshold : `numpy.ndarray` object
+        threshold:
             Array of threshold values.
 
         Returns
         -------
-        triggers : `pandas.DataFrame` object
+         :
             Candidate events exceeding some threshold. Columns: ["EventNum", "CoaTime",
             "TRIG_COA", "COA_X", "COA_Y", "COA_Z", "MinTime",  "MaxTime", "COA",
             "COA_NORM"]
@@ -556,14 +585,14 @@ class Trigger:
         return triggers
 
     @util.timeit()
-    def _refine_candidates(self, candidate_events):
+    def _refine_candidates(self, candidate_events: pd.DataFrame) -> pd.DataFrame:
         """
         Merge candidate events for which the marginal windows overlap with the minimum
         inter-event time.
 
         Parameters
         ----------
-        candidate_events : `pandas.DataFrame` object
+        candidate_events:
             Candidate events corresponding to periods of time in which the
             coalescence signal exceeds some threshold. Columns: ["EventNum", "CoaTime",
             "TRIG_COA", "COA_X", "COA_Y", "COA_Z", "MinTime", "MaxTime", "COA",
@@ -571,7 +600,7 @@ class Trigger:
 
         Returns
         -------
-        events : `pandas.DataFrame` object
+         :
             Merged events with some minimum inter-event spacing in time.
             Columns: ["EventID", "CoaTime", "TRIG_COA", "COA_X", "COA_Y", "COA_Z",
             "MinTime", "MaxTime", "COA", "COA_NORM"].
@@ -627,22 +656,28 @@ class Trigger:
         return refined_events
 
     @util.timeit()
-    def _filter_events(self, events, starttime, endtime, region):
+    def _filter_events(
+        self,
+        events: pd.DataFrame,
+        starttime: UTCDateTime,
+        endtime: UTCDateTime,
+        region: list[float],
+    ) -> pd.DataFrame:
         """
         Remove events within the padding time and/or within a specific geographical
         region. Also adds a unique event identifier based on the coalescence time.
 
         Parameters
         ----------
-        events : `pandas.DataFrame` object
+        events:
             Refined set of events to be filtered. Columns: ["EventID", "CoaTime",
             "TRIG_COA", "COA_X", "COA_Y", "COA_Z", "MinTime", "MaxTime", "COA",
             "COA_NORM"].
-        starttime : `obspy.UTCDateTime` object
+        starttime:
             Timestamp from which to trigger events.
-        endtime : `obspy.UTCDateTime` object
+        endtime:
             Timestamp up to which to trigger events.
-        region : list of floats
+        region:
             Only retain triggered events located within this region. Format is:
                 [Xmin, Ymin, Zmin, Xmax, Ymax, Zmax]
             As longitude / latitude / depth (units corresponding to the lookup table
@@ -650,7 +685,7 @@ class Trigger:
 
         Returns
         -------
-        events : `pandas.DataFrame` object
+         :
             Final set of triggered events. Columns: ["EventID", "CoaTime", "TRIG_COA",
             "COA_X", "COA_Y", "COA_Z", "MinTime", "MaxTime", "COA", "COA_NORM"].
 
@@ -675,26 +710,26 @@ class Trigger:
         return events
 
     @property
-    def min_event_interval(self):
+    def min_event_interval(self) -> float:
         """Get and set the minimum event interval."""
 
         return self._min_event_interval
 
     @min_event_interval.setter
-    def min_event_interval(self, value):
+    def min_event_interval(self, value: float) -> None:
         if value < 2 * self.marginal_window:
             raise ValueError("\tMinimum event interval must be >= 2 * marginal window.")
         else:
             self._min_event_interval = value
 
     @property
-    def threshold_method(self):
+    def threshold_method(self) -> str:
         """Get and set the threshold method."""
 
         return self._threshold_method
 
     @threshold_method.setter
-    def threshold_method(self, value):
+    def threshold_method(self, value: str) -> None:
         if value in ["static", "mad", "median_ratio"]:
             self._threshold_method = value
         elif value == "dynamic":

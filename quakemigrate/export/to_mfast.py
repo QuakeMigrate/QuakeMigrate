@@ -12,8 +12,10 @@ headers correctly populated for MFAST.
 
 import pathlib
 
+import pandas as pd
 from obspy import read
 from obspy.core import AttribDict
+from obspy.core.event import Event
 from obspy.geodetics import gps2dist_azimuth
 
 
@@ -21,22 +23,28 @@ cmpaz = {"N": 0, "Z": 0, "E": 90}
 cmpinc = {"N": 90, "Z": 0, "E": 90}
 
 
-def sac_mfast(event, stations, output_path, units, filename=None):
+def sac_mfast(
+    event: Event,
+    stations: pd.DataFrame,
+    output_path: str,
+    units: str,
+    filename: str = None,
+) -> None:
     """
     Function to create the SAC file.
 
     Parameters
     ----------
-    event : `ObsPy.Event` object
+    event:
         Contains information about the origin time and a list of associated picks.
-    stations : `pandas.DataFrame` object
+    stations:
         DataFrame containing station information.
-    output_path : str
+    output_path:
         Location to save the SAC file.
-    units : {"km", "m"}
+    units: {"km", "m"}
         Grid projection coordinates for QM LUT (determines units of depths and
         uncertainties in the .event files).
-    filename : str, optional
+    filename:
         Name of SAC file - defaults to "eventid/eventid.station.{comp}".
 
     """

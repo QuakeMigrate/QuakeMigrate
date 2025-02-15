@@ -10,18 +10,21 @@ calculates STA/LTA onset (characteristic) function.
 
 """
 
+from __future__ import annotations
+
 import logging
 
 import numpy as np
-from obspy import Stream
+from obspy import Stream, UTCDateTime
 from scipy.signal import hilbert
 
+import quakemigrate
 import quakemigrate.util as util
 from quakemigrate.core import overlapping_sta_lta, centred_sta_lta
 from .base import Onset, OnsetData
 
 
-def centred_sta_lta_py(signal, nsta, nlta):
+def centred_sta_lta_py(signal: np.ndarray, nsta: int, nlta: int) -> np.ndarray:
     """
     Calculates the ratio of the average of the signal in a short-term (signal) window to
     a preceding long-term (noise) window. STA/LTA value is assigned to the end of the
@@ -30,16 +33,16 @@ def centred_sta_lta_py(signal, nsta, nlta):
 
     Parameters
     ----------
-    signal : array-like
+    signal:
         Transformed non-negative seismic waveform.
-    nsta : int
+    nsta:
         Number of samples in short-term window.
-    nlta : int
+    nlta:
         Number of samples in long-term window.
 
     Returns
     -------
-    sta / lta : array-like
+     :
         Short-term average / long-term average ratio of the signal amplitude, computed
         in adjacent STA/LTA windows.
 
@@ -78,7 +81,7 @@ def centred_sta_lta_py(signal, nsta, nlta):
     return sta / lta
 
 
-def overlapping_sta_lta_py(signal, nsta, nlta):
+def overlapping_sta_lta_py(signal: np.ndarray, nsta: int, nlta: int) -> np.ndarray:
     """
     Computes the standard STA/LTA from a given input array `signal`. The length of the
     STA window is given by nsta (in samples), nlta is the length of the LTA window (in
@@ -89,16 +92,16 @@ def overlapping_sta_lta_py(signal, nsta, nlta):
 
     Parameters
     ----------
-    signal : `~numpy.ndarray`
+    signal:
         Transformed non-negative seismic waveform.
-    nsta : int
+    nsta:
         Length of short time average window in samples.
-    nlta : int
+    nlta:
         Length of long time average window in samples.
 
     Returns
     -------
-    sta/lta :`~numpy.ndarray`
+     :
         Short-term average / long-term average ratio of the signal amplitude, computed
         in overlapping STA/LTA windows.
 
@@ -133,7 +136,15 @@ def overlapping_sta_lta_py(signal, nsta, nlta):
     return sta / lta
 
 
-def pre_process(stream, sampling_rate, resample, upfactor, filter_, starttime, endtime):
+def pre_process(
+    stream: Stream,
+    sampling_rate: int,
+    resample: bool,
+    upfactor: int,
+    filter_: list,
+    starttime: UTCDateTime,
+    endtime: UTCDateTime,
+) -> Stream:
     """
     Resample raw seismic data, detrend and apply cosine taper and zero phase-shift
     Butterworth band-pass filter; all carried out using the built-in obspy functions.
@@ -153,27 +164,31 @@ def pre_process(stream, sampling_rate, resample, upfactor, filter_, starttime, e
 
     Parameters
     ----------
-    stream : `obspy.Stream` object
+    stream:
         Waveform data to be pre-processed.
-    sampling_rate : int
+    sampling_rate:
         Desired sampling rate for data to be used to calculate onset. This will be
         achieved by resampling the raw waveform data. By default, only decimation will
         be applied, but data can also be upsampled if specified by the user when
         creating the :class:`~quakemigrate.io.data.Archive` object.
-    resample : bool, optional
+    resample:
         If true, perform resampling of data which cannot be decimated directly to the
         desired sampling rate. See :func:`~quakemigrate.util.resample`
-    upfactor : int, optional
+    upfactor:
         Factor by which to upsample the data to enable it to be decimated to the desired
         sampling rate, e.g. 40Hz -> 50Hz requires upfactor = 5.
         See :func:`~quakemigrate.util.resample`
-    filter_ : list
+    filter_:
         Filter specifications, as [lowcut (Hz), highcut (Hz), order]. NOTE - two-pass
         filter effectively doubles the number of corners (order).
+    starttime:
+        Timestamp of first sample in the waveform data.
+    endtime:
+    Timestamp of the last sample in the waveform data.
 
     Returns
     -------
-    filtered_waveforms : `obspy.Stream` object
+     :
         Pre-processed seismic data.
 
     Raises
@@ -286,17 +301,9 @@ class STALTAOnset(Onset):
         Default: 0.4
         NOTE: must be greater than 0.01
 
-    Methods
-    -------
-    calculate_onsets
-        Generate onset functions that represent seismic phase arrivals.
-    gaussian_halfwidth
-        Phase-appropriate Gaussian half-width estimate based on the short-term average
-        window length.
-
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         """Instantiate the STALTAOnset object."""
 
         super().__init__(**kwargs)
@@ -332,7 +339,7 @@ class STALTAOnset(Onset):
         self.p_onset_win = kwargs.get("p_onset_win")
         self.s_onset_win = kwargs.get("s_onset_win")
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return short summary string of the Onset object."""
 
         out = (
@@ -349,7 +356,9 @@ class STALTAOnset(Onset):
 
         return out
 
-    def calculate_onsets(self, data, timespan=None):
+    def calculate_onsets(
+        self, data: quakemigrate.io.data.WaveformData, timespan: float | None = None
+    ) -> tuple[np.ndarray[float], OnsetData]:
         """
         Calculate onset functions for the requested stations and phases.
 
@@ -362,9 +371,9 @@ class STALTAOnset(Onset):
 
         Parameters
         ----------
-        data : :class:`~quakemigrate.io.data.WaveformData` object
+        data:
             Light class encapsulating data returned by an archive query.
-        timespan : float or None, optional
+        timespan:
             If the timespan for which the onsets are being generated is provided, this
             will be used to calculate the tapered window of data at the start and end of
             the onset function which should be disregarded. This is necessary to
@@ -372,9 +381,9 @@ class STALTAOnset(Onset):
 
         Returns
         -------
-        onsets : `numpy.ndarray` of float
+         :
             Stacked onset functions served up for migration, shape(nonsets, nsamples).
-        onset_data : :class:`~quakemigrate.signal.onsets.base.OnsetData` object
+         :
             Light class encapsulating data generated during onset calculation.
 
         """
@@ -487,27 +496,29 @@ class STALTAOnset(Onset):
 
         return onsets, onset_data
 
-    def _onset(self, stream, stw, ltw, timespan):
+    def _onset(
+        self, stream: Stream, stw: int, ltw: int, timespan: float | None
+    ) -> np.ndarray[float]:
         """
         Generates an onset (characteristic) function. If there are multiple components,
         these are combined as the root-mean-square of the onset functions.
 
         Parameters
         ----------
-        stream : `obspy.Stream` object
+        stream:
             Stream containing the pre-processed data from which to calculate the onset
             function.
-        stw : int
+        stw:
             Number of samples in the short-term window.
-        ltw : int
+        ltw:
             Number of samples in the long-term window.
-        timespan : float or None
+        timespan:
             If a timespan is provided it will be used to calculate the tapered window of
             data at the start and end of the onset function which should be disregarded.
 
         Returns
         -------
-        onset : `numpy.ndarray` of float
+         :
             STA/LTA onset function.
 
         """
@@ -546,26 +557,28 @@ class STALTAOnset(Onset):
 
         return onset
 
-    def _trim_taper_pad(self, onsets, stw, ltw, timespan):
+    def _trim_taper_pad(
+        self, onsets: np.ndarray[float], stw: int, ltw: int, timespan: float
+    ) -> np.ndarray[float]:
         """
         Set the value of the tapered windows at the start and end of the onset function
         (plus one long-term window and one short-term window, respectively) to 1.
 
         Parameters
         ----------
-        onsets : `numpy.ndarray` of float
+        onsets:
             STA/LTA onset function.
-        stw : int
+        stw:
             Number of samples in the short-term window.
-        ltw : int
+        ltw:
             Number of samples in the long-term window.
-        timespan : float
+        timespan:
             Used to calculate the tapered window of data at the start and end of the
             onset function which should be disregarded.
 
         Returns
         -------
-        onsets : `numpy.ndarray` of float
+         :
             STA/LTA onset function, with the value in the tapered regions of data set to
             1.
 
@@ -582,22 +595,28 @@ class STALTAOnset(Onset):
 
         return onsets
 
-    def gaussian_halfwidth(self, phase):
+    def gaussian_halfwidth(self, phase: str) -> float:
         """
         Return the phase-appropriate Gaussian half-width estimate based on the
         short-term average window length.
 
         Parameters
         ----------
-        phase : {'P', 'S'}
+        phase:
             Seismic phase for which to serve the estimate.
+            Options: {"P", "S"}
+
+        Returns
+        -------
+         :
+            An approximation for the Gaussian half-width.
 
         """
 
         return self.sta_lta_windows[phase][0] * self.sampling_rate / 2
 
     @property
-    def pre_pad(self):
+    def pre_pad(self) -> float:
         """Pre-pad is determined as a function of the onset windows"""
         windows = self.sta_lta_windows
         pre_pad = max([windows[key][1] for key in windows.keys()]) + 3 * max(
@@ -607,13 +626,13 @@ class STALTAOnset(Onset):
         return pre_pad
 
     @pre_pad.setter
-    def pre_pad(self, value):
+    def pre_pad(self, value: float) -> None:
         """Setter for pre-pad"""
 
         self._pre_pad = value
 
     @property
-    def post_pad(self):
+    def post_pad(self) -> float:
         """
         Post-pad is determined as a function of the max traveltime in the grid and the
         onset windows
@@ -623,7 +642,7 @@ class STALTAOnset(Onset):
         return self._post_pad
 
     @post_pad.setter
-    def post_pad(self, ttmax):
+    def post_pad(self, ttmax: float) -> None:
         """
         Define post-pad as a function of the maximum travel-time between a station and a
         grid point plus the LTA (in case onset_centred is True)

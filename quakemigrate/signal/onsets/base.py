@@ -16,13 +16,15 @@ be used for migration or phase picking.
 from abc import ABC, abstractmethod
 
 import numpy as np
+from obspy import Stream, UTCDateTime
 
 import quakemigrate.util as util
 
 
 class Onset(ABC):
     """
-    QuakeMigrate default onset function class.
+    Base class for onset functions that are used to transform waveform data prior to
+    migration within QuakeMigrate.
 
     Attributes
     ----------
@@ -36,62 +38,63 @@ class Onset(ABC):
         Option to override the default post-pad duration of data to read before
         computing 4-D coalescence in detect() and locate().
 
-    Methods
-    -------
-    calculate_onsets()
-        Generate onset functions that represent seismic phase arrivals
-    pad(timespan)
-        Create appropriate padding to include the taper.
+    Notes
+    -----
+    Subclasses must implement:
+    - calculate_onsets(): Core transformation logic
+    - gaussian_halfwidth(): For compatibility with GaussianPicker
+    - pre_pad and post_pad properties: Configuration for padding
 
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, sampling_rate: int, **kwargs) -> None:
         """Instantiate the Onset object."""
 
-        self.sampling_rate = kwargs.get("sampling_rate")
-        if self.sampling_rate is None:
-            raise ValueError("Must specify 'sampling_rate' for any Onset.")
+        if not isinstance(sampling_rate, (int, float)) or sampling_rate <= 0:
+            raise ValueError("sampling rate must be a positive number.")
+        self.sampling_rate = int(sampling_rate)
 
         self._pre_pad = 0
         self._post_pad = 0
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return short summary string of the Onset object."""
 
         return "Base Onset object - add a __str__ method to your Onset class"
 
-    def pad(self, timespan):
+    def pad(self, timespan: float) -> tuple[float, float]:
         """
         Determine the number of samples needed to pre- and post-pad the timespan.
 
         Parameters
         ----------
-        timespan : float
+        timespan:
             The time window to pad.
 
         Returns
         -------
-        pre_pad : float
+         :
             Option to override the default pre-pad duration of data to read before
             computing 4-D coalescence in detect() and locate().
-        post_pad : float
+         :
             Option to override the default post-pad duration of data to read before
             computing 4-D coalescence in detect() and locate().
 
         """
 
+        if timespan <= 0:
+            raise ValueError("timespan must be positive.")
+
         # Add additional padding for any tapering applied to data
         timespan += self.pre_pad + self.post_pad
-        pre_pad = util.trim2sample(
-            self.pre_pad + np.ceil(timespan * 0.06), self.sampling_rate
-        )
-        post_pad = util.trim2sample(
-            self.post_pad + np.ceil(timespan * 0.06), self.sampling_rate
-        )
+        taper_pad = np.ceil(timespan * 0.06)
+
+        pre_pad = util.trim2sample(self.pre_pad + taper_pad, self.sampling_rate)
+        post_pad = util.trim2sample(self.post_pad + taper_pad, self.sampling_rate)
 
         return pre_pad, post_pad
 
-    def gaussian_halfwidth(self, phase):
+    def gaussian_halfwidth(self, phase: str) -> float | None:
         """Method stub for Gaussian half-width estimate."""
 
         raise AttributeError(
@@ -106,26 +109,30 @@ class Onset(ABC):
 
     @property
     @abstractmethod
-    def pre_pad(self):
+    def pre_pad(self) -> float | None:
         """Get property stub for pre_pad."""
         return self._pre_pad
 
     @pre_pad.setter
     @abstractmethod
-    def pre_pad(self, value):
+    def pre_pad(self, value: float) -> None:
         """Set property stub for pre_pad."""
+        if not isinstance(value, float) or value < 0:
+            raise ValueError("pre_pad must be a non-negative number.")
         self._pre_pad = value
 
     @property
     @abstractmethod
-    def post_pad(self):
+    def post_pad(self) -> float | None:
         """Get property stub for pre_pad."""
         return self._post_pad
 
     @post_pad.setter
     @abstractmethod
-    def post_pad(self, value):
+    def post_pad(self, value: float) -> None:
         """Set property stub for pre_pad."""
+        if not isinstance(value, float) or value < 0:
+            raise ValueError("post_pad must be a non-negative number.")
         self._post_pad = value
 
 
@@ -140,43 +147,43 @@ class OnsetData:
 
     Parameters
     ----------
-    onsets : dict of dicts
+    onsets:
         Keys "station", each of which contains keys for each phase, e.g. "P" and "S".
         {"station": {"P": `p_onset`, "S": `s_onset`}}. Onset functions are calculated by
         transforming the raw seismic data using some characteristic function designed to
         highlight phase arrivals.
-    phases : list of str
+    phases:
         Phases for which onsets have been calculated. (e.g. ["P", "S"])
-    channel_maps : dict of str
+    channel_maps:
         Data component maps - keys are phases. (e.g. {"P": "Z"})
-    filtered_waveforms : `obspy.Stream` object
+    filtered_waveforms:
         Filtered and/or resampled and otherwise processed seismic data generated during
         onset function generation. Only contains waveforms that have passed the quality
         control criteria, at a unified sampling rate - see `sampling_rate`.
-    availability : dict
+    availability:
         Dictionary with keys "station_phase", containing 1's or 0's corresponding to
         whether an onset function is available for that station and phase - determined
         by data availability and quality checks.
-    starttime : `obspy.UTCDateTime` object
+    starttime:
         Start time of onset functions.
-    endtime : `obspy.UTCDateTime` object
+    endtime:
         End time of onset functions.
-    sampling_rate : int
+    sampling_rate:
         Sampling rate of filtered waveforms and onset functions.
 
     """
 
     def __init__(
         self,
-        onsets,
-        phases,
-        channel_maps,
-        filtered_waveforms,
-        availability,
-        starttime,
-        endtime,
-        sampling_rate,
-    ):
+        onsets: dict,
+        phases: list[str],
+        channel_maps: dict,
+        filtered_waveforms: Stream,
+        availability: dict,
+        starttime: UTCDateTime,
+        endtime: UTCDateTime,
+        sampling_rate: int,
+    ) -> None:
         """Instantiate the OnsetData object."""
 
         self.onsets = onsets

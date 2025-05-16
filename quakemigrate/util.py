@@ -683,6 +683,9 @@ def get_phase_component_strings(channel_maps):
     that flexible) plotting setup. If the use of this function is expanded beyond that
     of a plotting utility, this might need to be revised.
 
+    Ammended to facilitate plotting when no S picks are made, e.g. in case of having
+    vertical components only, through if statement.
+
     Currently all P-phase components are retained; this means if more than one
     component is specified for the P onset, the waveforms will be overlain.
 
@@ -706,46 +709,55 @@ def get_phase_component_strings(channel_maps):
     """
 
     p_comps = list(channel_maps["P"].strip("*").strip("[").strip("]"))[::2]
-    s_comps = list(channel_maps["S"].strip("*").strip("[").strip("]"))[::2]
-    p_str, s_str_1, s_str_2 = "", "", ""
+    p_str = ""
+
     for p_comp in p_comps:
         p_str += f"{p_comp},"
-    s_comps_alpha = [
-        s_comps[i] for i in np.where([not x.isnumeric() for x in s_comps])[0]
-    ]
-    s_comps_numeric = [
-        s_comps[i] for i in np.where([x.isnumeric() for x in s_comps])[0]
-    ]
-    if s_comps_alpha and s_comps_numeric:
-        if len(s_comps_alpha) > 2 or len(s_comps_numeric) > 2:
-            logging.info(
-                "More than two pairs of S-phase components found in "
-                "channel maps. Only using first two for plotting!"
-            )
-        for i, (s_alpha, s_numeric) in enumerate(zip(s_comps_alpha, s_comps_numeric)):
-            if i == 0:
-                s_str_1 += f"{s_alpha},{s_numeric},"
-            elif i == 1:
-                s_str_2 += f"{s_alpha},{s_numeric},"
-            elif i > 1:
-                continue
-    else:
-        for s_comps_list in [s_comps_alpha, s_comps_numeric]:
-            if s_comps_list:
-                s_str_1 += f"{s_comps_list[0]},"
-                if len(s_comps_list) > 1:
-                    s_str_2 += f"{s_comps_list[1]},"
-            if len(s_comps_list) > 2:
-                logging.info(
-                    "More than two alphabetical or numeric S-phase components"
-                    " found in channel maps. Only using first two for plotting!"
-                )
 
     p_str = f"[{p_str.rstrip(',')}]"
-    s_str_1 = f"[{s_str_1.rstrip(',')}]"
-    s_str_2 = f"[{s_str_2.rstrip(',')}]"
 
-    return p_str, s_str_1, s_str_2
+    if "S" in channel_maps:
+        s_str_1, s_str_2 = "", ""
+        s_comps = list(channel_maps["S"].strip("*").strip("[").strip("]"))[::2]
+        s_comps_alpha = [
+            s_comps[i] for i in np.where([not x.isnumeric() for x in s_comps])[0]
+        ]
+        s_comps_numeric = [
+            s_comps[i] for i in np.where([x.isnumeric() for x in s_comps])[0]
+        ]
+        if s_comps_alpha and s_comps_numeric:
+            if len(s_comps_alpha) > 2 or len(s_comps_numeric) > 2:
+                logging.info(
+                    "More than two pairs of S-phase components found in "
+                    "channel maps. Only using first two for plotting!"
+                )
+            for i, (s_alpha, s_numeric) in enumerate(
+                zip(s_comps_alpha, s_comps_numeric)
+            ):
+                if i == 0:
+                    s_str_1 += f"{s_alpha},{s_numeric},"
+                elif i == 1:
+                    s_str_2 += f"{s_alpha},{s_numeric},"
+                elif i > 1:
+                    continue
+        else:
+            for s_comps_list in [s_comps_alpha, s_comps_numeric]:
+                if s_comps_list:
+                    s_str_1 += f"{s_comps_list[0]},"
+                    if len(s_comps_list) > 1:
+                        s_str_2 += f"{s_comps_list[1]},"
+                if len(s_comps_list) > 2:
+                    logging.info(
+                        "More than two alphabetical or numeric S-phase components"
+                        " found in channel maps. Only using first two for plotting!"
+                    )
+
+        s_str_1 = f"[{s_str_1.rstrip(',')}]"
+        s_str_2 = f"[{s_str_2.rstrip(',')}]"
+
+        return p_str, s_str_1, s_str_2
+    else:
+        return p_str
 
 
 class StationFileHeaderException(Exception):

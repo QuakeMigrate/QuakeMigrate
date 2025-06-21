@@ -129,7 +129,7 @@ def trigger_summary(
     if availability is not None:
         station_list = []
         if not plot_all_stns:
-            for col, ava in availability.iteritems():
+            for col, ava in availability.items():
                 if np.any(ava == 1):
                     station_list.append(col.split("_")[0])
         else:

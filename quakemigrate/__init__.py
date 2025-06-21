@@ -11,7 +11,7 @@ using waveform migration and stacking.
 
 """
 
-import pkg_resources
+from importlib.metadata import version
 
 import matplotlib
 import os
@@ -27,4 +27,4 @@ logging.getLogger("matplotlib").setLevel(logging.INFO)
 if "DISPLAY" not in os.environ:
     matplotlib.use("Agg")
 
-__version__ = pkg_resources.get_distribution("quakemigrate").version
+__version__ = version("quakemigrate")

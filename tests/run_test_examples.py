@@ -18,6 +18,7 @@ base_path = pathlib.Path(__file__).resolve().parent.parent / "examples"
 
 # Run Iceland icequake example scripts
 os.chdir(base_path / "Icequake_Iceland")
+exec(open("get_iceland_icequake_data.py").read())
 exec(open("iceland_lut.py").read())
 exec(open("iceland_detect.py").read())
 exec(open("iceland_trigger.py").read())

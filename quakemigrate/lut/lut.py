@@ -768,7 +768,7 @@ class LUT(Grid3D):
         scalebar = AnchoredSizeBar(
             xy.transData,
             size=size,
-            label=f"{length} {self.unit_name}",
+            label=f"{length:.3g} {self.unit_name}",
             loc="lower right",
             pad=0.5,
             sep=5,

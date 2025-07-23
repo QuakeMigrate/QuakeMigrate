@@ -172,6 +172,11 @@ class Trigger:
         for which some data was available during the trigger time window. NOTE: if no
         station availability data is found, all stations in the LUT will be plotted.
         (Default: True)
+    write_event_time_windows : bool, optional
+        If true, write out the MinTime and MaxTime of the trigger window for each
+        triggered event (corresponding to the minimum event interval plus the window
+        during which the coalescence value is above the trigger threshold). This option
+        is mainly a convenience for post-hoc plotting.
 
     Methods
     -------
@@ -226,6 +231,9 @@ class Trigger:
         self.plot_trigger_summary = kwargs.get("plot_trigger_summary", True)
         self.xy_files = kwargs.get("xy_files")
         self.plot_all_stns = kwargs.get("plot_all_stns", True)
+
+        # --- Trigger io parameters ---
+        self.write_event_time_windows = kwargs.get("write_event_time_windows", False)
 
     def __str__(self):
         """Return short summary string of the Trigger object."""
@@ -367,7 +375,9 @@ class Trigger:
                 f"between {batchstart} \n\t\tand {batchend}"
             )
             logging.info("\n\tWriting triggered events to file...")
-            write_triggered_events(self.run, events, batchstart)
+            write_triggered_events(
+                self.run, events, batchstart, self.write_event_time_windows
+            )
 
         if self.plot_trigger_summary:
             logging.info("\n\tPlotting trigger summary...")

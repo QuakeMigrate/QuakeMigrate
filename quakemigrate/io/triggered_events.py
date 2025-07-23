@@ -19,6 +19,18 @@ import pandas as pd
 import quakemigrate.util as util
 
 
+OUTPUT_COLS = [
+    "EventID",
+    "CoaTime",
+    "TRIG_COA",
+    "COA_X",
+    "COA_Y",
+    "COA_Z",
+    "COA",
+    "COA_NORM",
+]
+
+
 def read_triggered_events(run, **kwargs):
     """
     Read triggered events from .csv file.
@@ -91,7 +103,7 @@ def read_triggered_events(run, **kwargs):
 
 
 @util.timeit("info")
-def write_triggered_events(run, events, starttime):
+def write_triggered_events(run, events, starttime, write_event_time_windows):
     """
     Write triggered events to a .csv file.
 
@@ -104,27 +116,22 @@ def write_triggered_events(run, events, starttime):
         "COA_X", "COA_Y", "COA_Z", "COA", "COA_NORM"].
     starttime : `obspy.UTCDateTime` object
         Timestamp from which events have been triggered.
+    write_event_time_windows: bool
+        If true, retain the MinTime and MaxTime columns which denote the trigger window
+        for each candidate event.
 
     """
 
     fpath = run.path / "trigger" / run.subname / "events"
     fpath.mkdir(exist_ok=True, parents=True)
 
+    output_cols = OUTPUT_COLS
+    if write_event_time_windows:
+        output_cols.extend(["MinTime", "MaxTime"])
+
     # Work on a copy
     events = events.copy()
-    events = events.loc[
-        :,
-        [
-            "EventID",
-            "CoaTime",
-            "TRIG_COA",
-            "COA_X",
-            "COA_Y",
-            "COA_Z",
-            "COA",
-            "COA_NORM",
-        ],
-    ]
+    events = events.loc[:, output_cols]
 
     fstem = f"{run.name}_{starttime.year}_{starttime.julday:03d}"
     file = (fpath / f"{fstem}_TriggeredEvents").with_suffix(".csv")

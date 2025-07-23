@@ -1,3 +1,6 @@
+- quakemigrate.signal.trigger:
+  * Added new kwarg `write_event_time_windows` to provide the option to output the `MinTime` and `MaxTime` columns in the triggered event file, enabling the trigger summmary plot to be reproduced after the fact. 9e117b1
+
 1.2.0
 =====
 - Examples:

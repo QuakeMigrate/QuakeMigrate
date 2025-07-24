@@ -1,3 +1,7 @@
+1.2.1
+=====
+- Examples:
+  * include `get_data` in `run_test_examples.py` for the Icequake_Iceland example. 452ba15
 - quakemigrate.signal.trigger:
   * Added new kwarg `write_event_time_windows` to provide the option to output the `MinTime` and `MaxTime` columns in the triggered event file, enabling the trigger summmary plot to be reproduced after the fact. 9e117b1
 

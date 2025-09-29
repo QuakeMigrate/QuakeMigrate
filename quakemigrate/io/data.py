@@ -604,7 +604,7 @@ class WaveformData:
                 # rate as provided. To check that as well, use
                 # `check_sampling_rate=True` and specify a sampling rate.
                 if full_timespan:
-                    n_samples = timespan * st_id[0].stats.sampling_rate + 1
+                    n_samples = int(round(timespan * st_id[0].stats.sampling_rate + 1))
                     if len(st_id) > 1:
                         continue
                     elif st_id[0].stats.npts < n_samples:

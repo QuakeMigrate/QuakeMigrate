@@ -4,7 +4,7 @@ This module provides parsers to export the output of a QuakeMigrate run to an Ob
 Catalog.
 
 :copyright:
-    2020–2023, QuakeMigrate developers.
+    2020–2025, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -306,17 +306,20 @@ def _read_single_event(event_file, locate_dir, units, local_mag_ph):
 
                 event.amplitudes.append(amp)
 
-        mag = Magnitude()
-        mag.extra = AttribDict()
-        mag.mag = event_info["ML"]
-        mag.mag_errors.uncertainty = event_info["ML_Err"]
-        mag.magnitude_type = "ML"
-        # mag.origin_id = ?
-        mag.station_count = i
-        mag.evaluation_mode = "automatic"
-        mag.extra.r2 = {"value": event_info["ML_r2"], "namespace": ns}
+        if pd.isna(event_info["ML"]):
+            print(f"Event {event_uid} has no valid magnitude; not added.")
+        else:
+            mag = Magnitude()
+            mag.extra = AttribDict()
+            mag.mag = event_info["ML"]
+            mag.mag_errors.uncertainty = event_info["ML_Err"]
+            mag.magnitude_type = "ML"
+            # mag.origin_id = ?
+            mag.station_count = i
+            mag.evaluation_mode = "automatic"
+            mag.extra.r2 = {"value": event_info["ML_r2"], "namespace": ns}
 
-        event.magnitudes = [mag]
-        event.preferred_magnitude_id = mag.resource_id
+            event.magnitudes = [mag]
+            event.preferred_magnitude_id = mag.resource_id
 
     return event

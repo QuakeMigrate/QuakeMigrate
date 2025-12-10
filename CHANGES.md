@@ -1,3 +1,16 @@
+1.2.2
+=====
+- GH Actions
+  * Bump pypi-publish and cibuildwheel action versions. b6cced8 and 78765d
+  * Bump macOSX deployment target from 14.0 to 15.0. 13d9c67
+  * Remove concurrency restrictions from testing workflow. c81a5fc
+- quakemigrate.io.export.to_obspy
+  * Handle NaN magnitudes. 35c70fa
+- quakemigrate.io.data
+  * Fix bug with calculation of the number of samples in the full timespan by casting to `int` to avoid floating point errors. ee1f16a
+- Dependencies
+  * Add `nllgrid` to optional dependencies for the `manuscript` keyword. 475c7ec
+
 1.2.1
 =====
 - Examples:

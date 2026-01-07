@@ -2,7 +2,7 @@
 Small module that provides basic waveform simulations routines.
 
 :copyright:
-    2020–2024, QuakeMigrate developers.
+    2020–2026, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -84,7 +84,7 @@ def simulate_waveforms(
 
     Parameters
     ----------
-    wavelet: The base wavelet used to represent the waveform for each simulated phase.                                                                 
+    wavelet: The base wavelet used to represent the waveform for each simulated phase.
     earthquake_coords: The lon, lat, and depth of the earthquake.
     lut: A QuakeMigrate traveltime lookup table, used to migrate simulated waveforms.
     magnitude: A local magnitude used to simulate the effect of distance attenuation.
@@ -120,7 +120,7 @@ def simulate_waveforms(
         P = Trace()
         P_ttime = lut.traveltime_to("P", earthquake_ijk, station=station)
         P_ttime += np.random.normal(scale=noise["traveltime"]["P"], size=1)
-        roll_by = int(wavelet.sps * P_ttime)
+        roll_by = int(wavelet.sps * P_ttime[0])
         P_amp_noise = np.random.normal(
             scale=noise["amplitude"]["P"], size=len(wavelet.data)
         )
@@ -130,7 +130,7 @@ def simulate_waveforms(
         S1, S2 = Trace(), Trace()
         S_ttime = lut.traveltime_to("S", earthquake_ijk, station=station)
         S_ttime += np.random.normal(scale=noise["traveltime"]["S"], size=1)
-        roll_by = int(wavelet.sps * S_ttime)
+        roll_by = int(wavelet.sps * S_ttime[0])
         S_amp_noise = np.random.normal(
             scale=noise["amplitude"]["S"], size=len(wavelet.data)
         )

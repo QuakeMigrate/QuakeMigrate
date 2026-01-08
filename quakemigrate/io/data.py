@@ -3,7 +3,7 @@
 Module for processing waveform files stored in a data archive.
 
 :copyright:
-    2020–2023, QuakeMigrate developers.
+    2020–2026, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -89,6 +89,15 @@ class Archive:
         midnight), whether to interpolate the data to apply the necessary correction.
         Default behaviour is to just alter the metadata, resulting in a sub-sample
         timing offset. See :func:`~quakemigrate.util.shift_to_sample`.
+    ignore_network_code : bool, optional
+        If True, replace all network codes in the waveform archive with a dummy value.
+        Note this may cause issues if station codes are repeated, with SEED-ID's only
+        distinguished by their differing network codes.
+    dummy_network_code : str, optional
+        Provides the option to specify the dummy network code applied to the waveform
+        archive, if `ignore_network_code` is set to True.
+    ignore_location_code : bool, optional
+        If True, replace all location codes in the waveform archive with a blank string.
 
     Methods
     -------
@@ -115,6 +124,10 @@ class Archive:
         self.resample = kwargs.get("resample", False)
         self.upfactor = kwargs.get("upfactor")
         self.interpolate = kwargs.get("interpolate", False)
+        # SEED ID params
+        self.ignore_network_code = kwargs.get("ignore_network_code", False)
+        self.dummy_network_code = kwargs.get("dummy_network_code", "XX")
+        self.ignore_location_code = kwargs.get("ignore_location_code", False)
         # Response removal parameters
         self.response_inv = kwargs.get("response_inv")
         response_removal_params = kwargs.get("response_removal_params", {})
@@ -295,6 +308,16 @@ class Archive:
                 except TypeError:
                     logging.info(f"File not compatible with ObsPy - {file}")
                     continue
+
+            # If network code is to be ignored, set all channels to network code 'XX'
+            if self.ignore_network_code:
+                for tr in st:
+                    tr.stats.network = self.dummy_network_code
+
+            # If location code is to be ignored, set all channels to location code ''
+            if self.ignore_location_code:
+                for tr in st:
+                    tr.stats.location = ""
 
             # Merge waveforms channel-by-channel with no-clobber merge
             st = util.merge_stream(st)
@@ -783,3 +806,24 @@ class WaveformData:
             self.wa_waveforms.append(tr.copy())
 
         return tr
+
+    @property
+    def dummy_network_code(self):
+        """
+        Dummy network code is a 2 character string to replace the (possibly mixed) network
+        codes in the input archive.
+
+        """
+
+        return self._dummy_network_code
+
+    @dummy_network_code.setter
+    def dummy_network_code(self, value):
+        """Setter for dummy network code."""
+
+        if isinstance(value, str) and len(value) == 2:
+            self._dummy_network_code = value
+        else:
+            raise ValueError(
+                f"`dummy_network_code` must be a 2 character string, not {value}."
+            )

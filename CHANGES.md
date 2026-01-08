@@ -1,3 +1,8 @@
+- quakemigrate.io.data
+  * Add the option to ignore network codes and location codes in the waveform data archive. This may be useful when a given station (or set of stations) have been assigned different temporary network codes at different times during the study period; i.e. not reflecting any physical change to the station infrastructure, but which would otherwise prevent waveforms from being merged due to their incompatible SEED ID's. This is also reflected in the output cut waveforms.
+- quakemigrate.io.core
+  * Add the option to ignore network codes and location codes in the instrument response inventory; see corresponding change in quakemigrate.io.data for further details.
+
 1.2.2
 =====
 - GH Actions

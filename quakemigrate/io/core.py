@@ -3,7 +3,7 @@
 Module to handle input/output for QuakeMigrate.
 
 :copyright:
-    2020–2023, QuakeMigrate developers.
+    2020–2026, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -100,7 +100,13 @@ def read_stations(station_file, **kwargs):
     return stn_data
 
 
-def read_response_inv(response_file, sac_pz_format=False):
+def read_response_inv(
+    response_file,
+    ignore_network_code=False,
+    dummy_network_code="XX",
+    ignore_location_code=False,
+    sac_pz_format=False,
+):
     """
     Reads response information from file, returning it as a `obspy.Inventory` object.
 
@@ -111,6 +117,15 @@ def read_response_inv(response_file, sac_pz_format=False):
         Please see the `obspy.read_inventory()` documentation for a full list of
         supported file formats. This includes a dataless.seed volume, a concatenated
         series of RESP files or a stationXML file.
+    ignore_network_code : bool, optional
+        If True, replace all network codes in the waveform archive with a dummy value.
+        Note this may cause issues if station codes are repeated, with SEED-ID's only
+        distinguished by their differing network codes.
+    dummy_network_code : str, optional
+        Provides the option to specify the dummy network code applied to the waveform
+        archive, if `ignore_network_code` is set to True.
+    ignore_location_code : bool, optional
+        If True, replace all location codes in the waveform archive with a blank string.
     sac_pz_format : bool, optional
         Toggle to indicate that response information is being provided in SAC Pole-Zero
         files. NOTE: not yet supported.
@@ -141,6 +156,21 @@ def read_response_inv(response_file, sac_pz_format=False):
                 f"Response file not readable by ObsPy: {e}\n"
                 "Please consult the ObsPy documentation."
             )
+
+        if ignore_network_code:
+            if isinstance(dummy_network_code, str) and len(dummy_network_code) == 2:
+                for network in response_inv.networks:
+                    network.code = dummy_network_code
+            else:
+                raise ValueError(
+                    f"dummy_network_code must be a 2 character string, not {dummy_network_code}."
+                )
+
+        if ignore_location_code:
+            for network in response_inv.networks:
+                for station in network.stations:
+                    for chan in station.channels:
+                        chan.location_code = ""
 
     return response_inv
 

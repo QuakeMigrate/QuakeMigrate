@@ -409,6 +409,27 @@ class Archive:
 
         return files
 
+    @property
+    def dummy_network_code(self):
+        """
+        Dummy network code is a 2 character string to replace the (possibly mixed) network
+        codes in the input archive.
+
+        """
+
+        return self._dummy_network_code
+
+    @dummy_network_code.setter
+    def dummy_network_code(self, value):
+        """Setter for dummy network code."""
+
+        if isinstance(value, str) and len(value) == 2:
+            self._dummy_network_code = value
+        else:
+            raise ValueError(
+                f"`dummy_network_code` must be a 2 character string, not {value}."
+            )
+
 
 class WaveformData:
     """
@@ -806,24 +827,3 @@ class WaveformData:
             self.wa_waveforms.append(tr.copy())
 
         return tr
-
-    @property
-    def dummy_network_code(self):
-        """
-        Dummy network code is a 2 character string to replace the (possibly mixed) network
-        codes in the input archive.
-
-        """
-
-        return self._dummy_network_code
-
-    @dummy_network_code.setter
-    def dummy_network_code(self, value):
-        """Setter for dummy network code."""
-
-        if isinstance(value, str) and len(value) == 2:
-            self._dummy_network_code = value
-        else:
-            raise ValueError(
-                f"`dummy_network_code` must be a 2 character string, not {value}."
-            )

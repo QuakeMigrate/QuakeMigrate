@@ -1,9 +1,8 @@
-# -*- coding: utf-8 -*-
 """
 Short test script for C onset functions.
 
 :copyright:
-    2020–2023, QuakeMigrate developers.
+    2020–2026, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -23,12 +22,11 @@ class OnsetTests(unittest.TestCase):
     def test_onsets_simple(self):
         """Confirm on simple case."""
 
-
         print("Testing onset functions behaviour on toy case.")
         signal = np.arange(6)
         nsta, nlta = 2, 3
         overlapping = overlapping_sta_lta(signal, nsta, nlta)
-        expected = np.array([1.0, 1.0, 1.5, 1.25, 21./18, 27./24])
+        expected = np.array([1.0, 1.0, 1.5, 1.25, 21.0 / 18, 27.0 / 24])
         print("\t1: Assert overlapping/classic STA/LTA onset correct...")
         self.assertTrue((expected == overlapping).all())
 

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Module for processing waveform files stored in a data archive.
 

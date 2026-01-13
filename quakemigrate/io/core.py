@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Module to handle input/output for QuakeMigrate.
 

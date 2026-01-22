@@ -9,23 +9,25 @@ Helper to load compiled C library.
 
 """
 
+from __future__ import annotations
+
 import ctypes
-from distutils import sysconfig
 import pathlib
+from distutils import sysconfig
 
 
-def _load_cdll(name):
+def _load_cdll(name: str) -> ctypes.CDLL:
     """
     Helper function to load an extension built using setuptools Extension.
 
     Parameters
     ----------
-    name : str
+    name:
         Name of library to load.
 
     Returns
     -------
-    cdll : `ctypes.CDLL`
+    cdll:
         Shared library object.
 
     """

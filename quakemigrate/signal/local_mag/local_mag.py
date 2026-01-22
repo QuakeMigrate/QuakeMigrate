@@ -10,13 +10,23 @@ Module containing methods to calculate the local magnitude for an event located 
 
 """
 
+from __future__ import annotations
+
 import logging
+from typing import TYPE_CHECKING
+
 import numpy as np
 
 import quakemigrate.util as util
 from quakemigrate.io import write_amplitudes
 from .amplitude import Amplitude
 from .magnitude import Magnitude
+
+
+if TYPE_CHECKING:
+    from quakemigrate.io.core import Run
+    from quakemigrate.io.event import Event
+    from quakemigrate.lut import LUT
 
 
 class LocalMag:
@@ -28,80 +38,74 @@ class LocalMag:
 
     Parameters
     ----------
-    amp_params : dict
+    amp_params:
         All keys are optional, including:
         signal_window : float
             Length of S-wave signal window, in addition to the time window associated
-            with the marginal_window and traveltime uncertainty. (Default 0 s)
+            with the marginal_window and traveltime uncertainty.
         noise_window : float
             Length of the time window before the P-wave signal window in which to
-            measure the noise amplitude. (Default 10 s)
+            measure the noise amplitude.
         noise_measure : {"RMS", "STD", "ENV"}
             Method by which to measure the noise amplitude; root-mean-quare, standard
             deviation or average amplitude of the envelope of the signal.
-            (Default "RMS")
         loc_method : {"spline", "gaussian", "covariance"}
-            Which event location estimate to use. (Default "spline")
+            Which event location estimate to use.
         highpass_filter : bool
             Whether to apply a highpass filter to the data before measuring amplitudes.
-            (Default False)
         highpass_freq : float
             High-pass filter frequency. Required if highpass_filter is True.
         bandpass_filter : bool
             Whether to apply a band-pass filter before measuring amplitudes.
-            (Default: False)
         bandpass_lowcut : float
             Band-pass filter low-cut frequency. Required if bandpass_filter is True.
         bandpass_highcut : float
             Band-pass filter high-cut frequency. Required if bandpass_filter is True.
         filter_corners : int
-            Number of corners for the chosen filter. Default: 4.
+            Number of corners for the chosen filter.
         prominence_multiplier : float
             To set a prominence filter in the peak-finding algorithm.
-            (Default 0. = off).
             NOTE: not recommended for use in combination with a filter; filter
             gain corrections can lead to spurious results. Please see the
             `scipy.signal.find_peaks` documentation for further guidance.
-    mag_params : dict
+    mag_params:
         Required keys:
         A0 : str or func
             Name of the attenuation function to use. Available options include
             {"Hutton-Boore", "keir2006", "UK", ...}. Alternatively specify a
             function which returns the attenuation factor at a specified
-            (epicentral or hypocentral) distance. (Default "Hutton-Boore")
+            (epicentral or hypocentral) distance.
         All other keys are optional, including:
         station_corrections : dict {str : float}
-            Dictionary of trace_id : magnitude-correction pairs. (Default None)
+            Dictionary of trace_id : magnitude-correction pairs.
         amp_feature : {"S_amp", "P_amp"}
             Which phase amplitude measurement to use to calculate local magnitude.
-            (Default "S_amp")
         amp_multiplier : float
             Factor by which to multiply all measured amplitudes.
         use_hyp_dist : bool, optional
             Whether to use the hypocentral distance instead of the epicentral distance
-            in the local magnitude calculation. (Default False)
+            in the local magnitude calculation.
         trace_filter : regex expression
             Expression by which to select traces to use for the mean_magnitude
-            calculation. E.g. '.*H[NE]$'. (Default None)
+            calculation. E.g. '.*H[NE]$'.
         station_filter : list of str
             List of stations to exclude from the mean_magnitude calculation.
-            E.g. ["KVE", "LIND"]. (Default None)
+            E.g. ["KVE", "LIND"].
         dist_filter : float or False
             Whether to only use stations less than a specified (epicentral or
             hypocentral) distance from an event in the mean_magnitude() calculation.
-            Distance in kilometres. (Default False)
+            Distance in kilometres.
         pick_filter : bool
             Whether to only use stations where at least one phase was picked by the
-            autopicker in the mean_magnitude calculation. (Default False)
+            autopicker in the mean_magnitude calculation.
         noise_filter : float
             Factor by which to multiply the measured noise amplitude before excluding
             amplitude observations below the noise level.
-            (Default 1.)
         weighted_mean : bool
             Whether to do a weighted mean of the magnitudes when calculating the
-            mean_magnitude. (Default False)
-    plot_amplitudes : bool, optional
-        Plot amplitudes vs. distance plot for each event. (Default True)
+            mean_magnitude.
+    plot_amplitudes:
+        Plot amplitudes vs. distance plot for each event.
 
     Attributes
     ----------
@@ -113,20 +117,18 @@ class LocalMag:
         calculate magnitudes from Wood-Anderson corrected displacement amplitudes, and
         to combine them into a single magnitude estimate for the event.
 
-    Methods
-    -------
-    calc_magnitude(event, lut, run)
-
     """
 
-    def __init__(self, amp_params, mag_params, plot_amplitudes=True):
+    def __init__(
+        self, amp_params: dict, mag_params: dict, plot_amplitudes: bool = True
+    ) -> None:
         """Instantiate the LocalMag object."""
 
         self.amp = Amplitude(amp_params)
         self.mag = Magnitude(mag_params)
         self.plot = plot_amplitudes
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return short summary string of the LocalMagnitudes object."""
         out = (
             "\tCalculating local magnitudes from Wood-Anderson corrected "
@@ -138,7 +140,7 @@ class LocalMag:
         return out
 
     @util.timeit("info")
-    def calc_magnitude(self, event, lut, run):
+    def calc_magnitude(self, event: Event, lut: LUT, run: Run) -> tuple[Event, float]:
         """
         Wrapper function to calculate the local magnitude of an event by first making
         Wood-Anderson corrected displacement amplitude measurements on each trace, then
@@ -151,23 +153,23 @@ class LocalMag:
 
         Parameters
         ----------
-        event : :class:`~quakemigrate.io.event.Event` object
+        event:
             Light class encapsulating waveform data, onset, pick and location
             information for a given event.
-        lut : :class:`~quakemigrate.lut.lut.LUT` object
+        lut:
             Contains the traveltime lookup tables for seismic phases, computed for some
             pre-defined velocity model.
-        run : :class:`~quakemigrate.io.core.Run` object
+        run:
             Light class encapsulating waveforms, coalescence information, picks and
             location information for a given event.
 
         Returns
         -------
-        event : :class:`~quakemigrate.io.event.Event` object
+        event:
             Light class encapsulating waveforms, coalescence information, picks and
             location information for a given event. Now also contains local magnitude
             information.
-        mag : float
+        mag:
             Network-averaged local magnitude estimate for this event.
 
         """

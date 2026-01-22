@@ -11,6 +11,8 @@ weighting term.
 
 """
 
+from __future__ import annotations
+
 import warnings
 
 from obspy.core.event import Event
@@ -22,19 +24,18 @@ POLARITIES = {"c": "positive", "u": "positive", "d": "negative"}
 POLARITIES_REVERSE = {"positive": "u", "negative": "d"}
 
 
-def nlloc_obs(event, filename, autopick=True):
+def nlloc_obs(event: Event, filename: str, autopick: bool = True) -> None:
     """
     Write a NonLinLoc Phase file from an obspy Event object.
 
     Parameters
     ----------
-    event : `obspy.Event` object
+    event:
         Contains information on a single event.
-    filename : str
+    filename:
         Name of NonLinLoc phase file.
-    autopick : bool, optional
+    autopick:
         Whether to read the autopicks or the modelled arrival times.
-        Default: True (use autopicks).
 
     """
 

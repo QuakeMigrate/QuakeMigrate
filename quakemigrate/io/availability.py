@@ -9,31 +9,41 @@ Module to handle input/output of StationAvailability.csv files.
 
 """
 
+from __future__ import annotations
+
 import logging
+import pathlib
+from typing import TYPE_CHECKING
 
-from obspy import UTCDateTime
 import pandas as pd
+from obspy import UTCDateTime
 
-import quakemigrate.util as util
+from quakemigrate.util import NoStationAvailabilityDataException
 
 
-def read_availability(run, starttime, endtime):
+if TYPE_CHECKING:
+    from quakemigrate.io.core import Run
+
+
+def read_availability(
+    run: Run, starttime: UTCDateTime, endtime: UTCDateTime
+) -> pd.DataFrame:
     """
     Read in station availability data to a `pandas.DataFrame` from csv files split by
     Julian day.
 
     Parameters
     ----------
-    run : :class:`~quakemigrate.io.core.Run` object
+    run:
         Light class encapsulating i/o path information for a given run.
-    starttime : `obspy.UTCDateTime` object
+    starttime:
         Timestamp from which to read the station availability.
-    endtime : `obspy.UTCDateTime` object
+    endtime:
         Timestamp up to which to read the station availability.
 
     Returns
     -------
-    availability : `pandas.DataFrame` object
+    availability:
         Details the availability of each station for each timestep of detect.
 
     """
@@ -61,7 +71,7 @@ def read_availability(run, starttime, endtime):
         readstart += 86400
 
     if availability is None:
-        raise util.NoStationAvailabilityDataException
+        raise NoStationAvailabilityDataException
 
     starttime, endtime = availability.index[0], availability.index[-1]
     logging.debug(f"\t\t...from {starttime} - {endtime}")
@@ -69,28 +79,30 @@ def read_availability(run, starttime, endtime):
     return availability
 
 
-def _handle_old_structure(availability_in_file, permanent_conversion=False):
+def _handle_old_structure(
+    availability_in_file: pathlib.Path, permanent_conversion: bool = False
+) -> pd.DataFrame:
     """
     A short utility function that dynamically converts the old style availability files
     (with column names simply the station) to the new style (with separate columns for
     each station/phase combination). This uses the knowledge that an availability of '1'
-    in the old style meant that all data was available (e.g. <station>_P and <station>_S
-    available).
+    in the old style meant that all data was available (e.g., <station>_P and
+    <station>_S available).
 
     This is only done if the file was in the old format - otherwise it just returns the
     original, unaltered dataframe.
 
     Parameters
     ----------
-    availability_in_file : `pathlib.Path` object
+    availability_in_file:
         An availability file to be read in, tested and potentially converted.
-    permanent_conversion : bool, optional
+    permanent_conversion:
         If toggled, the availability file will be permanently converted to the new file
         structure.
 
     Returns
     -------
-    availability_out : `pandas.DataFrame` object
+    availability_out:
         The corrected (if necessary) availability dataframe.
 
     """
@@ -119,15 +131,15 @@ def _handle_old_structure(availability_in_file, permanent_conversion=False):
     return availability_out
 
 
-def write_availability(run, availability):
+def write_availability(run: Run, availability: pd.DataFrame) -> None:
     """
     Write out csv files (split by Julian day) containing station availability data.
 
     Parameters
     ----------
-    run : :class:`~quakemigrate.io.core.Run` object
+    run:
         Light class encapsulating i/o path information for a given run.
-    availability : `pandas.DataFrame` object
+    availability:
         Details the availability of each station for each timestep of detect.
 
     """

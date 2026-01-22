@@ -9,13 +9,24 @@ Module for processing waveform files stored in a data archive.
 
 """
 
-from itertools import chain
+from __future__ import annotations
+
 import logging
 import pathlib
+from itertools import chain
+from typing import TYPE_CHECKING
 
 from obspy import read, Stream, UTCDateTime
 
 import quakemigrate.util as util
+
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    import pandas as pd
+    from obspy import Trace
+    from obspy.core.inventory import Inventory
 
 
 class Archive:
@@ -26,7 +37,7 @@ class Archive:
     data are served up as a :class:`~quakemigrate.io.data.WaveformData` object.
 
     If provided, a response inventory for the archive will be stored with the waveform
-    data for response removal, if needed (e.g. for local magnitude calculation, or to
+    data for response removal, if needed (e.g., for local magnitude calculation, or to
     output real cut waveforms).
 
     By default, data with mismatched sampling rates will only be decimated. If
@@ -41,119 +52,120 @@ class Archive:
 
     Parameters
     ----------
-    archive_path : str
+    archive_path:
         Location of seismic data archive: e.g.: "./DATA_ARCHIVE".
-    stations : `pandas.DataFrame` object
+    stations:
         Station information.
         Columns ["Latitude", "Longitude", "Elevation", "Name"].
         See :func:`~quakemigrate.io.core.read_stations`
-    archive_format : str, optional
+    archive_format:
         Sets directory structure and file naming format for different archive formats.
         See :func:`~quakemigrate.io.data.Archive.path_structure`
-    kwargs : **dict
+    kwargs:
         See Archive Attributes for details.
 
     Attributes
     ----------
-    archive_path : `pathlib.Path` object
+    archive_path:
         Location of seismic data archive: e.g.: ./DATA_ARCHIVE.
-    stations : `pandas.Series` object
+    stations:
         Series object containing station names.
-    format : str
+    format:
         Directory structure and file naming format of data archive.
-    read_all_stations : bool, optional
+    read_all_stations:
         If True, read all stations in archive for that time period. Else, only read
         specified stations.
-    resample : bool, optional
+    resample:
         If true, perform resampling of data which cannot be decimated directly to the
         desired sampling rate. See :func:`~quakemigrate.util.resample`
-    response_inv : `obspy.Inventory` object, optional
+    response_inv:
         ObsPy response inventory for this waveform archive, containing response
         information for each channel of each station of each network.
-    pre_filt : tuple of floats
-        Pre-filter to apply during the instrument response removal. E.g.
-        (0.03, 0.05, 30., 35.) - all in Hz. (Default None)
-    water_level : float
-        Water level to use in instrument response removal. (Default 60.)
-    remove_full_response : bool
+    pre_filt:
+        Pre-filter to apply during the instrument response removal, e.g.,
+        (0.03, 0.05, 30., 35.) - all in Hz.
+    water_level:
+        Water level to use in instrument response removal.
+    remove_full_response:
         Whether to remove the full response (including the effect of digital FIR
         filters) or just the instrument transform function (as defined by the PolesZeros
-        Response Stage). Significantly slower. (Default False)
-    upfactor : int, optional
+        Response Stage). Significantly slower.
+    upfactor:
         Factor by which to upsample the data to enable it to be decimated to the desired
-        sampling rate, e.g. 40Hz -> 50Hz requires upfactor = 5.
+        sampling rate, e.g., 40Hz -> 50Hz requires upfactor = 5.
         See :func:`~quakemigrate.util.resample`
-    interpolate : bool, optional
+    interpolate:
         If data is timestamped "off-sample" (i.e. a non-integer number of samples after
         midnight), whether to interpolate the data to apply the necessary correction.
         Default behaviour is to just alter the metadata, resulting in a sub-sample
         timing offset. See :func:`~quakemigrate.util.shift_to_sample`.
-    ignore_network_code : bool, optional
+    ignore_network_code:
         If True, replace all network codes in the waveform archive with a dummy value.
         Note this may cause issues if station codes are repeated, with SEED-ID's only
         distinguished by their differing network codes.
-    dummy_network_code : str, optional
+    dummy_network_code:
         Provides the option to specify the dummy network code applied to the waveform
         archive, if `ignore_network_code` is set to True.
-    ignore_location_code : bool, optional
+    ignore_location_code:
         If True, replace all location codes in the waveform archive with a blank string.
-
-    Methods
-    -------
-    path_structure(archive_format, channels="*")
-        Set the directory structure and file naming format of the data archive.
-    read_waveform_data(starttime, endtime)
-        Read in waveform data between two times.
 
     """
 
-    def __init__(self, archive_path, stations, archive_format=None, **kwargs):
+    def __init__(
+        self,
+        archive_path: str,
+        stations: pd.DataFrame,
+        archive_format: str | None = None,
+        **kwargs: dict,
+    ) -> None:
         """Instantiate the Archive object."""
 
-        self.archive_path = pathlib.Path(archive_path)
-        self.stations = stations["Name"]
+        self.archive_path: pathlib.Path = pathlib.Path(archive_path)
+        self.stations: pd.Series = stations["Name"]
         if archive_format:
             channels = kwargs.get("channels", "*")
             self.path_structure(archive_format, channels)
         else:
-            self.format = kwargs.get("format")
+            self.format: str = kwargs.get("format")
 
-        self.read_all_stations = kwargs.get("read_all_stations", False)
+        self.read_all_stations: bool = kwargs.get("read_all_stations", False)
         # Resampling parameters
-        self.resample = kwargs.get("resample", False)
-        self.upfactor = kwargs.get("upfactor")
-        self.interpolate = kwargs.get("interpolate", False)
+        self.resample: bool = kwargs.get("resample", False)
+        self.upfactor: int = kwargs.get("upfactor")
+        self.interpolate: bool = kwargs.get("interpolate", False)
         # SEED ID params
-        self.ignore_network_code = kwargs.get("ignore_network_code", False)
-        self.dummy_network_code = kwargs.get("dummy_network_code", "XX")
-        self.ignore_location_code = kwargs.get("ignore_location_code", False)
+        self.ignore_network_code: bool = kwargs.get("ignore_network_code", False)
+        self.dummy_network_code: str = kwargs.get("dummy_network_code", "XX")
+        self.ignore_location_code: bool = kwargs.get("ignore_location_code", False)
         # Response removal parameters
-        self.response_inv = kwargs.get("response_inv")
-        response_removal_params = kwargs.get("response_removal_params", {})
+        self.response_inv: Inventory | None = kwargs.get("response_inv")
+        response_removal_params: dict = kwargs.get("response_removal_params", {})
         if self.response_inv and "water_level" not in response_removal_params.keys():
             print(  # Logger not yet spun up
                 "Warning: 'water level' for instrument correction not "
                 "specified. Set to default: 60"
             )
-        self.water_level = response_removal_params.get("water_level", 60.0)
-        self.pre_filt = response_removal_params.get("pre_filt")
-        self.remove_full_response = response_removal_params.get(
+        self.water_level: float = response_removal_params.get("water_level", 60.0)
+        self.pre_filt: tuple[float, float, float, float] = response_removal_params.get(
+            "pre_filt"
+        )
+        self.remove_full_response: bool = response_removal_params.get(
             "remove_full_response", False
         )
 
-    def __str__(self, response_only=False):
+    def __str__(self, response_only: bool = False) -> str:
         """
         Returns a short summary string of the Archive object.
 
         Parameters
         ----------
-        response_only : bool, optional
+        response_only:
             Whether to just output the a string describing the instrument response
             parameters.
 
         Returns
         -------
-        out : str
+        out:
             Summary string.
 
         """
@@ -190,18 +202,20 @@ class Archive:
 
         return out
 
-    def path_structure(self, archive_format="YEAR/JD/STATION", channels="*"):
+    def path_structure(
+        self, archive_format: str = "YEAR/JD/STATION", channels: str = "*"
+    ) -> None:
         """
         Define the directory structure and file naming format of the data archive.
 
         Parameters
         ----------
-        archive_format : str, optional
+        archive_format:
             Directory structure and file naming format of the data archive. This may be
-            the name of a generic archive format (e.g. SeisComp3), or one of a selection
+            the name of a generic archive format (e.g., SeisComp3), or one of a selection
             of additional formats built into QuakeMigrate.
-        channels : str, optional
-            Channel codes to include. E.g. channels="[B,H]H*". (Default "*")
+        channels:
+            Channel codes to include. E.g. channels="[B,H]H*".
 
         Raises
         ------
@@ -230,7 +244,13 @@ class Archive:
         else:
             raise util.ArchivePathStructureError(archive_format)
 
-    def read_waveform_data(self, starttime, endtime, pre_pad=0.0, post_pad=0.0):
+    def read_waveform_data(
+        self,
+        starttime: UTCDateTime,
+        endtime: UTCDateTime,
+        pre_pad: float = 0.0,
+        post_pad: float = 0.0,
+    ) -> WaveformData:
         """
         Read in waveform data from the archive between two times.
 
@@ -243,18 +263,18 @@ class Archive:
 
         Parameters
         ----------
-        starttime : `obspy.UTCDateTime` object
+        starttime:
             Timestamp from which to read waveform data.
-        endtime : `obspy.UTCDateTime` object
+        endtime:
             Timestamp up to which to read waveform data.
-        pre_pad : float, optional
-            Additional pre pad of data to read. Defaults to 0.
-        post_pad : float, optional
-            Additional post pad of data to read. Defaults to 0.
+        pre_pad:
+            Additional pre pad of data to read.
+        post_pad:
+            Additional post pad of data to read.
 
         Returns
         -------
-        data : :class:`~quakemigrate.io.data.WaveformData` object
+        data:
             Object containing the waveform data read from the archive that satisfies the
             query.
 
@@ -357,20 +377,22 @@ class Archive:
 
         return data
 
-    def _load_from_path(self, starttime, endtime):
+    def _load_from_path(
+        self, starttime: UTCDateTime, endtime: UTCDateTime
+    ) -> Iterator[pathlib.Path]:
         """
         Retrieves available files between two times.
 
         Parameters
         ----------
-        starttime : `obspy.UTCDateTime` object
+        starttime:
             Timestamp from which to read waveform data.
-        endtime : `obspy.UTCDateTime` object
+        endtime:
             Timestamp up to which to read waveform data.
 
         Returns
         -------
-        files : generator
+        files:
             Iterator object of available waveform data files.
 
         Raises
@@ -409,7 +431,7 @@ class Archive:
         return files
 
     @property
-    def dummy_network_code(self):
+    def dummy_network_code(self) -> str:
         """
         Dummy network code is a 2 character string to replace the (possibly mixed) network
         codes in the input archive.
@@ -419,7 +441,7 @@ class Archive:
         return self._dummy_network_code
 
     @dummy_network_code.setter
-    def dummy_network_code(self, value):
+    def dummy_network_code(self, value: str) -> None:
         """Setter for dummy network code."""
 
         if isinstance(value, str) and len(value) == 2:
@@ -440,71 +462,49 @@ class WaveformData:
 
     Parameters
     ----------
-    starttime : `obspy.UTCDateTime` object
+    starttime:
         Timestamp of first sample of waveform data requested from the archive.
-    endtime : `obspy.UTCDateTime` object
+    endtime:
         Timestamp of last sample of waveform data requested from the archive.
-    stations : `pandas.Series` object, optional
+    stations:
         Series object containing station names.
-    read_all_stations : bool, optional
+    read_all_stations:
         If True, `raw_waveforms` contain all stations in archive for that time period.
         Else, only selected stations will be included.
-    resample : bool, optional
+    resample:
         If true, allow resampling of data which cannot be decimated directly to the
         desired sampling rate. See :func:`~quakemigrate.util.resample`
-        Default: False
-    upfactor : int, optional
+    upfactor:
         Factor by which to upsample the data to enable it to be decimated to the desired
-        sampling rate, e.g. 40Hz -> 50Hz requires upfactor = 5.
+        sampling rate, e.g., 40Hz -> 50Hz requires upfactor = 5.
         See :func:`~quakemigrate.util.resample`
-    response_inv : `obspy.Inventory` object, optional
+    response_inv:
         ObsPy response inventory for this waveform data, containing response information
         for each channel of each station of each network.
-    pre_filt : tuple of floats
-        Pre-filter to apply during the instrument response removal. E.g.
-        (0.03, 0.05, 30., 35.) - all in Hz. (Default None)
-    water_level : float
-        Water level to use in instrument response removal. (Default 60.)
-    remove_full_response : bool
+    pre_filt:
+        Pre-filter to apply during the instrument response removal, e.g.,
+        (0.03, 0.05, 30., 35.) - all in Hz.
+    water_level:
+        Water level to use in instrument response removal.
+    remove_full_response:
         Whether to remove the full response (including the effect of digital FIR
         filters) or just the instrument transform function (as defined by the PolesZeros
         Response Stage). Significantly slower.
-        (Default False)
-    pre_pad : float, optional
+    pre_pad:
         Additional pre pad of data included in `raw_waveforms`.
-    post_pad : float, optional
+    post_pad:
         Additional post pad of data included in `raw_waveforms`.
 
     Attributes
     ----------
-    starttime : `obspy.UTCDateTime` object
-        Timestamp of first sample of waveform data requested from the archive.
-    endtime : `obspy.UTCDateTime` object
-        Timestamp of last sample of waveform data requested from the archive.
-    stations : `pandas.Series` object
-        Series object containing station names.
-    read_all_stations : bool
-        If True, `raw_waveforms` contain all stations in archive for that time period.
-        Else, only selected stations will be included.
-    raw_waveforms : `obspy.Stream` object
+    raw_waveforms:
         Raw seismic data read in from the archive. This may be for all stations in the
         archive, or only those specified by the user. See `read_all_stations`. It may
         also cover the time period between `starttime` and `endtime`, or feature an
         additional pre- and post-pad. See `pre_pad` and `post_pad`.
-    waveforms : `obspy.Stream` object
+    waveforms:
         Seismic data read in from the archive for the specified list of stations,
         between `starttime` and `endtime`.
-    pre_pad : float
-        Additional pre pad of data included in `raw_waveforms`.
-    post_pad : float
-        Additional post pad of data included in `raw_waveforms`.
-
-    Methods
-    -------
-    check_availability(stream, **data_quality_params)
-        Check data availability against a set of data quality criteria.
-    get_wa_waveform(trace, **response_removal_params)
-        Calculate the Wood-Anderson corrected waveform for a `obspy.Trace` object.
 
     Raises
     ------
@@ -515,19 +515,19 @@ class WaveformData:
 
     def __init__(
         self,
-        starttime,
-        endtime,
-        stations=None,
-        response_inv=None,
-        water_level=60.0,
-        pre_filt=None,
-        remove_full_response=False,
-        read_all_stations=False,
-        resample=False,
-        upfactor=None,
-        pre_pad=0.0,
-        post_pad=0.0,
-    ):
+        starttime: UTCDateTime,
+        endtime: UTCDateTime,
+        stations: pd.Series | None = None,
+        response_inv: Inventory | None = None,
+        water_level: float = 60.0,
+        pre_filt: tuple[float, float, float, float] | None = None,
+        remove_full_response: bool = False,
+        read_all_stations: bool = False,
+        resample: bool = False,
+        upfactor: int | None = None,
+        pre_pad: float = 0.0,
+        post_pad: float = 0.0,
+    ) -> None:
         """Instantiate the WaveformData object."""
 
         self.starttime = starttime
@@ -544,22 +544,22 @@ class WaveformData:
         self.pre_pad = pre_pad
         self.post_pad = post_pad
 
-        self.raw_waveforms = None
-        self.waveforms = Stream()
-        self.wa_waveforms = None
-        self.real_waveforms = None
+        self.raw_waveforms: Stream | None = None
+        self.waveforms: Stream = Stream()
+        self.wa_waveforms: Stream | None = None
+        self.real_waveforms: Stream | None = None
 
     def check_availability(
         self,
-        st,
-        all_channels=False,
-        n_channels=None,
-        allow_gaps=False,
-        full_timespan=True,
-        check_sampling_rate=False,
-        sampling_rate=None,
-        check_start_end_times=False,
-    ):
+        st: Stream,
+        all_channels: bool = False,
+        n_channels: int | None = None,
+        allow_gaps: bool = False,
+        full_timespan: bool = True,
+        check_sampling_rate: bool = False,
+        sampling_rate: int | None = None,
+        check_start_end_times: bool = False,
+    ) -> tuple[int, dict]:
         """
         Check waveform availability against data quality criteria.
 
@@ -570,36 +570,36 @@ class WaveformData:
 
         Parameters
         ----------
-        st : `obspy.Stream` object
+        st:
             Stream containing the waveform data to check against the availability
             criteria.
-        all_channels : bool, optional
+        all_channels:
             Whether all supplied channels (distinguished by SEED id) need to meet the
             availability criteria to mark the data as 'available'.
-        n_channels : int, optional
+        n_channels:
             If `all_channels=True`, this argument is required (in order to specify the
             number of channels expected to be present).
-        allow_gaps : bool, optional
+        allow_gaps:
             Whether to allow gaps.
-        full_timespan : bool, optional
+        full_timespan:
             Whether to ensure the data covers the entire timespan requested; note that
             this implicitly requires that there be no gaps. Checks the number of samples
             in the trace, not the start and end times; for that see
             `check_start_end_times`.
-        check_sampling_rate : bool, optional
+        check_sampling_rate:
             Check that all channels are at the desired sampling rate.
-        sampling_rate : float, optional
+        sampling_rate:
             If `check_sampling_rate=True`, this argument is required to specify the
             sampling rate that the data should be at.
-        check_start_end_times : bool, optional
+        check_start_end_times:
             A stricter alternative to `full_timespan`; checks that the first and last
             sample of the trace have exactly the requested timestamps.
 
         Returns
         -------
-        available : int
+        available:
             0 if data doesn't meet the availability requirements; 1 if it does.
-        availability : dict
+        availability:
             Dict of {tr_id : available} for each unique SEED ID in the input stream
             (available is again 0 or 1).
 
@@ -688,21 +688,20 @@ class WaveformData:
 
         return available, availability
 
-    def get_real_waveform(self, tr, velocity=True):
+    def get_real_waveform(self, tr: Trace, velocity: bool = True) -> Trace:
         """
         Calculate the real waveform for a Trace by removing the instrument response.
 
         Parameters
         ----------
-        tr : `obspy.Trace` object
+        tr:
             Trace containing the waveform for which to remove the instrument response.
-        velocity : bool, optional
+        velocity:
             Output velocity waveform (as opposed to displacement).
-            Default: True.
 
         Returns
         -------
-        tr : `obspy.Trace` object
+        tr_out:
             Trace with instrument response removed.
 
         Raises
@@ -720,9 +719,8 @@ class WaveformData:
         if not self.response_inv:
             raise AttributeError("No response inventory provided!")
 
-        # Copy the Trace before operating on it
-        tr = tr.copy()
-        tr.detrend("linear")
+        tr_out = tr.copy()
+        tr_out.detrend("linear")
 
         if not self.remove_full_response:
             # Just remove the response encapsulated in the instrument transfer function
@@ -730,9 +728,11 @@ class WaveformData:
             # effect of the digital FIR filters applied to the recorded waveforms.
             # However, due to this it is significantly faster to compute.
             try:
-                response = self.response_inv.get_response(tr.id, tr.stats.starttime)
+                response = self.response_inv.get_response(
+                    tr_out.id, tr_out.stats.starttime
+                )
             except Exception as e:
-                raise util.ResponseNotFoundError(str(e), tr.id)
+                raise util.ResponseNotFoundError(str(e), tr_out.id)
 
             # Get the instrument transfer function as a PAZ dictionary
             paz = response.get_paz()
@@ -748,7 +748,7 @@ class WaveformData:
             }
 
             try:
-                tr.simulate(
+                tr_out.simulate(
                     paz_remove=paz_dict,
                     pre_filt=self.pre_filt,
                     water_level=self.water_level,
@@ -757,14 +757,14 @@ class WaveformData:
                     pitsasim=False,  # To replicate remove_response()
                 )
             except ValueError as e:
-                raise util.ResponseRemovalError(e, tr.id)
+                raise util.ResponseRemovalError(e, tr_out.id)
         else:
             # Use remove_response(), which removes the effect of _all_ response stages,
             # including the FIR stages. Considerably slower.
             output = "VEL" if velocity else "DISP"
 
             try:
-                tr.remove_response(
+                tr_out.remove_response(
                     inventory=self.response_inv,
                     output=output,
                     pre_filt=self.pre_filt,
@@ -772,45 +772,43 @@ class WaveformData:
                     taper=True,
                 )
             except ValueError as e:
-                raise util.ResponseRemovalError(e, tr.id)
+                raise util.ResponseRemovalError(e, tr_out.id)
 
-        try:
-            self.real_waveforms.append(tr.copy())
-        except AttributeError:
+        if self.real_waveforms is None:
             self.real_waveforms = Stream()
-            self.real_waveforms.append(tr.copy())
+        self.real_waveforms.append(tr_out.copy())
 
-        return tr
+        return tr_out
 
-    def get_wa_waveform(self, tr, velocity=False):
+    def get_wa_waveform(self, tr: Trace, velocity: bool = False) -> Trace:
         """
-        Calculate simulated Wood Anderson displacement waveform for a Trace.
+        Calculate simulated Wood-Anderson displacement waveform for a Trace.
+
+        NOTE: all attenuation functions provided in QuakeMigrate are calculated for
+        displacement seismograms.
 
         Parameters
         ----------
-        tr : `obspy.Trace` object
+        tr:
             Trace containing the waveform to be corrected to a Wood-Anderson response.
-        velocity : bool, optional
-            Output velocity waveform, instead of displacement. Default: False.
-            NOTE: all attenuation functions provided within the QM local_mags module are
-            calculated for displacement seismograms.
+        velocity:
+            Output velocity waveform, instead of displacement.
 
         Returns
         -------
-        tr : `obspy.Trace` object
+        tr_out:
             Trace corrected to Wood-Anderson response.
 
         """
 
-        # Copy the Trace before operating on it
-        tr = tr.copy()
-        tr.detrend("linear")
+        tr_out = tr.copy()
+        tr_out.detrend("linear")
 
         # Remove instrument response
-        tr = self.get_real_waveform(tr, velocity)
+        tr_out = self.get_real_waveform(tr_out, velocity)
 
         # Simulate Wood-Anderson response
-        tr.simulate(
+        tr_out.simulate(
             paz_simulate=util.wa_response(obspy_def=True),
             pre_filt=self.pre_filt,
             water_level=self.water_level,
@@ -819,10 +817,8 @@ class WaveformData:
             pitsasim=False,  # To replicate remove_response()
         )
 
-        try:
-            self.wa_waveforms.append(tr.copy())
-        except AttributeError:
+        if self.wa_waveforms is None:
             self.wa_waveforms = Stream()
-            self.wa_waveforms.append(tr.copy())
+        self.wa_waveforms.append(tr_out.copy())
 
-        return tr
+        return tr_out

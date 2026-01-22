@@ -10,22 +10,35 @@ picking interface from the Pyrocko package.
 
 """
 
+from __future__ import annotations
+
 import pathlib
+from typing import TYPE_CHECKING
 
 
-def snuffler_stations(stations, output_path, filename, network_code=None):
+if TYPE_CHECKING:
+    import pandas as pd
+    from obspy.core.event import Event
+
+
+def snuffler_stations(
+    stations: pd.DataFrame,
+    output_path: str,
+    filename: str,
+    network_code: str | None = None,
+) -> None:
     """
     Function to create station files compatible with snuffler.
 
     Parameters
     ----------
-    stations : `pandas.DataFrame` object
+    stations:
         DataFrame containing station information.
-    output_path : str
+    output_path:
         Location to save snuffler station file.
-    filename : str
+    filename:
         Name of output station file.
-    network_code : str
+    network_code:
         Unique identifier for the seismic network.
 
     """
@@ -54,17 +67,19 @@ def snuffler_stations(stations, output_path, filename, network_code=None):
             f.write(line)
 
 
-def snuffler_markers(event, output_path, filename=None):
+def snuffler_markers(
+    event: Event, output_path: str, filename: str | None = None
+) -> None:
     """
     Function to create marker files compatible with snuffler
 
     Parameters
     ----------
-    event : `ObsPy.Event` object
+    event:
         Contains information about the origin time and a list of associated picks.
-    output_path : str
+    output_path:
         Location to save the marker file.
-    filename : str, optional
+    filename:
         Name of marker file - defaults to 'eventid/eventid.markers'.
 
     """

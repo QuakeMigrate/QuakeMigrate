@@ -9,21 +9,37 @@ Module containing methods to generate event summaries and videos.
 
 """
 
+from __future__ import annotations
+
 import logging
+from typing import Literal, TYPE_CHECKING
 
 import matplotlib.pyplot as plt
-from matplotlib.patches import Ellipse
-from matplotlib.gridspec import GridSpec
 import numpy as np
 import pandas as pd
+from matplotlib.gridspec import GridSpec
+from matplotlib.patches import Ellipse
 
 import quakemigrate.util as util
 
 
+if TYPE_CHECKING:
+    from matplotlib.axes import Axes
+
+    from quakemigrate.io.core import Run
+    from quakemigrate.io.event import Event
+    from quakemigrate.lut import LUT
+
+
 @util.timeit("info")
 def event_summary(
-    run, event, marginalised_coa_map, lut, xy_files=None, plot_all_stns=True
-):
+    run: Run,
+    event: Event,
+    marginalised_coa_map: np.ndarray[np.double],
+    lut: LUT,
+    xy_files: str | None = None,
+    plot_all_stns: bool = True,
+) -> None:
     """
     Plots an event summary illustrating the locate results: slices through the
     marginalised coalescence map with the best location estimate (peak of interpolated
@@ -35,17 +51,17 @@ def event_summary(
 
     Parameters
     ----------
-    run : :class:`~quakemigrate.io.core.Run` object
+    run:
         Light class encapsulating i/o path information for a given run.
     event : :class:`~quakemigrate.io.event.Event` object
         Light class encapsulating waveforms, coalescence information, picks and location
         information for a given event.
-    marginalised_coa_map : `numpy.ndarray` of `numpy.double`
+    marginalised_coa_map:
         Marginalised 3-D coalescence map, shape(nx, ny, nz).
-    lut : :class:`~quakemigrate.lut.lut.LUT` object
+    lut:
         Contains the traveltime lookup tables for seismic phases, computed for some
         pre-defined velocity model.
-    xy_files : str, optional
+    xy_files:
         Path to comma-separated value file (.csv) containing a series of coordinate
         files to plot. Columns: ["File", "Color", "Linewidth", "Linestyle"], where
         "File" is the absolute path to the file containing the coordinates to be
@@ -55,10 +71,10 @@ def event_summary(
         a comment - this can be used to include references. See the
         Volcanotectonic_Iceland example XY_files for a template.\n
         .. note:: Do not include a header line in either file.
-    plot_all_stns : bool, optional
+    plot_all_stns:
         If true, plot all stations in the LUT. Otherwise, only plot stations which were
         used for migration (i.e. omitting stations for which there was no data, or data
-        did not pass the specified quality checks). Default: True.
+        did not pass the specified quality checks).
 
     """
 
@@ -115,7 +131,7 @@ def event_summary(
     _plot_text_summary(text, lut, event)
 
     # Deal with repeating labels in waveform gather legend; combine labels for
-    # e.g. ["N", "1"], ["E", "2"]; and same for P (e.g. ["Z", "1"]) -- based on
+    # e.g., ["N", "1"], ["E", "2"]; and same for P (e.g., ["Z", "1"]) -- based on
     # components supplied for each phase in onset.channel_maps
     p_str, s_str_1, s_str_2 = util.get_phase_component_strings(
         event.onset_data.channel_maps
@@ -189,23 +205,32 @@ WAVEFORM_COLOURS2 = ["#33a02c", "#b2df8a", "#1f78b4"]
 PICK_COLOURS = ["#F03B20", "#3182BD"]
 
 
-def _plot_waveform_gather(ax, lut, event, idx_max, stations):
+def _plot_waveform_gather(
+    ax: Axes,
+    lut: LUT,
+    event: Event,
+    idx_max: np.ndarray[np.int64],
+    stations: str | list[str],
+) -> None:
     """
     Utility function to bring all aspects of plotting the waveform gather into one
     place.
 
     Parameters
     ----------
-    ax : `matplotlib.Axes` object
+    ax:
         Axes on which to plot the waveform gather.
-    lut : :class:`~quakemigrate.lut.lut.LUT` object
+    lut:
         Contains the traveltime lookup tables for seismic phases, computed for some
         pre-defined velocity model.
-    event : :class:`~quakemigrate.io.event.Event` object
+    event:
         Light class encapsulating waveforms, coalescence information, picks and location
         information for a given event.
-    idx_max : `numpy.ndarray` of `numpy.int64`
+    idx_max:
         Index of maximum coalescence location in grid (ie hypocentre).
+    stations:
+        Station or stations for which to serve traveltimes. Can be str (for a single
+        station) or list / `pandas.Series` object for multiple.
 
     """
 
@@ -284,15 +309,15 @@ def _plot_waveform_gather(ax, lut, event, idx_max, stations):
     ax.yaxis.set_ticklabels(stations, fontsize=14)
 
 
-def _plot_coalescence_trace(ax, event):
+def _plot_coalescence_trace(ax: Axes, event: Event) -> None:
     """
     Utility function to plot the maximum coalescence trace around the event origin time.
 
     Parameters
     ----------
-    ax : `matplotlib.Axes` object
+    ax:
         Axes on which to plot the coalescence trace.
-    event : :class:`~quakemigrate.io.event.Event` object
+    event:
         Light class encapsulating waveforms, coalescence information, picks and location
         information for a given event.
 
@@ -313,18 +338,18 @@ def _plot_coalescence_trace(ax, event):
     ax.xaxis.set_major_formatter(util.DateFormatter("%H:%M:%S.{ms}", 2))
 
 
-def _plot_text_summary(ax, lut, event):
+def _plot_text_summary(ax: Axes, lut: LUT, event: Event) -> None:
     """
     Utility function to plot the event summary information.
 
     Parameters
     ----------
-    ax : `matplotlib.Axes` object
+    ax:
         Axes on which to plot the text summary.
-    lut : :class:`~quakemigrate.lut.lut.LUT` object
+    lut:
         Contains the traveltime lookup tables for seismic phases, computed for some
         pre-defined velocity model.
-    event : :class:`~quakemigrate.io.event.Event` object
+    event:
         Light class encapsulating waveforms, coalescence information, picks and location
         information for a given event.
 
@@ -343,7 +368,7 @@ def _plot_text_summary(ax, lut, event):
     hypo = (
         f"{hypocentre[1]}\u00b0N \u00b1 {gau_unc[1]} km\n"
         f"{hypocentre[0]}\u00b0E \u00b1 {gau_unc[0]} km\n"
-        f"{hypocentre[2]/km_cf} \u00b1 {gau_unc[2]} km"
+        f"{hypocentre[2] / km_cf} \u00b1 {gau_unc[2]} km"
     )
 
     # Grab the covariance error and magnitude information
@@ -372,26 +397,28 @@ def _plot_text_summary(ax, lut, event):
     ax.set_axis_off()
 
 
-def _make_ellipses(lut, event, uncertainty, clr):
+def _make_ellipses(
+    lut: LUT, event: Event, uncertainty: Literal["covariance", "gaussian"], clr: str
+) -> tuple[Ellipse, Ellipse, Ellipse]:
     """
     Utility function to create uncertainty ellipses for plotting.
 
     Parameters
     ----------
-    lut : :class:`~quakemigrate.lut.lut.LUT` object
+    lut:
         Contains the traveltime lookup tables for seismic phases, computed for some
         pre-defined velocity model.
-    event : :class:`~quakemigrate.io.event.Event` object
+    event:
         Light class encapsulating waveforms, coalescence information, picks and location
         information for a given event.
-    uncertainty : {"covariance", "gaussian"}
+    uncertainty:
         Choice of uncertainty for which to generate ellipses.
-    clr : str
+    clr:
         Colour for the ellipses - see matplotlib documentation for more details.
 
     Returns
     -------
-    xy, yz, xz : `matplotlib.Ellipse` (Patch) objects
+    xy, yz, xz:
         Ellipses for the requested uncertainty measure.
 
     """
@@ -420,7 +447,7 @@ def _make_ellipses(lut, event, uncertainty, clr):
     return xy, xz, yz
 
 
-def _plot_xy_files(xy_files, ax):
+def _plot_xy_files(xy_files: str, ax: Axes) -> None:
     """
     Plot xy files supplied by user.
 
@@ -439,10 +466,10 @@ def _plot_xy_files(xy_files, ax):
 
     Parameters
     ----------
-    xy_files : str
+    xy_files:
         Path to .csv file containing a list of coordinates files to plot, and the
         linecolor and style to plot them with.
-    ax : `matplotlib.Axes` object
+    ax:
         Axes on which to plot the xy files.
 
     """

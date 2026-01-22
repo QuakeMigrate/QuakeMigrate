@@ -9,6 +9,8 @@ Module that supplies various utility functions and classes.
 
 """
 
+from __future__ import annotations
+
 import logging
 import sys
 import time
@@ -16,24 +18,32 @@ import warnings
 from datetime import datetime
 from functools import wraps
 from itertools import tee
+from typing import Literal, TYPE_CHECKING
 
 import matplotlib.ticker as ticker
 import numpy as np
-from obspy import Trace, Stream
+from obspy import Stream, Trace
+
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable, Iterator
+    from pathlib import Path
+
+    from obspy import UTCDateTime
 
 
 log_spacer = "=" * 110
 
 
-def make_directories(run, subdir=None):
+def make_directories(run: Path, subdir: str | None = None) -> None:
     """
     Make run directory, and optionally make subdirectories within it.
 
     Parameters
     ----------
-    run : `pathlib.Path` object
+    run:
         Location of parent output directory, named by run name.
-    subdir : str, optional
+    subdir:
         subdir to make beneath the run level.
 
     """
@@ -45,24 +55,26 @@ def make_directories(run, subdir=None):
         new_dir.mkdir(exist_ok=True, parents=True)
 
 
-def gaussian_1d(x, a, b, c):
+def gaussian_1d(
+    x: np.ndarray, a: float | int, b: float | int, c: float | int
+) -> Callable:
     """
     Create a 1-dimensional Gaussian function.
 
     Parameters
     ----------
-    x : array-like
+    x:
         Array of x values.
-    a : float / int
+    a:
         Amplitude (height of Gaussian).
-    b : float / int
+    b:
         Mean (centre of Gaussian).
-    c : float / int
+    c:
         Sigma (width of Gaussian).
 
     Returns
     -------
-    f : function
+    f:
         1-dimensional Gaussian function
 
     """
@@ -72,24 +84,26 @@ def gaussian_1d(x, a, b, c):
     return f
 
 
-def gaussian_3d(nx, ny, nz, sgm):
+def gaussian_3d(
+    nx: np.ndarray, ny: np.ndarray, nz: np.ndarray, sgm: float | int
+) -> Callable:
     """
     Create a 3-dimensional Gaussian function.
 
     Parameters
     ----------
-    nx : array-like
+    nx:
         Array of x values.
-    ny : array-like
+    ny:
         Array of y values.
-    nz : array-like
+    nz:
         Array of z values.
-    sgm : float / int
+    sgm:
         Sigma (width of gaussian in all directions).
 
     Returns
     -------
-    f : function
+    f:
         3-dimensional Gaussian function
 
     """
@@ -115,18 +129,20 @@ def gaussian_3d(nx, ny, nz, sgm):
     return f
 
 
-def logger(logstem, log, loglevel="info"):
+def logger(
+    logstem: str, log: bool, loglevel: Literal["info", "debug"] = "info"
+) -> None:
     """
     Simple logger that will output to both a log file and stdout.
 
     Parameters
     ----------
-    logstem : str
+    logstem:
         Filestem for log file.
-    log : bool
+    log:
         Toggle for logging - default is to only print information to stdout.
         If True, will also create a log file.
-    loglevel : str, optional
+    loglevel:
         Toggle for logging level - default is to print only "info" messages to log.
         To print more detailed "debug" messages, set to "debug".
 
@@ -148,22 +164,22 @@ def logger(logstem, log, loglevel="info"):
     logging.basicConfig(level=level, format="%(message)s", handlers=handlers)
 
 
-def time2sample(time, sampling_rate):
+def time2sample(time: float, sampling_rate: int) -> int:
     """
     Utility function to convert from seconds and sampling rate to number of samples.
 
     Parameters
     ----------
-    time : float
+    time:
         Time to convert.
-    sampling_rate : int
+    sampling_rate:
         Sampling rate of input data/sampling rate at which to compute the coalescence
         function.
 
     Returns
     -------
-    out : int
-        Time that correpsonds to an integer number of samples at a specific sampling
+    n_samples:
+        Time that corresponds to an integer number of samples at a specific sampling
         rate.
 
     """
@@ -171,21 +187,21 @@ def time2sample(time, sampling_rate):
     return int(round(time * int(sampling_rate)))
 
 
-def calculate_mad(x, scale=1.4826):
+def calculate_mad(x: np.ndarray, scale: float = 1.4826) -> np.ndarray:
     """
     Calculates the Median Absolute Deviation (MAD) of the input array x.
 
     Parameters
     ----------
-    x : array-like
+    x:
         Input data.
-    scale : float, optional
+    scale:
         A scaling factor for the MAD output to make the calculated MAD factor a
         consistent estimation of the standard deviation of the distribution.
 
     Returns
     -------
-    scaled_mad : array-like
+    scaled_mad:
         Array of scaled mean absolute deviation values for the input array, x, scaled
         to provide an estimation of the standard deviation of the distribution.
 
@@ -214,14 +230,14 @@ class DateFormatter(ticker.Formatter):
 
     Parameters
     ----------
-    fmt : str
+    fmt:
         `datetime.datetime.strftime` format string.
-    precision : int
+    precision:
         Degree of precision to which to report sub-second time intervals.
 
     """
 
-    def __init__(self, fmt, precision=3):
+    def __init__(self, fmt: str, precision: int = 3) -> None:
         """Instantiate the DateFormatter object."""
 
         from matplotlib.dates import num2date
@@ -230,7 +246,7 @@ class DateFormatter(ticker.Formatter):
         self.fmt = fmt
         self.precision = precision
 
-    def __call__(self, x, pos=0):
+    def __call__(self, x: float, pos: int = 0) -> str:
         if x == 0:
             raise ValueError(
                 "DateFormatter found a value of x=0, which is an illegal date; this "
@@ -244,23 +260,23 @@ class DateFormatter(ticker.Formatter):
         return dt.strftime(self.fmt).format(ms=ms)
 
 
-def trim2sample(time, sampling_rate):
+def trim2sample(time: float, sampling_rate: int) -> int:
     """
     Utility function to ensure time padding results in a time that is an integer number
     of samples.
 
     Parameters
     ----------
-    time : float
+    time:
         Time to trim.
-    sampling_rate : int
+    sampling_rate:
         Sampling rate of input data/sampling rate at which to compute the coalescence
         function.
 
     Returns
     -------
-    out : int
-        Time that correpsonds to an integer number of samples at a specific sampling
+    sample_time:
+        Time that corresponds to an integer number of samples at a specific sampling
         rate.
 
     """
@@ -268,21 +284,24 @@ def trim2sample(time, sampling_rate):
     return int(np.ceil(time * sampling_rate) / sampling_rate * 1000) / 1000
 
 
-def wa_response(convert="DIS2DIS", obspy_def=True):
+def wa_response(
+    convert: Literal["DIS2DIS", "VEL2VEL", "VEL2DIS"] = "DIS2DIS",
+    obspy_def: bool = True,
+) -> dict:
     """
     Generate a Wood Anderson response dictionary.
 
     Parameters
     ----------
-    convert : {'DIS2DIS', 'VEL2VEL', 'VEL2DIS'}
+    convert:
         Type of output to convert between; determines the number of complex zeros used.
-    obspy_def : bool, optional
+    obspy_def:
         Use the ObsPy definition of the Wood Anderson response (Default).
         Otherwise, use the IRIS/SAC definition.
 
     Returns
     -------
-    WOODANDERSON : dict
+    woodanderson:
         Poles, zeros, sensitivity and gain of the Wood-Anderson torsion seismograph.
 
     """
@@ -312,7 +331,7 @@ def wa_response(convert="DIS2DIS", obspy_def=True):
     return woodanderson
 
 
-def shift_to_sample(stream, interpolate=False):
+def shift_to_sample(stream: Stream, interpolate: bool = False) -> Stream:
     """
     Check whether any data in an `obspy.Stream` object is "off-sample" - i.e. the data
     timestamps are *not* an integer number of samples after midnight. If so, shift data
@@ -327,16 +346,16 @@ def shift_to_sample(stream, interpolate=False):
 
     Parameters
     ----------
-    stream : `obspy.Stream` object
+    stream:
         Contains list of `obspy.Trace` objects for which to check the timing.
-    interpolate : bool, optional
+    interpolate:
         Whether to interpolate the data to correct the "off-sample" timing. Otherwise,
         the metadata will simply be altered to shift the timestamps "on-sample"; this
         will lead to a sub-sample timing offset.
 
     Returns
     -------
-    stream : `obspy.Stream` object
+    stream:
         Waveform data with all timestamps "on-sample".
 
     """
@@ -400,7 +419,14 @@ def shift_to_sample(stream, interpolate=False):
     return stream
 
 
-def resample(stream, sampling_rate, resample, upfactor, starttime, endtime):
+def resample(
+    stream: Stream,
+    sampling_rate: int,
+    resample: bool,
+    upfactor: int | None,
+    starttime: UTCDateTime,
+    endtime: UTCDateTime,
+) -> Stream:
     """
     Resample data in an `obspy.Stream` object to the specified sampling rate.
 
@@ -422,20 +448,25 @@ def resample(stream, sampling_rate, resample, upfactor, starttime, endtime):
 
     Parameters
     ----------
-    stream : `obspy.Stream` object
+    stream:
         Contains list of `obspy.Trace` objects to be decimated / resampled.
-    resample : bool
+    sampling_rate:
+        Target sampling rate for data.
+    resample:
         If true, perform resampling of data which cannot be decimated directly to the
         desired sampling rate.
-    upfactor : int or None
+    upfactor:
         Factor by which to upsample the data to enable it to be decimated to the desired
-        sampling rate, e.g. 40Hz -> 50Hz requires upfactor = 5.
+        sampling rate, e.g., 40Hz -> 50Hz requires upfactor = 5.
+    starttime:
+        Timestamp of first sample in waveform data.
+    endtime:
+        Timestamp of last sample in waveform data.
 
     Returns
     -------
-    stream : `obspy.Stream` object
-        Contains list of resampled `obspy.Trace` objects at the chosen sampling rate
-        `sr`.
+    stream:
+        Contains list of resampled `obspy.Trace` objects at the chosen sampling rate.
 
     """
 
@@ -475,7 +506,7 @@ def resample(stream, sampling_rate, resample, upfactor, starttime, endtime):
     return stream
 
 
-def decimate(trace, sampling_rate):
+def decimate(trace: Trace, sampling_rate: int) -> Trace:
     """
     Decimate a trace to achieve the desired sampling rate, sr.
 
@@ -484,14 +515,14 @@ def decimate(trace, sampling_rate):
 
     Parameters:
     -----------
-    trace : `obspy.Trace` object
+    trace:
         Trace to be decimated.
-    sampling_rate : int
+    sampling_rate:
         Output sampling rate.
 
     Returns:
     --------
-    trace : `obspy.Trace` object
+    trace:
         Decimated trace.
 
     """
@@ -517,7 +548,9 @@ def decimate(trace, sampling_rate):
     return trace
 
 
-def upsample(trace, upfactor, starttime, endtime):
+def upsample(
+    trace: Trace, upfactor: int, starttime: UTCDateTime, endtime: UTCDateTime
+) -> Trace:
     """
     Upsample a data stream by a given factor, prior to decimation. The upsampling is
     carried out by linear interpolation.
@@ -528,14 +561,18 @@ def upsample(trace, upfactor, starttime, endtime):
 
     Parameters
     ----------
-    trace : `obspy.Trace` object
+    trace:
         Trace to be upsampled.
-    upfactor : int
+    upfactor:
         Factor by which to upsample the data in trace.
+    starttime:
+        Timestamp of first sample in waveform data.
+    endtime:
+        Timestamp of last sample in waveform data.
 
     Returns
     -------
-    out : `obpsy.Trace` object
+    out:
         Upsampled trace.
 
     """
@@ -603,7 +640,7 @@ def upsample(trace, upfactor, starttime, endtime):
     return out
 
 
-def merge_stream(stream):
+def merge_stream(stream: Stream) -> Stream:
     """
     Merge all traces with contiguous data, or overlapping data which exactly matches
     (== st._cleanup(); i.e. no clobber). Apply this on a channel by channel basis so
@@ -611,12 +648,12 @@ def merge_stream(stream):
 
     Parameters
     ----------
-    stream : `obspy.Stream` object
+    stream:
         Stream to be merged.
 
     Returns
     -------
-    stream_merged : `obpsy.Stream` object
+    stream_merged:
         Merged Stream.
 
     """
@@ -639,7 +676,7 @@ def merge_stream(stream):
     return stream_merged
 
 
-def pairwise(iterable):
+def pairwise(iterable: Iterable) -> Iterator:
     """Utility to iterate over an iterable pairwise."""
 
     a, b = tee(iterable)
@@ -668,14 +705,14 @@ def timeit(*args_, **kwargs_):
     return inner_function
 
 
-def get_phase_component_strings(channel_maps):
+def get_phase_component_strings(channel_maps: dict) -> tuple[str, str, str]:
     """
     Get regex strings to select the correct waveform components to plot on each panel
     of the pick summary plot, given the custom channel mapping specified by the user.
 
     P phase components are assembled into a single list. S phase components labelled
-    with letters (e.g. "E", "N") are treated separately to those labelled numerically
-    (e.g. "1", "2"), to enable a data containing a mix of the above to be plotted. If
+    with letters (e.g., "E", "N") are treated separately to those labelled numerically
+    (e.g., "1", "2"), to enable a data containing a mix of the above to be plotted. If
     more than two different component labels are associated with the S phase, then only
     the first two alphabetical and/or numeric labels are retained (sorted
     alphabetically/numerically), in order to assure compatibility with our current (not
@@ -687,19 +724,19 @@ def get_phase_component_strings(channel_maps):
 
     Parameters
     ----------
-    channel_maps : dict of str
-        Data component maps - keys are phases. (e.g. {"P": "Z"})
+    channel_maps:
+        Data component maps - keys are phases. (e.g., {"P": "Z"})
 
     Returns
     -------
-    p_str : str
-        Regex string (e.g. "[Z]") for selecting data from an `~obspy.Stream` object
+    p_str:
+        Regex string (e.g., "[Z]") for selecting data from an `~obspy.Stream` object
         by component.
-    s_str_1 : str
-        Regex string (e.g. "[N,1]") for selecting data from an `~obspy.Stream` object
+    s_str_1:
+        Regex string (e.g., "[N,1]") for selecting data from an `~obspy.Stream` object
         by component.
-    s_str_2 : str
-        Regex string (e.g. "[E,2]") for selecting data from an `~obspy.Stream` object
+    s_str_2:
+        Regex string (e.g., "[E,2]") for selecting data from an `~obspy.Stream` object
         by component.
 
     """
@@ -750,7 +787,7 @@ def get_phase_component_strings(channel_maps):
 class StationFileHeaderException(Exception):
     """Custom exception to handle incorrect header columns in station file."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             "Incorrect station file header - use:\nLatitude, Longitude, Elevation, Name"
         )
@@ -759,14 +796,14 @@ class StationFileHeaderException(Exception):
 class InvalidVelocityModelHeader(Exception):
     """Custom exception to handle incorrect header columns in station file."""
 
-    def __init__(self, key):
+    def __init__(self, key: str) -> None:
         super().__init__(f"Must include at least '{key}' in header.")
 
 
 class ArchiveFormatException(Exception):
     """Custom exception to handle case where Archive.format is not set."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             "Archive format has not been set. Set when making the Archive object with "
             "the kwarg 'archive_format=<path_structure>', or afterwards with the "
@@ -781,7 +818,7 @@ class ArchivePathStructureError(Exception):
     Custom exception to handle case where an invalid Archive path structure is selected.
     """
 
-    def __init__(self, archive_format):
+    def __init__(self, archive_format: str) -> None:
         super().__init__(
             f"The archive path structure you have selected: '{archive_format}' is not "
             "a valid option! See the documentation for "
@@ -794,7 +831,7 @@ class ArchivePathStructureError(Exception):
 class ArchiveEmptyException(Exception):
     """Custom exception to handle empty archive."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("No data was available for this timestep.")
 
         # Additional message printed to log
@@ -807,7 +844,7 @@ class NoScanMseedDataException(Exception):
     read_coastream().
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("No .scanmseed data found.")
 
 
@@ -817,7 +854,7 @@ class NoStationAvailabilityDataException(Exception):
     read_availability().
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("No .StationAvailability files found.")
 
 
@@ -827,7 +864,7 @@ class DataAvailabilityException(Exception):
     the data quality criteria specified by the user.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             "All data for this timestep did not pass the specified data quality "
             "criteria."
@@ -848,7 +885,7 @@ class DataGapException(Exception):
     a given timestep.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             "No data present in the archive for theselected stations for this time "
             "window."
@@ -867,7 +904,7 @@ class ChannelNameException(Exception):
     not conform to the IRIS SEED standard.
     """
 
-    def __init__(self, trace):
+    def __init__(self, trace: Trace) -> None:
         super().__init__(
             "Channel name header does not conform to\nthe IRIS SEED standard - 3 "
             "characters; ending in 'Z' for\nvertical and ending either 'E' & 'N' or "
@@ -881,7 +918,7 @@ class NoOnsetPeak(Exception):
     threshold used for picking.
     """
 
-    def __init__(self, pick_threshold):
+    def __init__(self, pick_threshold: float) -> None:
         self.msg = (
             "\t\t    No onset signal exceeding pick threshold "
             f"({pick_threshold:5.3f}) - continuing."
@@ -895,7 +932,7 @@ class BadUpfactorException(Exception):
     with a sampling rate that can be decimated to the target sampling rate.
     """
 
-    def __init__(self, trace):
+    def __init__(self, trace: Trace) -> None:
         super().__init__(
             "Chosen upfactor cannot be decimated to\ntarget sampling rate."
             f"\n    Working on trace: {trace}"
@@ -908,7 +945,7 @@ class OnsetTypeError(Exception):
     the default type defined in QuakeMigrate.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             "The Onset object you have created does not inherit from the required base "
             "class - see manual."
@@ -921,7 +958,7 @@ class PickerTypeError(Exception):
     not of the default type defined in QuakeMigrate.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             "The PhasePicker object you have created does not inherit from the "
             "required base class - see manual."
@@ -934,7 +971,7 @@ class LUTPhasesException(Exception):
     traveltimes for the phases necessary for a given function.
     """
 
-    def __init__(self, message):
+    def __init__(self, message: str) -> None:
         super().__init__(message)
 
 
@@ -944,7 +981,7 @@ class PickOrderException(Exception):
     pick for the S phase.
     """
 
-    def __init__(self, event_uid, station, p_pick, s_pick):
+    def __init__(self, event_uid: str, station: str, p_pick: str, s_pick: str) -> None:
         super().__init__(
             "The P-phase arrival-time pick is later than the S-phase arrival pick! "
             f"Something has gone wrong.\nEvent: {event_uid}, station: {station}, "
@@ -959,7 +996,7 @@ class MagsTypeError(Exception):
     magnitudes during locate, but it isn't supported.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             "The Mags object you have specified is not supported: currently only "
             "`quakemigrate.signal.local_mag.LocalMag` - see manual."
@@ -974,7 +1011,7 @@ class NoTriggerFilesFound(Exception):
     TriggeredEvents.csv files) or an invalid run name was provided.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             "Double check you have supplied a valid run name and a time period for "
             "which you have run detect."
@@ -988,14 +1025,14 @@ class ResponseNotFoundError(Exception):
 
     Parameters
     ----------
-    e : str
+    e:
         Error message from ObsPy `Inventory.get_response()`.
-    tr_id : str
+    tr_id:
         ID string for the Trace for which the response cannot be found.
 
     """
 
-    def __init__(self, e, tr_id):
+    def __init__(self, e: str, tr_id: str) -> None:
         super().__init__(f"{e} -- skipping {tr_id}")
 
 
@@ -1005,14 +1042,14 @@ class ResponseRemovalError(Exception):
 
     Parameters
     ----------
-    e : str
+    e:
         Error message from ObsPy `Trace.remove_response()` or `Trace.simulate()`.
-    tr_id : str
+    tr_id:
         ID string for the Trace for which the response cannot be removed.
 
     """
 
-    def __init__(self, e, tr_id):
+    def __init__(self, e: str, tr_id: str) -> None:
         super().__init__(f"{e} -- skipping {tr_id}")
 
 
@@ -1023,16 +1060,16 @@ class NyquistException(Exception):
 
     Parameters
     ----------
-    freqmax : float
+    freqmax:
         Specified lowpass frequency for filter.
-    f_nyquist : float
+    f_nyquist:
         Nyquist frequency for the relevant waveform data.
-    tr_id : str
+    tr_id:
         ID string for the Trace.
 
     """
 
-    def __init__(self, freqmax, f_nyquist, tr_id):
+    def __init__(self, freqmax: float, f_nyquist: float, tr_id: str) -> None:
         super().__init__(
             f"    Selected bandpass_highcut {freqmax} Hz is at or above the Nyquist "
             f"frequency ({f_nyquist} Hz) for trace {tr_id}. "
@@ -1045,7 +1082,7 @@ class PeakToTroughError(Exception):
     an anomalous set of peaks and troughs, so can't calculate an amplitude.
     """
 
-    def __init__(self, err):
+    def __init__(self, err: str) -> None:
         super().__init__(err)
 
         # Additional message printed to log
@@ -1058,7 +1095,7 @@ class TimeSpanException(Exception):
     after the end time.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("The start time specified is after the end time.")
 
 
@@ -1068,9 +1105,9 @@ class InvalidTriggerThresholdMethodException(Exception):
     threshold method.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
-            "Only 'static', 'mad' or 'median_ratio' thresholds are " "supported."
+            "Only 'static', 'mad' or 'median_ratio' thresholds are supported."
         )
 
 
@@ -1080,5 +1117,5 @@ class InvalidPickThresholdMethodException(Exception):
     threshold method.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("Only 'percentile' or 'MAD' thresholds are supported.")

@@ -263,7 +263,7 @@ class Magnitude:
         return magnitudes
 
     def mean_magnitude(
-        self, magnitude: pd.DataFrame
+        self, magnitudes: pd.DataFrame
     ) -> tuple[float, float, float, pd.DataFrame]:
         """
         Calculate the network-averaged local magnitude for an event based on the

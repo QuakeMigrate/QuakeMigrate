@@ -1,0 +1,31 @@
+station_file = "inputs/<station-file>"
+lut_file = "luts/<lut-name>.lut"
+
+[archive]
+path = "inputs/mSEED"  # path to archive root directory
+format = ""  # Format-able string, see docs for more info
+
+[scan]
+starttime = "YYYY-mm-ddTHH:MM:SS.0"  # Can be any format compatible with obspy.UTCDateTime
+endtime = "YYYY-mm-ddTHH:MM:SS.0"  # Can be any format compatible with obspy.UTCDateTime
+marginal_window = 0.1  # In seconds, see docs for more info
+threads = 4  # Can be overriden at runtime on the command line using -j/--threads flag
+plot_event_summary = true
+write_cut_waveforms = true
+
+[onset]
+name = "STALTA-centred"  # See docs for options
+sampling_rate = 100  # In Hz, see docs for more info
+phases = ["P", "S"]  # Must conform with names used for traveltime tables
+
+[onset.bandpass_filters]  # Must have an entry for each of the phases listed above
+P = [freqmin, freqmax, order/corners]  # [float, float, int] with units [Hz, Hz, -]
+S = [freqmin, freqmax, order/corners]  # [float, float, int] with units [Hz, Hz, -]
+
+[onset.sta_lta_windows]  # Must have an entry for each of the phases listed above
+P = [sta, lta]  # [float, float] with units [seconds, seconds]
+S = [sta, lta]  # [float, float] with units [seconds, seconds]
+
+[picker]
+name = "Gaussian"  # See docs for options
+plot_picks = true

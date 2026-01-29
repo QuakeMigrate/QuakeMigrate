@@ -450,8 +450,8 @@ class STALTAOnset(Onset):
 
             # Loop through stations, check data availability for this phase,
             # and store this info, filtered waveforms and calculated onsets
-            for station in data.stations:
-                waveforms = filtered_phase_waveforms.select(station=station)
+            for station in [s for s in data.stations if not s.read_only]:
+                waveforms = filtered_phase_waveforms.select(station=station.station)
 
                 available, av_dict = data.check_availability(
                     waveforms,
@@ -462,7 +462,7 @@ class STALTAOnset(Onset):
                     check_sampling_rate=True,
                     sampling_rate=self.sampling_rate,
                 )
-                availability[f"{station}_{phase}"] = available
+                availability[f"{station.id}_{phase}"] = available
 
                 # If no data available, skip
                 if available == 0:
@@ -503,10 +503,10 @@ class STALTAOnset(Onset):
                 # Calculate onset and add to WaveForm data object; add filtered
                 # waveforms that have passed the availability check to
                 # WaveformData.filtered_waveforms
-                onsets_dict.setdefault(station, {}).update(
+                onsets_dict.setdefault(station.id, {}).update(
                     {phase: self._onset(waveforms, stw, ltw, timespan)}
                 )
-                onsets.append(onsets_dict[station][phase])
+                onsets.append(onsets_dict[station.id][phase])
                 filtered_waveforms += waveforms
 
         logging.debug(filtered_waveforms.__str__(extended=True))

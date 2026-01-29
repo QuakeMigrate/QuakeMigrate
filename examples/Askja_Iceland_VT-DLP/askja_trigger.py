@@ -1,5 +1,5 @@
 """
-This script runs Trigger for the Askja volcano (Iceland) Volcanotectonic (VT)
+This script runs the trigger stage for the Askja volcano (Iceland) Volcanotectonic (VT)
 & Deep-Long-Period (DLP) event example.
 
 :copyright:

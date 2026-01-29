@@ -287,17 +287,18 @@ def trigger_summary(
 
     # Use station availability to work out which stations to plot
     if availability is None:
-        station_list = set(lut.station_data["Name"].values)
+        stations = lut.stations
     elif plot_all_stations:
-        station_list = {key.split("_")[0] for key in availability.columns}
+        station_names = {key.split("_")[0] for key in availability.columns}
+        stations = [station for station in lut.stations if station.id in station_names]
     else:
-        station_list = {
+        station_names = {
             key.split("_")[0]
             for key, available in availability.items()
-            if np.any(available == 1)
+            if available == 1
         }
-    station_data = lut.station_data[lut.station_data["Name"].isin(station_list)]
-    plot_stations(axes.lut_map, station_data, "k")
+        stations = [station for station in lut.stations if station.id in station_names]
+    plot_stations(axes.lut_map, stations, "k")
 
     if xy_files is not None:
         plot_map_overlays(xy_files, axes.lut_map.xy)

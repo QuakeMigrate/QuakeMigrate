@@ -52,7 +52,7 @@ endtime = UTCDateTime("2014-236T00:15:00")
 
 # --- Read in station file ---
 stations = read_stations(station_file)
-stations_string = ",".join(stations["Name"])
+stations_string = ",".join(station.station for station in stations)
 
 # --- Set up request ---
 restrictions = Restrictions(

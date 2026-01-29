@@ -1,8 +1,7 @@
 """
-This script will download the waveform data and an instrument response
-inventory from IRIS (in miniSEED and STATIONXML formats, respectively)
-for the Askja volcano (Iceland) Volcanotectonic (VT) & Deep-Long-Period (DLP)
-event example.
+This script will download the waveform data and an instrument response inventory from
+IRIS (in miniSEED and STATIONXML formats, respectively) for the Askja volcano (Iceland)
+Volcanotectonic (VT) & Deep-Long-Period (DLP) event example.
 
 :copyright:
     2020–2026, QuakeMigrate developers.
@@ -54,7 +53,7 @@ endtime = UTCDateTime("2011-299T18:10:00")
 
 # --- Read in station file ---
 stations = read_stations(station_file)
-stations_string = ",".join(stations["Name"])
+stations_string = ",".join(station.station for station in stations)
 
 # --- Set up request ---
 restrictions = Restrictions(

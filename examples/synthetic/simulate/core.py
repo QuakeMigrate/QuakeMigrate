@@ -10,13 +10,18 @@ Small module that provides basic waveform simulations routines.
 """
 
 from __future__ import annotations
+
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import numpy as np
-import pandas as pd
 from obspy import Trace, Stream, UTCDateTime
 from obspy.geodetics.base import gps2dist_azimuth
-from quakemigrate.lut import LUT
+
+
+if TYPE_CHECKING:
+    from quakemigrate.lut import LUT
+    from quakemigrate.io.station import Station
 
 
 @dataclass
@@ -108,17 +113,16 @@ def simulate_waveforms(
 
     stream = Stream()
     # Loop over each station and construct the P and S synthetics
-    for i, station_data in lut.station_data.iterrows():
-        station = station_data["Name"]
+    for station in lut.stations:
         hypo_dist, az, baz = _gps2hypodist_az_baz(
-            station_data, earthquake_coords, lut.unit_conversion_factor
+            station, earthquake_coords, lut.unit_conversion_factor
         )
         # amp_factor = 1.
         amp_factor = 10 ** (magnitude - _attenuate(hypo_dist))
 
-        # Build L component, e.g. the P-phase synthetic
+        # Build L component, i.e., the P-phase synthetic
         P = Trace()
-        P_ttime = lut.traveltime_to("P", earthquake_ijk, station=station)
+        P_ttime = lut.traveltime_to("P", earthquake_ijk, station=station.id)
         P_ttime += np.random.normal(scale=noise["traveltime"]["P"], size=1)
         roll_by = int(wavelet.sps * P_ttime[0])
         P_amp_noise = np.random.normal(
@@ -126,9 +130,9 @@ def simulate_waveforms(
         )
         P.data = np.roll(wavelet.data.copy() * amp_factor * 0.5 + P_amp_noise, roll_by)
 
-        # Build Q/T components, e.g. the S-phase synthetic
+        # Build Q/T components, i.e., the S-phase synthetic
         S1, S2 = Trace(), Trace()
-        S_ttime = lut.traveltime_to("S", earthquake_ijk, station=station)
+        S_ttime = lut.traveltime_to("S", earthquake_ijk, station=station.id)
         S_ttime += np.random.normal(scale=noise["traveltime"]["S"], size=1)
         roll_by = int(wavelet.sps * S_ttime[0])
         S_amp_noise = np.random.normal(
@@ -141,7 +145,7 @@ def simulate_waveforms(
         for component, trace in zip("LQT", [P, S1, S2]):
             trace.stats.starttime = UTCDateTime("2021-02-18T12:00:00.0")
             trace.stats.sampling_rate = wavelet.sps
-            trace.stats.station = station
+            trace.stats.station = station.station
             trace.stats.network = "SC"
             trace.stats.channel = f"CH{component}"
             lqt_stream += trace
@@ -156,7 +160,7 @@ def simulate_waveforms(
 
 
 def _gps2hypodist_az_baz(
-    station_data: pd.DataFrame,
+    station: Station,
     earthquake_coords: tuple[float, float, float],
     unit_conversion_factor: float,
 ) -> tuple[float, float, float]:
@@ -178,19 +182,20 @@ def _gps2hypodist_az_baz(
 
     """
 
-    stla, stlo, stel = station_data[["Latitude", "Longitude", "Elevation"]].values
-    evlo, evla, evdp = earthquake_coords
+    event_longitude, event_latitude, event_depth = earthquake_coords
 
     # Evaluate epicentral distance between station and event.
     # gps2dist_azimuth returns distances in metres -- magnitudes
     # calculation requires distances in kilometres.
-    dist, az, baz = gps2dist_azimuth(evla, evlo, stla, stlo)
-    epi_dist = dist / 1000
+    dist, az, baz = gps2dist_azimuth(
+        event_latitude, event_longitude, station.latitude, station.longitude
+    )
+    epi_dist = dist / 1000.0
 
     # Evaluate vertical distance between station and event. Convert to
     # kilometres.
-    km_cf = 1000 / unit_conversion_factor
-    z_dist = (evdp - stel) / km_cf  # NOTE: stel is actually depth.
+    km_cf = 1000.0 / unit_conversion_factor
+    z_dist = (event_depth - station.depth) / km_cf  # NOTE: stel is actually depth.
 
     hypo_dist = np.sqrt(z_dist**2 + epi_dist**2)
 

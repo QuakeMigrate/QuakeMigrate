@@ -32,10 +32,12 @@ if TYPE_CHECKING:
     import pandas as pd
     from pyproj import Proj
 
+    from quakemigrate.io.station import Station
+
 
 def read_nlloc(
     path: str,
-    stations: pd.DataFrame,
+    stations: list[Station],
     phases: list[str] = ["P", "S"],
     fraction_tt: float = 0.1,
     save_file: str = None,
@@ -49,7 +51,7 @@ def read_nlloc(
     path:
         Path to directory containing .buf and .hdr files.
     stations:
-        DataFrame containing station information (lat/lon/elev).
+        List of Station objects containing station information.
     phases:
         List of seismic phases for which to read in traveltimes.
     fraction_tt:
@@ -79,7 +81,7 @@ def read_nlloc(
     logging.info("Loading NonLinLoc traveltime lookup tables for...")
     for i, phase in enumerate(phases):
         logging.info(f"\t...phase: {phase}...")
-        for j, station in enumerate(stations["Name"].values):
+        for j, station in enumerate(stations):
             logging.info(f"\t\t...station: {station}")
             file = path / f"layer.{phase}.{station}.time"
 
@@ -114,9 +116,9 @@ def read_nlloc(
             else:
                 _, _, traveltimes = _read_nlloc(file)
 
-            lut.traveltimes.setdefault(station, {}).update({phase: traveltimes})
+            lut.traveltimes.setdefault(station.id, {}).update({phase: traveltimes})
 
-    lut.station_data = stations
+    lut.stations = stations
     lut.phases = phases
 
     if save_file is not None:
@@ -127,7 +129,7 @@ def read_nlloc(
 
 def compute_traveltimes(
     grid_spec: dict,
-    stations: pd.DataFrame,
+    stations: list[Station],
     method: Literal["homogeneous", "1dfmm", "1dnlloc"],
     phases: list[str] = ["P", "S"],
     fraction_tt: float = 0.1,
@@ -148,7 +150,7 @@ def compute_traveltimes(
         on which the traveltimes are to be calculated. For expected keys, see
         :class:`~quakemigrate.lut.lut.Grid3D`.
     stations:
-        DataFrame containing station information (lat/lon/elev).
+        List of Station objects containing station information.
     method:
         Method to be used when computing the traveltime lookup tables.\n
             "homogeneous" - straight line velocities.\n
@@ -190,7 +192,7 @@ def compute_traveltimes(
     util.logger(pathlib.Path.cwd() / "logs" / "lut", log)
 
     lut = LUT(**grid_spec, fraction_tt=fraction_tt)
-    lut.station_data = stations
+    lut.stations = stations
     lut.phases = phases
 
     if method == "1dsweep":
@@ -269,13 +271,13 @@ def _compute_homogeneous(lut: LUT, phase: str, velocity: float) -> None:
     grid_xyz = lut.grid_xyz
     stations_xyz = lut.stations_xyz
 
-    for i, station in enumerate(lut.station_data["Name"].values):
+    for i, station in enumerate(lut.stations):
         logging.info(f"\t\t...station: {station} - {i + 1} of {stations_xyz.shape[0]}")
 
         dx, dy, dz = [grid_xyz[j] - stations_xyz[i, j] for j in range(3)]
         dist = np.sqrt(dx**2 + dy**2 + dz**2)
 
-        lut.traveltimes.setdefault(station, {}).update({phase: dist / velocity})
+        lut.traveltimes.setdefault(station.id, {}).update({phase: dist / velocity})
 
 
 def _compute_1d_fmm(lut: LUT, phase: str, vmodel: pd.DataFrame) -> None:
@@ -331,10 +333,10 @@ def _compute_1d_fmm(lut: LUT, phase: str, vmodel: pd.DataFrame) -> None:
     f = interp1d(depths, vmodel)
     int_vmodel = f(grid_xyz[2])
 
-    for i, station in enumerate(lut.station_data["Name"].values):
+    for i, station in enumerate(lut.stations):
         logging.info(f"\t\t...station: {station} - {i + 1} of {stations_xyz.shape[0]}")
 
-        lut.traveltimes.setdefault(station, {}).update(
+        lut.traveltimes.setdefault(station.id, {}).update(
             {
                 phase: _eikonal_fmm(
                     grid_xyz, lut.node_spacing, int_vmodel, stations_xyz[i]
@@ -484,9 +486,9 @@ def _compute_1d_nlloc(
     (cwd / "time").mkdir(exist_ok=True)
     (cwd / "model").mkdir(exist_ok=True)
 
-    for i, station in enumerate(lut.station_data["Name"].values):
+    for i, station in enumerate(lut.stations):
         logging.info(
-            f"\t\t...running Grid2Time - station: {station:5s} - {i + 1} of "
+            f"\t\t...running Grid2Time - station: {station.id:5s} - {i + 1} of "
             f"{stations_xyz.shape[0]}"
         )
 
@@ -523,7 +525,7 @@ def _compute_1d_nlloc(
         to_read = cwd / "time" / f"layer.{phase}.{station}.time"
         gridspec, _, traveltimes = _read_nlloc(to_read, ignore_proj=True)
 
-        lut.traveltimes.setdefault(station, {}).update(
+        lut.traveltimes.setdefault(station.id, {}).update(
             {
                 phase: _bilinear_interpolate(
                     np.c_[distances, depths],
@@ -557,7 +559,7 @@ def _compute_1d_nlloc(
 
 def _write_control_file(
     station_xyz: np.ndarray,
-    station: str,
+    station: Station,
     max_dist: float,
     vmodel: pd.DataFrame,
     depth_span: np.ndarray,
@@ -573,7 +575,7 @@ def _write_control_file(
     station_xyz:
         Station location expressed in the coordinate space of the grid, in km.
     station:
-        Station name.
+        Station object containing station information.
     max_dist:
         Maximum distance between the station and any point in the grid, in km.
     vmodel:
@@ -602,7 +604,7 @@ def _write_control_file(
         "{vmodel:s}\n\n"
         "GTFILES {model_path:s} {time_path:s} {phase:s}\n"
         "GTMODE GRID2D ANGLES_NO\n\n"
-        "GTSRCE {station:s} XYZ {x:f} {y:f} {z:f} 0.0\n\n"
+        "GTSRCE {station.id:s} XYZ {x:f} {y:f} {z:f} 0.0\n\n"
         "GT_PLFD 1.0E-3 0"
     )
 

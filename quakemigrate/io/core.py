@@ -20,7 +20,7 @@ import pandas as pd
 from obspy import read_inventory
 
 import quakemigrate.util as util
-from quakemigrate.exceptions import InvalidStationFileHeader, InvalidVelocityModelHeader
+from quakemigrate.exceptions import InvalidVelocityModelHeader
 from quakemigrate.lut import LUT
 
 
@@ -58,61 +58,9 @@ def read_lut(lut_file: str) -> LUT:
     return lut
 
 
-def stations(station_file: str, **kwargs: dict) -> pd.DataFrame:
-    """Alias for read_stations."""
-    print(
-        "FutureWarning: function name has changed - continuing.\n"
-        "To remove this message, change:\t'stations' -> 'read_stations'"
-    )
-
-    return read_stations(station_file, **kwargs)
-
-
-def read_stations(station_file: str, **kwargs: dict) -> pd.DataFrame:
-    """
-    Reads station information from file.
-
-    Parameters
-    ----------
-    station_file:
-        Path to station file.
-        File format (header line is REQUIRED, case sensitive, any order):
-            Latitude, Longitude, Elevation (units matching LUT grid projection;
-            either metres or kilometres; positive upwards), Name
-    kwargs:
-        Passthrough for `pandas.read_csv` kwargs.
-
-    Returns
-    -------
-    stn_data:
-        Columns:
-            "Latitude", "Longitude", "Elevation", "Name"
-
-    Raises
-    ------
-    InvalidStationFileHeader
-        Raised if the input file is missing required entries in the header.
-
-    """
-
-    stn_data = pd.read_csv(station_file, **kwargs)
-
-    required = {"Latitude", "Longitude", "Elevation", "Name"}
-    if not required.issubset(stn_data.columns):
-        raise InvalidStationFileHeader(found=list(stn_data.columns))
-
-    stn_data["Elevation"] = stn_data["Elevation"].apply(lambda x: -1 * x)
-
-    # Ensure station names are strings
-    stn_data = stn_data.astype({"Name": "str"})
-
-    return stn_data
-
-
 def read_response_inv(
     response_file: str,
     ignore_network_code: bool = False,
-    dummy_network_code: str = "XX",
     ignore_location_code: bool = False,
     sac_pz_format: bool = False,
 ) -> Inventory:
@@ -169,19 +117,14 @@ def read_response_inv(
             )
 
         if ignore_network_code:
-            if isinstance(dummy_network_code, str) and len(dummy_network_code) == 2:
-                for network in response_inv.networks:
-                    network.code = dummy_network_code
-            else:
-                raise ValueError(
-                    f"dummy_network_code must be a 2 character string, not {dummy_network_code}."
-                )
+            for network in response_inv.networks:
+                network.code = "XX"
 
         if ignore_location_code:
             for network in response_inv.networks:
                 for station in network.stations:
-                    for chan in station.channels:
-                        chan.location_code = ""
+                    for channel in station.channels:
+                        channel.location_code = ""
 
     return response_inv
 

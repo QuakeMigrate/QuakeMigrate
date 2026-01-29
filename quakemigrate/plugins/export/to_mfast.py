@@ -21,8 +21,9 @@ from obspy.geodetics import gps2dist_azimuth
 
 
 if TYPE_CHECKING:
-    import pandas as pd
     from obspy.core.event import Event
+
+    from quakemigrate.io.station import Station
 
 
 cmpaz = {"N": 0, "Z": 0, "E": 90}
@@ -31,7 +32,7 @@ cmpinc = {"N": 90, "Z": 0, "E": 90}
 
 def sac_mfast(
     event: Event,
-    stations: pd.DataFrame,
+    stations: list[Station],
     output_path: str,
     units: str,
     filename: str | None = None,
@@ -44,14 +45,14 @@ def sac_mfast(
     event:
         Contains information about the origin time and a list of associated picks.
     stations:
-        DataFrame containing station information.
+        List of Station objects containing station information.
     output_path:
         Location to save the SAC file.
     units:
         Grid projection coordinates for QM LUT (determines units of depths and
         uncertainties in the .event files).
     filename:
-        Name of SAC file - defaults to "eventid/eventid.station.{comp}".
+        Name of SAC file - defaults to "eventid/eventid.stationid.{comp}".
 
     Raises
     ------
@@ -77,7 +78,7 @@ def sac_mfast(
     event_header.evla = origin.latitude
     event_header.evlo = origin.longitude
     # Obspy Event object already has all units converted to metres
-    event_header.evdp = origin.depth / 1000.0  # converted to km
+    event_header.evdp = origin.depth / factor  # converted to km
     eventid = str(event.resource_id)
     if filename is None:
         filename = eventid + ".{}.{}"
@@ -87,17 +88,17 @@ def sac_mfast(
     output_path.mkdir(parents=True, exist_ok=True)
 
     # Loop over the available stations and get the pick information
-    for _, station in stations.iterrows():
-        st = stream.select(station=station.Name)
+    for station in stations:
+        st = stream.select(station=station.station)
 
         station_header = AttribDict()
-        station_header.stla = station.Latitude
-        station_header.stlo = station.Longitude
-        station_header.stel = station.Elevation / factor  # convert to m
+        station_header.stla = station.latitude
+        station_header.stlo = station.longitude
+        station_header.stel = station.elevation / factor  # convert to m
 
         # Calculate the distance and azimuth between event and station
         dist, az, _ = gps2dist_azimuth(
-            event_header.evla, event_header.evlo, station.Latitude, station.Longitude
+            origin.latitude, origin.longitude, station.latitude, station.longitude
         )
 
         station_header.dist = dist / 1000.0  # convert m to km
@@ -106,7 +107,7 @@ def sac_mfast(
         # Get relevant picks here
         picks = []
         for pick in event.picks:
-            if pick.waveform_id.station_code == station.Name:
+            if pick.waveform_id.station_code == station.id:
                 picks.append(pick)
 
         if not picks:
@@ -140,10 +141,9 @@ def sac_mfast(
             tr = st.select(channel=f"*{comp}")[0]
 
             # Write out to SAC file, then read in again to fill header
-            name = filename.format(station.Name, comp.lower())
-            name = str(output_path / name)
-            tr.write(name, format="SAC")
-            tr = read(name)[0]
+            fname = filename.format(station.id, comp.lower())
+            tr.write(output_path / fname, format="SAC")
+            tr = read(output_path / fname)[0]
 
             sac_header = AttribDict()
             sac_header.cmpaz = str(cmpaz[comp])
@@ -153,4 +153,4 @@ def sac_mfast(
             sac_header.update(station_header)
             sac_header.update(pick_header)
             tr.stats.sac.update(sac_header)
-            tr.write(name, format="SAC")
+            tr.write(output_path / fname, format="SAC")

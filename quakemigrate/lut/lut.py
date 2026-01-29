@@ -17,13 +17,14 @@ import pickle
 from typing import TYPE_CHECKING
 
 import numpy as np
-import pandas as pd
 from pyproj import Transformer
 from scipy.interpolate import RegularGridInterpolator
 
 
 if TYPE_CHECKING:
     from pyproj import Proj
+
+    from quakemigrate.io.station import Station
 
 
 class Grid3D:
@@ -452,7 +453,7 @@ class LUT(Grid3D):
             if lut_file is not None:
                 self.load(lut_file)
 
-        self.station_data: pd.DataFrame = pd.DataFrame()
+        self.stations: list[Station] | None = None
 
     def __str__(self) -> str:
         """Return short summary string of the lookup table object."""
@@ -539,8 +540,8 @@ class LUT(Grid3D):
         ijk:
             Grid indices for which to serve traveltime.
         station:
-            Station or stations for which to serve traveltimes. Can be str (for a single
-            station) or list / `pandas.Series` object for multiple.
+            Station or stations for which to serve traveltimes. Can be a single station
+            string or a list of strings.
 
         Returns
         -------
@@ -575,7 +576,7 @@ class LUT(Grid3D):
         phases:
             List of phases for which to serve traveltime lookup tables.
         stations:
-            List of stations for which to serve traveltime lookup tables.
+            List of Station objects for which to serve traveltime lookup tables.
 
         Returns
         -------
@@ -584,7 +585,7 @@ class LUT(Grid3D):
 
         """
 
-        stations = self.station_data["Name"].values if stations is None else stations
+        stations = [s.id for s in self.stations] if stations is None else stations
 
         traveltimes = []
         for phase in phases:
@@ -665,7 +666,12 @@ class LUT(Grid3D):
     def station_extent(self) -> list[list[float]]:
         """Get the minimum/maximum extent of the seismic network."""
 
-        coordinates = self.station_data[["Longitude", "Latitude", "Elevation"]]
+        coordinates = np.asarray(
+            [
+                [station.longitude, station.latitude, station.depth]
+                for station in self.stations
+            ]
+        )
 
         return [[f(dim) for dim in coordinates.values.T] for f in (min, max)]
 
@@ -673,9 +679,14 @@ class LUT(Grid3D):
     def stations_xyz(self) -> np.ndarray:
         """Get station locations in the grid space [X, Y, Z]."""
 
-        coordinates = self.station_data[["Longitude", "Latitude", "Elevation"]]
+        coordinates = np.asarray(
+            [
+                [station.longitude, station.latitude, station.depth]
+                for station in self.stations
+            ]
+        )
 
-        return self.coord2grid(coordinates.values)
+        return self.coord2grid(coordinates)
 
     def __add__(self, other: LUT) -> LUT | None:
         """

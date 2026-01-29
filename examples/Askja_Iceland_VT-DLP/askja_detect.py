@@ -22,7 +22,8 @@ os.environ.update(
 )
 
 from quakemigrate import QuakeScan
-from quakemigrate.io import Archive, read_lut, read_stations
+from quakemigrate.clients import make_waveform_client
+from quakemigrate.io import ARCHIVE_FORMATS, read_lut, read_stations
 from quakemigrate.plugins.onsets import STALTAOnset
 
 
@@ -40,10 +41,13 @@ endtime = "2011-10-26T18:05:00.0"
 # --- Read in station file ---
 stations = read_stations(station_file)
 
-# --- Create new Archive and set path structure ---
-archive = Archive(
-    archive_path=data_in, stations=stations, archive_format="YEAR/JD/STATION"
-)
+# --- Create new waveform client ---
+client_config = {
+    "client": "local",
+    "path": data_in,
+    "format": ARCHIVE_FORMATS["YEAR/JD/STATION"],
+}
+waveform_client = make_waveform_client(client_config)
 
 # --- Load the LUT ---
 lut = read_lut(lut_file=lut_file)
@@ -59,7 +63,7 @@ onset.sta_lta_windows = {"P": [0.2, 1.0], "S": [0.2, 1.0]}
 
 # --- Create new QuakeScan ---
 scan = QuakeScan(
-    archive,
+    waveform_client,
     lut,
     onset=onset,
     run_path=run_path,
@@ -73,4 +77,4 @@ scan.timestep = 60.0
 scan.threads = 4  # NOTE: increase as your system allows to increase speed!
 
 # --- Run detect ---
-scan.detect(starttime, endtime)
+scan.detect(stations, starttime, endtime)

@@ -45,6 +45,7 @@ from quakemigrate.plugins.onsets.base import Onset
 
 if TYPE_CHECKING:
     from quakemigrate.io.data import Archive, WaveformData
+    from quakemigrate.io.station import Station
     from quakemigrate.lut import LUT
 
 
@@ -285,20 +286,24 @@ class QuakeScan:
 
         return out
 
-    def detect(self, starttime: str, endtime: str) -> None:
+    def detect(self, stations: list[Station], starttime: str, endtime: str) -> None:
         """
         Scans through data calculating coalescence in a (decimated) 3-D grid by
         continuously migrating onset functions.
 
+        Note: if the time interval between starttime and endtime is not divisible by
+        the specified timestep, the endtime will be extended to accommodate. If the
+        endtime is set to midnight, then it will be automatically adjusted to one sample
+        prior.
+
         Parameters
         ----------
+        stations:
+            Iterable of Station objects to be used in detect.
         starttime:
             Timestamp from which to run continuous scan.
         endtime:
-            Timestamp up to which to run continuous scan. Note: if the duration is not
-            divisible by the specified timestep, the endtime will be extended to
-            accommodate. If the endtime is set to midnight, then it will be automatically
-            adjusted to one sample prior.
+            Timestamp up to which to run continuous scan.
 
         Raises
         ------
@@ -340,12 +345,13 @@ class QuakeScan:
         logging.info(self.onset)
         logging.info(util.log_spacer)
 
-        self._continuous_compute(starttime, n_steps)
+        self._continuous_compute(stations, starttime, n_steps)
 
         logging.info(util.log_spacer)
 
     def locate(
         self,
+        stations: list[Station],
         starttime: UTCDateTime | None = None,
         endtime: UTCDateTime | None = None,
         trigger_file: str | None = None,
@@ -359,6 +365,8 @@ class QuakeScan:
 
         Parameters
         ----------
+        stations:
+            Iterable of Station objects to be used in locate.
         starttime:
             Timestamp from which to include events in the locate scan.
         endtime:
@@ -403,26 +411,26 @@ class QuakeScan:
         logging.info(self.onset)
         for plugin in sorted(self.plugins, key=lambda p: p.order):
             logging.info(str(plugin))
-        # logging.info(self.picker)
-        # if self.mags is not None:
-        #     logging.info(self.archive.__str__(response_only=True))
-        #     logging.info(self.mags)
         logging.info(util.log_spacer)
 
         if trigger_file is not None:
-            self._locate_events(trigger_file=trigger_file)
+            self._locate_events(stations, trigger_file=trigger_file)
         else:
-            self._locate_events(starttime=starttime, endtime=endtime)
+            self._locate_events(stations, starttime=starttime, endtime=endtime)
 
         logging.info(util.log_spacer)
 
-    def _continuous_compute(self, starttime: UTCDateTime, n_steps: int) -> None:
+    def _continuous_compute(
+        self, stations: list[Station], starttime: UTCDateTime, n_steps: int
+    ) -> None:
         """
         Compute coalescence between two timestamps, divided into increments of
         `timestep`. Outputs coalescence and station availability data to file.
 
         Parameters
         ----------
+        stations:
+            List of Station objects for which to perform continuous compute.
         starttime:
             Timestamp from which to compute continuous coalescence.
         n_steps:
@@ -437,8 +445,8 @@ class QuakeScan:
         self.pre_pad, self.post_pad = self.onset.pad(self.timestep)
         availability_cols = np.array(
             [
-                [f"{stat}_{ph}" for stat in self.archive.stations]
-                for ph in self.onset.phases
+                [f"{station.id}_{phase}" for station in stations]
+                for phase in self.onset.phases
             ]
         ).flatten()
         availability = pd.DataFrame(index=range(n_steps), columns=availability_cols)
@@ -456,7 +464,7 @@ class QuakeScan:
             )
 
             try:
-                data = self.archive.read_waveform_data(w_beg, w_end)
+                data = self.archive.read_waveform_data(stations, w_beg, w_end)
                 time, max_coa, max_coa_n, coord, onset_data = self._compute(data)
                 logging.debug(f"1-D con shape : {max_coa.shape}")
                 coalescence.append(
@@ -477,7 +485,7 @@ class QuakeScan:
             coalescence.write()
         write_availability(self.run, availability)
 
-    def _locate_events(self, **kwargs: dict) -> None:
+    def _locate_events(self, stations: list[Station], **kwargs: dict) -> None:
         """
         Loop through list of earthquakes read in from trigger results and re-compute
         coalescence; output phase picks, event location and uncertainty, plus optional
@@ -485,6 +493,8 @@ class QuakeScan:
 
         Parameters
         ----------
+        stations:
+            List of Station objects to be used for event location.
         kwargs:
             Can contain:
             starttime : `obspy.UTCDateTime` object, optional
@@ -511,7 +521,9 @@ class QuakeScan:
 
             try:
                 logging.info("\tReading waveform data...")
-                event.add_waveform_data(self._read_event_waveform_data(w_beg, w_end))
+                event.add_waveform_data(
+                    self._read_event_waveform_data(stations, w_beg, w_end)
+                )
                 logging.info("\tComputing 4-D coalescence function...")
                 event.add_compute_output(*self._compute(event.data, event))
             except (ArchiveEmpty, AllDataRejected, DataGap) as e:
@@ -660,13 +672,15 @@ class QuakeScan:
 
     @util.timeit("info")
     def _read_event_waveform_data(
-        self, w_beg: UTCDateTime, w_end: UTCDateTime
+        self, stations: list[Station], w_beg: UTCDateTime, w_end: UTCDateTime
     ) -> WaveformData:
         """
         Read waveform data for a triggered event.
 
         Parameters
         ----------
+        stations:
+            List of Station objects to be used for event location.
         w_beg:
             Timestamp from which to read waveform data.
         w_end:
@@ -710,7 +724,9 @@ class QuakeScan:
         post_pad = max(0.0, post_pad - self.marginal_window - self.post_pad)
 
         logging.debug(f"{w_beg}, {w_end}, {pre_pad}, {post_pad}")
-        return self.archive.read_waveform_data(w_beg, w_end, pre_pad, post_pad)
+        return self.archive.read_waveform_data(
+            stations, w_beg, w_end, pre_pad, post_pad
+        )
 
     @util.timeit("info")
     def _calculate_location(self, event: Event) -> np.ndarray:

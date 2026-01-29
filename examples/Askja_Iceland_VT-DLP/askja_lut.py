@@ -1,6 +1,6 @@
 """
-This script generates the traveltime look-up table (LUT) for the Askja
-volcano (Iceland) Volcanotectonic (VT) & Deep-Long-Period (DLP) event example.
+This script generates the traveltime look-up table (LUT) for the Askja volcano (Iceland)
+Volcanotectonic (VT) & Deep-Long-Period (DLP) event example.
 
 :copyright:
     2020–2026, QuakeMigrate developers.

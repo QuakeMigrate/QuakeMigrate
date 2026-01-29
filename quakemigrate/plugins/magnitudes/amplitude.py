@@ -36,6 +36,7 @@ if TYPE_CHECKING:
     from obspy import Trace
 
     from quakemigrate.io.event import Event
+    from quakemigrate.io.station import Station
     from quakemigrate.lut import LUT
 
 
@@ -302,11 +303,9 @@ class Amplitude:
         logging.debug(f"{tr_start}, {tr_end}, {event.otime}")
 
         # Loop through stations in LUT, calculating amplitude info
-        for i, station_data in lut.station_data.iterrows():
-            station = station_data["Name"]
-
+        for i, station in enumerate(lut.stations):
             epi_dist, z_dist = self._get_distances(
-                ev_loc, station_data, lut.unit_conversion_factor
+                ev_loc, station, lut.unit_conversion_factor
             )
 
             # Columns: tr_id, epicentral distance, vertical distance, P_amp,
@@ -331,7 +330,7 @@ class Amplitude:
             ]
 
             # Read in raw waveforms -- work on a copy!!
-            st = event.data.raw_waveforms.select(station=station).copy()
+            st = event.data.raw_waveforms.select(station=station.station).copy()
             # Trim to padding window to ensure taper does not encroach on the
             # noise or signal window.
             st.trim(starttime=tr_start, endtime=tr_end)
@@ -350,7 +349,7 @@ class Amplitude:
                 ):
                     tr = tr[0]
                 else:
-                    amps[0] = f".{station}..{comp}"
+                    amps[0] = f"{station.id}.{comp}"
                     amplitudes.loc[i * 3 + j] = amps
                     continue
 
@@ -394,7 +393,7 @@ class Amplitude:
         return amplitudes
 
     def _get_distances(
-        self, ev_loc: np.ndarray, station_data: pd.Series, unit_conversion_factor: float
+        self, ev_loc: np.ndarray, station: Station, unit_conversion_factor: float
     ) -> tuple[float, float]:
         """
         Get epicentral and vertical distances between a station and an event hypocentre.
@@ -403,8 +402,8 @@ class Amplitude:
         ----------
         ev_loc:
             Event hypocentre location in geographic coordinate system.
-        station_data:
-            Station information - keys: ["Name", "Latitude", "Longitude", "Elevation"].
+        station:
+            Station object containing station information.
         unit_conversion_factor:
             A conversion factor based on the lookup table grid projection, used to
             ensure the distances returned have units of kilometres.
@@ -418,20 +417,19 @@ class Amplitude:
 
         """
 
-        # Get station location
-        stla, stlo, stel = station_data[["Latitude", "Longitude", "Elevation"]].values
-
-        # Get event location
-        evlo, evla, evdp = ev_loc
+        event_longitude, event_latitude, event_depth = ev_loc
 
         # Evaluate epicentral distance between station and event.
-        # gps2dist_azimuth returns distances in metres -- magnitudes
-        # calculation requires distances in kilometres.
-        epi_dist = gps2dist_azimuth(evla, evlo, stla, stlo)[0] / 1000
+        epi_dist = (
+            gps2dist_azimuth(
+                event_latitude, event_longitude, station.latitude, station.longitude
+            )[0]
+            / 1000
+        )  # gps2dist_azimuth returns distance in m, convert to km
 
         # Evaulate vertical distance between station and event. Convert to kilometres.
         km_cf = 1000 / unit_conversion_factor
-        z_dist = (evdp - stel) / km_cf  # NOTE: stel is actually depth.
+        z_dist = (event_depth - station.depth) / km_cf
 
         return epi_dist, z_dist
 
@@ -565,7 +563,7 @@ class Amplitude:
 
     def _get_amplitude_windows(
         self,
-        station: str,
+        station: Station,
         i: int,
         event: Event,
         p_ttimes: np.ndarray,
@@ -590,7 +588,7 @@ class Amplitude:
         Parameters
         ----------
         station:
-            Station name.
+            Station object containing station information.
         i:
             Iterator variable.
         event:
@@ -618,7 +616,7 @@ class Amplitude:
 
         """
 
-        p_pick, s_pick, picked = self._get_picks(station, event)
+        p_pick, s_pick, picked = self._get_picks(station.id, event)
 
         for pick, phase in [[p_pick, "P"], [s_pick, "S"]]:
             if not isinstance(pick, UTCDateTime):
@@ -679,7 +677,7 @@ class Amplitude:
         Parameters
         ----------
         station:
-            Station name.
+            Partial Station SEED ID.
         event:
             Light class encapsulating waveforms, coalescence information, picks and
             location information for a given event.

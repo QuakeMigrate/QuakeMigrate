@@ -23,10 +23,13 @@ os.environ.update(
 from obspy.core import AttribDict
 
 from quakemigrate import QuakeScan
-from quakemigrate.io import Archive, read_lut, read_stations, read_response_inv
+from quakemigrate.clients import make_waveform_client
+from quakemigrate.io import ARCHIVE_FORMATS, read_lut, read_stations
 from quakemigrate.plugins.onsets import STALTAOnset
 from quakemigrate.plugins.pickers import GaussianPicker
 from quakemigrate.plugins.magnitudes import LocalMag
+from quakemigrate.plugins.visualisation import EventSummary3DPlugin
+
 
 # --- i/o paths ---
 station_file = "./inputs/iceland_stations.txt"
@@ -43,32 +46,30 @@ endtime = "2014-08-24T00:11:00.0"
 # --- Read in station file ---
 stations = read_stations(station_file)
 
-# --- Read in response inventory ---
-response_inv = read_response_inv(response_file)
-
 # --- Specify parameters for response removal ---
 response_params = AttribDict()
 response_params.pre_filt = (0.05, 0.06, 30, 35)
 response_params.water_level = 60.0
 response_params.remove_full_response = False
 
-# --- Create new Archive and set path structure ---
-archive = Archive(
-    archive_path=data_in,
-    stations=stations,
-    archive_format="YEAR/JD/STATION",
-    response_inv=response_inv,
-    response_removal_params=response_params,
-)
+# --- Create new waveform client ---
+client_config = {
+    "client": "local",
+    "path": data_in,
+    "format": ARCHIVE_FORMATS["YEAR/JD/STATION"],
+    "inventory_path": response_file,
+    "response_removal_params": response_params,
+}
+waveform_client = make_waveform_client(client_config)
 
 # --- Specify parameters for amplitude measurement ---
 amp_params = AttribDict()
 amp_params.noise_window = 5.0
 amp_params.noise_measure = "ENV"
-amp_params.signal_window = 1.
+amp_params.signal_window = 1.0
 amp_params.bandpass_filter = True
-amp_params.bandpass_lowcut = 2.
-amp_params.bandpass_highcut = 20.
+amp_params.bandpass_lowcut = 2.0
+amp_params.bandpass_highcut = 20.0
 amp_params.filter_corners = 4
 
 # --- Specify parameters for magnitude calculation ---
@@ -77,7 +78,7 @@ mag_params.A0 = "Greenfield2018_bardarbunga"
 mag_params.use_hyp_dist = True
 mag_params.amp_feature = "S_amp"
 mag_params.trace_filter = ".*H[NE]$"
-mag_params.noise_filter = 3.
+mag_params.noise_filter = 3.0
 
 mags = LocalMag(amp_params=amp_params, mag_params=mag_params, plot_amplitudes=True)
 
@@ -96,14 +97,15 @@ onset.sta_lta_windows = {"P": [0.2, 1.0], "S": [0.2, 1.0]}
 picker = GaussianPicker(onset=onset)
 picker.plot_picks = False
 
-plugins = {
-    "picker": picker,
-    "magnitudes": mags,
-}
+event_summary = EventSummary3DPlugin(
+    overlay_manifest="./inputs/XY_FILES/dike_xyfiles.csv"
+)
+
+plugins = [picker, mags, event_summary]
 
 # --- Create new QuakeScan ---
 scan = QuakeScan(
-    archive,
+    waveform_client,
     lut,
     onset=onset,
     plugins=plugins,
@@ -111,8 +113,6 @@ scan = QuakeScan(
     run_name=run_name,
     log=True,
     loglevel="info",
-    plot_event_summary=True,
-    xy_files="./inputs/XY_FILES/dike_xyfiles.csv",
 )
 
 # --- Set locate parameters ---
@@ -125,4 +125,4 @@ scan.threads = 4  # NOTE: increase as your system allows to increase speed!
 scan.write_cut_waveforms = True
 
 # --- Run locate ---
-scan.locate(starttime=starttime, endtime=endtime)
+scan.locate(stations, starttime=starttime, endtime=endtime)

@@ -17,12 +17,13 @@ from typing import TYPE_CHECKING
 
 
 if TYPE_CHECKING:
-    import pandas as pd
     from obspy.core.event import Event
+
+    from quakemigrate.io.station import Station
 
 
 def snuffler_stations(
-    stations: pd.DataFrame,
+    stations: list[Station],
     output_path: str,
     filename: str,
     network_code: str | None = None,
@@ -33,7 +34,7 @@ def snuffler_stations(
     Parameters
     ----------
     stations:
-        DataFrame containing station information.
+        List of Station objects containing station information.
     output_path:
         Location to save snuffler station file.
     filename:
@@ -48,19 +49,16 @@ def snuffler_stations(
     line_template = "{nw}.{stat}. {lat} {lon} {elev} {dep}\n"
 
     with output.open(mode="w") as f:
-        for i, station in stations.iterrows():
+        for station in stations:
             if network_code is None:
-                try:
-                    network_code = station["Network"]
-                except KeyError:
-                    network_code = ""
+                network_code = station.network if station.network is not None else ""
 
             line = line_template.format(
                 nw=network_code,
-                stat=station["Name"],
-                lat=station["Latitude"],
-                lon=station["Longitude"],
-                elev=station["Elevation"],
+                stat=station.station,
+                lat=station.latitude,
+                lon=station.longitude,
+                elev=station.elevation,
                 dep="0",
             )
 

@@ -36,6 +36,7 @@ if TYPE_CHECKING:
 
     from quakemigrate.io.core import Run
     from quakemigrate.io.event import Event
+    from quakemigrate.io.station import Station
     from quakemigrate.lut import LUT
     from quakemigrate.plot.maps import MapAxes2D, MapAxes3D
 
@@ -334,13 +335,15 @@ def event_summary_3d(
     if plot_all_stations:
         station_list = event.data.stations
     else:
-        station_list = {
+        station_names = {
             key.split("_")[0]
             for key, available in event.onset_data.availability.items()
             if available == 1
         }
-    station_data = lut.station_data[lut.station_data["Name"].isin(station_list)]
-    plot_stations(axes.coalescence_map, station_data, "white")
+        station_list = [
+            station for station in event.data.stations if station.id in station_names
+        ]
+    plot_stations(axes.coalescence_map, station_list, "white")
 
     # Add hypocentre and Gaussian uncertainty ellipses
     _plot_hypocentre(axes.coalescence_map, hypocentre=event.hypocentre)
@@ -463,13 +466,15 @@ def event_summary_2d(
     if plot_all_stations:
         station_list = event.data.stations
     else:
-        station_list = {
+        station_names = {
             key.split("_")[0]
             for key, available in event.onset_data.availability.items()
             if available == 1
         }
-    station_data = lut.station_data[lut.station_data["Name"].isin(station_list)]
-    plot_stations(axes.coalescence_map, station_data, "white")
+        station_list = [
+            station for station in event.data.stations if station.id in station_names
+        ]
+    plot_stations(axes.coalescence_map, station_list, "white")
 
     # Add hypocentre and Gaussian uncertainty ellipses
     _plot_hypocentre(axes.coalescence_map, hypocentre=event.hypocentre)
@@ -643,7 +648,7 @@ def _plot_waveform_gather(
     lut: LUT,
     event: Event,
     idx_max: np.ndarray[np.int64],
-    stations: str | list[str],
+    stations: list[Station],
 ) -> None:
     """
     Plot the waveform gather and modelled phase-arrival markers.
@@ -659,7 +664,7 @@ def _plot_waveform_gather(
     idx_max:
         Grid index of the reference location used to calculate modelled traveltimes.
     stations:
-        Station name or list of station names for which to plot arrivals and waveforms.
+        List of Station objects to be visualised in waveform gather.
 
     """
 
@@ -667,7 +672,10 @@ def _plot_waveform_gather(
 
     # --- Predicted traveltimes ---
     traveltimes = np.array(
-        [lut.traveltime_to(phase, idx_max, stations) for phase in phases]
+        [
+            lut.traveltime_to(phase, idx_max, [station.id for station in stations])
+            for phase in phases
+        ]
     )
     arrivals = [[(event.otime + tt).datetime for tt in tt_f] for tt_f in traveltimes]
 
@@ -706,7 +714,7 @@ def _plot_waveform_gather(
     times_utc = waveforms[0].times("UTCDateTime")
     mint_i, maxt_i = [np.argmin(abs(times_utc - t)) for t in (mint, maxt)]
     for i, station in enumerate(stations):
-        stn_waveforms = waveforms.select(station=station)
+        stn_waveforms = waveforms.select(station=station.station)
         for c, comp, phase in zip(
             WAVEFORM_COLOURS1, [p_str, s_str_1, s_str_2], ["P", "S", "S"]
         ):
@@ -735,7 +743,7 @@ def _plot_waveform_gather(
     ax.set_ylim([0, max(range_order) + 2])
     ax.xaxis.set_major_formatter(util.DateFormatter("%H:%M:%S.{ms}", 2))
     ax.yaxis.set_ticks(range_order)
-    ax.yaxis.set_ticklabels(stations, fontsize=14)
+    ax.yaxis.set_ticklabels([station.id for station in stations], fontsize=14)
 
 
 def _plot_coalescence_trace(ax: Axes, event: Event) -> None:

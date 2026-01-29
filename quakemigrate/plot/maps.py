@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure
 
+    from quakemigrate.io.station import Station
     from quakemigrate.lut import LUT
 
 
@@ -38,7 +39,7 @@ class MapAxes2D:
     bounds: np.ndarray
 
     def items(self):
-        yield "xy", self.xy, (0, 1), ("Longitude", "Latitude")
+        yield "xy", self.xy, (0, 1), ("longitude", "latitude")
 
 
 def build_2d_map_axes(
@@ -126,9 +127,9 @@ class MapAxes3D:
     bounds: np.ndarray
 
     def items(self):
-        yield "xy", self.xy, (0, 1), ("Longitude", "Latitude")
-        yield "xz", self.xz, (0, 2), ("Longitude", "Elevation")
-        yield "yz", self.yz, (2, 1), ("Elevation", "Latitude")
+        yield "xy", self.xy, (0, 1), ("longitude", "latitude")
+        yield "xz", self.xz, (0, 2), ("longitude", "depth")
+        yield "yz", self.yz, (2, 1), ("depth", "latitude")
 
 
 def build_3d_map_axes(
@@ -272,9 +273,7 @@ def adjust_map_cross_sections(fig: Figure, axes: MapAxes3D) -> None:
     axes.yz.set_position([new_yz_left, xy_bottom, new_yz_width, xy_height])
 
 
-def plot_stations(
-    axes: MapAxes2D | MapAxes3D, station_data: pd.DataFrame, c: str
-) -> None:
+def plot_stations(axes: MapAxes2D | MapAxes3D, stations: list[Station], c: str) -> None:
     """
     Plot station markers on map and cross-section panels.
 
@@ -284,7 +283,7 @@ def plot_stations(
     ----------
     axes:
         Map and optional cross-section axes on which to plot stations.
-    station_data:
+    stations:
         DataFrame containing station coordinates and names. Expected columns
         include ``Name``, ``Longitude``, ``Latitude``, and ``Elevation``.
     c:
@@ -295,8 +294,8 @@ def plot_stations(
     for ax_label, ax, _, (x, y) in axes.items():
         marker = "<" if ax_label == "yz" else "^"
         ax.scatter(
-            station_data[x].values,
-            station_data[y].values,
+            [getattr(station, x) for station in stations],
+            [getattr(station, y) for station in stations],
             s=15,
             marker=marker,
             zorder=20,
@@ -304,10 +303,10 @@ def plot_stations(
         )
 
         if ax_label == "xy":
-            for _, row in station_data.iterrows():
+            for station in stations:
                 ax.annotate(
-                    row["Name"],
-                    [row[x], row[y]],
+                    station.id,
+                    [station.longitude, station.latitude],
                     zorder=20,
                     c=c,
                     clip_on=True,

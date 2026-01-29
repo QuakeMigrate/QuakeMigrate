@@ -1,6 +1,6 @@
 """
-This script generates the traveltime look-up table (LUT) for the Iceland
-icequake example.
+This script generates the traveltime look-up table (LUT) for the Iceland icequake
+example.
 
 :copyright:
     2020–2026, QuakeMigrate developers.

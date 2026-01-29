@@ -27,6 +27,12 @@ b_path = e_path / "benchmarks"
 t_path = e_path / "{}" / "outputs" / "runs" / "example_run"
 
 
+NET_LOOKUP = {
+    "Icequake_Iceland": "ZK",
+    "Volcanotectonic_Iceland": "Z7",
+}
+
+
 class TestExamples(unittest.TestCase):
     """
     Suite of tests to compare the output of each of the examples scripts with
@@ -58,9 +64,10 @@ class TestExamples(unittest.TestCase):
             self.assertEqual(b_lut.fraction_tt, t_lut.fraction_tt)
             print("\t\t...'phases'...")
             self.assertEqual(b_lut.phases, t_lut.phases)
-            print("\t\t...'station_data'...")
-            pd.testing.assert_frame_equal(
-                b_lut.station_data, t_lut.station_data, check_exact=False
+            print("\t\t...'stations'...")
+            self.assertEqual(
+                sorted(b_lut.stations, key=lambda s: s.id),
+                sorted(t_lut.stations, key=lambda s: s.id),
             )
             print("\t\t...'grid_proj'...")
             self.assertEqual(b_lut.grid_proj, t_lut.grid_proj)
@@ -106,7 +113,20 @@ class TestExamples(unittest.TestCase):
             print("\t4: Assert availability files are identical...")
             b_av = sorted(b_dir.glob("*Availability*"))[0]
             t_av = sorted((t_dir / "availability").glob("*Availability*"))[0]
-            self.assertTrue(pd.read_csv(b_av).equals(pd.read_csv(t_av)))
+
+            b_df = pd.read_csv(b_av, index_col=0)
+            t_df = pd.read_csv(t_av, index_col=0)
+
+            b_df = b_df.rename(
+                columns=lambda c: f"{NET_LOOKUP[example]}.{c.rsplit('_', 1)[0]}._{c.rsplit('_', 1)[1]}"
+                if "_" in c
+                else c
+            )
+
+            b_df = b_df.sort_index(axis=1)
+            t_df = t_df.sort_index(axis=1)
+
+            self.assertTrue(b_df.equals(t_df))
             print("\t   ...passed!")
 
     def test_trigger(self):
@@ -153,9 +173,13 @@ class TestExamples(unittest.TestCase):
                 if "20140824000443260" in t_pick.name:
                     print("\t   ...skipping due to unidentified floating point issue.")
                     continue
-                pd.testing.assert_frame_equal(
-                    pd.read_csv(b_pick), pd.read_csv(t_pick), check_exact=False
+                b_df = pd.read_csv(b_pick)
+                b_df["Station"] = b_df["Station"].apply(
+                    lambda s: f"{NET_LOOKUP[example]}.{s}."
                 )
+                b_df = b_df.sort_values(["Station", "Phase"]).reset_index(drop=True)
+                t_df = pd.read_csv(t_pick)
+                pd.testing.assert_frame_equal(b_df, t_df, check_exact=False)
             print("\t   ...passed!")
 
             print("\t3: Assert same number of channels in cut waveforms...")

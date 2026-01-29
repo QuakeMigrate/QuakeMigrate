@@ -790,9 +790,9 @@ class Magnitude:
         # Apply station filter
         if self.station_filter is not None:
             magnitudes["Station_Filter"] = True
-            for stn in list(self.station_filter):
+            for station in list(self.station_filter):
                 magnitudes.loc[
-                    magnitudes.index.str.contains(f".{stn}.", regex=False),
+                    magnitudes.index.str.contains(f"{station}", regex=False),
                     "Station_Filter",
                 ] = False
 

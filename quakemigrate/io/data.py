@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import logging
 import pathlib
+import string
+from dataclasses import dataclass, field
 from itertools import chain
 from typing import TYPE_CHECKING
 
@@ -20,10 +22,9 @@ from obspy import read, Stream, UTCDateTime
 
 import quakemigrate.util as util
 from quakemigrate.exceptions import (
-    ArchiveFormatError,
-    InvalidArchivePathStructure,
     ArchiveEmpty,
     DataGap,
+    InvalidArchivePathStructure,
     ResponseNotFoundError,
     ResponseRemovalError,
 )
@@ -32,11 +33,108 @@ from quakemigrate.exceptions import (
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-    import pandas as pd
     from obspy import Trace
     from obspy.core.inventory import Inventory
 
+    from quakemigrate.io.station import Station
 
+
+ARCHIVE_FORMATS = {
+    "SeisComp3": (
+        "{year}/{network}/{station}/{channels}.D/"
+        "{network}.{station}.{location}.{channels}.D.{year}.{jday:03d}"
+    ),
+    "YEAR/JD/*_STATION_*": "{year}/{jday:03d}/*_{station}_*",
+    "YEAR/JD/STATION": "{year}/{jday:03d}/{station}*",
+    "STATION.YEAR.JULIANDAY": "*{station}.*.{year}.{jday:03d}",
+    "/STATION/STATION.YearMonthDay": "{station}/{station}.{year}{month:02d}{day:02d}",
+    "YEAR_JD/STATION*": "{year}_{jday:03d}/{station}*",
+    "YEAR_JD/STATION_*": "{year}_{jday:03d}/{station}_*",
+}
+
+_ALLOWED_FIELDS = {
+    "year",
+    "month",
+    "day",
+    "jday",
+    "network",
+    "station",
+    "location",
+    "channels",
+    "dtime",
+}
+
+
+def _root_field(field_name: str) -> str:
+    """
+    Return the root field for a format field name.
+
+    Parameters
+    ----------
+    field_name:
+        Format field name extracted from a Python format string.
+
+    Returns
+    -------
+    root_field:
+        The root field, e.g., `dtime` from `dtime.year`.
+
+    """
+
+    i = field_name.find(".")
+    if i != -1:
+        return field_name[:i]
+
+    return field_name
+
+
+def _validate_path_format(archive_format: str) -> str:
+    """
+    Validate the path format, ensuring it does not contain any placeholders that are
+    not supported by the `_load_from_path` method.
+
+    Parameters
+    ----------
+    archive_format:
+        The template archive path string to be formatted during data queries.
+
+    Returns
+    -------
+    archive_format:
+        The template archive path string to be formatted during data queries.
+
+    Raises
+    ------
+    InvalidArchivePathStructure
+        Raised if there is a placeholder that is not supported.
+
+    """
+
+    # Deprecation handling
+    if archive_format in ARCHIVE_FORMATS:
+        print(
+            "This method of setting the archive format has been deprecated.\n"
+            f"Mapping {archive_format} -> {ARCHIVE_FORMATS[archive_format]}"
+        )
+        archive_format = ARCHIVE_FORMATS[archive_format]
+
+    allowed = set(_ALLOWED_FIELDS)
+
+    for _, field_name, _, _ in string.Formatter().parse(archive_format):
+        if field_name is None:
+            continue
+
+        if field_name == "":
+            raise InvalidArchivePathStructure(archive_format)
+
+        root = _root_field(field_name)
+        if root not in allowed:
+            raise InvalidArchivePathStructure(root)
+
+    return archive_format
+
+
+@dataclass
 class Archive:
     """
     The Archive class handles the reading of archived waveform data.
@@ -62,10 +160,6 @@ class Archive:
     ----------
     archive_path:
         Location of seismic data archive: e.g.: "./DATA_ARCHIVE".
-    stations:
-        Station information.
-        Columns ["Latitude", "Longitude", "Elevation", "Name"].
-        See :func:`~quakemigrate.io.core.read_stations`
     archive_format:
         Sets directory structure and file naming format for different archive formats.
         See :func:`~quakemigrate.io.data.Archive.path_structure`
@@ -74,19 +168,14 @@ class Archive:
 
     Attributes
     ----------
-    archive_path:
+    path:
         Location of seismic data archive: e.g.: ./DATA_ARCHIVE.
-    stations:
-        Series object containing station names.
     format:
         Directory structure and file naming format of data archive.
-    read_all_stations:
-        If True, read all stations in archive for that time period. Else, only read
-        specified stations.
     resample:
         If true, perform resampling of data which cannot be decimated directly to the
         desired sampling rate. See :func:`~quakemigrate.util.resample`
-    response_inv:
+    inventory:
         ObsPy response inventory for this waveform archive, containing response
         information for each channel of each station of each network.
     pre_filt:
@@ -100,66 +189,47 @@ class Archive:
         Response Stage). Significantly slower.
     upfactor:
         Factor by which to upsample the data to enable it to be decimated to the desired
-        sampling rate, e.g., 40Hz -> 50Hz requires upfactor = 5.
+        sampling rate, e.g., 40 Hz -> 50 Hz requires upfactor = 5.
         See :func:`~quakemigrate.util.resample`
     interpolate:
         If data is timestamped "off-sample" (i.e. a non-integer number of samples after
         midnight), whether to interpolate the data to apply the necessary correction.
         Default behaviour is to just alter the metadata, resulting in a sub-sample
         timing offset. See :func:`~quakemigrate.util.shift_to_sample`.
-    ignore_network_code:
-        If True, replace all network codes in the waveform archive with a dummy value.
-        Note this may cause issues if station codes are repeated, with SEED-ID's only
-        distinguished by their differing network codes.
-    dummy_network_code:
-        Provides the option to specify the dummy network code applied to the waveform
-        archive, if `ignore_network_code` is set to True.
-    ignore_location_code:
-        If True, replace all location codes in the waveform archive with a blank string.
 
     """
 
-    def __init__(
-        self,
-        archive_path: str,
-        stations: pd.DataFrame,
-        archive_format: str | None = None,
-        **kwargs: dict,
-    ) -> None:
-        """Instantiate the Archive object."""
+    path: str | pathlib.Path
+    format: str
+    inventory: Inventory | None = None
 
-        self.archive_path: pathlib.Path = pathlib.Path(archive_path)
-        self.stations: pd.Series = stations["Name"]
-        if archive_format:
-            channels = kwargs.get("channels", "*")
-            self.path_structure(archive_format, channels)
-        else:
-            self.format: str = kwargs.get("format")
+    # Resampling parameters
+    resample: bool = False
+    upfactor: int | None = None
+    interpolate: bool = False
 
-        self.read_all_stations: bool = kwargs.get("read_all_stations", False)
-        # Resampling parameters
-        self.resample: bool = kwargs.get("resample", False)
-        self.upfactor: int = kwargs.get("upfactor")
-        self.interpolate: bool = kwargs.get("interpolate", False)
-        # SEED ID params
-        self.ignore_network_code: bool = kwargs.get("ignore_network_code", False)
-        self.dummy_network_code: str = kwargs.get("dummy_network_code", "XX")
-        self.ignore_location_code: bool = kwargs.get("ignore_location_code", False)
-        # Response removal parameters
-        self.response_inv: Inventory | None = kwargs.get("response_inv")
-        response_removal_params: dict = kwargs.get("response_removal_params", {})
-        if self.response_inv and "water_level" not in response_removal_params.keys():
-            print(  # Logger not yet spun up
-                "Warning: 'water level' for instrument correction not "
-                "specified. Set to default: 60"
+    # Response removal parameters
+    response_removal_params: dict | None = None
+    water_level: float = 60.0
+    pre_filt: tuple[float, float, float, float] | None = None
+    remove_full_response: bool = False
+
+    def __post_init__(self) -> None:
+        self.path = pathlib.Path(self.path)
+        self.format = _validate_path_format(self.format)
+
+        if self.inventory:
+            if self.response_removal_params is None:
+                self.response_removal_params = {}
+                print(
+                    "Warning: 'water level' for instrument correction not "
+                    "specified. Set to default: 60"
+                )
+            self.water_level = self.response_removal_params.get("water_level", 60.0)
+            self.pre_filt = self.response_removal_params.get("pre_filt")
+            self.remove_full_response = self.response_removal_params.get(
+                "remove_full_response", False
             )
-        self.water_level: float = response_removal_params.get("water_level", 60.0)
-        self.pre_filt: tuple[float, float, float, float] = response_removal_params.get(
-            "pre_filt"
-        )
-        self.remove_full_response: bool = response_removal_params.get(
-            "remove_full_response", False
-        )
 
     def __str__(self, response_only: bool = False) -> str:
         """
@@ -178,7 +248,7 @@ class Archive:
 
         """
 
-        if self.response_inv:
+        if self.inventory:
             response_str = (
                 "\tResponse removal parameters:\n"
                 f"\t\tWater level  = {self.water_level}\n"
@@ -195,65 +265,21 @@ class Archive:
         if not response_only:
             out = (
                 "QuakeMigrate Archive object"
-                f"\n\tArchive path\t:\t{self.archive_path}"
+                f"\n\tArchive root\t:\t{self.path}"
                 f"\n\tPath structure\t:\t{self.format}"
                 f"\n\tResampling\t:\t{self.resample}"
             )
             if self.upfactor:
                 out += f"\n\tUpfactor\t:\t{self.upfactor}"
-            out += "\n\tStations:"
-            for station in self.stations:
-                out += f"\n\t\t{station}"
             out += f"\n{response_str}"
         else:
             out = response_str
 
         return out
 
-    def path_structure(
-        self, archive_format: str = "YEAR/JD/STATION", channels: str = "*"
-    ) -> None:
-        """
-        Define the directory structure and file naming format of the data archive.
-
-        Parameters
-        ----------
-        archive_format:
-            Directory structure and file naming format of the data archive. This may be
-            the name of a generic archive format (e.g., SeisComp3), or one of a selection
-            of additional formats built into QuakeMigrate.
-        channels:
-            Channel codes to include. E.g. channels="[B,H]H*".
-
-        Raises
-        ------
-        InvalidArchivePathStructure
-            If the `archive_format` specified by the user is not a valid option.
-
-        """
-
-        if archive_format == "SeisComp3":
-            self.format = (
-                "{year}/*/{station}/" + channels + "/*.{station}.*.*.D."
-                "{year}.{jday:03d}"
-            )
-        elif archive_format == "YEAR/JD/*_STATION_*":
-            self.format = "{year}/{jday:03d}/*_{station}_*"
-        elif archive_format == "YEAR/JD/STATION":
-            self.format = "{year}/{jday:03d}/{station}*"
-        elif archive_format == "STATION.YEAR.JULIANDAY":
-            self.format = "*{station}.*.{year}.{jday:03d}"
-        elif archive_format == "/STATION/STATION.YearMonthDay":
-            self.format = "{station}/{station}.{year}{month:02d}{day:02d}"
-        elif archive_format == "YEAR_JD/STATION*":
-            self.format = "{year}_{jday:03d}/{station}*"
-        elif archive_format == "YEAR_JD/STATION_*":
-            self.format = "{year}_{jday:03d}/{station}_*"
-        else:
-            raise InvalidArchivePathStructure(archive_format)
-
     def read_waveform_data(
         self,
+        stations: list[Station],
         starttime: UTCDateTime,
         endtime: UTCDateTime,
         pre_pad: float = 0.0,
@@ -271,6 +297,8 @@ class Archive:
 
         Parameters
         ----------
+        stations:
+            List of Station objects for which to read waveform data.
         starttime:
             Timestamp from which to read waveform data.
         endtime:
@@ -283,8 +311,7 @@ class Archive:
         Returns
         -------
         data:
-            Object containing the waveform data read from the archive that satisfies the
-            query.
+            Waveform data read from the archive that satisfies the query.
 
         Raises
         ------
@@ -303,11 +330,10 @@ class Archive:
         data = WaveformData(
             starttime=starttime,
             endtime=endtime,
-            stations=self.stations,
-            read_all_stations=self.read_all_stations,
+            stations=stations,
             resample=self.resample,
             upfactor=self.upfactor,
-            response_inv=self.response_inv,
+            inventory=self.inventory,
             water_level=self.water_level,
             pre_filt=self.pre_filt,
             remove_full_response=self.remove_full_response,
@@ -315,7 +341,8 @@ class Archive:
             post_pad=post_pad,
         )
 
-        files = self._load_from_path(starttime - pre_pad, endtime + post_pad)
+        read_start, read_end = starttime - pre_pad, endtime + post_pad
+        files = self._load_from_path(stations, read_start, read_end)
 
         st = Stream()
         try:
@@ -324,8 +351,6 @@ class Archive:
             for file in files:
                 file = str(file)
                 try:
-                    read_start = starttime - pre_pad
-                    read_end = endtime + post_pad
                     st += read(
                         file,
                         starttime=read_start,
@@ -336,13 +361,11 @@ class Archive:
                     logging.info(f"File not compatible with ObsPy - {file}")
                     continue
 
-            # If network code is to be ignored, set all channels to network code 'XX'
-            if self.ignore_network_code:
+            if not any(station.network for station in stations):
                 for tr in st:
-                    tr.stats.network = self.dummy_network_code
+                    tr.stats.network = "XX"
 
-            # If location code is to be ignored, set all channels to location code ''
-            if self.ignore_location_code:
+            if not any(station.location for station in stations):
                 for tr in st:
                     tr.stats.location = ""
 
@@ -357,11 +380,11 @@ class Archive:
             # used to calculate the onset function / migrated.
             st = util.shift_to_sample(st, interpolate=self.interpolate)
 
-            if self.read_all_stations:
-                # Re-populate st with only stations in station file
+            if any(station.read_only for station in stations):
                 st_selected = Stream()
-                for station in self.stations:
-                    st_selected += st.select(station=station)
+                for station in stations:
+                    if not station.read_only:
+                        st_selected += st.select(station=station.station)
                 st = st_selected.copy()
                 del st_selected
 
@@ -386,13 +409,15 @@ class Archive:
         return data
 
     def _load_from_path(
-        self, starttime: UTCDateTime, endtime: UTCDateTime
+        self, stations: list[Station], starttime: UTCDateTime, endtime: UTCDateTime
     ) -> Iterator[pathlib.Path]:
         """
         Retrieves available files between two times.
 
         Parameters
         ----------
+        stations:
+            List of Station objects to be read from archive.
         starttime:
             Timestamp from which to read waveform data.
         endtime:
@@ -403,63 +428,46 @@ class Archive:
         files:
             Iterator object of available waveform data files.
 
-        Raises
-        ------
-        ArchiveFormatError
-            If the Archive.format attribute has not been set.
-
         """
-
-        if self.format is None:
-            raise ArchiveFormatError()
 
         # Loop through time period by day adding files to list
         # NOTE! This assumes the archive structure is split into days.
         files = []
         loadstart = UTCDateTime(starttime.date)
         while loadstart <= endtime:
-            temp_format = self.format.format(
-                year=loadstart.year,
-                month=loadstart.month,
-                day=loadstart.day,
-                jday=loadstart.julday,
-                station="{station}",
-                dtime=loadstart,
-            )
-            if self.read_all_stations is True:
-                file_format = temp_format.format(station="*")
-                file_format = file_format.replace("**", "*")
-                files = chain(files, self.archive_path.glob(file_format))
-            else:
-                for station in self.stations:
-                    file_format = temp_format.format(station=station)
-                    files = chain(files, self.archive_path.glob(file_format))
+            for station in stations:
+                file_format = self.format.format(
+                    year=loadstart.year,
+                    month=loadstart.month,
+                    day=loadstart.day,
+                    jday=loadstart.julday,
+                    network=station.network if station.network is not None else "*",
+                    station=station.station,
+                    location=station.location if station.location is not None else "*",
+                    channels=station.channels if station.channels is not None else "*",
+                    dtime=loadstart,
+                )
+                files = chain(files, self.path.glob(file_format))
             loadstart += 86400
 
         return files
 
-    @property
-    def dummy_network_code(self) -> str:
-        """
-        Dummy network code is a 2 character string to replace the (possibly mixed) network
-        codes in the input archive.
-
-        """
-
-        return self._dummy_network_code
-
-    @dummy_network_code.setter
-    def dummy_network_code(self, value: str) -> None:
-        """Setter for dummy network code."""
-
-        if isinstance(value, str) and len(value) == 2:
-            self._dummy_network_code = value
-        else:
-            raise ValueError(
-                f"`dummy_network_code` must be a 2 character string, not {value}."
+    # --- Deprecation/Future handling ---
+    def path_structure(
+        self, archive_format: str = "YEAR/JD/STATION", channels: str = "*"
+    ) -> None:
+        """Deprecation handling for old method."""
+        if archive_format in ARCHIVE_FORMATS.keys():
+            print(
+                "This method of setting the archive format has been deprecated.\n"
+                f"Mapping {archive_format} -> {ARCHIVE_FORMATS[archive_format]}"
             )
+            self.format = ARCHIVE_FORMATS[archive_format]
+        else:
+            raise KeyError
 
 
+@dataclass
 class WaveformData:
     """
     The WaveformData class encapsulates the waveform data returned by an Archive query.
@@ -475,10 +483,7 @@ class WaveformData:
     endtime:
         Timestamp of last sample of waveform data requested from the archive.
     stations:
-        Series object containing station names.
-    read_all_stations:
-        If True, `raw_waveforms` contain all stations in archive for that time period.
-        Else, only selected stations will be included.
+        Iterable of Station objects.
     resample:
         If true, allow resampling of data which cannot be decimated directly to the
         desired sampling rate. See :func:`~quakemigrate.util.resample`
@@ -486,7 +491,7 @@ class WaveformData:
         Factor by which to upsample the data to enable it to be decimated to the desired
         sampling rate, e.g., 40Hz -> 50Hz requires upfactor = 5.
         See :func:`~quakemigrate.util.resample`
-    response_inv:
+    inventory:
         ObsPy response inventory for this waveform data, containing response information
         for each channel of each station of each network.
     pre_filt:
@@ -507,9 +512,9 @@ class WaveformData:
     ----------
     raw_waveforms:
         Raw seismic data read in from the archive. This may be for all stations in the
-        archive, or only those specified by the user. See `read_all_stations`. It may
-        also cover the time period between `starttime` and `endtime`, or feature an
-        additional pre- and post-pad. See `pre_pad` and `post_pad`.
+        archive, or only those specified by the user. It may also cover the time period
+        between `starttime` and `endtime`, or feature an additional pre- and post-pad.
+        See `pre_pad` and `post_pad`.
     waveforms:
         Seismic data read in from the archive for the specified list of stations,
         between `starttime` and `endtime`.
@@ -521,41 +526,22 @@ class WaveformData:
 
     """
 
-    def __init__(
-        self,
-        starttime: UTCDateTime,
-        endtime: UTCDateTime,
-        stations: pd.Series | None = None,
-        response_inv: Inventory | None = None,
-        water_level: float = 60.0,
-        pre_filt: tuple[float, float, float, float] | None = None,
-        remove_full_response: bool = False,
-        read_all_stations: bool = False,
-        resample: bool = False,
-        upfactor: int | None = None,
-        pre_pad: float = 0.0,
-        post_pad: float = 0.0,
-    ) -> None:
-        """Instantiate the WaveformData object."""
+    starttime: UTCDateTime
+    endtime: UTCDateTime
+    stations: list[Station] | None = None
+    inventory: Inventory | None = None
+    water_level: float = 60.0
+    pre_filt: tuple[float, float, float, float] | None = None
+    remove_full_response: bool = False
+    resample: bool = False
+    upfactor: int | None = None
+    pre_pad: float = 0.0
+    post_pad: float = 0.0
 
-        self.starttime = starttime
-        self.endtime = endtime
-        self.stations = stations
-        self.response_inv = response_inv
-        self.water_level = water_level
-        self.pre_filt = pre_filt
-        self.remove_full_response = remove_full_response
-
-        self.read_all_stations = read_all_stations
-        self.resample = resample
-        self.upfactor = upfactor
-        self.pre_pad = pre_pad
-        self.post_pad = post_pad
-
-        self.raw_waveforms: Stream | None = None
-        self.waveforms: Stream = Stream()
-        self.wa_waveforms: Stream | None = None
-        self.real_waveforms: Stream | None = None
+    waveforms: Stream = field(default_factory=Stream)
+    raw_waveforms: Stream | None = None
+    wa_waveforms: Stream | None = None
+    real_waveforms: Stream | None = None
 
     def check_availability(
         self,
@@ -663,7 +649,8 @@ class WaveformData:
                     elif st_id[0].stats.npts < n_samples:
                         logging.debug("Trace has too few samples.")
                         logging.debug(
-                            f"(n_samples, trace_npts) : ({n_samples}, {st_id[0].stats.npts})"
+                            "(n_samples, trace_npts) : "
+                            f"({n_samples}, {st_id[0].stats.npts})"
                         )
                         continue
                 # Check start and end times of trace are exactly correct
@@ -726,7 +713,7 @@ class WaveformData:
 
         """
 
-        if not self.response_inv:
+        if not self.inventory:
             raise AttributeError("No response inventory provided!")
 
         tr_out = tr.copy()
@@ -738,7 +725,7 @@ class WaveformData:
             # effect of the digital FIR filters applied to the recorded waveforms.
             # However, due to this it is significantly faster to compute.
             try:
-                response = self.response_inv.get_response(
+                response = self.inventory.get_response(
                     tr_out.id, tr_out.stats.starttime
                 )
             except Exception as e:
@@ -775,7 +762,7 @@ class WaveformData:
 
             try:
                 tr_out.remove_response(
-                    inventory=self.response_inv,
+                    inventory=self.inventory,
                     output=output,
                     pre_filt=self.pre_filt,
                     water_level=self.water_level,

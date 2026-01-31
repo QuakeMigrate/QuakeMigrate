@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 from obspy import UTCDateTime
 
-from quakemigrate.util import NoStationAvailabilityDataException
+from quakemigrate.exceptions import NoStationAvailabilityData
 
 
 if TYPE_CHECKING:
@@ -46,6 +46,11 @@ def read_availability(
     availability:
         Details the availability of each station for each timestep of detect.
 
+    Raises
+    ------
+    NoStationAvailabilityData
+        If no _StationAvailability.csv files are found.
+
     """
 
     fpath = run.path / "detect" / "availability"
@@ -71,7 +76,7 @@ def read_availability(
         readstart += 86400
 
     if availability is None:
-        raise NoStationAvailabilityDataException
+        raise NoStationAvailabilityData(fpath, starttime, endtime)
 
     starttime, endtime = availability.index[0], availability.index[-1]
     logging.debug(f"\t\t...from {starttime} - {endtime}")

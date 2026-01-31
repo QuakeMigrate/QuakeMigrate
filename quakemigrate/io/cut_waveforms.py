@@ -19,6 +19,7 @@ from typing import Literal, TYPE_CHECKING
 from obspy import Stream
 
 import quakemigrate.util as util
+from quakemigrate.exceptions import ResponseNotFoundError, ResponseRemovalError
 
 
 if TYPE_CHECKING:
@@ -185,7 +186,7 @@ def get_waveforms(
                 else:
                     tr = event.data.get_wa_waveform(tr, velocity)
                 st_out.append(tr)
-            except (util.ResponseNotFoundError, util.ResponseRemovalError) as e:
+            except (ResponseNotFoundError, ResponseRemovalError) as e:
                 logging.warning(e)
 
     return st_out

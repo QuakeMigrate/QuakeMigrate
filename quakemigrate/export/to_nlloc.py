@@ -37,6 +37,11 @@ def nlloc_obs(event: Event, filename: str, autopick: bool = True) -> None:
     autopick:
         Whether to read the autopicks or the modelled arrival times.
 
+    Raises
+    ------
+    TypeError
+        If provided `event` is not of type `obspy.core.event.Event`.
+
     """
 
     info = []
@@ -47,7 +52,7 @@ def nlloc_obs(event: Event, filename: str, autopick: bool = True) -> None:
         method = "modelled"
 
     if not isinstance(event, Event):
-        raise ValueError(
+        raise TypeError(
             "Writing NonLinLoc Phase file is only supported for a single Event at a "
             "time. Use a for loop over the catalog and provide an output file name for "
             "each event)."

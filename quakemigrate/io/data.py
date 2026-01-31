@@ -19,6 +19,14 @@ from typing import TYPE_CHECKING
 from obspy import read, Stream, UTCDateTime
 
 import quakemigrate.util as util
+from quakemigrate.exceptions import (
+    ArchiveFormatError,
+    InvalidArchivePathStructure,
+    ArchiveEmpty,
+    DataGap,
+    ResponseNotFoundError,
+    ResponseRemovalError,
+)
 
 
 if TYPE_CHECKING:
@@ -219,7 +227,7 @@ class Archive:
 
         Raises
         ------
-        ArchivePathStructureError
+        InvalidArchivePathStructure
             If the `archive_format` specified by the user is not a valid option.
 
         """
@@ -242,7 +250,7 @@ class Archive:
         elif archive_format == "YEAR_JD/STATION_*":
             self.format = "{year}_{jday:03d}/{station}_*"
         else:
-            raise util.ArchivePathStructureError(archive_format)
+            raise InvalidArchivePathStructure(archive_format)
 
     def read_waveform_data(
         self,
@@ -280,9 +288,9 @@ class Archive:
 
         Raises
         ------
-        ArchiveEmptyException
+        ArchiveEmpty
             If no data files are found in the archive for this day(s).
-        DataAvailabilityException
+        DataGap
             If no data is found in the archive for the specified stations within the
             specified time window.
 
@@ -367,13 +375,13 @@ class Archive:
             # Test if the stream is completely empty
             # (see __nonzero__ for `obspy.Stream` object)
             if not bool(st):
-                raise util.DataGapException
+                raise DataGap()
 
             # Add cleaned stream to `waveforms`
             data.waveforms = st
 
         except StopIteration:
-            raise util.ArchiveEmptyException
+            raise ArchiveEmpty()
 
         return data
 
@@ -397,13 +405,13 @@ class Archive:
 
         Raises
         ------
-        ArchiveFormatException
+        ArchiveFormatError
             If the Archive.format attribute has not been set.
 
         """
 
         if self.format is None:
-            raise util.ArchiveFormatException
+            raise ArchiveFormatError()
 
         # Loop through time period by day adding files to list
         # NOTE! This assumes the archive structure is split into days.
@@ -606,6 +614,8 @@ class WaveformData:
         Raises
         ------
         TypeError
+            If `check_sampling_rate` is requested, but no `sampling_rate` provided.
+        TypeError
             If the user specifies `all_channels=True` but does not specify `n_channels`.
 
         """
@@ -732,7 +742,7 @@ class WaveformData:
                     tr_out.id, tr_out.stats.starttime
                 )
             except Exception as e:
-                raise util.ResponseNotFoundError(str(e), tr_out.id)
+                raise ResponseNotFoundError(str(e), tr_out.id)
 
             # Get the instrument transfer function as a PAZ dictionary
             paz = response.get_paz()
@@ -757,7 +767,7 @@ class WaveformData:
                     pitsasim=False,  # To replicate remove_response()
                 )
             except ValueError as e:
-                raise util.ResponseRemovalError(e, tr_out.id)
+                raise ResponseRemovalError(e, tr_out.id)
         else:
             # Use remove_response(), which removes the effect of _all_ response stages,
             # including the FIR stages. Considerably slower.
@@ -772,7 +782,7 @@ class WaveformData:
                     taper=True,
                 )
             except ValueError as e:
-                raise util.ResponseRemovalError(e, tr_out.id)
+                raise ResponseRemovalError(e, tr_out.id)
 
         if self.real_waveforms is None:
             self.real_waveforms = Stream()

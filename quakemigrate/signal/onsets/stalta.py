@@ -21,6 +21,7 @@ from scipy.signal import hilbert
 
 import quakemigrate.util as util
 from quakemigrate.core import overlapping_sta_lta, centred_sta_lta
+from quakemigrate.exceptions import AllDataRejected, NyquistException
 from .base import Onset, OnsetData
 
 
@@ -216,7 +217,7 @@ def pre_process(
     lowcut, highcut, order = filter_
     # Check that the filter is compatible with the sampling rate
     if highcut >= 0.5 * sampling_rate:
-        raise util.NyquistException(highcut, 0.5 * sampling_rate, "")
+        raise NyquistException(highcut, 0.5 * sampling_rate, "")
 
     # Detrend, apply cosine taper then apply zero-phase band-pass filter
     # Copy to not operate in-place on the input stream
@@ -303,6 +304,11 @@ class STALTAOnset(Onset):
         include. The appropriate value will depend on the signal and noise
         characteristics, and the `signal_transform` selected.
         NOTE: must be greater than 0.01
+
+    Raises
+    ------
+    ValueError
+        If the minimum onset value is less than 0.01.
 
     """
 
@@ -392,6 +398,11 @@ class STALTAOnset(Onset):
             Stacked onset functions served up for migration, shape(nonsets, nsamples).
         onset_data:
             Light class encapsulating data generated during onset calculation.
+
+        Raises
+        ------
+        AllDataRejected
+            If no data passes the specified criteria.
 
         """
 
@@ -487,7 +498,7 @@ class STALTAOnset(Onset):
         logging.debug(filtered_waveforms.__str__(extended=True))
 
         if sum(availability.values()) == 0:
-            raise util.DataAvailabilityException
+            raise AllDataRejected()
 
         onsets = np.stack(onsets, axis=0)
         onset_data = OnsetData(

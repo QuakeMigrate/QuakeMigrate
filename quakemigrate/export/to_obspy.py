@@ -122,6 +122,11 @@ def _read_single_event(
         :class:`~quakemigrate.signal.scan.locate()`, including event locations and
         uncertainties, picks, and amplitudes and magnitudes if available.
 
+    Raises
+    ------
+    ValueError
+        If an invalid value of `unit` has been supplied.
+
     """
 
     # Parse information from event file
@@ -134,7 +139,7 @@ def _read_single_event(
     elif units == "m":
         factor = 1
     else:
-        raise AttributeError(f"units must be 'km' or 'm'; not {units}")
+        raise ValueError(f"units must be 'km' or 'm'; not {units}")
 
     # Create event object to store origin and pick information
     event = Event()

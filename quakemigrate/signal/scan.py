@@ -24,6 +24,12 @@ from scipy.signal import fftconvolve
 
 import quakemigrate.util as util
 from quakemigrate.core import find_max_coa, migrate
+from quakemigrate.exceptions import (
+    ArchiveEmpty,
+    AllDataRejected,
+    DataGap,
+    LUTMissingPhaseTables,
+)
 from quakemigrate.io import (
     Event,
     Run,
@@ -178,16 +184,17 @@ class QuakeScan:
 
     Raises
     ------
-    OnsetTypeError
+    TypeError
         If an object is passed in through the `onset` argument that is not derived from
         the :class:`~quakemigrate.signal.onsets.base.Onset` base class.
-    PickerTypeError
+    TypeError
         If an object is passed in through the `picker` argument that is not derived from
         the :class:`~quakemigrate.signal.pickers.base.PhasePicker` base class.
+    TypeError
+        If an object is passed in through the `mags` argument that is not derived from
+        the :class:`~quakemigrate.signal.local_mag.LocalMag` base class.
     RuntimeError
         If the user does not supply the locate function with valid arguments.
-    TimeSpanException
-        If the user supplies a starttime that is after the endtime.
 
     """
 
@@ -204,10 +211,13 @@ class QuakeScan:
 
         self.archive = archive
         self.lut = lut
-        if isinstance(onset, Onset):
-            self.onset = onset
-        else:
-            raise util.OnsetTypeError
+
+        if not isinstance(onset, Onset):
+            raise TypeError(
+                f"onset must inherit from quakemigrate.signal.onsets.Onset "
+                f"(got {type(onset).__name__})."
+            )
+        self.onset = onset
         self.onset.post_pad = lut.max_traveltime
 
         self.pre_pad = 0.0
@@ -223,13 +233,17 @@ class QuakeScan:
         )
         self.log: bool = kwargs.get("log", False)
 
-        picker: PhasePicker | None = kwargs.get("picker")
+        picker = kwargs.get("picker")
+
         if picker is None:
             self.picker = GaussianPicker(onset=onset)
         elif isinstance(picker, PhasePicker):
             self.picker = picker
         else:
-            raise util.PickerTypeError
+            raise TypeError(
+                "picker must be a PhasePicker instance or None "
+                f"(got {type(picker).__name__})."
+            )
 
         # --- Grab QuakeScan parameters or set defaults ---
         # Parameters related specifically to Detect
@@ -249,7 +263,10 @@ class QuakeScan:
         mags: LocalMag | None = kwargs.get("mags")
         if mags is not None:
             if not isinstance(mags, LocalMag):
-                raise util.MagsTypeError
+                raise TypeError(
+                    "mags must be a LocalMag instance or None "
+                    f"(got {type(mags).__name__})."
+                )
         self.mags = mags
 
         # Plotting toggles and parameters
@@ -312,6 +329,11 @@ class QuakeScan:
             accommodate. If the endtime is set to midnight, then it will be automatically
             adjusted to one sample prior.
 
+        Raises
+        ------
+        ValueError
+            If `starttime` is later than `endtime`.
+
         """
 
         # Configure logging
@@ -320,7 +342,7 @@ class QuakeScan:
 
         starttime, endtime = UTCDateTime(starttime), UTCDateTime(endtime)
         if starttime > endtime:
-            raise util.TimeSpanException
+            raise ValueError("starttime must be <= endtime")
         # Shift endtime one sample earlier if it is at midnight (not necessary for
         # typical combinations of starttimes and timesteps, but here to cover edge
         # cases)
@@ -375,6 +397,15 @@ class QuakeScan:
         trigger_file:
             File containing triggered events to be located.
 
+        Raises
+        ------
+        ValueError
+            If `starttime` is later than `endtime`.
+        RuntimeError
+            If none of `trigger_file`, `starttime`, or `endtime` are provided.
+        RuntimeError
+            If only one of `starttime` or `endtime` are provided.
+
         """
 
         # Configure logging
@@ -384,11 +415,11 @@ class QuakeScan:
         if not (starttime is None and endtime is None):
             starttime, endtime = UTCDateTime(starttime), UTCDateTime(endtime)
             if starttime > endtime:
-                raise util.TimeSpanException
+                raise ValueError("starttime must be <= endtime")
         if trigger_file is None and starttime is None and endtime is None:
-            raise RuntimeError("Must supply an input argument.")
+            raise RuntimeError("must supply an input argument.")
         if (starttime is None) ^ (endtime is None):
-            raise RuntimeError("Must supply a starttime AND an endtime.")
+            raise RuntimeError("must supply a starttime AND an endtime.")
 
         logging.info(util.log_spacer)
         logging.info("\tLOCATE - Determining event location and uncertainty")
@@ -459,11 +490,7 @@ class QuakeScan:
                     time, max_coa, max_coa_n, coord, self.lut.unit_conversion_factor
                 )
                 availability.loc[i] = onset_data.availability
-            except (
-                util.ArchiveEmptyException,
-                util.DataGapException,
-                util.DataAvailabilityException,
-            ) as e:
+            except (ArchiveEmpty, AllDataRejected, DataGap) as e:
                 coalescence.empty(
                     starttime, self.timestep, i, e.msg, self.lut.unit_conversion_factor
                 )
@@ -516,11 +543,7 @@ class QuakeScan:
                 event.add_compute_output(  # pylint: disable=E1120
                     *self._compute(event.data, event)
                 )
-            except (
-                util.ArchiveEmptyException,
-                util.DataGapException,
-                util.DataAvailabilityException,
-            ) as e:
+            except (ArchiveEmpty, AllDataRejected, DataGap) as e:
                 logging.info(e.msg)
                 continue
 
@@ -634,6 +657,11 @@ class QuakeScan:
         map4d:
             4-D coalescence map.
 
+        Raises
+        ------
+        LUTMissingPhaseTables
+            If traveltime tables for a specific phase are not available.
+
         """
 
         # --- Calculate continuous coalescence within 3-D volume ---
@@ -643,11 +671,9 @@ class QuakeScan:
                 onset_data.sampling_rate, onset_data.availability
             )
         except KeyError as e:
-            raise util.LUTPhasesException(
-                f"Attempting to migrate phases {onset_data.phases}; but traveltimes "
-                f"for {e} not found in the LUT. Please create a new lookup table with "
-                f"phases={onset_data.phases}"
-            )
+            missing = e.args[0] if e.args else "<unknown>"
+            raise LUTMissingPhaseTables(missing, list(onset_data.phase))
+
         # Here fsmp and lsmp are used to calculate the length of map4d from the shape of
         # the onset functions --> need to use onset sampling_rate, not scan rate.
         fsmp = util.time2sample(self.pre_pad, onset_data.sampling_rate)

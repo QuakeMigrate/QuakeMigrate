@@ -22,6 +22,14 @@ from obspy.geodetics.base import gps2dist_azimuth
 from scipy.signal import find_peaks, iirfilter, sosfreqz, hilbert
 
 import quakemigrate.util as util
+from quakemigrate.exceptions import (
+    LUTMissingPhaseTables,
+    NyquistException,
+    PeakToTroughError,
+    PickOrderError,
+    ResponseNotFoundError,
+    ResponseRemovalError,
+)
 
 
 if TYPE_CHECKING:
@@ -242,6 +250,11 @@ class Amplitude:
                     autopicker.
             Index = Trace ID (see `obspy.Trace` object property 'id')
 
+        Raises
+        ------
+        LUTMissingPhaseTables
+            If a LUT is provided that is missing one or both P and S tables.
+
         """
 
         # Initialise amplitudes DataFrame
@@ -273,13 +286,12 @@ class Amplitude:
         event_ijk = lut.index2coord(ev_loc, inverse=True)[0]
         try:
             p_ttimes = lut.traveltime_to("P", event_ijk)
+        except KeyError:
+            raise LUTMissingPhaseTables("P", ["P", "S"])
+        try:
             s_ttimes = lut.traveltime_to("S", event_ijk)
         except KeyError:
-            raise util.LUTPhasesException(
-                "Both P and S traveltimes are required to measure phase "
-                "amplitudes for local magnitude calculation. Please create "
-                "a new lookup table with phases=['P', 'S']"
-            )
+            raise LUTMissingPhaseTables("S", ["P", "S"])
 
         # Get start of earliest possible noise window and end of latest
         # possible signal window
@@ -347,7 +359,7 @@ class Amplitude:
                 # Do response removal
                 try:
                     tr = event.data.get_wa_waveform(tr, velocity=False)
-                except (util.ResponseNotFoundError, util.ResponseRemovalError) as e:
+                except (ResponseNotFoundError, ResponseRemovalError) as e:
                     logging.warning(e)
                     amplitudes.loc[i * 3 + j] = amps
                     continue
@@ -362,7 +374,7 @@ class Amplitude:
                         station, i, event, p_ttimes, s_ttimes, lut.fraction_tt
                     )
                     amps[14] = picked
-                except util.PickOrderException as e:
+                except PickOrderError as e:
                     logging.warning(f"{e}")
                     amplitudes.loc[i * 3 + j] = amps
                     continue
@@ -445,7 +457,7 @@ class Amplitude:
         if self.bandpass_filter:
             try:
                 filter_sos = self._bandpass_filter(tr)
-            except util.NyquistException as e:
+            except NyquistException as e:
                 logging.warning(f"\t{e} Applying a high-pass filter instead..")
                 filter_sos = self._highpass_filter(tr)
         else:
@@ -485,7 +497,7 @@ class Amplitude:
         low_f_crit = freqmin / f_nyquist
         high_f_crit = freqmax / f_nyquist
         if high_f_crit - 1.0 > -1e-6:
-            raise util.NyquistException(freqmax, f_nyquist, tr.id)
+            raise NyquistException(freqmax, f_nyquist, tr.id)
 
         # Pre-process and apply filter
         tr.detrend("linear")
@@ -601,7 +613,7 @@ class Amplitude:
 
         Raises
         ------
-        PickOrderException
+        PickOrderError
             If the P pick for an event/station is later than the S pick.
 
         """
@@ -632,7 +644,7 @@ class Amplitude:
         try:
             assert p_pick < s_pick
         except AssertionError:
-            raise util.PickOrderException(event.uid, station, p_pick, s_pick)
+            raise PickOrderError(event.uid, station, p_pick, s_pick)
 
         # For P:
         p_start = p_pick - event.marginal_window - p_ttimes[i] * fraction_tt
@@ -806,10 +818,10 @@ class Amplitude:
             # Measure maximum half peak-to-trough amplitude
             try:
                 half_amp, approx_freq, p2t_time = self._peak_to_trough_amplitude(window)
-            except util.PeakToTroughError as e:
+            except PeakToTroughError as e:
                 logging.warning(
                     f"Amplitude measurement failed in {phase} "
-                    f"signal window for trace {window.id}: {e.msg}"
+                    f"signal window for trace {window.id}: {str(e)}"
                 )
                 continue
 
@@ -893,7 +905,7 @@ class Amplitude:
         # peak-to-peak amplitude, and the time difference separating the peaks
         full_amp = None
         if len(peaks) == 0 or len(troughs) == 0:
-            raise util.PeakToTroughError("No peaks or troughs found!")
+            raise PeakToTroughError("No peaks or troughs found!")
         elif len(peaks) == 1 and len(troughs) == 1:
             full_amp = np.abs(trace.data[peaks] - trace.data[troughs])[0]
             pos = 0
@@ -904,18 +916,18 @@ class Amplitude:
                 a, b, c, d = peaks, troughs, peaks[:-1], troughs[1:]
         elif not np.abs(len(peaks) - len(troughs)) == 1:
             # More than two peaks/troughs next to one another
-            raise util.PeakToTroughError("Consecutive peaks/troughs!")
+            raise PeakToTroughError("Consecutive peaks/troughs!")
         elif len(peaks) > len(troughs):
             try:
                 assert peaks[0] < troughs[0]
             except AssertionError:
-                raise util.PeakToTroughError("Consecutive peaks/troughs!")
+                raise PeakToTroughError("Consecutive peaks/troughs!")
             a, b, c, d = peaks[:-1], troughs, peaks[1:], troughs
         elif len(peaks) < len(troughs):
             try:
                 assert peaks[0] > troughs[0]
             except AssertionError:
-                raise util.PeakToTroughError("Consecutive peaks/troughs!")
+                raise PeakToTroughError("Consecutive peaks/troughs!")
             a, b, c, d = peaks, troughs[1:], peaks, troughs[:-1]
 
         if not full_amp:

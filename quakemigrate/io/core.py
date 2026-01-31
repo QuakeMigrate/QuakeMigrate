@@ -20,6 +20,7 @@ import pandas as pd
 from obspy import read_inventory
 
 import quakemigrate.util as util
+from quakemigrate.exceptions import InvalidStationFileHeader, InvalidVelocityModelHeader
 from quakemigrate.lut import LUT
 
 
@@ -89,15 +90,16 @@ def read_stations(station_file: str, **kwargs: dict) -> pd.DataFrame:
 
     Raises
     ------
-    StationFileHeaderException
+    InvalidStationFileHeader
         Raised if the input file is missing required entries in the header.
 
     """
 
     stn_data = pd.read_csv(station_file, **kwargs)
 
-    if ("Latitude" or "Longitude" or "Elevation" or "Name") not in stn_data.columns:
-        raise util.StationFileHeaderException
+    required = {"Latitude", "Longitude", "Elevation", "Name"}
+    if not required.issubset(stn_data.columns):
+        raise InvalidStationFileHeader(found=list(stn_data.columns))
 
     stn_data["Elevation"] = stn_data["Elevation"].apply(lambda x: -1 * x)
 
@@ -148,6 +150,8 @@ def read_response_inv(
         If the user selects `sac_pz_format=True`.
     TypeError
         If the user provides a response file that is not readable by ObsPy.
+    TypeError
+        If the dummy network code is not a 2-character alphanumeric string.
 
     """
 
@@ -209,7 +213,7 @@ def read_vmodel(vmodel_file: str, **kwargs: dict) -> pd.DataFrame:
 
     Raises
     ------
-    VelocityModelFileHeaderException
+    InvalidVelocityModelHeader
         Raised if the input file is missing required entries in the header.
 
     """
@@ -217,7 +221,7 @@ def read_vmodel(vmodel_file: str, **kwargs: dict) -> pd.DataFrame:
     vmodel_data = pd.read_csv(vmodel_file, **kwargs)
 
     if "Depth" not in vmodel_data.columns:
-        raise util.InvalidVelocityModelHeader("Depth")
+        raise InvalidVelocityModelHeader("Depth")
 
     return vmodel_data
 

@@ -22,24 +22,7 @@ import tomllib
 from dataclasses import dataclass
 from typing import Callable
 
-
-class CLIError(Exception):
-    """User-facing CLI error."""
-
-    exit_code: int = 1
-
-    def __init__(self, message: str, exit_code: int | None = None) -> None:
-        super().__init__(message)
-        if exit_code is not None:
-            self.exit_code = exit_code
-
-
-class ConfigError(CLIError):
-    exit_code = 2
-
-
-class ProjectError(CLIError):
-    exit_code = 3
+from quakemigrate.exceptions import CLIError, ConfigError, ProjectError
 
 
 def _load_toml_config(
@@ -239,36 +222,6 @@ def _new_lut(args: argparse.Namespace) -> None:
     dest.write_bytes(src.read_bytes())
 
 
-def _run_build_lut(args: argparse.Namespace) -> None:
-    """Construct a traveltime lookup table from a .toml config file."""
-
-    from obspy.core import AttribDict
-    from pyproj import Proj
-
-    from quakemigrate.io import read_stations
-    from quakemigrate.lut import compute_traveltimes
-
-    parameters = _load_toml_config(
-        stage="lut",
-        lut_name=args.lut_name,
-    )
-
-    stations = read_stations(parameters["station_file"])
-
-    grid_spec = AttribDict()
-    for key, value in parameters["grid_specification"].items():
-        grid_spec.__setattr__(key, value)
-    grid_spec.grid_proj = Proj(**parameters["grid_projection"])
-    grid_spec.coord_proj = Proj(**parameters["coordinate_projection"])
-
-    _ = compute_traveltimes(
-        grid_spec,
-        stations,
-        **parameters["compute"],
-        save_file=pathlib.Path.cwd() / "luts" / f"{args.lut_name}.lut",
-    )
-
-
 def _run_detect(args: argparse.Namespace) -> None:
     """Prepare and execute a Detect run from a .toml config file."""
 
@@ -292,9 +245,7 @@ def _run_detect(args: argparse.Namespace) -> None:
     archive = _require_key(parameters, "archive", ctx="detect")
     path = pathlib.Path(_require_key(archive, "path", ctx="archive"))
     if not path.exists():
-        raise ConfigError(
-            f"detect: archive.path not found:\n  {path}"
-        )
+        raise ConfigError(f"detect: archive.path not found:\n  {path}")
 
     scan = _require_key(parameters, "scan", ctx="detect")
     if args.threads is not None and args.threads < 1:
@@ -520,11 +471,7 @@ def entry_point(argv: list[str] | None = None) -> None:
     new_lut.set_defaults(func=RequiresProject(_new_lut))
 
     p = sub_parser.add_parser("build-lut")
-    p.add_argument(
-        "lut_name",
-        type=str,
-        help="LUT name."
-    )
+    p.add_argument("lut_name", type=str, help="LUT name.")
     p.add_argument(
         "--debug",
         action="store_true",
@@ -540,11 +487,7 @@ def entry_point(argv: list[str] | None = None) -> None:
 
     for cmd, fn in stages:
         p = sub_parser.add_parser(cmd)
-        p.add_argument(
-            "run_name",
-            type=str,
-            help="Run name."
-        )
+        p.add_argument("run_name", type=str, help="Run name.")
         p.add_argument(
             "--debug",
             action="store_true",

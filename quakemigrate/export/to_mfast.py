@@ -53,6 +53,11 @@ def sac_mfast(
     filename:
         Name of SAC file - defaults to "eventid/eventid.station.{comp}".
 
+    Raises
+    ------
+    ValueError
+        If an invalid value of `unit` has been supplied.
+
     """
 
     # Read in the mSEED file containing
@@ -64,7 +69,7 @@ def sac_mfast(
     elif units == "m":
         factor = 1e3
     else:
-        raise AttributeError(f"units must be 'km' or 'm'; not {units}")
+        raise ValueError(f"units must be 'km' or 'm'; not {units}")
 
     # Create general SAC header AttribDict
     event_header = AttribDict()

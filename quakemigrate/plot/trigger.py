@@ -19,6 +19,7 @@ import numpy as np
 import pandas as pd
 
 import quakemigrate.util as util
+from quakemigrate.exceptions import NoStationAvailabilityData
 from quakemigrate.io import read_availability
 
 
@@ -130,7 +131,7 @@ def trigger_summary(
     try:
         availability = read_availability(run, starttime, endtime)
         _plot_station_availability(fig.axes[2], availability, endtime)
-    except util.NoStationAvailabilityDataException as e:
+    except NoStationAvailabilityData as e:
         logging.info(e)
         availability = None
 

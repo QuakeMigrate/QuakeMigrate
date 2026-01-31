@@ -21,6 +21,7 @@ import pandas as pd
 from scipy.optimize import curve_fit
 
 import quakemigrate.util as util
+from quakemigrate.exceptions import NoOnsetPeak
 from quakemigrate.plot.phase_picks import pick_summary
 from .base import PhasePicker
 
@@ -65,6 +66,11 @@ class GaussianPicker(PhasePicker):
         Toggle writing the SEED id's of the traces that have contributed to a given phase
         pick within the .picks file.
 
+    Raises
+    ------
+    ValueError
+        If an invalid pick threshold method is selected.
+
     """
 
     DEFAULT_GAUSSIAN_FIT = {"popt": 0, "xdata": 0, "xdata_dt": 0, "PickValue": -1}
@@ -86,7 +92,10 @@ class GaussianPicker(PhasePicker):
         elif self.threshold_method == "MAD":
             self.mad_pick_threshold: float = kwargs.get("mad_pick_threshold", 8.0)
         else:
-            raise util.InvalidPickThresholdMethodException
+            raise ValueError(
+                f"Invalid pick threshold method '{self.threshold_method}'. "
+                "Supported methods are: 'percentile', 'MAD'."
+            )
         # Handle deprecated `pick_threshold`
         if kwargs.get("pick_threshold"):
             self.pick_threshold = kwargs["pick_threshold"]
@@ -442,7 +451,7 @@ class GaussianPicker(PhasePicker):
             )
             x_data = np.arange(*padded_peak_idxs) / sampling_rate
             y_data = onset[padded_peak_idxs[0] : padded_peak_idxs[1]]
-        except util.NoOnsetPeak as e:
+        except NoOnsetPeak as e:
             logging.debug(e.msg)
             return self._pick_failure(pick_threshold)
 
@@ -552,14 +561,14 @@ class GaussianPicker(PhasePicker):
 
         Raises
         ------
-        util.NoOnsetPeak
+        NoOnsetPeak
             If no onset data, or only a single sample, exceeds the pick threshold.
 
         """
 
         exceedence = np.where(windowed_onset > pick_threshold)[0]
         if len(exceedence) == 0:
-            raise util.NoOnsetPeak(pick_threshold)
+            raise NoOnsetPeak(pick_threshold)
 
         # Identify all peaks - there are possibly multiple distinct periods of data that
         # exceed the threshold. The following command simply seeks non-consecutive index
@@ -575,7 +584,7 @@ class GaussianPicker(PhasePicker):
 
         # Check if there is more than a single sample above the threshold
         if len(peaks[i]) < 2:
-            raise util.NoOnsetPeak(pick_threshold)
+            raise NoOnsetPeak(pick_threshold)
 
         # Grab the peak and return the start/end index values. NOTE: + 1 is required so
         # that the last sample is included when slicing by index

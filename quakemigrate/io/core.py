@@ -253,7 +253,7 @@ class Run:
         path: pathlib.Path,
         name: str,
         subname: str | None = None,
-        stage: Literal["detect", "trigger,locate"] | None = None,
+        stage: Literal["detect", "trigger", "locate"] | None = None,
         loglevel: str = "info",
     ) -> None:
         """Instantiate the Run object."""

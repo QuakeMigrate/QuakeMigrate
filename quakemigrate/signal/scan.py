@@ -22,7 +22,6 @@ from obspy import UTCDateTime
 from scipy.interpolate import Rbf
 from scipy.signal import fftconvolve
 
-import quakemigrate
 import quakemigrate.util as util
 from quakemigrate.core import find_max_coa, migrate
 from quakemigrate.io import (
@@ -41,7 +40,7 @@ from .local_mag import LocalMag
 
 
 if TYPE_CHECKING:
-    from quakemigrate.io.data import Archive
+    from quakemigrate.io.data import Archive, WaveformData
     from quakemigrate.lut import LUT
 
 
@@ -602,8 +601,8 @@ class QuakeScan:
     @util.timeit("info")
     def _compute(
         self,
-        data: quakemigrate.io.data.WaveformData,
-        event: quakemigrate.io.event.Event | None = None,
+        data: WaveformData,
+        event: Event | None = None,
     ) -> tuple[
         np.ndarray[UTCDateTime],
         np.ndarray[float],
@@ -671,7 +670,7 @@ class QuakeScan:
     @util.timeit("info")
     def _read_event_waveform_data(
         self, w_beg: UTCDateTime, w_end: UTCDateTime
-    ) -> quakemigrate.io.data.WaveformData:
+    ) -> WaveformData:
         """
         Read waveform data for a triggered event.
 
@@ -717,7 +716,7 @@ class QuakeScan:
         return self.archive.read_waveform_data(w_beg, w_end, pre_pad, post_pad)
 
     @util.timeit("info")
-    def _calculate_location(self, event: quakemigrate.io.event.Event) -> np.ndarray:
+    def _calculate_location(self, event: Event) -> np.ndarray:
         """
         Marginalise the 4-D coalescence grid and calculate a set of locations and
         associated uncertainties by:

@@ -18,75 +18,11 @@ import argparse
 import pathlib
 import shutil
 import sys
-import tomllib
 from dataclasses import dataclass
 from typing import Callable
 
-from quakemigrate.exceptions import CLIError, ConfigError, ProjectError
-
-
-def _load_toml_config(
-    stage: str,
-    run_name: str | None = None,
-    lut_name: str | None = None,
-) -> dict:
-    """
-    Read in the TOML config file for a QuakeMigrate stage.
-
-    Parameters
-    ----------
-    stage:
-        QuakeMigrate stage being run (used to find default).
-    run_name:
-        Unique name for the QM run, used to identify configs.
-    lut_name:
-        Unique name for the traveltime lookup table to be used.
-
-    Returns
-    -------
-    parameters:
-        Stage-specific parameters for QuakeMigrate.
-
-    """
-
-    project_root = pathlib.Path.cwd()
-
-    if stage in {"detect", "trigger", "locate"}:
-        if not run_name:
-            raise ConfigError(f"{stage}: missing run name for config resolution.")
-        path = project_root / "configs" / run_name / f"{stage}-{run_name}.toml"
-    elif stage == "lut":
-        if not lut_name:
-            raise ConfigError("lut: missing lut name for config resolution.")
-        path = project_root / "luts" / f"{lut_name}.toml"
-    else:
-        raise ConfigError(f"Unknown stage '{stage}' for config resolution.")
-
-    if not path.exists():
-        raise ConfigError(f"{stage}: config file not found:\n  {path}")
-    if not path.is_file():
-        raise ConfigError(f"{stage}: config path is not a file:\n  {path}")
-
-    try:
-        with path.open("rb") as f:
-            return tomllib.load(f)
-    except tomllib.TOMLDecodeError as e:
-        raise ConfigError(f"{stage}: invalid TOML in {path}:\n  {e}") from None
-
-
-def _require_project_root() -> None:
-    if not (pathlib.Path.cwd() / ".qm-project").exists():
-        raise ProjectError(
-            "This directory is not a valid QuakeMigrate project directory.\n"
-            "Run from the project root (where .qm-project exists)."
-        )
-
-
-def _require_key(d: dict, key: str, *, ctx: str) -> object:
-    try:
-        return d[key]
-    except KeyError:
-        raise ConfigError(f"{ctx}: missing required key '{key}'") from None
+from quakemigrate.exceptions import CLIError, ProjectError
+from quakemigrate.workflow.project import require_project_root
 
 
 @dataclass(frozen=True)
@@ -96,7 +32,7 @@ class RequiresProject:
     func: Callable[[argparse.Namespace], None]
 
     def __call__(self, args: argparse.Namespace) -> None:
-        _require_project_root()
+        _ = require_project_root()
         self.func(args)
 
 
@@ -161,13 +97,13 @@ def _new_run(args: argparse.Namespace) -> None:
       configs/<run_name>/
 
     Copies:
-      templates/detect.toml  -> configs/<run_name>/detect-<run_name>.toml
-      templates/trigger.toml -> configs/<run_name>/trigger-<run_name>.toml
-      templates/locate.toml  -> configs/<run_name>/locate-<run_name>.toml
+      configs/templates/detect.toml  -> configs/<run_name>/detect-<run_name>.toml
+      configs/templates/trigger.toml -> configs/<run_name>/trigger-<run_name>.toml
+      configs/templates/locate.toml  -> configs/<run_name>/locate-<run_name>.toml
 
     """
 
-    project_root = pathlib.Path.cwd()
+    project_root = require_project_root()
     configs_dir = project_root / "configs"
     templates_dir = configs_dir / "templates"
     run_dir = configs_dir / args.name
@@ -192,7 +128,7 @@ def _new_run(args: argparse.Namespace) -> None:
         if not src.exists():
             raise ProjectError(f"Missing stage template:\n  {src}")
 
-        dest = run_dir / f"{src.stem}-{args.name}.{src.suffix}"
+        dest = run_dir / f"{src.stem}-{args.name}{src.suffix}"
         dest.write_bytes(src.read_bytes())
 
 
@@ -205,7 +141,7 @@ def _new_lut(args: argparse.Namespace) -> None:
 
     """
 
-    project_root = pathlib.Path.cwd()
+    project_root = require_project_root()
     templates_dir = project_root / "configs/templates"
     luts_dir = project_root / "luts"
 
@@ -222,195 +158,35 @@ def _new_lut(args: argparse.Namespace) -> None:
     dest.write_bytes(src.read_bytes())
 
 
+def _build_lut(args: argparse.Namespace) -> None:
+    """Construct a traveltime LUT from a .toml config file."""
+    from quakemigrate.workflow.stages import lut
+
+    lut.build_project(args.lut_name)
+
+
 def _run_detect(args: argparse.Namespace) -> None:
     """Prepare and execute a Detect run from a .toml config file."""
 
-    from quakemigrate import QuakeScan
-    from quakemigrate.io import Archive, read_lut, read_stations
-    from quakemigrate.signal.onsets import STALTAOnset
+    from quakemigrate.workflow.stages import detect
 
-    parameters = _load_toml_config(
-        stage="detect",
-        run_name=args.run_name,
-    )
-
-    station_file = pathlib.Path(_require_key(parameters, "station_file", ctx="detect"))
-    if not station_file.exists():
-        raise ConfigError(f"detect: station_file not found:\n  {station_file}")
-
-    lut_file = pathlib.Path(_require_key(parameters, "lut_file", ctx="detect"))
-    if not lut_file.exists():
-        raise ConfigError(f"detect: lut_file not found:\n  {lut_file}")
-
-    archive = _require_key(parameters, "archive", ctx="detect")
-    path = pathlib.Path(_require_key(archive, "path", ctx="archive"))
-    if not path.exists():
-        raise ConfigError(f"detect: archive.path not found:\n  {path}")
-
-    scan = _require_key(parameters, "scan", ctx="detect")
-    if args.threads is not None and args.threads < 1:
-        raise ConfigError("--threads must be >= 1")
-
-    stations = read_stations(parameters["station_file"])
-
-    archive = Archive(
-        archive_path=parameters["archive"]["path"],
-        stations=stations,
-        archive_format=parameters["archive"]["format"],
-    )
-
-    lut = read_lut(lut_file=parameters["lut_file"])
-
-    match parameters["onset"]["name"]:
-        case "STALTA-classic":
-            onset = STALTAOnset(
-                position="classic",
-                sampling_rate=parameters["onset"]["sampling_rate"],
-            )
-        case "STALTA-centred":
-            onset = STALTAOnset(
-                position="centred",
-                sampling_rate=parameters["onset"]["sampling_rate"],
-            )
-        case _:
-            raise ConfigError(
-                "onset.name must be one of: ['STALTA-classic', 'STALTA-centred']"
-            )
-    onset.phases = parameters["onset"]["phases"]
-    onset.bandpass_filters = parameters["onset"]["bandpass_filters"]
-    onset.sta_lta_windows = parameters["onset"]["sta_lta_windows"]
-
-    scan = QuakeScan(
-        archive,
-        lut,
-        onset=onset,
-        run_path="runs",
-        run_name=args.run_name,
-        log=True,
-        loglevel="debug" if args.debug else "info",
-    )
-    scan.timestep = parameters["scan"]["timestep"]
-    scan.threads = (
-        args.threads if args.threads is not None else parameters["scan"]["threads"]
-    )
-    scan.detect(parameters["scan"]["starttime"], parameters["scan"]["endtime"])
+    detect.run_project(args.run_name, threads=args.threads, debug=args.debug)
 
 
 def _run_trigger(args: argparse.Namespace) -> None:
-    """Create and execute a Trigger run from a .toml config file."""
+    """Prepare and execute a Trigger run from a .toml config file."""
 
-    from quakemigrate import Trigger
-    from quakemigrate.io import read_lut
+    from quakemigrate.workflow.stages import trigger
 
-    parameters = _load_toml_config(
-        stage="trigger",
-        run_name=args.run_name,
-    )
-
-    lut = read_lut(lut_file=parameters["lut_file"])
-
-    trig = Trigger(
-        lut,
-        run_path="runs",
-        run_name=args.run_name,
-        log=True,
-        loglevel="debug" if args.debug else "info",
-    )
-
-    trig.marginal_window = parameters["trigger"]["marginal_window"]
-    trig.min_event_interval = parameters["trigger"]["min_event_interval"]
-    trig.normalise_coalescence = parameters["trigger"]["normalise_coalescence"]
-
-    match parameters["threshold"]["method"]:
-        case "static":
-            trig.threshold_method = "static"
-            trig.static_threshold = parameters["threshold"]["static_threshold"]
-        case "mad":
-            trig.threshold_method = "mad"
-            trig.mad_window_length = parameters["threshold"]["mad_window_length"]
-            trig.mad_multiplier = parameters["threshold"]["mad_multiplier"]
-        case "median_ratio":
-            trig.threshold_method = "median_ratio"
-            trig.median_window_length = parameters["threshold"]["median_window_length"]
-            trig.median_multiplier = parameters["threshold"]["median_multiplier"]
-        case _:
-            raise ConfigError(
-                "threshold.method must be one of: ['static', 'mad', 'median_ratio']"
-            )
-
-    trig.trigger(
-        parameters["trigger"]["starttime"],
-        parameters["trigger"]["endtime"],
-        interactive_plot=parameters["trigger"]["interactive_plot"],
-    )
+    trigger.run_project(args.run_name, debug=args.debug)
 
 
 def _run_locate(args: argparse.Namespace) -> None:
-    """Create and execute a Locate run from a .toml config file."""
+    """Prepare and execute a Locate run from a .toml config file."""
 
-    from quakemigrate import QuakeScan
-    from quakemigrate.io import Archive, read_lut, read_stations
-    from quakemigrate.signal.onsets import STALTAOnset
-    from quakemigrate.signal.pickers import GaussianPicker
+    from quakemigrate.workflow.stages import locate
 
-    parameters = _load_toml_config(
-        stage="locate",
-        run_name=args.run_name,
-    )
-
-    stations = read_stations(parameters["station_file"])
-
-    archive = Archive(
-        archive_path=parameters["archive"]["path"],
-        stations=stations,
-        archive_format=parameters["archive"]["format"],
-    )
-
-    lut = read_lut(lut_file=parameters["lut_file"])
-
-    match parameters["onset"]["name"]:
-        case "STALTA-classic":
-            onset = STALTAOnset(
-                position="classic",
-                sampling_rate=parameters["onset"]["sampling_rate"],
-            )
-        case "STALTA-centred":
-            onset = STALTAOnset(
-                position="centred",
-                sampling_rate=parameters["onset"]["sampling_rate"],
-            )
-        case _:
-            raise ConfigError(
-                "onset.name must be one of: ['STALTA-classic', 'STALTA-centred']"
-            )
-    onset.phases = parameters["onset"]["phases"]
-    onset.bandpass_filters = parameters["onset"]["bandpass_filters"]
-    onset.sta_lta_windows = parameters["onset"]["sta_lta_windows"]
-
-    match parameters["picker"]["name"]:
-        case "Gaussian":
-            picker = GaussianPicker(onset=onset)
-            picker.plot_picks = parameters["picker"]["plot_picks"]
-        case _:
-            raise ConfigError("picker.name must be on of: ['Gaussian']")
-
-    scan = QuakeScan(
-        archive,
-        lut,
-        onset=onset,
-        picker=picker,
-        run_path="runs",
-        run_name=args.run_name,
-        log=True,
-        loglevel="debug" if args.debug else "info",
-    )
-    scan.marginal_window = parameters["scan"]["marginal_window"]
-    scan.threads = (
-        args.threads if args.threads is not None else parameters["scan"]["threads"]
-    )
-    scan.plot_event_summary = parameters["scan"]["plot_event_summary"]
-    scan.write_cut_waveforms = parameters["scan"]["write_cut_waveforms"]
-    scan.locate(parameters["scan"]["starttime"], parameters["scan"]["endtime"])
+    locate.run_project(args.run_name, threads=args.threads, debug=args.debug)
 
 
 def entry_point(argv: list[str] | None = None) -> None:
@@ -477,8 +253,9 @@ def entry_point(argv: list[str] | None = None) -> None:
         action="store_true",
         help="Enable debug-level logging.",
     )
-    p.set_defaults(func=RequiresProject(_run_build_lut))
+    p.set_defaults(func=RequiresProject(_build_lut))
 
+    # Build parsers for `quakemigrate <stage>` commands
     stages = [
         ("detect", _run_detect),
         ("trigger", _run_trigger),

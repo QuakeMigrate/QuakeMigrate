@@ -19,12 +19,12 @@ This command-line interface currently has the following top-level commands:
     * ``lut``: this is used to add a new project-wide traveltime lookup table. Expects a LUT name.
     * ``run``: this is used to add a new run configuration. Expects a run name.
 
-- ``build-lut``: used to build a traveltime lookup table. Expects a run name.
+- ``build-lut``: used to build a traveltime lookup table. Expects a LUT name.
 - ``detect``: used to run the detect stage of QuakeMigrate. Expects a run name.
 - ``trigger``: used to run the trigger stage of QuakeMigrate. Expects a run name.
 - ``locate``: used to run the locate stage of QuakeMigrate. Expects a run name.
 
-FOr now, the user must be in root directory of a QuakeMigrate project for these commands to run (tracked by a ``.`` file).
+For now, the user must be in root directory of a QuakeMigrate project for these commands to run (tracked by a ``.`` file).
 
 An example usage of the command-line interface follows:
 
@@ -50,8 +50,8 @@ Once the LUT and run configuration files have been set up, each stage can be exe
 ::
 
     qmctl build-lut example-run
-    qmctl run detect example-run
-    qmctl run trigger example-run
-    qmctl run locate example-run
+    qmctl detect example-run
+    qmctl trigger example-run
+    qmctl locate example-run
 
 Of course, it remains possible to use the original script-based interface to QuakeMigrate. Future efforts may expand on the command-line interface options (facilitating, for example, easier duplication of basic projects for batched processing etc.).

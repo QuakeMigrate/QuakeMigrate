@@ -1,23 +1,34 @@
-# -*- coding: utf-8 -*-
 """
 Module that supplies functions to calculate magnitudes from observations of trace
 amplitudes, earthquake location, station locations, and an estimated attenuation curve
 for the region of interest.
 
 :copyright:
-    2020–2024, QuakeMigrate developers.
+    2020–2026, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
 
 """
 
-import logging
+from __future__ import annotations
 
-from matplotlib import pyplot as plt
+import logging
+from typing import Literal, TYPE_CHECKING
+
 import numpy as np
+from matplotlib import pyplot as plt
 
 from quakemigrate.plot.amplitudes import amplitudes_summary
+
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    import pandas as pd
+
+    from quakemigrate.io.core import Run
+    from quakemigrate.io.event import Event
 
 
 class Magnitude:
@@ -43,52 +54,44 @@ class Magnitude:
 
     Attributes
     ----------
-    A0 : str or func
+    A0:
         Name of the attenuation function to use. Available options include
         {"Hutton-Boore", "keir2006", "UK", ...}. Alternatively specify a function which
         returns the attenuation factor at a specified (epicentral or hypocentral)
-        distance. (Default "Hutton-Boore")
-    use_hyp_dist : bool, optional
+        distance.
+    use_hyp_dist:
         Whether to use the hypocentral distance instead of the epicentral distance in
-        the local magnitude calculation. (Default False)
-    amp_feature : {"S_amp", "P_amp"}
+        the local magnitude calculation.
+    amp_feature:
         Which phase amplitude measurement to use to calculate local magnitude.
-        (Default "S_amp")
-    station_corrections : dict {str : float}
-        Dictionary of trace_id : magnitude-correction pairs. (Default None)
-    amp_multiplier : float
+    station_corrections:
+        Dictionary of trace_id : magnitude-correction pairs.
+    amp_multiplier:
         Factor by which to multiply all measured amplitudes.
-    weighted_mean : bool
+    weighted_mean:
         Whether to use a weighted mean to calculate the network-averaged local magnitude
-        estimate for the event. (Default False)
-    trace_filter : regex expression
+        estimate for the event.
+    trace_filter:
         Expression by which to select traces to use for the mean_magnitude calculation.
-        E.g. ".*H[NE]$" . (Default None)
-    noise_filter : float
+        E.g. ".*H[NE]$" .
+    noise_filter:
         Factor by which to multiply the measured noise amplitude before excluding
         amplitude observations below the noise level.
-        (Default 1.)
-    station_filter : list of str
+    station_filter:
         List of stations to exclude from the mean_magnitude calculation.
-        E.g. ["KVE", "LIND"]. (Default None)
-    dist_filter : float or False
+        E.g. ["KVE", "LIND"].
+    dist_filter:
         Whether to only use stations less than a specified (epicentral or hypocentral)
         distance from an event in the mean_magnitude() calculation. Distance in
-        kilometres. (Default False)
-    pick_filter : bool
+        kilometres.
+    pick_filter:
         Whether to only use stations where at least one phase was picked by the
-        autopicker in the mean_magnitude calculation. (Default False)
-    r2_only_used : bool
+        autopicker in the mean_magnitude calculation.
+    r2_only_used:
         Whether to only use amplitude observations which were used for the mean
         magnitude calculation when calculating the r-squared statistic for the goodness
         of fit between the measured and predicted amplitudes. Default: True; False is an
         experimental feature - use with caution.
-
-    Methods
-    -------
-    calculate_magnitudes(amplitudes)
-    mean_magnitude(magnitudes)
-    plot_amplitudes(event, run)
 
     Raises
     ------
@@ -99,26 +102,28 @@ class Magnitude:
 
     """
 
-    def __init__(self, magnitude_params={}):
+    def __init__(self, magnitude_params: dict = {}) -> None:
         """Instantiate the Magnitude object."""
 
         # Parameters for individual magnitude calculation
-        self.A0 = magnitude_params.get("A0")
+        self.A0: str | Callable | None = magnitude_params.get("A0")
         if not self.A0:
             raise TypeError("A0 attenuation correction not specified in params!")
-        self.use_hyp_dist = magnitude_params.get("use_hyp_dist", False)
-        self.amp_feature = magnitude_params.get("amp_feature", "S_amp")
-        self.station_corrections = magnitude_params.get("station_corrections", {})
-        self.amp_multiplier = magnitude_params.get("amp_multiplier", 1.0)
+        self.use_hyp_dist: bool = magnitude_params.get("use_hyp_dist", False)
+        self.amp_feature: Literal["P_amp", "S_amp"] = magnitude_params.get(
+            "amp_feature", "S_amp"
+        )
+        self.station_corrections: dict = magnitude_params.get("station_corrections", {})
+        self.amp_multiplier: float = magnitude_params.get("amp_multiplier", 1.0)
 
         # Parameters for mean magnitude calculation
-        self.weighted_mean = magnitude_params.get("weighted_mean", False)
-        self.trace_filter = magnitude_params.get("trace_filter")
-        self.noise_filter = magnitude_params.get("noise_filter", 1.0)
-        self.station_filter = magnitude_params.get("station_filter")
-        self.dist_filter = magnitude_params.get("dist_filter", False)
-        self.pick_filter = magnitude_params.get("pick_filter", False)
-        self.r2_only_used = magnitude_params.get("r2_only_used", True)
+        self.weighted_mean: bool = magnitude_params.get("weighted_mean", False)
+        self.trace_filter: str | None = magnitude_params.get("trace_filter")
+        self.noise_filter: float = magnitude_params.get("noise_filter", 1.0)
+        self.station_filter: list[str] | None = magnitude_params.get("station_filter")
+        self.dist_filter: float | bool = magnitude_params.get("dist_filter", False)
+        self.pick_filter: bool = magnitude_params.get("pick_filter", False)
+        self.r2_only_used: bool = magnitude_params.get("r2_only_used", True)
 
     def __str__(self):
         """Return short summary string of the Magnitude object."""
@@ -147,14 +152,14 @@ class Magnitude:
 
         return out
 
-    def calculate_magnitudes(self, amplitudes):
+    def calculate_magnitudes(self, amplitudes: pd.DataFrame) -> pd.DataFrame:
         """
         Calculate magnitude estimates from amplitude measurements on individual stations
         /components.
 
         Parameters
         ----------
-        amplitudes : `pandas.DataFrame` object
+        amplitudes:
             P- and S-wave amplitude measurements for each component of each station in
             the look-up table.
             Columns:
@@ -200,7 +205,7 @@ class Magnitude:
 
         Returns
         -------
-        magnitudes : `pandas.DataFrame` object
+        magnitudes:
             The original amplitudes DataFrame, with columns containing the calculated
             magnitude and an associated error now added.
             Columns = ["epi_dist", "z_dist", "P_amp", "P_freq", "P_time",
@@ -257,7 +262,9 @@ class Magnitude:
 
         return magnitudes
 
-    def mean_magnitude(self, magnitudes):
+    def mean_magnitude(
+        self, magnitudes: pd.DataFrame
+    ) -> tuple[float, float, float, pd.DataFrame]:
         """
         Calculate the network-averaged local magnitude for an event based on the
         magnitude estimates calculated from amplitude measurements made on each
@@ -269,7 +276,7 @@ class Magnitude:
 
         Parameters
         ----------
-        magnitudes : `pandas.DataFrame` object
+        magnitudes:
             Contains P- and S-wave amplitude measurements for each component of each
             station in the look-up table, and local magnitude estimates calculated from
             them (output by calculate_magnitudes()). Note that the amplitude
@@ -325,23 +332,23 @@ class Magnitude:
 
         Returns
         -------
-        mean_mag : float or NaN
+        mean_mag:
             Network-averaged local magnitude estimate for the event. Mean (or weighted
             mean) of the magnitude estimates calculated from each individual channel
             after optionally removing some observations based on trace ID, distance,
             etcetera.
-        mean_mag_err : float or NaN
+        mean_mag_err:
             Standard deviation (or weighted standard deviation) of the magnitude
             estimates calculated from individual channels which contributed to the
             calculation of the (weighted) mean magnitude.
-        mag_r_squared : float or NaN
+        mag_r_squared:
             r-squared statistic describing the fit of the amplitude vs. distance curve
             predicted by the calculated mean_mag and chosen attenuation model to the
             measured amplitude observations. This is intended to be used to help
             discriminate between 'real' events, for which the predicted amplitude vs.
             distance curve should provide a good fit to the observations, from
             artefacts, which in general will not.
-        magnitudes : `pandas.DataFrame` object
+        magnitudes:
             The input magnitudes DataFrame, but without amplitude observation lines
             which feature null values for the signal or noise amplitude. Noise
             amplitudes are also corrected for the relevant filter gain, according to
@@ -431,8 +438,13 @@ class Magnitude:
         return mean_mag, mean_mag_err, mag_r_squared, magnitudes
 
     def plot_amplitudes(
-        self, magnitudes, event, run, unit_conversion_factor, noise_measure="RMS"
-    ):
+        self,
+        magnitudes: pd.DataFrame,
+        event: Event,
+        run: Run,
+        unit_conversion_factor: float,
+        noise_measure: Literal["RMS", "STD", "ENV"] = "RMS",
+    ) -> None:
         """
         Plot a figure showing the measured amplitude with distance vs. predicted
         amplitude with distance derived from mean_mag and the chosen attenuation model.
@@ -444,7 +456,7 @@ class Magnitude:
 
         Parameters
         ----------
-        magnitudes : `pandas.DataFrame` object
+        magnitudes:
             Contains P- and S-wave amplitude measurements for each component of each
             station in the look-up table, and local magnitude estimates calculated from
             them (output by calculate_magnitudes()). Note that the amplitude
@@ -455,14 +467,18 @@ class Magnitude:
                        "S_filter_gain", "Noise_amp", "is_picked", "ML", "ML_Err",
                        "Station_Correction", "Noise_Filter", "Trace_Filter",
                        "Station_Filter", "Dist_Filter", "Dist", "Used"]
-        event : :class:`~quakemigrate.io.event.Event` object
+        event:
             Light class encapsulating waveforms, coalescence information, picks and
             location information for a given event.
-        run : :class:`~quakemigrate.io.core.Run` object
+        run:
             Light class encapsulating i/o path information for a given run.
-        unit_conversion_factor : float
+        unit_conversion_factor:
             A conversion factor based on the lookup table grid projection, used to
             ensure the location uncertainties have units of kilometres.
+        noise_measure:
+            Method by which to measure the noise amplitude; root-mean-quare, standard
+            deviation or average amplitude of the envelope of the signal.
+
 
         """
 
@@ -526,7 +542,7 @@ class Magnitude:
 
         # Plot predicted amplitude with distance
         label = (
-            f"Predicted amplitude for ML = {mag:.2f} \u00B1 {mag_err:.2f}"
+            f"Predicted amplitude for ML = {mag:.2f} \u00b1 {mag_err:.2f}"
             f'\nusing attenuation curve "{self.A0}"'
         )
         ax.plot(distances, predicted_amp, linestyle="-", c="r", label=label)
@@ -571,28 +587,34 @@ class Magnitude:
         plt.savefig(file, dpi=400)
         plt.close("all")
 
-    def _calc_mags(self, trace_ids, amps, noise_amps, dist):
+    def _calc_mags(
+        self,
+        trace_ids: list[str],
+        amps: np.ndarray,
+        noise_amps: np.ndarray,
+        dist: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
         """
         Calculates magnitudes from a series of amplitude measurements.
 
         Parameters
         ----------
-        trace_ids : array-like, contains strings
+        trace_ids:
             List of ID strings for each trace.
-        amps : array-like, contains floats
+        amps:
             Measurements of *half* peak-to-trough amplitudes, in *millimetres*
-        noise_amps : array-like, contains floats
+        noise_amps:
             Estimate of uncertainty in amplitude measurements caused by noise on the
             signal. Also in mm.
-        dist : array-like, contains floats
+        dist:
             Distances between source and receiver in kilometres.
 
         Returns
         -------
-        mags : array-like
+        mags:
             Magnitudes for each channel calculated from the chosen amplitude measurement
             (P or S).
-        mag_errs : array-like
+        mag_errs:
             Estimate of the error on the calculated magnitude, based on potential errors
             in the maximum amplitude measurement according to the measured noise
             amplitude.
@@ -618,19 +640,21 @@ class Magnitude:
 
         return mags, mag_errs
 
-    def _get_attenuation(self, dist):
+    def _get_attenuation(
+        self, dist: float | np.ndarray[float]
+    ) -> float | np.ndarray[float]:
         """
         Calculate attenuation according to user-provided or built-in logA0 attenuation
         function.
 
         Parameters
         ----------
-        dist : float or array-like
+        dist:
             Distance(s) between source and receiver.
 
         Returns
         -------
-        att : float or array-like
+        att:
             Attenuation correction factor.
 
         """
@@ -642,7 +666,7 @@ class Magnitude:
 
         return att
 
-    def _logA0(self, dist):
+    def _logA0(self, dist: float) -> float:
         """
         A set of logA0 attenuation correction equations from the literature.
         Feel free to add more.
@@ -662,12 +686,12 @@ class Magnitude:
 
         Parameters
         ----------
-        dist : float
+        dist:
             Distance between source and receiver.
 
         Returns
         -------
-        logA0 : float
+        logA0:
             Attenuation correction factor.
 
         Raises
@@ -705,14 +729,14 @@ class Magnitude:
 
         return att
 
-    def _filter_mags(self, magnitudes):
+    def _filter_mags(self, magnitudes: pd.DataFrame) -> pd.DataFrame:
         """
         Filter magnitudes observations according to the user-specified filters for
         source-station distance, trace ID, etc.
 
         Parameters
         ----------
-        magnitudes : `pandas.DataFrame` object
+        magnitudes:
             Contains P- and S-wave amplitude measurements for each component of each
             station in the look-up table, and local magnitude estimates calculated from
             them (output by calculate_magnitudes()). Note that the amplitude
@@ -725,7 +749,7 @@ class Magnitude:
 
         Returns
         -------
-        magnitudes : `pandas.DataFrame` object
+        magnitudes
             As input, but with amplitude measurements which feature null values for the
             signal or noise amplitude removed. Now with additional columns:
             Noise_Filter : bool
@@ -803,7 +827,9 @@ class Magnitude:
 
         return magnitudes
 
-    def _mag_r_squared(self, magnitudes, mean_mag, only_used=True):
+    def _mag_r_squared(
+        self, magnitudes: pd.DataFrame, mean_mag: float, only_used: bool = True
+    ) -> float:
         """
         Calculate the r-squared statistic for the fit of the amplitudes vs distance
         model predicted by the estimated event magnitude and the chosen attenuation
@@ -817,7 +843,7 @@ class Magnitude:
 
         Parameters
         ----------
-        magnitudes : `pandas.DataFrame` object
+        magnitudes:
             Contains P- and S-wave amplitude measurements for each component of each
             station in the look-up table, and local magnitude estimates calculated from
             them (output by calculate_magnitudes()). Note that the amplitude
@@ -828,18 +854,18 @@ class Magnitude:
                        "S_filter_gain", "Noise_amp", "is_picked", "ML", "ML_Err",
                        "Station_Correction", "Noise_Filter", "Trace_Filter",
                        "Station_Filter", "Dist_Filter", "Dist", "Used"]
-        mean_mag : float or NaN
+        mean_mag:
             Network-averaged local magnitude estimate for the event. Mean (or weighted
             mean) of the magnitude estimates calculated from each individual channel
             after optionally removing some observations based on trace ID, distance,
             etcetera.
-        only_used : bool
+        only_used:
             Only calculate the r-squared value from those magnitudes which were included
             in calculating the network-averaged `mean_mag`.
 
         Returns
         -------
-        mag_r_squared : float or NaN
+        mag_r_squared:
             r-squared statistic describing the fit of the amplitude vs. distance curve
             predicted by the calculated mean_mag and chosen attenuation model to the
             measured amplitude observations. This is intended to be used to help

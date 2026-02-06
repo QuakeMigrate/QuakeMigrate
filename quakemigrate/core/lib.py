@@ -1,24 +1,21 @@
-# -*- coding: utf-8 -*-
 """
 Bindings for the QuakeMigrate C libraries.
 
 :copyright:
-    2020–2024, QuakeMigrate developers.
+    2020–2026, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
 
 """
 
-from __future__ import annotations
-
 import logging
 
 import numpy as np
 import numpy.ctypeslib as clib
 
-from quakemigrate.core.libnames import _load_cdll
 import quakemigrate.util as util
+from quakemigrate.core.libnames import _load_cdll
 
 
 qmlib = _load_cdll("qmlib")
@@ -63,17 +60,24 @@ def migrate(
 
     Parameters
     ----------
-    onsets: Onset functions for each seismic phase, shape(nonsets, nsamples).
-    traveltimes: Grids of seismic phase traveltimes, converted to an integer multiple of
-        the sampling rate, shape(nx, ny, nz, nonsets).
-    first_idx: Index of first sample in array from which to scan.
-    last_idx: Index of last sample in array up to which to scan.
-    available: Number of available onset functions.
-    threads: Number of threads with which to perform the scan.
+    onsets:
+        Onset functions for each seismic phase, shape(nonsets, nsamples).
+    traveltimes:
+        Grids of seismic phase traveltimes, converted to an integer multiple of the
+        sampling rate, shape(nx, ny, nz, nonsets).
+    first_idx:
+        Index of first sample in array from which to scan.
+    last_idx:
+        Index of last sample in array up to which to scan.
+    available:
+        Number of available onset functions.
+    threads:
+        Number of threads with which to perform the scan.
 
     Returns
     -------
-    map4d: 4-D coalescence map, shape(nx, ny, nz, nsamples).
+    map4d:
+        4-D coalescence map, shape(nx, ny, nz, nsamples).
 
     Raises
     ------
@@ -138,15 +142,19 @@ def find_max_coa(
 
     Parameters
     ----------
-    map4d: 4-D coalescence map, shape(nx, ny, nz, nsamples).
-    threads: Number of threads with which to perform the scan.
+    map4d:
+        4-D coalescence map, shape(nx, ny, nz, nsamples).
+    threads:
+        Number of threads with which to perform the scan.
 
     Returns
     -------
-    max_coa: Time series of the maximum coalescence value in the 3-D volume.
-    max_norm_coa: Times series of the maximum normalised coalescence value in the 3-D
-        volume.
-    max_coa_idx: Time series of the flattened grid indices corresponding to the maximum
+    max_coa:
+        Time series of the maximum coalescence value in the 3-D volume.
+    max_norm_coa:
+        Times series of the maximum normalised coalescence value in the 3-D volume.
+    max_coa_idx:
+        Time series of the flattened grid indices corresponding to the maximum
         coalescence value in the 3-D volume.
 
     """
@@ -177,23 +185,27 @@ def overlapping_sta_lta(
     signal: np.ndarray[float], nsta: int, nlta: int
 ) -> np.ndarray[np.double]:
     """
-    Compute the STA/LTA onset function with overlapping windows. The return
-    value is allocated to the last sample of the STA window.
+    Compute the STA/LTA onset function with overlapping windows. The return value is
+    assigned to the last sample of the STA window.
 
-                                                 |--- STA ---|
-     |------------------------- LTA -------------------------|
-                                                             ^
-                                                    Value assigned here
+                                                |--- STA ---|
+    |------------------------- LTA -------------------------|
+                                                            ^
+                                                   Value assigned here
 
     Parameters
     ----------
-    signal: Pre-processed waveform data to be processed into an onset function.
-    nsta: Number of samples in the short-term average window.
-    nlta: Number of samples in the long-term average window.
+    signal:
+        Pre-processed waveform data to be processed into an onset function.
+    nsta:
+        Number of samples in the short-term average window.
+    nlta:
+        Number of samples in the long-term average window.
 
     Returns
     -------
-    onset: Overlapping STA/LTA onset function.
+    onset:
+        Overlapping STA/LTA onset function.
 
     """
 
@@ -215,23 +227,27 @@ def centred_sta_lta(
     signal: np.ndarray[float], nsta: int, nlta: int
 ) -> np.ndarray[np.double]:
     """
-    Compute the STA/LTA onset function with consecutive windows. The return
-    value is allocated to the last sample of the LTA window.
+    Compute the STA/LTA onset function with consecutive windows. The return value is
+    assigned to the last sample of the LTA window.
 
-                                                            |--- STA ---|
-         |---------------------- LTA ----------------------|
-                                                           ^
-                                                  Value assigned here
+                                                           |--- STA ---|
+        |---------------------- LTA ----------------------|
+                                                          ^
+                                                 Value assigned here
 
     Parameters
     ----------
-    signal: Pre-processed waveform data to be processed into an onset function.
-    nsta: Number of samples in the short-term average window.
-    nlta: Number of samples in the long-term average window.
+    signal:
+        Pre-processed waveform data to be processed into an onset function.
+    nsta:
+        Number of samples in the short-term average window.
+    nlta:
+        Number of samples in the long-term average window.
 
     Returns
     -------
-    onset: Centred STA/LTA onset function.
+    onset:
+        Centred STA/LTA onset function.
 
     """
 
@@ -253,24 +269,27 @@ def recursive_sta_lta(
     signal: np.ndarray[float], nsta: int, nlta: int
 ) -> np.ndarray[np.double]:
     """
-    Compute the STA/LTA onset function with consecutive windows using a
-    recursive method (minimises memory costs). Reproduces exactly the centred
-    STA/LTA onset.
+    Compute the STA/LTA onset function with consecutive windows using a recursive method
+    (minimises memory costs). Reproduces exactly the centred STA/LTA onset.
 
-                                                            |--- STA ---|
-         |---------------------- LTA ----------------------|
-                                                           ^
-                                                  Value assigned here
+                                                           |--- STA ---|
+        |---------------------- LTA ----------------------|
+                                                          ^
+                                                 Value assigned here
 
     Parameters
     ----------
-    signal: Pre-processed waveform data to be processed into an onset function.
-    nsta: Number of samples in the short-term average window.
-    nlta: Number of samples in the long-term average window.
+    signal:
+        Pre-processed waveform data to be processed into an onset function.
+    nsta:
+        Number of samples in the short-term average window.
+    nlta:
+        Number of samples in the long-term average window.
 
     Returns
     -------
-    onset: Recursive (centred) STA/LTA onset function.
+    onset:
+        Recursive (centred) STA/LTA onset function.
 
     """
 

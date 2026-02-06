@@ -1,10 +1,9 @@
-# -*- coding: utf-8 -*-
 """
 The :mod:`quakemigrate.lut` module handles the definition and generation of the
 traveltime lookup tables used in QuakeMigrate.
 
 :copyright:
-    2020–2023, QuakeMigrate developers.
+    2020–2026, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -28,15 +27,15 @@ if proj_major == "6" and proj_minor == "2":
     )
 
 
-def update_lut(old_lut_file, save_file):
+def update_lut(old_lut_file: str, save_file: str) -> None:
     """
     Utility function to convert old-style LUTs to new-style LUTs.
 
     Parameters
     ----------
-    old_lut_file : str
+    old_lut_file:
         Path to lookup table file to update.
-    save_file : str, optional
+    save_file:
         Output path for updated lookup table.
 
     """

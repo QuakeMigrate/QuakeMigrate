@@ -1,43 +1,56 @@
-# -*- coding: utf-8 -*-
 """
 This module provides parsers to generate SAC waveform files from an ObsPy Catalog, with
 headers correctly populated for MFAST.
 
 :copyright:
-    2020–2023, QuakeMigrate developers.
+    2020–2026, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
 
 """
 
+from __future__ import annotations
+
 import pathlib
+from typing import TYPE_CHECKING
 
 from obspy import read
 from obspy.core import AttribDict
 from obspy.geodetics import gps2dist_azimuth
 
 
+if TYPE_CHECKING:
+    import pandas as pd
+    from obspy.core.event import Event
+
+
 cmpaz = {"N": 0, "Z": 0, "E": 90}
 cmpinc = {"N": 90, "Z": 0, "E": 90}
 
 
-def sac_mfast(event, stations, output_path, units, filename=None):
+def sac_mfast(
+    event: Event,
+    stations: pd.DataFrame,
+    output_path: str,
+    units: str,
+    filename: str | None = None,
+) -> None:
     """
     Function to create the SAC file.
 
     Parameters
     ----------
-    event : `ObsPy.Event` object
+    event:
         Contains information about the origin time and a list of associated picks.
-    stations : `pandas.DataFrame` object
+    stations:
         DataFrame containing station information.
-    output_path : str
+    output_path:
         Location to save the SAC file.
-    units : {"km", "m"}
+    units:
         Grid projection coordinates for QM LUT (determines units of depths and
         uncertainties in the .event files).
-    filename : str, optional
+    filename:
         Name of SAC file - defaults to "eventid/eventid.station.{comp}".
 
     """

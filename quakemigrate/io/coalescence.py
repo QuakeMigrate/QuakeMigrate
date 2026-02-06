@@ -2,31 +2,40 @@
 Module to handle input/output of coalescence maps.
 
 :copyright:
-    2020–2024, QuakeMigrate developers.
+    2020–2026, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
 
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import numpy as np
 
-import quakemigrate.util as util
+from quakemigrate.util import timeit
 
 
-def read_coalescence(fname):
+if TYPE_CHECKING:
+    from quakemigrate.io.core import Run
+    from quakemigrate.io.event import Event
+
+
+def read_coalescence(fname: str) -> np.ndarray[np.double]:
     """
-    Read a coalescence map from .npy file. This function is primarily
-    intended as a convenience tool for post-hoc plotting or analysis.
+    Read a coalescence map from .npy file. This function is primarily intended as a
+    convenience tool for post-hoc plotting or analysis.
 
     Parameters
     ----------
-    fname : str
+    fname:
         File containing coalescence map.
 
     Returns
     -------
-    coa_map : array-like
+    coa_map:
         3- or 4-D coalescence map.
 
     """
@@ -36,21 +45,26 @@ def read_coalescence(fname):
     return coa_map
 
 
-@util.timeit("info")
-def write_coalescence(run, coalescence_map, event, marginalised=False):
+@timeit("info")
+def write_coalescence(
+    run: Run,
+    coalescence_map: np.ndarray,
+    event: Event,
+    marginalised: bool = False,
+) -> None:
     """
     Write coalescence map to file. Can be 3-D (marginalised) or 4-D.
 
     Parameters
     ----------
-    run : :class:`~quakemigrate.io.core.Run` object
+    run:
         Light class encapsulating i/o path information for a given run.
-    coalescence_map : array-like
+    coalescence_map:
         Coalescence map.
-    event : :class:`~quakemigrate.io.event.Event` object
+    event:
         Light class encapsulating waveforms, coalescence information, picks and
         location information for a given event.
-    marginalised : bool
+    marginalised:
         Toggle for whether the coalescence map has been marginalised (3-D) or not (4-D).
 
     """

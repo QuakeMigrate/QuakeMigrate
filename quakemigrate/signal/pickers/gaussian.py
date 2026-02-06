@@ -1,26 +1,37 @@
-# -*- coding: utf-8 -*-
 """
 The default seismic phase picking class - fits a 1-D Gaussian to the calculated onset
 functions.
 
 :copyright:
-    2020–2024, QuakeMigrate developers.
+    2020–2026, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
 
 """
 
+from __future__ import annotations
+
 import logging
+from typing import Literal, TYPE_CHECKING
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy.optimize import curve_fit
 
-from quakemigrate.plot.phase_picks import pick_summary
 import quakemigrate.util as util
+from quakemigrate.plot.phase_picks import pick_summary
 from .base import PhasePicker
+
+
+if TYPE_CHECKING:
+    from obspy import UTCDateTime
+
+    from quakemigrate.io.core import Run
+    from quakemigrate.io.event import Event
+    from quakemigrate.lut import LUT
+    from quakemigrate.signal.onsets import Onset, OnsetData
 
 
 class GaussianPicker(PhasePicker):
@@ -31,64 +42,58 @@ class GaussianPicker(PhasePicker):
 
     Attributes
     ----------
-    phase_picks : dict
+    phase_picks:
             "GAU_P" : array-like
                 Numpy array stack of Gaussian pick info (each as a dict)
                 for P phase
             "GAU_S" : array-like
                 Numpy array stack of Gaussian pick info (each as a dict)
                 for S phase
-    threshold_method : {"MAD", "percentile"}
+    threshold_method:
         Which method to use to calculate the pick threshold; a percentile of the data
-        outside the pick windows (e.g. 0.99 = 99th percentile) or a multiple of the
-        Median Absolute Deviation of the signal outside the pick windows. Default uses
-        the MAD method.
-    percentile_pick_threshold : float, optional
+        outside the pick windows (e.g., 0.99 = 99th percentile) or a multiple of the
+        Median Absolute Deviation of the signal outside the pick windows.
+    percentile_pick_threshold:
         Picks will only be made if the onset function exceeds this percentile of the
-        noise level (amplitude of onset function outside pick windows). (Default: 1.0)
-    mad_pick_threshold : float, optional
+        noise level (amplitude of onset function outside pick windows).
+    mad_pick_threshold:
         Picks will only be made if the onset function exceeds its median value plus this
         multiple of the MAD (calculated from the onset data outside the pick windows).
-        (Default: 8)
-    plot_picks : bool
+    plot_picks:
         Toggle plotting of phase picks.
-    write_seed_ids : bool
+    write_seed_ids:
         Toggle writing the SEED id's of the traces that have contributed to a given phase
-        pick within the .picks file. Default: False.
-
-    Methods
-    -------
-    pick_phases(event, lut, run)
-        Picks phase arrival times for located events by fitting a 1-D Gaussian function
-        to the P and/or S onset functions
+        pick within the .picks file.
 
     """
 
     DEFAULT_GAUSSIAN_FIT = {"popt": 0, "xdata": 0, "xdata_dt": 0, "PickValue": -1}
 
-    def __init__(self, onset=None, **kwargs):
+    def __init__(self, onset: Onset | None = None, **kwargs: dict) -> None:
         """Instantiate the GaussianPicker object."""
         super().__init__(**kwargs)
 
         self.onset = onset
 
         # --- Get pick method and threshold ---
-        self.threshold_method = kwargs.get("threshold_method", "MAD")
+        self.threshold_method: Literal["MAD", "percentile"] = kwargs.get(
+            "threshold_method", "MAD"
+        )
         if self.threshold_method == "percentile":
-            self.percentile_pick_threshold = kwargs.get(
+            self.percentile_pick_threshold: float = kwargs.get(
                 "percentile_pick_threshold", 1.0
             )
         elif self.threshold_method == "MAD":
-            self.mad_pick_threshold = kwargs.get("mad_pick_threshold", 8.0)
+            self.mad_pick_threshold: float = kwargs.get("mad_pick_threshold", 8.0)
         else:
             raise util.InvalidPickThresholdMethodException
         # Handle deprecated `pick_threshold`
         if kwargs.get("pick_threshold"):
             self.pick_threshold = kwargs["pick_threshold"]
 
-        self.plot_picks = kwargs.get("plot_picks", False)
+        self.plot_picks: bool = kwargs.get("plot_picks", False)
 
-        self.write_seed_ids = kwargs.get("write_seed_ids", False)
+        self.write_seed_ids: bool = kwargs.get("write_seed_ids", False)
 
         if "fraction_tt" in kwargs.keys():
             print(
@@ -98,7 +103,7 @@ class GaussianPicker(PhasePicker):
             )
         self._fraction_tt = kwargs.get("fraction_tt")
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Returns a short summary string of the GaussianPicker."""
 
         str_ = "\tPhase picking by fitting a 1-D Gaussian to onsets\n"
@@ -107,31 +112,33 @@ class GaussianPicker(PhasePicker):
         elif self.threshold_method == "MAD":
             str_ += f"\t\tMAD multiplier  = {self.mad_pick_threshold}\n"
         if self._fraction_tt is not None:
-            str_ += f"\t\tSearch window   = {self._fraction_tt*100}% of traveltime\n"
+            str_ += f"\t\tSearch window   = {self._fraction_tt * 100}% of traveltime\n"
 
         return str_
 
     @util.timeit("info")
-    def pick_phases(self, event, lut, run):
+    def pick_phases(
+        self, event: Event, lut: LUT, run: Run
+    ) -> tuple[Event, pd.DataFrame]:
         """
         Picks phase arrival times for located events.
 
         Parameters
         ----------
-        event : :class:`~quakemigrate.io.event.Event` object
+        event:
             Light class encapsulating waveforms, coalescence information and location
             information for a given event.
-        lut : :class:`~quakemigrate.lut.lut.LUT` object
+        lut:
             Contains the traveltime lookup tables for seismic phases, computed for some
             pre-defined velocity model.
-        run : :class:`~quakemigrate.io.core.Run` object
+        run:
             Light class encapsulating i/o path information for a given run.
 
         Returns
         -------
-        event : :class:`~quakemigrate.io.event.Event` object
+        event:
             Event object provided to pick_phases(), but now with phase picks!
-        picks : `pandas.DataFrame`
+        picks:
             DataFrame that contains the measured picks with columns:
             ["Name", "Phase", "ModelledTime", "PickTime", "PickError", "SNR"]
             Each row contains the phase pick from one station/phase.
@@ -242,21 +249,23 @@ class GaussianPicker(PhasePicker):
 
         return event, picks
 
-    def _determine_window(self, event, onset_data, tt, fraction_tt):
+    def _determine_window(
+        self, event: Event, onset_data: OnsetData, tt: float, fraction_tt: float
+    ) -> tuple[int, int, int]:
         """
         Determine phase pick window upper and lower bounds based on the event marginal
         window and a set percentage of the phase travel time.
 
         Parameters
         ----------
-        event : :class:`~quakemigrate.io.event.Event` object
+        event:
             Light class to encapsulate information about an event, including origin
             time, location and waveform data.
-        onset_data : :class:`~quakemigrate.signal.onsets.base.OnsetData` object
+        onset_data:
             Light class encapsulating data generated during onset calculation.
-        tt : float
+        tt:
             Traveltime for the requested phase.
-        fraction_tt : float
+        fraction_tt:
             Defines width of time window around expected phase arrival time in which to
             search for a phase pick as a function of the traveltime from the event
             location to that station -- should be an estimate of the uncertainty in the
@@ -264,11 +273,11 @@ class GaussianPicker(PhasePicker):
 
         Returns
         -------
-        lower_idx : int
+        lower_idx:
             Index of lower bound for the phase pick window.
-        arrival_idx : int
+        arrival_idx:
             Index of the modelled phase arrival time.
-        upper_idx : int
+        upper_idx:
             Index of upper bound for the phase pick window.
 
         """
@@ -284,7 +293,9 @@ class GaussianPicker(PhasePicker):
 
         return [arrival_idx - samples, arrival_idx, arrival_idx + samples]
 
-    def _distinguish_windows(self, windows, phases, samples):
+    def _distinguish_windows(
+        self, windows: dict, phases: list[str], samples: int
+    ) -> None:
         """
         Ensure pick windows do not overlap - if they do, set the upper bound of window
         one and the lower bound of window two to be the midpoint index of the two
@@ -292,11 +303,11 @@ class GaussianPicker(PhasePicker):
 
         Parameters
         ----------
-        windows : dict
+        windows:
             Dictionary of windows with phases as keys.
-        phases : list of str
+        phases:
             Phases being migrated.
-        samples : int
+        samples:
             Total number of samples in the onset function.
 
         """
@@ -316,23 +327,28 @@ class GaussianPicker(PhasePicker):
         last_idx = windows[phases[-1]][2]
         windows[phases[-1]][2] = samples if last_idx > samples else last_idx
 
-    def _find_pick_threshold(self, onset, windows, method):
+    def _find_pick_threshold(
+        self,
+        onset: np.ndarray[np.double],
+        windows: dict,
+        method: Literal["MAD", "percentile"],
+    ) -> float:
         """
         Determine a pick threshold from the onset data outside the pick windows.
 
         Parameters
         ----------
-        onset : `numpy.ndarray` of `numpy.double`
+        onset:
             Onset (characteristic) function.
-        windows : list of int
+        windows:
             Indexes of the lower window bound, the phase arrival, and the upper window
             bound.
-        method : {"percentile", "MAD"}
+        method:
             Method used to calculate the pick threshold from the noise data.
 
         Return
         ------
-        pick_threshold : float
+        pick_threshold:
             The threshold calculated from the onset data outside the pick windows,
             according to the specified `method`.
 
@@ -357,47 +373,53 @@ class GaussianPicker(PhasePicker):
         return pick_threshold
 
     def _fit_gaussian(
-        self, onset, sampling_rate, halfwidth, starttime, pick_threshold, window
-    ):
+        self,
+        onset: np.ndarray[np.double],
+        sampling_rate: int,
+        halfwidth: float,
+        starttime: UTCDateTime,
+        pick_threshold: float,
+        window: list[int],
+    ) -> tuple[dict, float, float, UTCDateTime]:
         """
         Fit a Gaussian to the onset function in order to make a time pick with an
         associated uncertainty.
 
         Uses the amplitude and timing of the onset function peak and some knowledge of
-        the onset function parameters (e.g. short-term average window length, for the
+        the onset function parameters (e.g., short-term average window length, for the
         :class:`~quakemigrate.signal.onsets.stalta.STALTAOnset`) to make an initial
         estimate of a gaussian fit to the onset function.
 
         Parameters
         ----------
-        onset : `numpy.ndarray` of `numpy.double`
+        onset:
             Onset function.
-        sampling_rate : int
+        sampling_rate:
             Sampling rate of the onset function.
-        halfwidth : float
+        halfwidth:
             Initial estimate for the Gaussian half-width based on some function of the
             onset function parameters.
-        starttime : `obspy.UTCDateTime` object
+        starttime:
             Timestamp for first sample of the onset function.
-        pick_threshold : float
+        pick_threshold:
             Value above which to threshold data based on noise.
-        window : list of int, [start, arrival, end]
+        window:
             Indices for the window start, modelled phase arrival, and window end.
 
         Returns
         -------
-        gaussian_fit : dictionary
+        gaussian_fit:
             Gaussian fit parameters: {"popt": popt,
                                       "xdata": x_data,
                                       "xdata_dt": x_data_dt,
                                       "PickValue": max_onset,
                                       "PickThreshold": pick_threshold}
-        max_onset : float
-            Amplitude of Gaussian fit to onset function, i.e. the SNR.
-        sigma : float
-            Sigma of Gaussian fit to onset function, i.e. the pick uncertainty.
-        mean : `obspy.UTCDateTime`
-            Mean of Gaussian fit to onset function, i.e. the pick time.
+        max_onset:
+            Amplitude of Gaussian fit to onset function, i.e., the SNR.
+        sigma:
+            Sigma of Gaussian fit to onset function, i.e., the pick uncertainty.
+        mean:
+            Mean of Gaussian fit to onset function, i.e., the pick time.
 
         """
 
@@ -470,24 +492,24 @@ class GaussianPicker(PhasePicker):
 
         return gaussian_fit, mean, sigma, max_onset
 
-    def _pick_failure(self, pick_threshold):
+    def _pick_failure(self, pick_threshold: float) -> tuple[dict, int, int, int]:
         """
         Short utility function to produce the default values when a pick cannot be made.
 
         Parameters
         ----------
-        pick_threshold : float
+        pick_threshold:
             Pick threshold value for onset data.
 
         Returns
         -------
-        gaussian_fit : dictionary
+        gaussian_fit:
             The default Gaussian fit dictionary, with relevant pick threshold value.
-        max_onset : int
+        max_onset:
             A default of -1 value to indicate failure.
-        sigma : int
+        sigma:
             A default of -1 value to indicate failure.
-        mean : int
+        mean:
             A default of -1 value to indicate failure.
 
         """
@@ -498,7 +520,9 @@ class GaussianPicker(PhasePicker):
 
         return gaussian_fit, mean, sigma, max_onset
 
-    def _find_peak(self, windowed_onset, pick_threshold):
+    def _find_peak(
+        self, windowed_onset: np.ndarray[np.double], pick_threshold: float
+    ) -> tuple[int, int]:
         """
         Identify peaks, if any, within the windowed onset that exceed the specified
         threshold value. Of those peaks, this function seeks the one that contains the
@@ -514,14 +538,14 @@ class GaussianPicker(PhasePicker):
 
         Parameters
         ----------
-        windowed_onset : `numpy.ndarray` of `numpy.double`
+        windowed_onset:
             The onset function within the picking window.
-        pick_threshold : float
+        pick_threshold:
             Value above which to search for peaks in the onset data.
 
         Returns
         -------
-        true_peak_idx : [int, int]
+        true_peak_idx:
             Start and end index values for the 'true' peak, with +1 added to the last
             index so that all of the values above the threshold are returned when
             slicing by index.
@@ -560,7 +584,15 @@ class GaussianPicker(PhasePicker):
         return true_peak_idxs
 
     @util.timeit()
-    def plot(self, event, station, onset_data, picks_df, traveltimes, run):
+    def plot(
+        self,
+        event: Event,
+        station: str,
+        onset_data: OnsetData,
+        picks_df: pd.DataFrame,
+        traveltimes: list[float],
+        run: Run,
+    ) -> None:
         """
         Plot figure showing the filtered traces for each data component and the onset
         functions calculated from them (P and/or S) for each station. The search window
@@ -570,21 +602,21 @@ class GaussianPicker(PhasePicker):
 
         Parameters
         ----------
-        event : :class:`~quakemigrate.io.event.Event` object
+        event:
             Light class to encapsulate information about an event, including origin
             time, location and waveform data.
-        station : str
+        station:
             Station name.
-        onset_data : :class:`~quakemigrate.signal.onsets.base.OnsetData` object
+        onset_data:
             Light class encapsulating data generated during onset calculation.
-        picks_df : `pandas.DataFrame` object
+        picks_df:
             DataFrame that contains the measured picks with columns:
             ["Name", "Phase", "ModelledTime", "PickTime", "PickError", "SNR"]
             Each row contains the phase pick from one station/phase.
-        traveltimes : list of float
+        traveltimes:
             Modelled traveltimes from the event hypocentre to the station for each phase
             to be plotted.
-        run : :class:`~quakemigrate.io.core.Run` object
+        run:
             Light class encapsulating i/o path information for a given run.
 
         """

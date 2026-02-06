@@ -1,32 +1,33 @@
-# -*- coding: utf-8 -*-
 """
 Helper to load compiled C library.
 
 :copyright:
-    2020–2023, QuakeMigrate developers.
+    2020–2026, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
 
 """
 
+from __future__ import annotations
+
 import ctypes
-from distutils import sysconfig
 import pathlib
+from distutils import sysconfig
 
 
-def _load_cdll(name):
+def _load_cdll(name: str) -> ctypes.CDLL:
     """
     Helper function to load an extension built using setuptools Extension.
 
     Parameters
     ----------
-    name : str
+    name:
         Name of library to load.
 
     Returns
     -------
-    cdll : `ctypes.CDLL`
+    cdll:
         Shared library object.
 
     """

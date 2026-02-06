@@ -1,16 +1,17 @@
-# -*- coding: utf-8 -*-
 """
 This module provides parsers to export an ObsPy Catalog to the NonLinLoc input file
 format. We prefer this to the one offered by ObsPy as it includes the additional
 weighting term.
 
 :copyright:
-    2020–2023, QuakeMigrate developers.
+    2020–2026, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
 
 """
+
+from __future__ import annotations
 
 import warnings
 
@@ -23,19 +24,18 @@ POLARITIES = {"c": "positive", "u": "positive", "d": "negative"}
 POLARITIES_REVERSE = {"positive": "u", "negative": "d"}
 
 
-def nlloc_obs(event, filename, autopick=True):
+def nlloc_obs(event: Event, filename: str, autopick: bool = True) -> None:
     """
     Write a NonLinLoc Phase file from an obspy Event object.
 
     Parameters
     ----------
-    event : `obspy.Event` object
+    event:
         Contains information on a single event.
-    filename : str
+    filename:
         Name of NonLinLoc phase file.
-    autopick : bool, optional
+    autopick:
         Whether to read the autopicks or the modelled arrival times.
-        Default: True (use autopicks).
 
     """
 

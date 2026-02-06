@@ -1,22 +1,24 @@
-# -*- coding: utf-8 -*-
 """
 Module to perform core QuakeMigrate functions: detect() and locate().
 
 :copyright:
-    2020–2024, QuakeMigrate developers.
+    2020–2026, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
 
 """
 
+from __future__ import annotations
+
 import logging
 import warnings
 from datetime import time
+from typing import Literal, TYPE_CHECKING
 
 import numpy as np
-from obspy import UTCDateTime
 import pandas as pd
+from obspy import UTCDateTime
 from scipy.interpolate import Rbf
 from scipy.signal import fftconvolve
 
@@ -36,6 +38,12 @@ from .onsets import Onset
 from .pickers import GaussianPicker, PhasePicker
 from .local_mag import LocalMag
 
+
+if TYPE_CHECKING:
+    from quakemigrate.io.data import Archive, WaveformData
+    from quakemigrate.lut import LUT
+
+
 # Filter warnings
 warnings.filterwarnings(
     "ignore", message=("Covariance of the parameters could not be estimated")
@@ -51,112 +59,105 @@ class QuakeScan:
 
     Parameters
     ----------
-    archive : :class:`~quakemigrate.io.data.Archive` object
+    archive:
         Details the structure and location of a data archive and provides methods for
         reading data from file.
-    lut : :class:`~quakemigrate.lut.lut.LUT` object
+    lut:
         Contains the traveltime lookup tables for seismic phases, computed for some
         pre-defined velocity model.
-    onset : :class:`~quakemigrate.signal.onsets.base.Onset` object
+    onset:
         Provides callback methods for calculation of onset functions.
-    run_path : str
+    run_path:
         Points to the top level directory containing all input files, under which the
         specific run directory will be created.
-    run_name : str
+    run_name:
         Name of the current QuakeMigrate run.
-    kwargs : **dict
+    kwargs:
         See QuakeScan Attributes for details. In addition to these:
 
     Attributes
     ----------
-    continuous_scanmseed_write : bool
+    continuous_scanmseed_write:
         Option to continuously write the .scanmseed file output by detect() at the end
         of every time step. Default behaviour is to write in day chunks where possible.
-        Default: False.
-    cut_waveform_format : str, optional
+    cut_waveform_format:
         File format used when writing waveform data. We support any format also
         supported by ObsPy - "MSEED" (default), "SAC", "SEGY", "GSE2".
-    log : bool, optional
+    log:
         Toggle for logging. If True, will output to stdout and generate a log file.
         Default is to only output to stdout.
-    loglevel : {"info", "debug"}, optional
+    loglevel:
         Toggle to set the logging level: "debug" will print out additional diagnostic
-        information to the log and stdout. (Default "info")
-    mags : :class:`~quakemigrate.signal.local_mag.local_mag.LocalMag` object, optional
+        information to the log and stdout.
+    mags:
         Provides methods for calculating local magnitudes, performed during locate.
-    marginal_window : float, optional
+    marginal_window:
         Half-width of window centred on the maximum coalescence time. The 4-D
         coalescence functioned is marginalised over time across this window such that
         the earthquake location and associated uncertainty can be appropriately
         calculated. It should be an estimate of the time uncertainty in the earthquake
         origin time, which itself is some combination of the expected spatial
         uncertainty and uncertainty in the seismic velocity model used.
-        Default: 2 seconds.
-    picker : :class:`~quakemigrate.signal.pickers.base.PhasePicker` object, optional
+    picker:
         Provides callback methods for phase picking, performed during locate.
-    plot_all_stns : bool, optional
+    plot_all_stns:
         If true, plot all stations in the LUT. Otherwise, only plot stations which were
         used for migration (i.e. omitting stations for which there was no data, or data
-        did not pass the specified quality checks). Default: True.
-    plot_event_summary : bool, optional
+        did not pass the specified quality checks).
+    plot_event_summary:
         Plot event summary figure - see `quakemigrate.plot` for more details.
-        Default: True.
-    plot_event_video : bool, optional
-        Plot coalescence video for each located earthquake. Default: False.
-    post_pad : float
+    plot_event_video:
+        Plot coalescence video for each located earthquake.
+    post_pad:
         Additional amount of data to read in after the timestep, used to ensure the
         correct coalescence is calculated at every sample.
-    pre_pad : float
+    pre_pad:
         Additional amount of data to read in before the timestep, used to ensure the
         correct coalescence is calculated at every sample.
-    real_waveform_units : {"displacement", "velocity"}
+    real_waveform_units:
         Units to output real cut waveforms.
-    run : :class:`~quakemigrate.io.core.Run` object
+    run:
         Light class encapsulating i/o path information for a given run.
-    scan_rate : int, optional
+    scan_rate:
         Sampling rate at which the 4-D coalescence map will be calculated. Currently
         fixed to be the same as the onset function sampling rate (not
         user-configurable).
-    threads : int, optional
+    threads:
         The number of threads for the C functions to use on the executing host.
-        Default: 1 thread.
-    timestep : float, optional
+    timestep:
         Length (in seconds) of timestep used in detect(). Note: total detect run
         duration should be divisible by timestep. Increasing timestep will increase RAM
         usage during detect, but will slightly speed up overall detect run.
-        Default: 120 seconds.
-    wa_waveform_units : {"displacement", "velocity"}
+    wa_waveform_units:
         Units to output Wood-Anderson simulated cut waveforms.
-    write_cut_waveforms : bool, optional
+    write_cut_waveforms:
         Write raw cut waveforms for all data read from the archive for each event
         located by locate(). See `~quakemigrate.io.data.Archive` parameter
-        `read_all_stations`. Default: False.
+        `read_all_stations`.
         NOTE: this data has not been processed or quality-checked!
-    write_marginal_coalescence : bool, optional
+    write_marginal_coalescence:
         Write the marginalised 3-D coalescence map to file (in .npy format).
-        Default: False.
-    write_coalescence : bool, optional
+    write_coalescence:
         Write the raw 4-D coalescence map from locate to file (in .npy format).
-        Default: False.
-    write_real_waveforms : bool, optional
+    write_real_waveforms:
         Write real cut waveforms for all data read from the archive for each event
         located by locate(). See `~quakemigrate.io.data.Archive` parameter
-        `read_all_stations`. Default: False.
+        `read_all_stations`.
         NOTE: the units of this data (displacement or velocity) are controlled by
         `real_waveform_units`.
         NOTE: this data has not been processed or quality-checked!
         NOTE: no padding has been added to take into account the taper applied during
         response removal.
-    write_wa_waveforms : bool, optional
+    write_wa_waveforms:
         Write Wood-Anderson simulated cut waveforms for all data read from the archive
         for each event located by locate(). See `~quakemigrate.io.data.Archive`
-        parameter `read_all_stations`. Default: False.
+        parameter `read_all_stations`.
         NOTE: the units of this data (displacement or velocity) are controlled by
         `wa_waveform_units`.
         NOTE: this data has not been processed or quality-checked!
         NOTE: no padding has been added to take into account the taper applied during
         response removal.
-    xy_files : str, optional
+    xy_files:
         Path to comma-separated value file (.csv) containing a series of coordinate
         files to plot. Columns: ["File", "Color", "Linewidth", "Linestyle"], where
         "File" is the absolute path to the file containing the coordinates to be
@@ -175,17 +176,6 @@ class QuakeScan:
         data to
     +++ TO BE REMOVED TO ARCHIVE CLASS +++
 
-    Methods
-    -------
-    detect(starttime, endtime)
-        Core detection method -- compute decimated 3-D coalescence continuously
-        throughout entire time period; output as .scanmseed (in mSEED format).
-    locate(starttime, endtime) or locate(file)
-        Core locate method -- compute 3-D coalescence over short time window around
-        candidate earthquake triggered from continuous detect output; output location &
-        uncertainties (.event file), phase picks (.picks file), plus multiple optional
-        plots / data for further analysis and processing.
-
     Raises
     ------
     OnsetTypeError
@@ -201,7 +191,15 @@ class QuakeScan:
 
     """
 
-    def __init__(self, archive, lut, onset, run_path, run_name, **kwargs):
+    def __init__(
+        self,
+        archive: Archive,
+        lut: LUT,
+        onset: Onset,
+        run_path: str,
+        run_name: str,
+        **kwargs: dict,
+    ) -> None:
         """Instantiate the QuakeScan object."""
 
         self.archive = archive
@@ -216,15 +214,16 @@ class QuakeScan:
         self.post_pad = 0.0
 
         # --- Set up i/o ---
-        self.run = Run(
+        loglevel: Literal["info", "debug"] = kwargs.get("loglevel", "info")
+        self.run: Run = Run(
             run_path,
             run_name,
             kwargs.get("run_subname", ""),
-            loglevel=kwargs.get("loglevel", "info"),
+            loglevel=loglevel,
         )
-        self.log = kwargs.get("log", False)
+        self.log: bool = kwargs.get("log", False)
 
-        picker = kwargs.get("picker")
+        picker: PhasePicker | None = kwargs.get("picker")
         if picker is None:
             self.picker = GaussianPicker(onset=onset)
         elif isinstance(picker, PhasePicker):
@@ -234,52 +233,56 @@ class QuakeScan:
 
         # --- Grab QuakeScan parameters or set defaults ---
         # Parameters related specifically to Detect
-        self.timestep = kwargs.get("timestep", 120.0)
+        self.timestep: float = kwargs.get("timestep", 120.0)
         self.time_step = kwargs.get("time_step")  # DEPRECATING
 
         # Parameters related specifically to Locate
-        self.marginal_window = kwargs.get("marginal_window", 2.0)
+        self.marginal_window: float = kwargs.get("marginal_window", 2.0)
 
         # General QuakeScan parameters
-        self.threads = kwargs.get("threads", 1)
+        self.threads: int = kwargs.get("threads", 1)
         self.n_cores = kwargs.get("n_cores")  # DEPRECATING
         self.sampling_rate = kwargs.get("sampling_rate")  # DEPRECATING
-        self.scan_rate = self.onset.sampling_rate
+        self.scan_rate: int = self.onset.sampling_rate
 
         # Magnitudes
-        mags = kwargs.get("mags")
+        mags: LocalMag | None = kwargs.get("mags")
         if mags is not None:
             if not isinstance(mags, LocalMag):
                 raise util.MagsTypeError
         self.mags = mags
 
         # Plotting toggles and parameters
-        self.plot_event_summary = kwargs.get("plot_event_summary", True)
-        self.plot_all_stns = kwargs.get("plot_all_stns", True)
-        self.plot_event_video = kwargs.get("plot_event_video", False)
-        self.xy_files = kwargs.get("xy_files")
+        self.plot_event_summary: bool = kwargs.get("plot_event_summary", True)
+        self.plot_all_stns: bool = kwargs.get("plot_all_stns", True)
+        self.plot_event_video: bool = kwargs.get("plot_event_video", False)
+        self.xy_files: str | None = kwargs.get("xy_files")
 
         # File writing toggles
-        self.continuous_scanmseed_write = kwargs.get(
+        self.continuous_scanmseed_write: bool = kwargs.get(
             "continuous_scanmseed_write", False
         )
-        self.write_cut_waveforms = kwargs.get("write_cut_waveforms", False)
-        self.write_real_waveforms = kwargs.get("write_real_waveforms", False)
-        self.real_waveform_units = kwargs.get("real_waveform_units", "displacement")
-        self.write_wa_waveforms = kwargs.get("write_wa_waveforms", False)
-        self.wa_waveform_units = kwargs.get("wa_waveform_units", "displacement")
-        self.cut_waveform_format = kwargs.get("cut_waveform_format", "MSEED")
-        self.write_marginal_coalescence = kwargs.get(
+        self.write_cut_waveforms: bool = kwargs.get("write_cut_waveforms", False)
+        self.write_real_waveforms: bool = kwargs.get("write_real_waveforms", False)
+        self.real_waveform_units: Literal["displacement", "velocity"] = kwargs.get(
+            "real_waveform_units", "displacement"
+        )
+        self.write_wa_waveforms: bool = kwargs.get("write_wa_waveforms", False)
+        self.wa_waveform_units: Literal["displacement", "velocity"] = kwargs.get(
+            "wa_waveform_units", "displacement"
+        )
+        self.cut_waveform_format: str = kwargs.get("cut_waveform_format", "MSEED")
+        self.write_marginal_coalescence: bool = kwargs.get(
             "write_marginal_coalescence", False
         )
-        self.write_coalescence = kwargs.get("write_coalescence", False)
+        self.write_coalescence: bool = kwargs.get("write_coalescence", False)
 
         # +++ TO BE REMOVED TO ARCHIVE CLASS +++
         self.pre_cut = None
         self.post_cut = None
         # +++ TO BE REMOVED TO ARCHIVE CLASS +++
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return short summary string of the QuakeScan object."""
 
         out = (
@@ -294,16 +297,16 @@ class QuakeScan:
 
         return out
 
-    def detect(self, starttime, endtime):
+    def detect(self, starttime: str, endtime: str) -> None:
         """
         Scans through data calculating coalescence in a (decimated) 3-D grid by
         continuously migrating onset functions.
 
         Parameters
         ----------
-        starttime : str
+        starttime:
             Timestamp from which to run continuous scan.
-        endtime : str
+        endtime:
             Timestamp up to which to run continuous scan. Note: if the duration is not
             divisible by the specified timestep, the endtime will be extended to
             accommodate. If the endtime is set to midnight, then it will be automatically
@@ -348,7 +351,12 @@ class QuakeScan:
 
         logging.info(util.log_spacer)
 
-    def locate(self, starttime=None, endtime=None, trigger_file=None):
+    def locate(
+        self,
+        starttime: UTCDateTime | None = None,
+        endtime: UTCDateTime | None = None,
+        trigger_file: str | None = None,
+    ) -> None:
         """
         Re-computes the coalescence on an undecimated grid for a short time window
         around each candidate earthquake triggered from the (decimated) continuous
@@ -358,13 +366,13 @@ class QuakeScan:
 
         Parameters
         ----------
-        starttime : str, optional
+        starttime:
             Timestamp from which to include events in the locate scan.
-        endtime : str, optional
+        endtime:
             Timestamp up to which to include events in the locate scan. Note: if the
             endtime is set to midnight, then only events during the previous day will
             be included.
-        trigger_file : str, optional
+        trigger_file:
             File containing triggered events to be located.
 
         """
@@ -404,16 +412,16 @@ class QuakeScan:
 
         logging.info(util.log_spacer)
 
-    def _continuous_compute(self, starttime, n_steps):
+    def _continuous_compute(self, starttime: UTCDateTime, n_steps: int) -> None:
         """
         Compute coalescence between two timestamps, divided into increments of
         `timestep`. Outputs coalescence and station availability data to file.
 
         Parameters
         ----------
-        starttime : `obspy.UTCDateTime` object
+        starttime:
             Timestamp from which to compute continuous coalescence.
-        n_steps : int
+        n_steps:
             Number of timesteps (of length `timestep`) to compute.
 
         """
@@ -469,7 +477,7 @@ class QuakeScan:
             coalescence.write()
         write_availability(self.run, availability)
 
-    def _locate_events(self, **kwargs):
+    def _locate_events(self, **kwargs: dict) -> None:
         """
         Loop through list of earthquakes read in from trigger results and re-compute
         coalescence; output phase picks, event location and uncertainty, plus optional
@@ -477,7 +485,7 @@ class QuakeScan:
 
         Parameters
         ----------
-        kwargs : **dict
+        kwargs:
             Can contain:
             starttime : `obspy.UTCDateTime` object, optional
                 Timestamp from which to include events in the locate scan.
@@ -498,7 +506,7 @@ class QuakeScan:
             w_beg = event.trigger_time - 2 * self.marginal_window - self.pre_pad
             w_end = event.trigger_time + 2 * self.marginal_window + self.post_pad
             logging.info(util.log_spacer)
-            logging.info(f"\tEVENT - {i+1} of {n_events} - {event.uid}")
+            logging.info(f"\tEVENT - {i + 1} of {n_events} - {event.uid}")
             logging.info(util.log_spacer)
 
             try:
@@ -591,26 +599,39 @@ class QuakeScan:
             logging.info(util.log_spacer)
 
     @util.timeit("info")
-    def _compute(self, data, event=None):
+    def _compute(
+        self,
+        data: WaveformData,
+        event: Event | None = None,
+    ) -> tuple[
+        np.ndarray[UTCDateTime],
+        np.ndarray[float],
+        np.ndarray[float],
+        np.ndarray[float],
+        np.ndarray[float],
+    ]:
         """
         Compute 3-D coalescence between two time stamps.
 
         Parameters
         ----------
-        data : :class:`~quakemigrate.io.data.WaveformData` object
+        data:
             Light class encapsulating data returned by an archive query.
+        event:
+            Light class encapsulating waveforms, coalescence information, picks and
+            location information for a given event.
 
         Returns
         -------
-        times : `numpy.ndarray` of `obspy.UTCDateTime` objects, shape(nsamples)
+        times:
             Timestamps for the coalescence data.
-        max_coa : `numpy.ndarray` of floats, shape(nsamples)
+        max_coa:
             Coalescence value through time.
-        max_coa_n : `numpy.ndarray` of floats, shape(nsamples)
+        max_coa_n:
             Normalised coalescence value through time.
-        coord : `numpy.ndarray` of floats, shape(nsamples)
+        coord:
             Location of maximum coalescence through time in input projection space.
-        map4d : `numpy.ndarry`, shape(nx, ny, nz, nsamp), optional
+        map4d:
             4-D coalescence map.
 
         """
@@ -647,20 +668,22 @@ class QuakeScan:
             return times, max_coa, max_coa_n, coord, map4d, onset_data
 
     @util.timeit("info")
-    def _read_event_waveform_data(self, w_beg, w_end):
+    def _read_event_waveform_data(
+        self, w_beg: UTCDateTime, w_end: UTCDateTime
+    ) -> WaveformData:
         """
         Read waveform data for a triggered event.
 
         Parameters
         ----------
-        w_beg : `obpsy.UTCDateTime` object
+        w_beg:
             Timestamp from which to read waveform data.
-        w_end : `obspy.UTCDateTime` object
+        w_end:
             Timestamp up to which to read waveform data.
 
         Returns
         -------
-        data : :class:`~quakemigrate.io.data.WaveformData` object
+        data:
             Light class encapsulating data returned by an archive query.
 
         """
@@ -693,7 +716,7 @@ class QuakeScan:
         return self.archive.read_waveform_data(w_beg, w_end, pre_pad, post_pad)
 
     @util.timeit("info")
-    def _calculate_location(self, event):
+    def _calculate_location(self, event: Event) -> np.ndarray:
         """
         Marginalise the 4-D coalescence grid and calculate a set of locations and
         associated uncertainties by:
@@ -705,13 +728,13 @@ class QuakeScan:
 
         Parameters
         ----------
-        event : :class:`~quakemigrate.io.event.Event` object
+        event:
             Light class encapsulating waveforms, coalescence information, picks and
             location information for a given event.
 
         Returns
         -------
-        coa_map : array-like
+        coa_map:
             Marginalised 3-D coalescence map.
 
         """
@@ -733,7 +756,9 @@ class QuakeScan:
         return coa_map
 
     @util.timeit()
-    def _splineloc(self, coa_map, win=5, upscale=10):
+    def _splineloc(
+        self, coa_map: np.ndarray, win: int = 5, upscale: int = 10
+    ) -> list[float]:
         """
         Fit a 3-D spline function to a region around the maximum coalescence in the
         marginalised coalescence map and interpolate by factor `upscale` to return a
@@ -741,17 +766,17 @@ class QuakeScan:
 
         Parameters
         ----------
-        coa_map : array-like
+        coa_map:
             Marginalised 3-D coalescence map.
-        win : int
+        win:
             Window of grid nodes (+/-(win-1)//2 in x, y and z) around max value in
             coa_map to perform the fit over.
-        upscale : int
+        upscale:
             Upscaling factor to interpolate the fitted 3-D spline function by.
 
         Returns
         -------
-        location : array-like, [x, y, z]
+        location:
             Max coalescence location from spline interpolation.
 
         """
@@ -841,7 +866,9 @@ class QuakeScan:
         return location
 
     @util.timeit()
-    def _gaufit3d(self, coa_map, thresh=0.0, win=7):
+    def _gaufit3d(
+        self, coa_map: np.ndarray, thresh: float = 0.0, win: int = 7
+    ) -> tuple[list[float], list[float]]:
         """
         Fit a 3-D Gaussian function to a region around the maximum coalescence location
         in the 3-D marginalised coalescence map: return expectation location and
@@ -849,20 +876,20 @@ class QuakeScan:
 
         Parameters
         ----------
-        coa_map : array-like
+        coa_map:
             Marginalised 3-D coalescence map.
-        thresh : float (between 0 and 1), optional
+        thresh:
             Cut-off threshold (percentile) to trim coa_map: only data above this
             percentile will be retained.
-        win : int, optional
+        win:
             Window of grid nodes (+/-(win-1)//2 in x, y and z) around max value in
             coa_map to perform the fit over.
 
         Returns
         -------
-        location : array-like, [x, y, z]
+        location:
             Expectation location from 3-D Gaussian fit.
-        uncertainty : array-like, [sx, sy, sz]
+        uncertainty:
             One sigma uncertainties on expectation location from 3-D Gaussian fit.
 
         """
@@ -936,7 +963,9 @@ class QuakeScan:
         return location, uncertainty
 
     @util.timeit()
-    def _covfit3d(self, coa_map, thresh=0.90, win=None):
+    def _covfit3d(
+        self, coa_map: np.ndarray, thresh: float = 0.90, win: int | None = None
+    ) -> tuple[list[float], list[float]]:
         """
         Calculate the 3-D covariance of the marginalised coalescence map, filtered above
         a percentile threshold `thresh`. Optionally can also perform the fit on a
@@ -944,20 +973,20 @@ class QuakeScan:
 
         Parameters
         ----------
-        coa_map : array-like
+        coa_map:
             Marginalised 3-D coalescence map.
-        thresh : float (between 0 and 1), optional
+        thresh:
             Cut-off threshold (fractional percentile) to trim coa_map; only data above
             this percentile will be retained.
-        win : int, optional
+        win:
             Window of grid nodes (+/-(win-1)//2 in x, y and z) around max value in
             coa_map to perform the fit over.
 
         Returns
         -------
-        location : array-like, [x, y, z]
+        location:
             Expectation location from covariance fit.
-        uncertainty : array-like, [sx, sy, sz]
+        uncertainty:
             One sigma uncertainties on expectation location from covariance fit.
 
         """
@@ -1005,24 +1034,26 @@ class QuakeScan:
         return location, uncertainty
 
     @util.timeit()
-    def _gaufilt3d(self, map3d, sgm=0.8, shp=None):
+    def _gaufilt3d(
+        self, map3d: np.ndarray, sgm: float = 0.8, shp: list | None = None
+    ) -> np.ndarray:
         """
         Smooth the 3-D marginalised coalescence map using a 3-D Gaussian function to
         enable a better Gaussian fit to the data to be calculated.
 
         Parameters
         ----------
-        map3d : array-like
+        map3d:
             Marginalised 3-D coalescence map.
-        sgm : float
+        sgm:
             Sigma value (in grid nodes) for the 3-D Gaussian filter function; bigger
             sigma leads to more aggressive (long wavelength) smoothing.
-        shp : array-like, optional
+        shp:
             Shape of volume.
 
         Returns
         -------
-        smoothed_map : array-like
+        smoothed_map:
             Gaussian smoothed 3-D coalescence map.
 
         """
@@ -1042,23 +1073,25 @@ class QuakeScan:
 
         return smoothed_map
 
-    def _mask3d(self, n, i, window):
+    def _mask3d(
+        self, n: np.ndarray[int], i: np.ndarray[int], window: int
+    ) -> np.ndarray:
         """
         Creates a mask that can be applied to a 3-D grid.
 
         Parameters
         ----------
-        n : array-like, int
+        n:
             Shape of grid.
-        i : array-like, int
+        i:
             Location of node around which to mask.
-        window : int
+        window:
             Size of window around node to mask - window of grid nodes is
             +/-(win-1)//2 in x, y and z.
 
         Returns
         -------
-        mask : array-like
+        mask:
             Masking array.
 
         """

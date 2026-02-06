@@ -1,21 +1,29 @@
-# -*- coding: utf-8 -*-
 """
 Module to handle input/output of cut waveforms.
 
 :copyright:
-    2020–2023, QuakeMigrate developers.
+    2020–2026, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
 
 """
 
+from __future__ import annotations
+
 import logging
+import pathlib
 import warnings
+from typing import Literal, TYPE_CHECKING
 
 from obspy import Stream
 
 import quakemigrate.util as util
+
+
+if TYPE_CHECKING:
+    from quakemigrate.io.core import Run
+    from quakemigrate.io.event import Event
 
 
 warnings.filterwarnings(
@@ -43,37 +51,36 @@ warnings.filterwarnings(
 
 @util.timeit("info")
 def write_cut_waveforms(
-    run,
-    event,
-    file_format,
-    pre_cut=0.0,
-    post_cut=0.0,
-    waveform_type="raw",
-    units="displacement",
-):
+    run: Run,
+    event: Event,
+    file_format: Literal["MSEED", "SAC", "SEGY", "GSE2"] | str = "MSEED",
+    pre_cut: float = 0.0,
+    post_cut: float = 0.0,
+    waveform_type: Literal["raw", "real", "wa"] = "raw",
+    units: Literal["displacement", "velocity"] = "displacement",
+) -> None:
     """
     Output cut waveform data as a waveform file -- defaults to miniSEED format.
 
     Parameters
     ----------
-    run : :class:`~quakemigrate.io.core.Run` object
+    run:
         Light class encapsulating i/o path information for a given run.
-    event : :class:`~quakemigrate.io.event.Event` object
+    event:
         Light class encapsulating waveforms, coalescence information, picks and location
         information for a given event.
-    file_format : str, optional
+    file_format:
         File format to write waveform data to. Options are all file formats supported by
-        ObsPy, including: "MSEED" (default), "SAC", "SEGY", "GSE2"
-    pre_cut : float or None, optional
+        ObsPy.
+    pre_cut:
         Specify how long before the event origin time to cut the waveform data from.
-    post_cut : float or None, optional
+    post_cut:
         Specify how long after the event origin time to cut the waveform data to.
-    waveform_type : {"raw", "real", "wa"}, optional
+    waveform_type:
         Whether to output raw, real or Wood-Anderson simulated waveforms.
-        Default: "raw"
-    units : {"displacement", "velocity"}, optional
+    units:
         Whether to output displacement waveforms or velocity waveforms for real/
-        Wood-Anderson corrected traces. Default: displacement
+        Wood-Anderson corrected traces.
 
     Raises
     ------
@@ -135,25 +142,30 @@ def write_cut_waveforms(
 
 
 @util.timeit("debug")
-def get_waveforms(st, event, waveform_type, units):
+def get_waveforms(
+    st: Stream,
+    event: Event,
+    waveform_type: Literal["real", "wa"],
+    units: Literal["displacement", "velocity"],
+) -> Stream:
     """
     Get real or simulated waveforms for a Stream.
 
     Parameters
     ----------
-    st : `obspy.Stream` object
+    st:
         Stream for which to get real or simulated waveforms.
-    event : :class:`~quakemigrate.io.event.Event` object
+    event:
         Light class encapsulating waveforms, coalescence information, picks and location
         information for a given event.
-    waveform_type : {"real", "wa"}
+    waveform_type:
         Whether to get real or Wood-Anderson simulated waveforms.
-    units : {"displacement", "velocity"}
+    units:
         Units to return waveforms in.
 
     Returns
     -------
-    st_out : `obspy.Stream` object
+    st_out:
         Stream of real or Wood-Anderson simulated waveforms in the requested units.
 
     """
@@ -180,34 +192,36 @@ def get_waveforms(st, event, waveform_type, units):
 
 
 @util.timeit("debug")
-def write_waveforms(st, fpath, fstem, file_format):
+def write_waveforms(
+    st: Stream,
+    fpath: pathlib.Path,
+    fstem: str,
+    file_format: Literal["MSEED", "SAC", "SEGY", "GSE2"] | str = "MSEED",
+) -> None:
     """
     Output waveform data as a waveform file -- defaults to miniSEED format.
 
     Parameters
     ----------
-    st : `obspy.Stream` object
+    st:
         Waveforms to be written to file.
-    fpath : `pathlib.Path` object
+    fpath:
         Path to output directory.
-    fstem : str
+    fstem:
         File name (without suffix).
-    file_format : str
+    file_format:
         File format to write waveform data to. Options are all file formats supported by
         ObsPy, including: "MSEED" (default), "SAC", "SEGY", "GSE2"
 
     """
 
-    if file_format == "MSEED":
-        suffix = ".m"
-    elif file_format == "SAC":
-        suffix = ".sac"
-    elif file_format == "SEGY":
-        suffix = ".segy"
-    elif file_format == "GSE2":
-        suffix = ".gse2"
-    else:
-        suffix = ".waveforms"
+    suffix_map = {
+        "MSEED": ".m",
+        "SAC": ".sac",
+        "SEGY": ".segy",
+        "GSE2": ".gse2",
+    }
+    suffix = suffix_map.get(file_format, ".waveforms")
 
     file = (fpath / fstem).with_suffix(suffix)
     st.write(str(file), format=file_format)

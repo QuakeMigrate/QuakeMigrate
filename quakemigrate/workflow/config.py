@@ -18,14 +18,16 @@ from typing import Any
 from quakemigrate.exceptions import ConfigError
 
 
-def load_toml(path: pathlib.Path) -> dict:
+def load_toml(config_file: pathlib.Path, basepath: pathlib.Path | None = None) -> dict:
     """
     Read TOML configuration file.
 
     Parameters
     ----------
-    path:
+    config_file:
         Path to TOML configuration file.
+    basepath:
+        Optionally specify a root directory to resolve relative paths against.
 
     Returns
     -------
@@ -39,16 +41,64 @@ def load_toml(path: pathlib.Path) -> dict:
 
     """
 
-    if not path.exists():
-        raise ConfigError(f"config file not found:\n  {path}")
-    if not path.is_file():
-        raise ConfigError(f"config path is not a file:\n  {path}")
+    if not config_file.exists():
+        raise ConfigError(f"config file not found:\n  {config_file}")
+    if not config_file.is_file():
+        raise ConfigError(f"config path is not a file:\n  {config_file}")
 
     try:
-        with path.open("rb") as f:
-            return tomllib.load(f)
+        with config_file.open("rb") as f:
+            config = tomllib.load(f)
     except tomllib.TOMLDecodeError as e:
-        raise ConfigError(f"invalid TOML in {path}:\n  {e}") from None
+        raise ConfigError(f"invalid TOML in {config_file}:\n  {e}") from None
+
+    if basepath is not None:
+        config = resolve_config_paths(config, basepath)
+
+    return config
+
+
+_PATH_KEYS = {"station_file", "lut_file", "path"}
+
+
+def resolve_config_paths(
+    config: dict,
+    basepath: pathlib.Path,
+) -> dict:
+    """
+    Resolve relative paths in config file against some base directory.
+
+    Parameters
+    ----------
+    config:
+        Configuration file parsed into dict structure.
+    basepath:
+        Root directory to resolve relative paths against.
+
+    Returns
+    -------
+    config:
+        The config object with resolved paths.
+
+    """
+
+    def recurse(obj, key=None):
+        if isinstance(obj, dict):
+            return {k: recurse(v, k) for k, v in obj.items()}
+
+        if isinstance(obj, list):
+            return [recurse(v, key) for v in obj]
+
+        if isinstance(obj, str) and key is not None:
+            if key in _PATH_KEYS:
+                p = pathlib.Path(obj).expanduser()
+                if not p.is_absolute():
+                    p = (basepath / p).resolve()
+                return str(p)
+
+        return obj
+
+    return recurse(config)
 
 
 def require_key(d: dict, key: str) -> Any:

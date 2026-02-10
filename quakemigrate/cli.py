@@ -66,12 +66,10 @@ def _init_project(args: argparse.Namespace) -> None:
             f"Project already exists (found .qm-project):\n  {project_dir}"
         )
     project_dir.mkdir(parents=True, exist_ok=True)
+    (project_dir / ".qm-project").touch()  # Mark project root
 
     for dir_ in ["inputs", "luts", "configs/templates", "runs"]:
         (project_dir / dir_).mkdir(parents=True, exist_ok=True)
-
-    # Mark project root
-    (project_dir / ".qm-project").touch()
 
     # Copy default template config files
     assets_dir = pathlib.Path(__file__).parent / "assets"
@@ -170,7 +168,11 @@ def _run_detect(args: argparse.Namespace) -> None:
 
     from quakemigrate.workflow.stages import detect
 
-    detect.run_project(args.run_name, threads=args.threads, debug=args.debug)
+    detector = detect.prepare_project(
+        args.run_name, threads=args.threads, debug=args.debug
+    )
+
+    detector.detect(args.starttime, args.endtime)
 
 
 def _run_trigger(args: argparse.Namespace) -> None:
@@ -178,7 +180,9 @@ def _run_trigger(args: argparse.Namespace) -> None:
 
     from quakemigrate.workflow.stages import trigger
 
-    trigger.run_project(args.run_name, debug=args.debug)
+    trigger_ = trigger.prepare_project(args.run_name, debug=args.debug)
+
+    trigger_.trigger(args.starttime, args.endtime)
 
 
 def _run_locate(args: argparse.Namespace) -> None:
@@ -186,7 +190,11 @@ def _run_locate(args: argparse.Namespace) -> None:
 
     from quakemigrate.workflow.stages import locate
 
-    locate.run_project(args.run_name, threads=args.threads, debug=args.debug)
+    locator = locate.prepare_project(
+        args.run_name, threads=args.threads, debug=args.debug
+    )
+
+    locator.locate(args.starttime, args.endtime)
 
 
 def entry_point(argv: list[str] | None = None) -> None:
@@ -275,6 +283,18 @@ def entry_point(argv: list[str] | None = None) -> None:
             "--threads",
             type=int,
             help="Override number of threads for this run.",
+        )
+        p.add_argument(
+            "-st",
+            "--starttime",
+            type=str,
+            help="Override for starttime.",
+        )
+        p.add_argument(
+            "-et",
+            "--endtime",
+            type=str,
+            help="Override for endtime.",
         )
         p.set_defaults(func=RequiresProject(fn))
 

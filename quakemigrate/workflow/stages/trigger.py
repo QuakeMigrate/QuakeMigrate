@@ -1,9 +1,9 @@
 """
-Functions for running the Trigger stage of QuakeMigrate, specified at three levels:
+Functions for preparing the Trigger stage of QuakeMigrate, specified at three levels:
 
-    1. Low-level: run trigger from a structured dictionary of parameters.
-    2. From-file: run trigger from a config file (thin layer to level 1).
-    3. From-project: run trigger from a project run name (thin layer to level 2).
+    1. Low-level: prepare trigger from a structured dictionary of parameters.
+    2. From-file: prepare trigger from a config file (thin layer to level 1).
+    3. From-project: prepare trigger from a project run name (thin layer to level 2).
 
 :copyright:
     2020–2026, QuakeMigrate developers.
@@ -24,34 +24,39 @@ from quakemigrate.workflow.config import require_key, load_toml
 from quakemigrate.workflow.project import require_project_root
 
 
-def run(
+def prepare(
     config: dict,
     run_name: str,
     run_path: str = "runs",
     debug: bool = False,
-) -> None:
+) -> Trigger:
     """
-    Run the Trigger stage from an already-loaded configuration mapping.
+    Prepare the Trigger stage from an already-loaded configuration mapping.
 
     Parameters
     ----------
     config:
         Trigger stage configuration (parsed TOML dict or similar).
     run_name:
-        Name of the run (used for outputs under run_path/run_name).
+        A unique identifier for the run.
     run_path:
-        Base directory for run outputs (default "runs", relative to project root if used).
+        Directory to which outputs are written.
     debug:
         Enable debug logging.
+
+    Returns
+    -------
+    trigger:
+        A fully configured Trigger object.
 
     """
 
     lut_file = pathlib.Path(require_key(config, "lut_file"))
     if not lut_file.exists():
-        raise ConfigError(f"detect: lut_file not found:\n  {lut_file}")
+        raise ConfigError(f"trigger: lut_file not found:\n  {lut_file}")
     lut = read_lut(lut_file)
 
-    trig = Trigger(
+    trigger = Trigger(
         lut,
         run_path=run_path,
         run_name=run_name,
@@ -59,75 +64,86 @@ def run(
         loglevel="debug" if debug else "info",
     )
 
-    trigger_cfg = require_key(config, "trigger")
-    trig.marginal_window = require_key(trigger_cfg, "marginal_window")
-    trig.min_event_interval = require_key(trigger_cfg, "min_event_interval")
-    trig.normalise_coalescence = require_key(trigger_cfg, "normalise_coalescence")
+    trigger_config = require_key(config, "trigger")
+    trigger.marginal_window = require_key(trigger_config, "marginal_window")
+    trigger.min_event_interval = require_key(trigger_config, "min_event_interval")
+    trigger.normalise_coalescence = require_key(trigger_config, "normalise_coalescence")
 
-    threshold_cfg = require_key(config, "threshold")
-    method = require_key(threshold_cfg, "method")
+    threshold_config = require_key(config, "threshold")
+    method = require_key(threshold_config, "method")
 
     match method:
         case "static":
-            trig.threshold_method = "static"
-            trig.static_threshold = require_key(threshold_cfg, "static_threshold")
+            trigger.threshold_method = "static"
+            trigger.static_threshold = require_key(threshold_config, "static_threshold")
         case "mad":
-            trig.threshold_method = "mad"
-            trig.mad_window_length = require_key(threshold_cfg, "mad_window_length")
-            trig.mad_multiplier = require_key(threshold_cfg, "mad_multiplier")
-        case "median_ratio":
-            trig.threshold_method = "median_ratio"
-            trig.median_window_length = require_key(
-                threshold_cfg, "median_window_length"
+            trigger.threshold_method = "mad"
+            trigger.mad_window_length = require_key(
+                threshold_config, "mad_window_length"
             )
-            trig.median_multiplier = require_key(threshold_cfg, "median_multiplier")
+            trigger.mad_multiplier = require_key(threshold_config, "mad_multiplier")
+        case "median_ratio":
+            trigger.threshold_method = "median_ratio"
+            trigger.median_window_length = require_key(
+                threshold_config, "median_window_length"
+            )
+            trigger.median_multiplier = require_key(
+                threshold_config, "median_multiplier"
+            )
         case _:
             raise ConfigError(
-                "trigger.threshold.method must be one of: ['static', 'mad', 'median_ratio']"
+                "trigger.threshold.method must be one of: "
+                "['static', 'mad', 'median_ratio']"
             )
 
-    trig.trigger(
-        require_key(trigger_cfg, "starttime"),
-        require_key(trigger_cfg, "endtime"),
-        interactive_plot=require_key(trigger_cfg, "interactive_plot"),
-    )
+    return trigger
 
 
-def run_file(
+def prepare_file(
     path: str | pathlib.Path,
     run_name: str,
     run_path: str = "runs",
     debug: bool = False,
-) -> None:
+    basepath: pathlib.Path | None = None,
+) -> Trigger:
     """
-    Run the Trigger stage by specifying a .toml config file.
+    Prepare the Trigger stage by specifying a .toml config file.
 
     Parameters
     ----------
     path:
         Path to trigger config file.
     run_name:
-        A unique identifier for a run associated with a QuakeMigrate project.
+        A unique identifier for the run.
     run_path:
         Directory to which outputs are written.
     debug:
         Toggle the log level to debug.
+    basepath:
+        Optionally specify a root directory to resolve relative paths against.
+
+    Returns
+    -------
+    trigger:
+        A fully configured Trigger object.
 
     """
 
-    config = load_toml(pathlib.Path(path))
+    config = load_toml(pathlib.Path(path), basepath=basepath)
 
-    run(config, run_name=run_name, run_path=run_path, debug=debug)
+    trigger = prepare(config, run_name=run_name, run_path=run_path, debug=debug)
+
+    return trigger
 
 
-def run_project(
+def prepare_project(
     run_name: str,
     project_root: str | pathlib.Path | None = None,
     run_path: str = "runs",
     debug: bool = False,
-) -> None:
+) -> Trigger:
     """
-    Run the Trigger stage by a run name associated with a QuakeMigrate project.
+    Prepare the Trigger stage by a run name associated with a QuakeMigrate project.
 
     Parameters
     ----------
@@ -140,9 +156,22 @@ def run_project(
     debug:
         Toggle the log level to debug.
 
+    Returns
+    -------
+    trigger:
+        A fully configured Trigger object.
+
     """
 
     root = require_project_root(pathlib.Path(project_root) if project_root else None)
     config_file = root / "configs" / run_name / f"trigger-{run_name}.toml"
 
-    run_file(config_file, run_name=run_name, run_path=root / run_path, debug=debug)
+    trigger = prepare_file(
+        config_file,
+        run_name=run_name,
+        run_path=root / run_path,
+        debug=debug,
+        basepath=root,
+    )
+
+    return trigger

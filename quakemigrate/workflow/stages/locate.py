@@ -1,9 +1,9 @@
 """
-Functions for running the Locate stage of QuakeMigrate, specified at three levels:
+Functions for preparing the Locate stage of QuakeMigrate, specified at three levels:
 
-    1. Low-level: run locate from a structured dictionary of parameters.
-    2. From-file: run locate from a config file (thin layer to level 1).
-    3. From-project: run locate from a project run name (thin layer to level 2).
+    1. Low-level: prepare locate from a structured dictionary of parameters.
+    2. From-file: prepare locate from a config file (thin layer to level 1).
+    3. From-project: prepare locate from a project run name (thin layer to level 2).
 
 :copyright:
     2020–2026, QuakeMigrate developers.
@@ -16,44 +16,42 @@ Functions for running the Locate stage of QuakeMigrate, specified at three level
 from __future__ import annotations
 
 import pathlib
-from typing import Mapping, Any, TYPE_CHECKING
 
 from quakemigrate import QuakeScan
 from quakemigrate.exceptions import ConfigError
 from quakemigrate.io import Archive, read_lut, read_stations
-from quakemigrate.signal.onsets import STALTAOnset
-from quakemigrate.signal.pickers import GaussianPicker
+from quakemigrate.workflow.builders import build_onset, build_picker
 from quakemigrate.workflow.config import require_key, load_toml
 from quakemigrate.workflow.project import require_project_root
 
 
-if TYPE_CHECKING:
-    from quakemigrate.signal.onsets import Onset
-    from quakemigrate.signal.pickers import Picker
-
-
-def run(
+def prepare(
     config: dict,
     run_name: str,
     run_path: str = "runs",
     threads: int | None = None,
     debug: bool = False,
-) -> None:
+) -> QuakeScan:
     """
-    Run the Locate stage from an already-loaded configuration mapping.
+    Prepare a reusable QuakeScan object for Locate.
 
     Parameters
     ----------
     config:
         Locate stage configuration (parsed TOML dict or similar).
     run_name:
-        Name of the run (used for outputs under run_path/run_name).
+        A unique identifier for the run.
     run_path:
-        Base directory for run outputs (default "runs", relative to project root).
+        Directory to which outputs are written.
     threads:
-        Optional override for scan.threads.
+        Optional override for QuakeScan.threads.
     debug:
         Enable debug logging.
+
+    Returns
+    -------
+    locator:
+        A fully configured QuakeScan object.
 
     """
 
@@ -78,13 +76,13 @@ def run(
     )
 
     onset_config = require_key(config, "onset")
-    onset = _build_onset(onset_config)
+    onset = build_onset(onset_config)
 
     picker_config = require_key(config, "picker")
-    picker = _build_picker(picker_config, onset=onset)
+    picker = build_picker(picker_config, onset=onset)
 
     scan_config = require_key(config, "scan")
-    scan = QuakeScan(
+    locator = QuakeScan(
         archive,
         lut,
         onset=onset,
@@ -94,136 +92,67 @@ def run(
         log=True,
         loglevel="debug" if debug else "info",
     )
-    scan.marginal_window = require_key(scan_config, "marginal_window")
-    scan.threads = (
+    locator.marginal_window = require_key(scan_config, "marginal_window")
+    locator.threads = (
         threads if threads is not None else require_key(scan_config, "threads")
     )
-    scan.plot_event_summary = require_key(scan_config, "plot_event_summary")
-    scan.write_cut_waveforms = require_key(scan_config, "write_cut_waveforms")
+    locator.plot_event_summary = require_key(scan_config, "plot_event_summary")
+    locator.write_cut_waveforms = require_key(scan_config, "write_cut_waveforms")
 
-    scan.locate(
-        require_key(scan_config, "starttime"),
-        require_key(scan_config, "endtime"),
-    )
+    return locator
 
 
-def _build_onset(onset_config: dict) -> Onset:
-    """
-    Utility for building an Onset object from config.
-
-    Parameters
-    ----------
-    onset_config:
-        Configuration used to build Onset object.
-
-    Returns
-    -------
-    onset:
-        A configured Onset object.
-
-    Raises
-    ------
-    ConfigError
-        If an invalid Onset type is requested.
-
-    """
-
-    name = require_key(onset_config, "name")
-
-    match name:
-        case "STALTA-classic":
-            onset = STALTAOnset(
-                position="classic",
-                sampling_rate=require_key(onset_config, "sampling_rate"),
-            )
-        case "STALTA-centred":
-            onset = STALTAOnset(
-                position="centred",
-                sampling_rate=require_key(onset_config, "sampling_rate"),
-            )
-        case _:
-            raise ConfigError(
-                f"onset.name must be one of: ['STALTA-classic', 'STALTA-centred']"
-            )
-
-    onset.phases = require_key(onset_config, "phases")
-    onset.bandpass_filters = require_key(onset_config, "bandpass_filters")
-    onset.sta_lta_windows = require_key(onset_config, "sta_lta_windows")
-
-    return onset
-
-
-def _build_picker(picker_config: dict, onset: Onset) -> Picker:
-    """
-    Utility for building an Picker object from config.
-
-    Parameters
-    ----------
-    picker_config:
-        Configuration used to build Picker object.
-
-    Returns
-    -------
-    picker:
-        A configured Picker object.
-
-    Raises
-    ------
-    ConfigError
-        If an invalid Picker type is requested.
-
-    """
-
-    name = require_key(picker_config, "name")
-
-    match name:
-        case "Gaussian":
-            picker = GaussianPicker(onset=onset)
-            picker.plot_picks = require_key(picker_config, "plot_picks")
-            return picker
-        case _:
-            raise ConfigError(f"picker.name must be one of: ['Gaussian']")
-
-
-def run_file(
+def prepare_file(
     path: str | pathlib.Path,
     run_name: str,
     run_path: str = "runs",
     threads: int | None = None,
     debug: bool = False,
-) -> None:
+    basepath: pathlib.Path | None = None,
+) -> QuakeScan:
     """
-    Run the Locate stage by specifying a .toml config file.
+    Prepare the Locate stage by specifying a .toml config file.
 
     Parameters
     ----------
     path:
         Path to locate config file.
     run_name:
-        A unique identifier for a run associated with a QuakeMigrate project.
+        A unique identifier for the run.
     run_path:
         Directory to which outputs are written.
     threads:
-        Optional override for scan.threads.
+        Optional override for QuakeScan.threads.
     debug:
         Toggle the log level to debug.
+    basepath:
+        Optionally specify a root directory to resolve relative paths against.
+
+    Returns
+    -------
+    locator:
+        A fully configured QuakeScan object.
 
     """
 
-    config = load_toml(pathlib.Path(path))
+    config = load_toml(pathlib.Path(path), basepath=basepath)
 
-    run(config, run_name=run_name, run_path=run_path, threads=threads, debug=debug)
+    locator = prepare(
+        config, run_name=run_name, run_path=run_path, threads=threads, debug=debug
+    )
+
+    return locator
 
 
-def run_project(
+def prepare_project(
     run_name: str,
     project_root: str | pathlib.Path | None = None,
     run_path: str = "runs",
     threads: int | None = None,
     debug: bool = False,
-) -> None:
+) -> QuakeScan:
     """
-    Run the Locate stage by a run name associated with a QuakeMigrate project.
+    Prepare the Locate stage by a run name associated with a QuakeMigrate project.
 
     Parameters
     ----------
@@ -234,19 +163,27 @@ def run_project(
     run_path:
         Directory within project to which outputs are written.
     threads:
-        Optional override for scan.threads.
+        Optional override for QuakeScan.threads.
     debug:
         Toggle the log level to debug.
+
+    Returns
+    -------
+    locator:
+        A fully configured QuakeScan object.
 
     """
 
     root = require_project_root(pathlib.Path(project_root) if project_root else None)
     config_file = root / "configs" / run_name / f"locate-{run_name}.toml"
 
-    run_file(
+    locator = prepare_file(
         config_file,
         run_name=run_name,
         run_path=root / run_path,
         threads=threads,
         debug=debug,
+        basepath=root,
     )
+
+    return locator

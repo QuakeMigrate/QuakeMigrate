@@ -182,7 +182,7 @@ def _run_trigger(args: argparse.Namespace) -> None:
 
     trigger_ = trigger.prepare_project(args.run_name, debug=args.debug)
 
-    trigger_.trigger(args.starttime, args.endtime)
+    trigger_.trigger(args.starttime, args.endtime, region=args.region)
 
 
 def _run_locate(args: argparse.Namespace) -> None:
@@ -296,6 +296,13 @@ def entry_point(argv: list[str] | None = None) -> None:
             type=str,
             help="Override for endtime.",
         )
+        if cmd == "trigger":
+            p.add_argument(
+                "--region",
+                nargs="+",
+                type=float,
+                help="Override for spatial filtering of triggered events."
+            )
         p.set_defaults(func=RequiresProject(fn))
 
     args = parser.parse_args(argv)

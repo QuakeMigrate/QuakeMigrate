@@ -364,7 +364,7 @@ class Magnitude:
             Station_Correction : float
                 Magnitude correction term to apply to observations for this station,
                 optionally supplied by the user (see
-                `~quakemigrate.signal.local_mag.local_mag.station_corrections`).
+                `~quakemigrate.plugins.magnitudes.local_mag.station_corrections`).
             Noise_Filter : bool
                 Whether this observation meets the noise filter.
             Trace_Filter : bool

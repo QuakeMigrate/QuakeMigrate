@@ -1,5 +1,8 @@
 station_file = "inputs/<station-file>"
-lut_file = "luts/<lut-name>.lut"
+
+[lut]
+file = "luts/<lut-name>.lut"
+decimation = [X, Y, Z]  # [int, int, int] Select decimation factor in each dimension 
 
 [archive]
 path = "inputs/mSEED"  # path to archive root directory

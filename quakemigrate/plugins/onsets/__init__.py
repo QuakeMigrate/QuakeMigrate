@@ -1,6 +1,6 @@
 """
-The :mod:`quakemigrate.onsets` module handles the generation of Onset functions. The
-default method uses the ratio between the short-term and long-term averages of the
+The :mod:`quakemigrate.plugins.onsets` module handles the generation of Onset functions.
+The default method uses the ratio between the short-term and long-term averages of the
 signal amplitude.
 
 Feel free to contribute more Onset function options!
@@ -13,5 +13,5 @@ Feel free to contribute more Onset function options!
 
 """
 
-from .base import Onset  # NOQA
+from .base import Onset, OnsetData  # NOQA
 from .stalta import STALTAOnset, ClassicSTALTAOnset, CentredSTALTAOnset  # NOQA

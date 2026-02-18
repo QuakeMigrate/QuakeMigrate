@@ -22,7 +22,7 @@ from scipy.signal import hilbert
 import quakemigrate.util as util
 from quakemigrate.core import overlapping_sta_lta, centred_sta_lta
 from quakemigrate.exceptions import AllDataRejected, NyquistException
-from .base import Onset, OnsetData
+from quakemigrate.plugins.onsets.base import Onset, OnsetData
 
 
 if TYPE_CHECKING:
@@ -376,7 +376,7 @@ class STALTAOnset(Onset):
         Calculate onset functions for the requested stations and phases.
 
         Returns a stacked array of onset functions for the requested phases, and an
-        :class:`~quakemigrate.signal.onsets.base.OnsetData` object containing all
+        :class:`~quakemigrate.plugins.onsets.base.OnsetData` object containing all
         outputs from the onset function calculation: a dict of the onset functions, a
         Stream containing the pre-processed input waveforms, and a dict of availability
         info describing which of the requested onset functions could be calculated

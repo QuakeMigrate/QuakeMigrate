@@ -40,9 +40,9 @@ from quakemigrate.io import (
     write_coalescence,
 )
 from quakemigrate.plot.event import event_summary
-from .onsets import Onset
-from .pickers import GaussianPicker, PhasePicker
-from .local_mag import LocalMag
+from quakemigrate.plugins.magnitudes import LocalMag
+from quakemigrate.plugins.onsets import Onset
+from quakemigrate.plugins.pickers import PhasePicker
 
 
 if TYPE_CHECKING:
@@ -186,13 +186,13 @@ class QuakeScan:
     ------
     TypeError
         If an object is passed in through the `onset` argument that is not derived from
-        the :class:`~quakemigrate.signal.onsets.base.Onset` base class.
+        the :class:`~quakemigrate.plugins.base.Onset` base class.
     TypeError
         If an object is passed in through the `picker` argument that is not derived from
-        the :class:`~quakemigrate.signal.pickers.base.PhasePicker` base class.
+        the :class:`~quakemigrate.plugins.base.PhasePicker` base class.
     TypeError
         If an object is passed in through the `mags` argument that is not derived from
-        the :class:`~quakemigrate.signal.local_mag.LocalMag` base class.
+        the :class:`~quakemigrate.plugins.magnitudes.LocalMag` base class.
     RuntimeError
         If the user does not supply the locate function with valid arguments.
 
@@ -214,7 +214,7 @@ class QuakeScan:
 
         if not isinstance(onset, Onset):
             raise TypeError(
-                f"onset must inherit from quakemigrate.signal.onsets.Onset "
+                f"onset must inherit from quakemigrate.plugins.onsets.Onset "
                 f"(got {type(onset).__name__})."
             )
         self.onset = onset
@@ -233,17 +233,37 @@ class QuakeScan:
         )
         self.log: bool = kwargs.get("log", False)
 
-        picker = kwargs.get("picker")
+        self.plugins = kwargs.get("plugins", {})
 
-        if picker is None:
-            self.picker = GaussianPicker(onset=onset)
-        elif isinstance(picker, PhasePicker):
-            self.picker = picker
-        else:
-            raise TypeError(
-                "picker must be a PhasePicker instance or None "
-                f"(got {type(picker).__name__})."
+        # --- Deprecation handling ---
+        picker: PhasePicker | None = kwargs.get("picker")
+        if picker is not None:
+            print(
+                "Passing a PhasePicker directly into QuakeScan has been deprecated."
+                "\nPass an ordered plugins dict."
             )
+            if isinstance(picker, PhasePicker):
+                self.plugins["picker"] = picker
+            else:
+                raise TypeError(
+                    "picker must be a PhasePicker instance or None "
+                    f"(got {type(picker).__name__})."
+                )
+
+        mags: LocalMag | None = kwargs.get("mags")
+        if mags is not None:
+            print(
+                "Passing a LocalMag directly into QuakeScan has been deprecated."
+                "\nPass an ordered plugins dict."
+            )
+            if isinstance(mags, LocalMag):
+                self.plugins["magnitudes"] = mags
+            else:
+                raise TypeError(
+                    "mags must be a LocalMag instance or None "
+                    f"(got {type(mags).__name__})."
+                )
+        # ----------------------------
 
         # --- Grab QuakeScan parameters or set defaults ---
         # Parameters related specifically to Detect
@@ -258,16 +278,6 @@ class QuakeScan:
         self.n_cores = kwargs.get("n_cores")  # DEPRECATING
         self.sampling_rate = kwargs.get("sampling_rate")  # DEPRECATING
         self.scan_rate: int = self.onset.sampling_rate
-
-        # Magnitudes
-        mags: LocalMag | None = kwargs.get("mags")
-        if mags is not None:
-            if not isinstance(mags, LocalMag):
-                raise TypeError(
-                    "mags must be a LocalMag instance or None "
-                    f"(got {type(mags).__name__})."
-                )
-        self.mags = mags
 
         # Plotting toggles and parameters
         self.plot_event_summary: bool = kwargs.get("plot_event_summary", True)
@@ -430,10 +440,12 @@ class QuakeScan:
             logging.info(f"\n\tLocating events from {starttime} to {endtime}\n")
         logging.info(self)
         logging.info(self.onset)
-        logging.info(self.picker)
-        if self.mags is not None:
-            logging.info(self.archive.__str__(response_only=True))
-            logging.info(self.mags)
+        for _, plugin in self.plugins.items():
+            logging.info(str(plugin))
+        # logging.info(self.picker)
+        # if self.mags is not None:
+        #     logging.info(self.archive.__str__(response_only=True))
+        #     logging.info(self.mags)
         logging.info(util.log_spacer)
 
         if trigger_file is not None:
@@ -567,12 +579,13 @@ class QuakeScan:
                     self.run, marginalised_coa_map, event, marginalised=True
                 )
 
-            logging.info("\tMaking phase picks...")
-            event, _ = self.picker.pick_phases(event, self.lut, self.run)
-
-            if self.mags is not None:
-                logging.info("\tCalculating magnitude...")
-                event, _ = self.mags.calc_magnitude(event, self.lut, self.run)
+            for key, plugin in self.plugins.items():
+                if key == "picker":
+                    logging.info("\tMaking phase picks...")
+                    event = plugin.run(event, self.lut, self.run)
+                if key == "magnitudes":
+                    logging.info("\tCalculating magnitude...")
+                    event = plugin.run(event, self.lut, self.run)
 
             event.write(self.run, self.lut)
 
@@ -719,8 +732,8 @@ class QuakeScan:
 
         # If calculating magnitudes, read in padding required for amplitude
         # measurements.
-        if self.mags:
-            pre_pad, post_pad = self.mags.amp.pad(
+        if "magnitudes" in self.plugins.keys():
+            pre_pad, post_pad = self.plugins["magnitudes"].amp.pad(
                 self.marginal_window, self.lut.max_traveltime, self.lut.fraction_tt
             )
 

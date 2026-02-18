@@ -23,6 +23,7 @@ os.environ.update(
 from quakemigrate import Trigger
 from quakemigrate.io import read_lut
 
+
 # --- i/o paths ---
 lut_file = "./outputs/lut/icequake.LUT"
 run_path = "./outputs/runs"

@@ -25,6 +25,7 @@ os.environ.update(
 from quakemigrate.io import read_lut
 from quakemigrate.signal import Trigger
 
+
 # --- i/o paths ---
 lut_file = "/path/to/lut_file"
 run_path = "/path/to/output"

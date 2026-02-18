@@ -45,8 +45,8 @@ def build(config: dict, save_to: pathlib.Path) -> None:
     grid_spec.grid_proj = Proj(**config["grid_projection"])
     grid_spec.coord_proj = Proj(**config["coordinate_projection"])
 
-    if "vmod" in config["compute"].keys():
-        config["compute"]["vmod"] = read_vmodel(config["compute"]["vmod"])
+    if "vmodel_file" in config.keys():
+        config["compute"]["vmod"] = read_vmodel(config["vmodel_file"])
 
     _ = compute_traveltimes(
         grid_spec,
@@ -93,4 +93,4 @@ def build_project(
     root = require_project_root(pathlib.Path(project_root) if project_root else None)
     config_file = root / "luts" / f"{lut_name}.toml"
 
-    build_file(config_file, save_to=root / "luts" / lut_name)
+    build_file(config_file, save_to=root / "luts" / f"{lut_name}.lut")

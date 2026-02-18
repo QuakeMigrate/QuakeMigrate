@@ -58,7 +58,7 @@ def load_toml(config_file: pathlib.Path, basepath: pathlib.Path | None = None) -
     return config
 
 
-_PATH_KEYS = {"station_file", "lut_file", "path"}
+_PATH_KEYS = {"station_file", "vmodel_file", "file", "path", "response_file"}
 
 
 def resolve_config_paths(
@@ -101,7 +101,36 @@ def resolve_config_paths(
     return recurse(config)
 
 
-def require_key(d: dict, key: str) -> Any:
+def pop_required_key(d: dict, key: str) -> Any:
+    """
+    Access config value by key, and remove from dictionary.
+
+    Parameters
+    ----------
+    d:
+        Config in dict structure.
+    key:
+        Parameter to be accessed.
+
+    Returns
+    -------
+    value:
+        Value of parameter requested.
+
+    Raises
+    ------
+    ConfigError
+        If key is missing.
+
+    """
+
+    try:
+        return d.pop(key)
+    except KeyError:
+        raise ConfigError(f"missing required key '{key}'") from None
+
+
+def get_required_key(d: dict, key: str) -> Any:
     """
     Access config value by key.
 

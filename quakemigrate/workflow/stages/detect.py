@@ -19,9 +19,9 @@ import pathlib
 
 from quakemigrate import QuakeScan
 from quakemigrate.exceptions import ConfigError
-from quakemigrate.io import Archive, read_lut, read_stations
-from quakemigrate.workflow.builders import build_onset
-from quakemigrate.workflow.config import require_key, load_toml
+from quakemigrate.io import read_lut, read_stations
+from quakemigrate.workflow.builders import build_archive, build_onset
+from quakemigrate.workflow.config import get_required_key, load_toml, pop_required_key
 from quakemigrate.workflow.project import require_project_root
 
 
@@ -58,27 +58,25 @@ def prepare(
     if threads is not None and threads < 1:
         raise ConfigError("detect: threads override must be >= 1")
 
-    station_file = pathlib.Path(require_key(config, "station_file"))
+    station_file = pathlib.Path(get_required_key(config, "station_file"))
     if not station_file.exists():
         raise ConfigError(f"detect: station_file not found:\n  {station_file}")
     stations = read_stations(station_file)
 
-    lut_file = pathlib.Path(require_key(config, "lut_file"))
+    lut_config = pop_required_key(config, "lut")
+    lut_file = pathlib.Path(get_required_key(lut_config, "file"))
     if not lut_file.exists():
-        raise ConfigError(f"detect: lut_file not found:\n  {lut_file}")
+        raise ConfigError(f"detect: lut.file not found:\n  {lut_file}")
     lut = read_lut(lut_file)
+    lut.decimate(lut_config.get("decimation"), inplace=True)
 
-    archive_config = require_key(config, "archive")
-    archive = Archive(
-        archive_path=require_key(archive_config, "path"),
-        stations=stations,
-        archive_format=require_key(archive_config, "format"),
-    )
+    archive_config = pop_required_key(config, "archive")
+    archive = build_archive(archive_config, stations=stations)
 
-    onset_config = require_key(config, "onset")
+    onset_config = pop_required_key(config, "onset")
     onset = build_onset(onset_config)
 
-    scan_config = require_key(config, "scan")
+    scan_config = pop_required_key(config, "scan")
     detector = QuakeScan(
         archive,
         lut,
@@ -87,10 +85,11 @@ def prepare(
         run_name=run_name,
         log=True,
         loglevel="debug" if debug else "info",
+        **scan_config,
     )
-    detector.timestep = require_key(scan_config, "timestep")
+    detector.timestep = get_required_key(scan_config, "timestep")
     detector.threads = (
-        threads if threads is not None else require_key(scan_config, "threads")
+        threads if threads is not None else get_required_key(scan_config, "threads")
     )
 
     return detector

@@ -71,7 +71,7 @@ QuakeMigrate currently ships with one option to use as an onset function (:class
 
 ::
 
-    from quakemigrate.signal.onset import STALTAOnset
+    from quakemigrate.plugins.onset import STALTAOnset
 
 
     onset = STALTAOnset(position="classic, sampling_rate=50)
@@ -127,7 +127,7 @@ When choosing your parameters, you should experiment with different values using
     import matplotlib.pyplot as plt
     from obspy import UTCDateTime
     
-    from quakemigrate.signal.onsets import STALTAOnset
+    from quakemigrate.plugins.onsets import STALTAOnset
     from quakemigrate.io import Archive, read_stations
 
 

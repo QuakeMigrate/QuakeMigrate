@@ -48,7 +48,7 @@ class PhasePicker(ABC):
         )
 
     @abstractmethod
-    def pick_phases(self) -> None:
+    def run(self) -> None:
         """Method stub for phase picking."""
         pass
 

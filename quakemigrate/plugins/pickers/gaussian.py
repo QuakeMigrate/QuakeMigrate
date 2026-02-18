@@ -32,7 +32,7 @@ if TYPE_CHECKING:
     from quakemigrate.io.core import Run
     from quakemigrate.io.event import Event
     from quakemigrate.lut import LUT
-    from quakemigrate.signal.onsets import Onset, OnsetData
+    from quakemigrate.plugins.onsets import Onset, OnsetData
 
 
 class GaussianPicker(PhasePicker):
@@ -126,9 +126,7 @@ class GaussianPicker(PhasePicker):
         return str_
 
     @util.timeit("info")
-    def pick_phases(
-        self, event: Event, lut: LUT, run: Run
-    ) -> tuple[Event, pd.DataFrame]:
+    def run(self, event: Event, lut: LUT, run: Run) -> Event:
         """
         Picks phase arrival times for located events.
 
@@ -147,10 +145,6 @@ class GaussianPicker(PhasePicker):
         -------
         event:
             Event object provided to pick_phases(), but now with phase picks!
-        picks:
-            DataFrame that contains the measured picks with columns:
-            ["Name", "Phase", "ModelledTime", "PickTime", "PickError", "SNR"]
-            Each row contains the phase pick from one station/phase.
 
         """
 
@@ -256,7 +250,7 @@ class GaussianPicker(PhasePicker):
                 ]
                 self.plot(event, station, onset_data, picks, traveltimes, run)
 
-        return event, picks
+        return event
 
     def _determine_window(
         self, event: Event, onset_data: OnsetData, tt: float, fraction_tt: float
@@ -396,7 +390,7 @@ class GaussianPicker(PhasePicker):
 
         Uses the amplitude and timing of the onset function peak and some knowledge of
         the onset function parameters (e.g., short-term average window length, for the
-        :class:`~quakemigrate.signal.onsets.stalta.STALTAOnset`) to make an initial
+        :class:`~quakemigrate.plugins.onsets.stalta.STALTAOnset`) to make an initial
         estimate of a gaussian fit to the onset function.
 
         Parameters

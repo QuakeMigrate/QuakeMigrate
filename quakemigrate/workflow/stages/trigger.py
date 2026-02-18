@@ -20,7 +20,7 @@ import pathlib
 from quakemigrate import Trigger
 from quakemigrate.exceptions import ConfigError
 from quakemigrate.io import read_lut
-from quakemigrate.workflow.config import require_key, load_toml
+from quakemigrate.workflow.config import get_required_key, load_toml, pop_required_key
 from quakemigrate.workflow.project import require_project_root
 
 
@@ -51,43 +51,51 @@ def prepare(
 
     """
 
-    lut_file = pathlib.Path(require_key(config, "lut_file"))
+    lut_config = pop_required_key(config, "lut")
+    lut_file = pathlib.Path(get_required_key(lut_config, "file"))
     if not lut_file.exists():
-        raise ConfigError(f"trigger: lut_file not found:\n  {lut_file}")
+        raise ConfigError(f"trigger: lut.file not found:\n  {lut_file}")
     lut = read_lut(lut_file)
 
+    trigger_config = pop_required_key(config, "trigger")
     trigger = Trigger(
         lut,
         run_path=run_path,
         run_name=run_name,
         log=True,
         loglevel="debug" if debug else "info",
+        **trigger_config,
     )
 
-    trigger_config = require_key(config, "trigger")
-    trigger.marginal_window = require_key(trigger_config, "marginal_window")
-    trigger.min_event_interval = require_key(trigger_config, "min_event_interval")
-    trigger.normalise_coalescence = require_key(trigger_config, "normalise_coalescence")
+    trigger.marginal_window = get_required_key(trigger_config, "marginal_window")
+    trigger.min_event_interval = get_required_key(trigger_config, "min_event_interval")
+    trigger.normalise_coalescence = get_required_key(
+        trigger_config, "normalise_coalescence"
+    )
 
-    threshold_config = require_key(config, "threshold")
-    method = require_key(threshold_config, "method")
+    threshold_config = pop_required_key(config, "threshold")
+    method = get_required_key(threshold_config, "method")
 
     match method:
         case "static":
             trigger.threshold_method = "static"
-            trigger.static_threshold = require_key(threshold_config, "static_threshold")
+            trigger.static_threshold = get_required_key(
+                threshold_config, "static_threshold"
+            )
         case "mad":
             trigger.threshold_method = "mad"
-            trigger.mad_window_length = require_key(
+            trigger.mad_window_length = get_required_key(
                 threshold_config, "mad_window_length"
             )
-            trigger.mad_multiplier = require_key(threshold_config, "mad_multiplier")
+            trigger.mad_multiplier = get_required_key(
+                threshold_config, "mad_multiplier"
+            )
         case "median_ratio":
             trigger.threshold_method = "median_ratio"
-            trigger.median_window_length = require_key(
+            trigger.median_window_length = get_required_key(
                 threshold_config, "median_window_length"
             )
-            trigger.median_multiplier = require_key(
+            trigger.median_multiplier = get_required_key(
                 threshold_config, "median_multiplier"
             )
         case _:

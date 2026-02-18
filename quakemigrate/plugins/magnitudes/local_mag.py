@@ -109,10 +109,10 @@ class LocalMag:
 
     Attributes
     ----------
-    amp : :class:`~quakemigrate.signal.local_mag.amplitude.Amplitude` object
+    amp : :class:`~quakemigrate.plugins.magnitudes.amplitude.Amplitude` object
         The Amplitude object for this instance of LocalMag. Contains functions
         to measure Wood-Anderson corrected displacement amplitudes for an event.
-    mag : :class:`~quakemigrate.signal.local_mag.magnitude.Magnitude` object
+    mag : :class:`~quakemigrate.plugins.magnitudes.magnitude.Magnitude` object
         The Magnitude object for this instance of LocalMag. Contains functions to
         calculate magnitudes from Wood-Anderson corrected displacement amplitudes, and
         to combine them into a single magnitude estimate for the event.
@@ -140,7 +140,7 @@ class LocalMag:
         return out
 
     @util.timeit("info")
-    def calc_magnitude(self, event: Event, lut: LUT, run: Run) -> tuple[Event, float]:
+    def run(self, event: Event, lut: LUT, run: Run) -> Event:
         """
         Wrapper function to calculate the local magnitude of an event by first making
         Wood-Anderson corrected displacement amplitude measurements on each trace, then
@@ -169,8 +169,6 @@ class LocalMag:
             Light class encapsulating waveforms, coalescence information, picks and
             location information for a given event. Now also contains local magnitude
             information.
-        mag:
-            Network-averaged local magnitude estimate for this event.
 
         """
 
@@ -186,7 +184,7 @@ class LocalMag:
             write_amplitudes(run, amps, event)
             event.add_local_magnitude(np.nan, np.nan, np.nan)
 
-            return event, np.nan
+            return event
 
         # Calculate magnitudes for individual amplitude measurements
         mags = self.mag.calculate_magnitudes(amps)
@@ -206,4 +204,4 @@ class LocalMag:
                 mags, event, run, lut.unit_conversion_factor, self.amp.noise_measure
             )
 
-        return event, mag
+        return event

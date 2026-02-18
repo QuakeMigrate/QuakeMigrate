@@ -1,5 +1,8 @@
 station_file = "inputs/<station-file>"
-lut_file = "luts/<lut-name>.lut"
+
+[lut]
+file = "luts/<lut-name>.lut"
+decimation = [X, Y, Z]  # [int, int, int] Select decimation factor in each dimension  
 
 [archive]
 path = "inputs/mSEED"  # path to archive root directory
@@ -10,8 +13,6 @@ starttime = "YYYY-mm-ddTHH:MM:SS.0"  # Can be any format compatible with obspy.U
 endtime = "YYYY-mm-ddTHH:MM:SS.0"  # Can be any format compatible with obspy.UTCDateTime
 marginal_window = 0.1  # In seconds, see docs for more info
 threads = 4  # Can be overriden at runtime on the command line using -j/--threads flag
-plot_event_summary = true
-write_cut_waveforms = true
 
 [onset]
 name = "STALTA-centred"  # See docs for options
@@ -26,6 +27,5 @@ S = [freqmin, freqmax, order/corners]  # [float, float, int] with units [Hz, Hz,
 P = [sta, lta]  # [float, float] with units [seconds, seconds]
 S = [sta, lta]  # [float, float] with units [seconds, seconds]
 
-[picker]
+[plugins.picker]
 name = "Gaussian"  # See docs for options
-plot_picks = true

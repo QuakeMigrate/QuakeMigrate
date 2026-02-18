@@ -24,9 +24,9 @@ from obspy.core import AttribDict
 
 from quakemigrate import QuakeScan
 from quakemigrate.io import Archive, read_lut, read_stations, read_response_inv
-from quakemigrate.signal.onsets import STALTAOnset
-from quakemigrate.signal.pickers import GaussianPicker
-from quakemigrate.signal.local_mag import LocalMag
+from quakemigrate.plugins.onsets import STALTAOnset
+from quakemigrate.plugins.pickers import GaussianPicker
+from quakemigrate.plugins.magnitudes import LocalMag
 
 # --- i/o paths ---
 station_file = "./inputs/iceland_stations.txt"
@@ -96,13 +96,17 @@ onset.sta_lta_windows = {"P": [0.2, 1.0], "S": [0.2, 1.0]}
 picker = GaussianPicker(onset=onset)
 picker.plot_picks = False
 
+plugins = {
+    "picker": picker,
+    "magnitudes": mags,
+}
+
 # --- Create new QuakeScan ---
 scan = QuakeScan(
     archive,
     lut,
     onset=onset,
-    picker=picker,
-    mags=mags,
+    plugins=plugins,
     run_path=run_path,
     run_name=run_name,
     log=True,

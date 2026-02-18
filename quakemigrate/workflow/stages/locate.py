@@ -19,10 +19,21 @@ import pathlib
 
 from quakemigrate import QuakeScan
 from quakemigrate.exceptions import ConfigError
-from quakemigrate.io import Archive, read_lut, read_stations
-from quakemigrate.workflow.builders import build_onset, build_picker
-from quakemigrate.workflow.config import require_key, load_toml
+from quakemigrate.io import read_lut, read_stations
+from quakemigrate.workflow.builders import (
+    build_archive,
+    build_magnitudes,
+    build_onset,
+    build_picker
+)
+from quakemigrate.workflow.config import get_required_key, load_toml, pop_required_key
 from quakemigrate.workflow.project import require_project_root
+
+
+_PLUGIN_BUILDERS = {
+    "picker": build_picker,
+    "magnitudes": build_magnitudes,
+}
 
 
 def prepare(
@@ -58,46 +69,49 @@ def prepare(
     if threads is not None and threads < 1:
         raise ConfigError("locate: threads override must be >= 1")
 
-    station_file = pathlib.Path(require_key(config, "station_file"))
+    station_file = pathlib.Path(get_required_key(config, "station_file"))
     if not station_file.exists():
         raise ConfigError(f"locate: station_file not found:\n  {station_file}")
     stations = read_stations(station_file)
 
-    lut_file = pathlib.Path(require_key(config, "lut_file"))
+    lut_config = pop_required_key(config, "lut")
+    lut_file = pathlib.Path(get_required_key(lut_config, "file"))
     if not lut_file.exists():
-        raise ConfigError(f"locate: lut_file not found:\n  {lut_file}")
+        raise ConfigError(f"locate: lut.file not found:\n  {lut_file}")
     lut = read_lut(lut_file)
+    lut.decimate(lut_config.get("decimation"), inplace=True)
 
-    archive_config = require_key(config, "archive")
-    archive = Archive(
-        archive_path=require_key(archive_config, "path"),
-        stations=stations,
-        archive_format=require_key(archive_config, "format"),
-    )
+    archive_config = pop_required_key(config, "archive")
+    archive = build_archive(archive_config, stations=stations)
 
-    onset_config = require_key(config, "onset")
+    onset_config = pop_required_key(config, "onset")
     onset = build_onset(onset_config)
 
-    picker_config = require_key(config, "picker")
-    picker = build_picker(picker_config, onset=onset)
+    plugin_configs = config.get("plugins") or {}
+    if not isinstance(plugin_configs, dict):
+        raise ConfigError("locate.plugins must be a table")
 
-    scan_config = require_key(config, "scan")
+    plugins = {}
+    for key, plugin_config in plugin_configs.items():
+        builder = _PLUGIN_BUILDERS[key]
+        plugins[key] = builder(plugin_config, onset=onset, lut=lut)
+
+    scan_config = pop_required_key(config, "scan")
     locator = QuakeScan(
         archive,
         lut,
         onset=onset,
-        picker=picker,
+        plugins=plugins,
         run_path=run_path,
         run_name=run_name,
         log=True,
         loglevel="debug" if debug else "info",
+        **scan_config,
     )
-    locator.marginal_window = require_key(scan_config, "marginal_window")
+    locator.marginal_window = get_required_key(scan_config, "marginal_window")
     locator.threads = (
-        threads if threads is not None else require_key(scan_config, "threads")
+        threads if threads is not None else get_required_key(scan_config, "threads")
     )
-    locator.plot_event_summary = require_key(scan_config, "plot_event_summary")
-    locator.write_cut_waveforms = require_key(scan_config, "write_cut_waveforms")
 
     return locator
 

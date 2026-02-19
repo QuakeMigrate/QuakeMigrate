@@ -57,7 +57,7 @@ def prepare(
         raise ConfigError(f"trigger: lut.file not found:\n  {lut_file}")
     lut = read_lut(lut_file)
 
-    trigger_config = pop_required_key(config, "trigger")
+    trigger_config = get_required_key(config, "trigger")
     trigger = Trigger(
         lut,
         run_path=run_path,
@@ -113,7 +113,7 @@ def prepare_file(
     run_path: str = "runs",
     debug: bool = False,
     basepath: pathlib.Path | None = None,
-) -> Trigger:
+) -> tuple[Trigger, dict]:
     """
     Prepare the Trigger stage by specifying a .toml config file.
 
@@ -134,6 +134,8 @@ def prepare_file(
     -------
     trigger:
         A fully configured Trigger object.
+    config:
+        Trigger stage configuration (parsed TOML dict or similar).
 
     """
 
@@ -141,7 +143,7 @@ def prepare_file(
 
     trigger = prepare(config, run_name=run_name, run_path=run_path, debug=debug)
 
-    return trigger
+    return trigger, config
 
 
 def prepare_project(
@@ -149,7 +151,7 @@ def prepare_project(
     project_root: str | pathlib.Path | None = None,
     run_path: str = "runs",
     debug: bool = False,
-) -> Trigger:
+) -> tuple[Trigger, dict]:
     """
     Prepare the Trigger stage by a run name associated with a QuakeMigrate project.
 
@@ -168,13 +170,15 @@ def prepare_project(
     -------
     trigger:
         A fully configured Trigger object.
+    config:
+        Trigger stage configuration (parsed TOML dict or similar).
 
     """
 
     root = require_project_root(pathlib.Path(project_root) if project_root else None)
     config_file = root / "configs" / run_name / f"trigger-{run_name}.toml"
 
-    trigger = prepare_file(
+    trigger, config = prepare_file(
         config_file,
         run_name=run_name,
         run_path=root / run_path,
@@ -182,4 +186,4 @@ def prepare_project(
         basepath=root,
     )
 
-    return trigger
+    return trigger, config

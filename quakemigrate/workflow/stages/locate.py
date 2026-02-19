@@ -24,7 +24,7 @@ from quakemigrate.workflow.builders import (
     build_archive,
     build_magnitudes,
     build_onset,
-    build_picker
+    build_picker,
 )
 from quakemigrate.workflow.config import get_required_key, load_toml, pop_required_key
 from quakemigrate.workflow.project import require_project_root
@@ -96,7 +96,7 @@ def prepare(
         builder = _PLUGIN_BUILDERS[key]
         plugins[key] = builder(plugin_config, onset=onset, lut=lut)
 
-    scan_config = pop_required_key(config, "scan")
+    scan_config = get_required_key(config, "scan")
     locator = QuakeScan(
         archive,
         lut,
@@ -123,7 +123,7 @@ def prepare_file(
     threads: int | None = None,
     debug: bool = False,
     basepath: pathlib.Path | None = None,
-) -> QuakeScan:
+) -> tuple[QuakeScan, dict]:
     """
     Prepare the Locate stage by specifying a .toml config file.
 
@@ -146,6 +146,8 @@ def prepare_file(
     -------
     locator:
         A fully configured QuakeScan object.
+    config:
+        Locate stage configuration (parsed TOML dict or similar).
 
     """
 
@@ -155,7 +157,7 @@ def prepare_file(
         config, run_name=run_name, run_path=run_path, threads=threads, debug=debug
     )
 
-    return locator
+    return locator, config
 
 
 def prepare_project(
@@ -164,7 +166,7 @@ def prepare_project(
     run_path: str = "runs",
     threads: int | None = None,
     debug: bool = False,
-) -> QuakeScan:
+) -> tuple[QuakeScan, dict]:
     """
     Prepare the Locate stage by a run name associated with a QuakeMigrate project.
 
@@ -185,13 +187,15 @@ def prepare_project(
     -------
     locator:
         A fully configured QuakeScan object.
+    config:
+        Locate stage configuration (parsed TOML dict or similar).
 
     """
 
     root = require_project_root(pathlib.Path(project_root) if project_root else None)
     config_file = root / "configs" / run_name / f"locate-{run_name}.toml"
 
-    locator = prepare_file(
+    locator, config = prepare_file(
         config_file,
         run_name=run_name,
         run_path=root / run_path,
@@ -200,4 +204,4 @@ def prepare_project(
         basepath=root,
     )
 
-    return locator
+    return locator, config

@@ -76,7 +76,7 @@ def prepare(
     onset_config = pop_required_key(config, "onset")
     onset = build_onset(onset_config)
 
-    scan_config = pop_required_key(config, "scan")
+    scan_config = get_required_key(config, "scan")
     detector = QuakeScan(
         archive,
         lut,
@@ -102,7 +102,7 @@ def prepare_file(
     threads: int | None = None,
     debug: bool = False,
     basepath: pathlib.Path | None = None,
-) -> QuakeScan:
+) -> tuple[QuakeScan, dict]:
     """
     Prepare the Detect stage by specifying a .toml config file.
 
@@ -125,6 +125,8 @@ def prepare_file(
     -------
     detector:
         A fully configured QuakeScan object.
+    config:
+        Detect stage configuration (parsed TOML dict or similar).
 
     """
 
@@ -134,7 +136,7 @@ def prepare_file(
         config, run_name=run_name, run_path=run_path, threads=threads, debug=debug
     )
 
-    return detector
+    return detector, config
 
 
 def prepare_project(
@@ -143,7 +145,7 @@ def prepare_project(
     run_path: str = "runs",
     threads: int | None = None,
     debug: bool = False,
-) -> QuakeScan:
+) -> tuple[QuakeScan, dict]:
     """
     Prepare the Detect stage by a run name associated with a QuakeMigrate project.
 
@@ -164,13 +166,15 @@ def prepare_project(
     -------
     detector:
         A fully configured QuakeScan object.
+    config:
+        Detect stage configuration (parsed TOML dict or similar).
 
     """
 
     root = require_project_root(pathlib.Path(project_root) if project_root else None)
     config_file = root / "configs" / run_name / f"detect-{run_name}.toml"
 
-    detector = prepare_file(
+    detector, config = prepare_file(
         config_file,
         run_name=run_name,
         run_path=root / run_path,
@@ -179,4 +183,4 @@ def prepare_project(
         basepath=root,
     )
 
-    return detector
+    return detector, config

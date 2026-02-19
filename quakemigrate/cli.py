@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from typing import Callable
 
 from quakemigrate.exceptions import CLIError, ProjectError
+from quakemigrate.workflow.config import get_required_key
 from quakemigrate.workflow.project import require_project_root
 
 
@@ -168,11 +169,14 @@ def _run_detect(args: argparse.Namespace) -> None:
 
     from quakemigrate.workflow.stages import detect
 
-    detector = detect.prepare_project(
+    detector, config = detect.prepare_project(
         args.run_name, threads=args.threads, debug=args.debug
     )
 
-    detector.detect(args.starttime, args.endtime)
+    starttime = args.starttime or get_required_key(config["scan"], "starttime")
+    endtime = args.endtime or get_required_key(config["scan"], "endtime")
+
+    detector.detect(starttime, endtime)
 
 
 def _run_trigger(args: argparse.Namespace) -> None:
@@ -180,9 +184,13 @@ def _run_trigger(args: argparse.Namespace) -> None:
 
     from quakemigrate.workflow.stages import trigger
 
-    trigger_ = trigger.prepare_project(args.run_name, debug=args.debug)
+    trigger_, config = trigger.prepare_project(args.run_name, debug=args.debug)
 
-    trigger_.trigger(args.starttime, args.endtime, region=args.region)
+    starttime = args.starttime or get_required_key(config["trigger"], "starttime")
+    endtime = args.endtime or get_required_key(config["trigger"], "endtime")
+    region = args.region or config["trigger"].get("region")
+
+    trigger_.trigger(starttime, endtime, region=region)
 
 
 def _run_locate(args: argparse.Namespace) -> None:
@@ -190,11 +198,14 @@ def _run_locate(args: argparse.Namespace) -> None:
 
     from quakemigrate.workflow.stages import locate
 
-    locator = locate.prepare_project(
+    locator, config = locate.prepare_project(
         args.run_name, threads=args.threads, debug=args.debug
     )
 
-    locator.locate(args.starttime, args.endtime)
+    starttime = args.starttime or get_required_key(config["scan"], "starttime")
+    endtime = args.endtime or get_required_key(config["scan"], "endtime")
+
+    locator.locate(starttime, endtime)
 
 
 def entry_point(argv: list[str] | None = None) -> None:
@@ -288,12 +299,14 @@ def entry_point(argv: list[str] | None = None) -> None:
             "-st",
             "--starttime",
             type=str,
+            default=None,
             help="Override for starttime.",
         )
         p.add_argument(
             "-et",
             "--endtime",
             type=str,
+            default=None,
             help="Override for endtime.",
         )
         if cmd == "trigger":
@@ -301,7 +314,8 @@ def entry_point(argv: list[str] | None = None) -> None:
                 "--region",
                 nargs="+",
                 type=float,
-                help="Override for spatial filtering of triggered events."
+                default=None,
+                help="Override for spatial filtering of triggered events.",
             )
         p.set_defaults(func=RequiresProject(fn))
 

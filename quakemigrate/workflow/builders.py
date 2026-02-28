@@ -20,6 +20,10 @@ from quakemigrate.io import Archive, read_response_inv
 from quakemigrate.plugins.magnitudes import LocalMag
 from quakemigrate.plugins.onsets import STALTAOnset
 from quakemigrate.plugins.pickers import GaussianPicker
+from quakemigrate.plugins.visualisation import (
+    EventSummary2DPlugin,
+    EventSummary3DPlugin,
+)
 from quakemigrate.workflow.config import get_required_key, pop_required_key
 
 
@@ -186,3 +190,62 @@ def build_magnitudes(config: dict, **_: Any) -> LocalMag:
     )
 
     return mags
+
+
+def build_event_summary_3d(config: dict, **_: Any) -> EventSummary3DPlugin:
+    """
+    Build a 3-D Event Summary visualiser from config.
+
+    Parameters
+    ----------
+    config:
+        Mapping containing visualisation plugin configuration.
+
+    Returns
+    -------
+    plugin:
+        Configured EventSummary3DPlugin instance.
+
+    Raises
+    ------
+    ConfigError
+        If required subkeys are missing or have invalid types.
+
+    """
+
+    plugin = EventSummary3DPlugin(
+        xy_files=config.get("xy_files", None),
+        plot_all_stns=config.get("plot_all_stns", True),
+    )
+
+    return plugin
+
+
+def build_event2d_summary(config: dict, **_: Any) -> EventSummary2DPlugin:
+    """
+    Build a 2-D Event Summary visualiser from config.
+
+    Parameters
+    ----------
+    config:
+        Mapping containing visualisation plugin configuration.
+
+    Returns
+    -------
+    plugin:
+        Configured EventSummary2DPlugin instance.
+
+    Raises
+    ------
+    ConfigError
+        If required subkeys are missing or have invalid types.
+
+    """
+
+    plugin = EventSummary2DPlugin(
+        xy_files=config.get("xy_files", None),
+        scatter_files=config.get("scatter_files", None),
+        plot_all_stns=config.get("plot_all_stns", True),
+    )
+
+    return plugin

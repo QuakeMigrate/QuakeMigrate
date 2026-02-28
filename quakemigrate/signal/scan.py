@@ -39,10 +39,10 @@ from quakemigrate.io import (
     write_cut_waveforms,
     write_coalescence,
 )
-from quakemigrate.plot.event import event_summary
 from quakemigrate.plugins.magnitudes import LocalMag
 from quakemigrate.plugins.onsets import Onset
 from quakemigrate.plugins.pickers import PhasePicker
+from quakemigrate.plugins.visualisation import EventSummary3DPlugin
 
 
 if TYPE_CHECKING:
@@ -263,6 +263,13 @@ class QuakeScan:
                     "mags must be a LocalMag instance or None "
                     f"(got {type(mags).__name__})."
                 )
+
+        # Plotting toggles and parameters
+        if kwargs.get("plot_event_summary"):
+            self.plugins["visualise-event-3d"] = EventSummary3DPlugin(
+                xy_files=kwargs.get("xy_files"),
+                plot_all_stns=kwargs.get("plot_all_stns", True),
+            )
         # ----------------------------
 
         # --- Grab QuakeScan parameters or set defaults ---
@@ -279,11 +286,7 @@ class QuakeScan:
         self.sampling_rate = kwargs.get("sampling_rate")  # DEPRECATING
         self.scan_rate: int = self.onset.sampling_rate
 
-        # Plotting toggles and parameters
-        self.plot_event_summary: bool = kwargs.get("plot_event_summary", True)
-        self.plot_all_stns: bool = kwargs.get("plot_all_stns", True)
         self.plot_event_video: bool = kwargs.get("plot_event_video", False)
-        self.xy_files: str | None = kwargs.get("xy_files")
 
         # File writing toggles
         self.continuous_scanmseed_write: bool = kwargs.get(
@@ -552,9 +555,7 @@ class QuakeScan:
                 logging.info("\tReading waveform data...")
                 event.add_waveform_data(self._read_event_waveform_data(w_beg, w_end))
                 logging.info("\tComputing 4-D coalescence function...")
-                event.add_compute_output(  # pylint: disable=E1120
-                    *self._compute(event.data, event)
-                )
+                event.add_compute_output(*self._compute(event.data, event))
             except (ArchiveEmpty, AllDataRejected, DataGap) as e:
                 logging.info(e.msg)
                 continue
@@ -582,22 +583,14 @@ class QuakeScan:
             for key, plugin in self.plugins.items():
                 if key == "picker":
                     logging.info("\tMaking phase picks...")
-                    event = plugin.run(event, self.lut, self.run)
+                    out = plugin.run(event, self.lut, self.run)
                 if key == "magnitudes":
                     logging.info("\tCalculating magnitude...")
-                    event = plugin.run(event, self.lut, self.run)
+                    out = plugin.run(event, self.lut, self.run)
+                if key == "visualise-event-3d":
+                    out = plugin.run(event, self.lut, self.run, marginalised_coa_map)
 
             event.write(self.run, self.lut)
-
-            if self.plot_event_summary:
-                event_summary(
-                    self.run,
-                    event,
-                    marginalised_coa_map,
-                    self.lut,
-                    xy_files=self.xy_files,
-                    plot_all_stns=self.plot_all_stns,
-                )
 
             if self.plot_event_video:
                 logging.info("Support for event videos coming soon.")

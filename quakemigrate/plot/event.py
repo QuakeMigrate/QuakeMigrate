@@ -32,13 +32,14 @@ if TYPE_CHECKING:
 
 
 @util.timeit("info")
-def event_summary(
+def event_summary_3d(
     run: Run,
     event: Event,
     marginalised_coa_map: np.ndarray[np.double],
     lut: LUT,
     xy_files: str | None = None,
     plot_all_stns: bool = True,
+    file_type: str = "pdf",
 ) -> None:
     """
     Plots an event summary illustrating the locate results: slices through the
@@ -75,6 +76,8 @@ def event_summary(
         If true, plot all stations in the LUT. Otherwise, only plot stations which were
         used for migration (i.e. omitting stations for which there was no data, or data
         did not pass the specified quality checks).
+    file_type:
+        File format to use for output.
 
     """
 
@@ -195,7 +198,163 @@ def event_summary(
     fpath = run.path / "locate" / run.subname / "summaries"
     fpath.mkdir(exist_ok=True, parents=True)
     fstem = f"{run.name}_{event.uid}_EventSummary"
-    file = (fpath / fstem).with_suffix(".pdf")
+    file = (fpath / fstem).with_suffix(f".{file_type}")
+    plt.savefig(file, dpi=400)
+    plt.close("all")
+
+
+@util.timeit("info")
+def event_summary_2d(
+    run: Run,
+    event: Event,
+    marginalised_coa_map: np.ndarray,
+    lut: LUT,
+    xy_files: str | None = None,
+    scatter_files: str | None = None,
+    file_type: str = "pdf",
+):
+    """
+    Plots an event summary illustrating the locate results: slices through the
+    marginalised coalescence map with the best location estimate (peak of
+    interpolated spline fitted to 2-D coalescence map) and uncertainty ellipse
+    from gaussian fit to gaussian-smoothed 2-D coalescence map. Plus a waveform
+    gather of the pre-processed waveform data used to calculate the onset
+    functions (sorted by distance from the event), and a plot of the maximum
+    value of the 3-D coalescence function through time.
+
+    Parameters
+    ----------
+    run:
+        Light class encapsulating i/o path information for a given run.
+    event:
+        Light class encapsulating waveforms, coalescence information, picks and
+        location information for a given event.
+    marginalised_coa_map:
+        Marginalised 3-D coalescence map, shape(nx, ny, nz).
+    lut:
+        Contains the traveltime lookup tables for seismic phases, computed for
+        some pre-defined velocity model.
+    xy_files:
+        Path to comma-separated value file (.csv) containing a list of
+        coordinate files to plot. Columns: ["File", "Color", "Linewidth",
+        "Linestyle"], where "File" is the absolute path to the file containing
+        the coordinates to be plotted. E.g:
+        "/home/user/volcano_outlines.csv,black,0.5,-". Each .csv coordinate
+        file should contain coordinates only, with columns: ["Longitude",
+        "Latitude"]. E.g.: "-17.5,64.8". Lines pre-pended with ``#`` will be
+        treated as a comment - this can be used to include references. See the
+        Volcanotectonic_Iceland example XY_files for a template.\n
+        .. note:: Do not include a header line in either file.
+    scatter_files:
+        Path to comma-separated value file (.csv) containing a list of coordinate
+        files to plot with a scattered style.
+    file_type : str, optional
+        Choose file type for figure, e.g., png or pdf.
+
+    """
+
+    logging.info("\tPlotting event summary figure...")
+
+    # Extract indices and grid coordinates of maximum coalescence
+    coa_map = np.ma.masked_invalid(marginalised_coa_map)
+    idx_max = np.column_stack(np.where(coa_map == np.nanmax(coa_map)))[0]
+    surfidx = lut.index2grid([lut.ll_corner[0], lut.ll_corner[1], 0], inverse=True)[0][
+        2
+    ]
+    # slices = [coa_map[:, :, idx_max[2]],
+    #          coa_map[:, idx_max[1], :],
+    #          coa_map[idx_max[0], :, :].T]
+    slices = [coa_map[:, :]]
+    otime = event.otime
+
+    fig = plt.figure(figsize=(25, 15))
+
+    # Create plot axes, ordering: [WAVEFORMS, COA, XY]
+    sig_spec = GridSpec(9, 15).new_subplotspec((0, 8), colspan=7, rowspan=7)
+    fig.add_subplot(sig_spec)
+    fig.canvas.draw()
+    coa_spec = GridSpec(9, 15).new_subplotspec((7, 8), colspan=7, rowspan=2)
+    fig.add_subplot(coa_spec)
+
+    scatter_array = None
+    if scatter_files is not None:
+        scatter_df = pd.read_csv(
+            scatter_files, names=["Name", "Latitude", "Longitude"], header=None
+        )
+        scatter_array = np.array(scatter_df)
+
+    # --- Plot LUT, waveform gather, and max coalescence trace ---
+    lut.plot(
+        fig,
+        (9, 15),
+        slices,
+        event.hypocentre,
+        "white",
+        event.data.stations,
+        scatter_array,
+    )
+    _plot_waveform_gather(fig.axes[0], lut, event, np.insert(idx_max, 2, surfidx))
+    _plot_coalescence_trace(fig.axes[1], event)
+
+    # --- Plot xy files on map ---
+    _plot_xy_files(xy_files, fig.axes[2])
+
+    # --- Add event origin time to waveform gather and coalescence plots ---
+    for ax in fig.axes[:2]:
+        ax.axvline(otime.datetime, label="Origin time", ls="--", lw=2, c="#F03B20")
+
+    # --- Write summary information ---
+    text = plt.subplot2grid((9, 15), (0, 0), colspan=8, rowspan=2, fig=fig)
+    _plot_text_summary(text, lut, event)
+
+    # Deal with repeating labels in waveform gather legend; combine labels for
+    # ["N", "1"], ["E", "2"]
+    handles, labels = fig.axes[0].get_legend_handles_labels()
+    for cp1, cp2 in [("N", "1"), ("E", "2")]:
+        if all(x in labels for x in [f"{cp1} component", f"{cp2} component"]):
+            labels = [
+                f"{cp2}, {cp1} component"
+                if x == f"{cp1} component" or x == f"{cp2} component"
+                else x
+                for x in labels
+            ]
+    by_label = dict(zip(labels, handles))
+
+    fig.axes[0].legend(
+        by_label.values(),
+        by_label.keys(),
+        fontsize=14,
+        loc=1,
+        framealpha=1,
+        markerscale=0.5,
+    )
+    fig.axes[1].legend(fontsize=14, loc=1, framealpha=1)
+    fig.tight_layout(pad=1, h_pad=0)
+    plt.subplots_adjust(wspace=0.3, hspace=0.3)
+
+    # --- Adjust cross sections to match map aspect ratio ---
+    # Get left, bottom, width, height of each subplot bounding box
+    xy_left, xy_bottom, xy_width, xy_height = fig.axes[2].get_position().bounds
+    # xz_l, xz_b, xz_w, xz_h = fig.axes[3].get_position().bounds
+    # yz_l, yz_b, _, _ = fig.axes[4].get_position().bounds
+    # Find height and width spacing of subplots in figure coordinates
+    # hdiff = yz_b - (xz_b + xz_h)
+    # wdiff = yz_l - (xz_l + xz_w)
+    # Adjust bottom of xz cross section (if bottom of map has moved up)
+    # new_xz_bottom = xy_bottom - hdiff - xz_h
+    # fig.axes[3].set_position([xy_left, new_xz_bottom, xy_width, xz_h])
+    # Adjust left of yz cross section (if right side of map has moved left)
+    # new_yz_left = xy_left + xy_width + wdiff
+    # Take this opportunity to ensure the height of both cross sections is
+    # equal by adjusting yz width (almost there from gridspec maths already)
+    # new_yz_width = xz_h * (fig.get_size_inches()[1]
+    #                       / fig.get_size_inches()[0])
+    # fig.axes[4].set_position([new_yz_left, xy_bottom, new_yz_width, xy_height])
+
+    fpath = run.path / "locate" / run.subname / "summaries"
+    fpath.mkdir(exist_ok=True, parents=True)
+    fstem = f"{run.name}_{event.uid}_EventSummary2D"
+    file = (fpath / fstem).with_suffix(f".{file_type}")
     plt.savefig(file, dpi=400)
     plt.close("all")
 

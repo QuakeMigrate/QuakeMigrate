@@ -39,6 +39,7 @@ from quakemigrate.io import (
     write_cut_waveforms,
     write_coalescence,
 )
+from quakemigrate.plugins import call_by_signature
 from quakemigrate.plugins.magnitudes import LocalMag
 from quakemigrate.plugins.onsets import Onset
 from quakemigrate.plugins.pickers import PhasePicker
@@ -106,7 +107,7 @@ class QuakeScan:
         uncertainty and uncertainty in the seismic velocity model used.
     picker:
         Provides callback methods for phase picking, performed during locate.
-    plot_all_stns:
+    plot_all_stations:
         If true, plot all stations in the LUT. Otherwise, only plot stations which were
         used for migration (i.e. omitting stations for which there was no data, or data
         did not pass the specified quality checks).
@@ -266,9 +267,13 @@ class QuakeScan:
 
         # Plotting toggles and parameters
         if kwargs.get("plot_event_summary"):
+            if kwargs.get("plot_all_stns") is not None:
+                plot_all_stations = kwargs.get("plot_all_stns")
+            else:
+                plot_all_stations = kwargs.get("plot_all_stations", True)
             self.plugins["visualise-event-3d"] = EventSummary3DPlugin(
                 xy_files=kwargs.get("xy_files"),
-                plot_all_stns=kwargs.get("plot_all_stns", True),
+                plot_all_stations=plot_all_stations,
             )
         # ----------------------------
 
@@ -580,15 +585,17 @@ class QuakeScan:
                     self.run, marginalised_coa_map, event, marginalised=True
                 )
 
-            for key, plugin in self.plugins.items():
-                if key == "picker":
-                    logging.info("\tMaking phase picks...")
-                    out = plugin.run(event, self.lut, self.run)
-                if key == "magnitudes":
-                    logging.info("\tCalculating magnitude...")
-                    out = plugin.run(event, self.lut, self.run)
-                if key == "visualise-event-3d":
-                    out = plugin.run(event, self.lut, self.run, marginalised_coa_map)
+            plugin_context = {
+                "event": event,
+                "lut": self.lut,
+                "run": self.run,
+                "marginalised_coa_map": marginalised_coa_map,
+            }
+
+            for plugin in self.plugins.values():
+                out = call_by_signature(plugin.run, plugin_context)
+                if isinstance(out, dict):
+                    plugin_context.update(out)
 
             event.write(self.run, self.lut)
 

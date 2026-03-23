@@ -229,7 +229,10 @@ class Trigger:
         # --- Plotting toggles and parameters ---
         self.plot_trigger_summary: bool = kwargs.get("plot_trigger_summary", True)
         self.xy_files: str | None = kwargs.get("xy_files")
-        self.plot_all_stns: bool = kwargs.get("plot_all_stns", True)
+        if kwargs.get("plot_all_stns", None) is not None:
+            self.plot_all_stations: bool = kwargs.get("plot_all_stns")
+        else:
+            self.plot_all_stations: bool = kwargs.get("plot_all_stations", True)
 
         # --- Trigger io parameters ---
         self.write_event_time_windows: bool = kwargs.get(
@@ -410,7 +413,7 @@ class Trigger:
                 discarded,
                 interactive=interactive_plot,
                 xy_files=self.xy_files,
-                plot_all_stns=self.plot_all_stns,
+                plot_all_stations=self.plot_all_stations,
             )
 
     def _threshold_method_string(self) -> str:

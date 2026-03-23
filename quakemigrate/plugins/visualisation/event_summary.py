@@ -26,7 +26,7 @@ class EventSummary3DPlugin:
 
     enabled_flag: bool = True
     xy_files: str | None = None
-    plot_all_stns: bool = True
+    plot_all_stations: bool = True
     file_type: str = "pdf"
 
     def enabled(self, **_: Any) -> bool:
@@ -39,22 +39,22 @@ class EventSummary3DPlugin:
         run,
         marginalised_coa_map,
         **_: Any,
-    ) -> Mapping[str, Any] | None:
-        event_summary(
+    ) -> dict:
+        event_summary_3d(
             run,
             event,
             marginalised_coa_map,
             lut,
             xy_files=self.xy_files,
-            plot_all_stns=self.plot_all_stns,
+            plot_all_stations=self.plot_all_stations,
             file_type=self.file_type,
         )
 
-        outdir: pathlib.Path = run.path / "locate" / run.subname / "summaries"
-        fstem = f"{run.name}_{event.uid}_EventSummary"
+        outdir = run.path / "locate" / run.subname / "summaries"
+        fstem = f"{run.name}_{event.uid}_EventSummary3D"
         outpath = (outdir / fstem).with_suffix(f".{self.file_type}")
 
-        return {"event_summary_path": outpath}
+        return {"event_summary_3d_path": outpath}
 
 
 @dataclass
@@ -65,7 +65,8 @@ class EventSummary2DPlugin:
 
     enabled_flag: bool = True
     xy_files: str | None = None
-    plot_all_stns: bool = True
+    scatter_files: str | None = None
+    plot_all_stations: bool = True
     file_type: str = "pdf"
 
     def enabled(self, **_: Any) -> bool:
@@ -78,19 +79,19 @@ class EventSummary2DPlugin:
         run,
         marginalised_coa_map,
         **_: Any,
-    ) -> Mapping[str, Any] | None:
+    ) -> dict:
         event_summary_2d(
             run,
             event,
             marginalised_coa_map,
             lut,
             xy_files=self.xy_files,
-            plot_all_stns=self.plot_all_stns,
+            plot_all_stations=self.plot_all_stations,
             file_type=self.file_type,
         )
 
-        outdir: pathlib.Path = run.path / "locate" / run.subname / "summaries"
-        fstem = f"{run.name}_{event.uid}_EventSummary"
+        outdir = run.path / "locate" / run.subname / "summaries"
+        fstem = f"{run.name}_{event.uid}_EventSummary2D"
         outpath = (outdir / fstem).with_suffix(f".{self.file_type}")
 
-        return {"event_summary_path": outpath}
+        return {"event_summary_2d_path": outpath}

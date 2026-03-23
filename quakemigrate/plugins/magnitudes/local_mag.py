@@ -172,6 +172,8 @@ class LocalMag:
 
         """
 
+        logging.info("\tCalculating magnitude...")
+
         # Measure amplitudes on all available traces
         amps = self.amp.get_amplitudes(event, lut)
 

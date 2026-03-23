@@ -148,6 +148,8 @@ class GaussianPicker(PhasePicker):
 
         """
 
+        logging.info("\tMaking phase picks...")
+
         # Onsets are recalculated without logging
         _, onset_data = self.onset.calculate_onsets(
             event.data, timespan=4 * event.marginal_window

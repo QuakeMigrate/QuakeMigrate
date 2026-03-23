@@ -39,6 +39,12 @@ def call_by_signature(fn: Callable, available: dict[str, Any]):
     sig = inspect.signature(fn)
     kwargs = {}
     for name, param in sig.parameters.items():
+        if param.kind in (
+            inspect.Parameter.VAR_POSITIONAL,
+            inspect.Parameter.VAR_KEYWORD,
+        ):
+            continue
+
         if name in available:
             kwargs[name] = available[name]
         elif param.default is inspect._empty:

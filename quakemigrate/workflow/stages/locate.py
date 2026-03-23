@@ -22,6 +22,7 @@ from quakemigrate.exceptions import ConfigError
 from quakemigrate.io import read_lut, read_stations
 from quakemigrate.workflow.builders import (
     build_archive,
+    build_event_summary_2d,
     build_event_summary_3d,
     build_magnitudes,
     build_onset,
@@ -34,6 +35,7 @@ from quakemigrate.workflow.project import require_project_root
 _PLUGIN_BUILDERS = {
     "picker": build_picker,
     "magnitudes": build_magnitudes,
+    "visualise-event-2d": build_event_summary_2d,
     "visualise-event-3d": build_event_summary_3d,
 }
 

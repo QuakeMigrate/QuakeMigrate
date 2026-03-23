@@ -215,13 +215,13 @@ def build_event_summary_3d(config: dict, **_: Any) -> EventSummary3DPlugin:
 
     plugin = EventSummary3DPlugin(
         xy_files=config.get("xy_files", None),
-        plot_all_stns=config.get("plot_all_stns", True),
+        plot_all_stations=config.get("plot_all_stations", True),
     )
 
     return plugin
 
 
-def build_event2d_summary(config: dict, **_: Any) -> EventSummary2DPlugin:
+def build_event_summary_2d(config: dict, **_: Any) -> EventSummary2DPlugin:
     """
     Build a 2-D Event Summary visualiser from config.
 
@@ -245,7 +245,7 @@ def build_event2d_summary(config: dict, **_: Any) -> EventSummary2DPlugin:
     plugin = EventSummary2DPlugin(
         xy_files=config.get("xy_files", None),
         scatter_files=config.get("scatter_files", None),
-        plot_all_stns=config.get("plot_all_stns", True),
+        plot_all_stations=config.get("plot_all_stations", True),
     )
 
     return plugin

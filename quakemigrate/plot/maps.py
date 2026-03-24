@@ -32,6 +32,7 @@ if TYPE_CHECKING:
 @dataclass
 class MapAxes2D:
     """Named axes container for a 2-D map panel and its colourbar axes."""
+
     xy: Axes
     cax: Axes
     bounds: np.ndarray
@@ -117,6 +118,7 @@ def build_2d_map_axes(
 @dataclass
 class MapAxes3D:
     """Named axes container for map/cross-section panels and their colourbar axes."""
+
     xy: Axes
     xz: Axes
     yz: Axes
@@ -315,6 +317,7 @@ def plot_stations(
 @dataclass
 class XYOverlaySpec:
     """Specification for a single user-supplied map overlay."""
+
     file: pathlib.Path
     kind: Literal["line", "scatter"] = "line"
     color: str = "black"
@@ -371,7 +374,7 @@ def _read_xy_overlay_manifest(xy_files: str | pathlib.Path) -> list[XYOverlaySpe
         kind = str(row["Kind"]).strip() or "line"
         if kind not in {"line", "scatter"}:
             raise ValueError(
-                f"Invalid overlay kind {kind!r} in {xy_files}. "
+                f"Invalid overlay kind {kind} in {xy_files}. "
                 "Expected 'line' or 'scatter'."
             )
 

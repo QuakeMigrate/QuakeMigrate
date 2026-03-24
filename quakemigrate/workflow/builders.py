@@ -19,11 +19,6 @@ from quakemigrate.exceptions import ConfigError
 from quakemigrate.io import Archive, read_response_inv
 from quakemigrate.plugins.magnitudes import LocalMag
 from quakemigrate.plugins.onsets import STALTAOnset
-from quakemigrate.plugins.pickers import GaussianPicker
-from quakemigrate.plugins.visualisation import (
-    EventSummary2DPlugin,
-    EventSummary3DPlugin,
-)
 from quakemigrate.workflow.config import get_required_key, pop_required_key
 
 
@@ -31,7 +26,6 @@ if TYPE_CHECKING:
     import pandas as pd
 
     from quakemigrate.plugins.onsets import Onset
-    from quakemigrate.plugins.pickers import PhasePicker
 
 
 def build_archive(archive_config: dict, stations: pd.DataFrame) -> Archive:
@@ -116,40 +110,6 @@ def build_onset(onset_config: dict) -> Onset:
     return onset
 
 
-def build_picker(picker_config: dict, onset: Onset, **_: Any) -> PhasePicker:
-    """
-    Utility for building an PhasePicker object from config.
-
-    Parameters
-    ----------
-    picker_config:
-        Configuration used to build PhasePicker object.
-    onset:
-        Onset function used for picking.
-
-    Returns
-    -------
-    picker:
-        A configured PhasePicker object.
-
-    Raises
-    ------
-    ConfigError
-        If an invalid PhasePicker type is requested.
-
-    """
-
-    name = pop_required_key(picker_config, "name")
-
-    match name:
-        case "Gaussian":
-            picker = GaussianPicker(onset=onset, **picker_config)
-        case _:
-            raise ConfigError(f"picker.name must be one of: ['Gaussian']")
-
-    return picker
-
-
 def build_magnitudes(config: dict, **_: Any) -> LocalMag:
     """
     Build a LocalMag magnitude calculator from config.
@@ -190,62 +150,3 @@ def build_magnitudes(config: dict, **_: Any) -> LocalMag:
     )
 
     return mags
-
-
-def build_event_summary_3d(config: dict, **_: Any) -> EventSummary3DPlugin:
-    """
-    Build a 3-D Event Summary visualiser from config.
-
-    Parameters
-    ----------
-    config:
-        Mapping containing visualisation plugin configuration.
-
-    Returns
-    -------
-    plugin:
-        Configured EventSummary3DPlugin instance.
-
-    Raises
-    ------
-    ConfigError
-        If required subkeys are missing or have invalid types.
-
-    """
-
-    plugin = EventSummary3DPlugin(
-        xy_files=config.get("xy_files", None),
-        plot_all_stations=config.get("plot_all_stations", True),
-    )
-
-    return plugin
-
-
-def build_event_summary_2d(config: dict, **_: Any) -> EventSummary2DPlugin:
-    """
-    Build a 2-D Event Summary visualiser from config.
-
-    Parameters
-    ----------
-    config:
-        Mapping containing visualisation plugin configuration.
-
-    Returns
-    -------
-    plugin:
-        Configured EventSummary2DPlugin instance.
-
-    Raises
-    ------
-    ConfigError
-        If required subkeys are missing or have invalid types.
-
-    """
-
-    plugin = EventSummary2DPlugin(
-        xy_files=config.get("xy_files", None),
-        scatter_files=config.get("scatter_files", None),
-        plot_all_stations=config.get("plot_all_stations", True),
-    )
-
-    return plugin

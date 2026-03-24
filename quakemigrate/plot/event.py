@@ -43,6 +43,7 @@ if TYPE_CHECKING:
 @dataclass
 class EventSummaryAxes2D:
     """Named axes container for a 2-D event summary plot."""
+
     text_summary: Axes
     coalescence_map: MapAxes2D
     waveform_gather: Axes
@@ -135,7 +136,7 @@ def _extract_2d_coalescence_slices(
         surface_slice = coa_map[:, :, idx_max[2]]
     else:
         raise ValueError(
-            f"Invalid slice_mode {slice_mode!r}. Expected 'surface' or 'maximum'."
+            f"Invalid slice_mode {slice_mode}. Expected 'surface' or 'maximum'."
         )
 
     slices = {"xy": surface_slice}
@@ -146,6 +147,7 @@ def _extract_2d_coalescence_slices(
 @dataclass
 class EventSummaryAxes3D:
     """Named axes container for a 3-D event summary plot."""
+
     text_summary: Axes
     coalescence_map: MapAxes3D
     waveform_gather: Axes
@@ -282,7 +284,7 @@ def event_summary_3d(
     event: Event,
     marginalised_coa_map: np.ndarray[np.double],
     lut: LUT,
-    xy_files: str | None = None,
+    overlay_manifest: str | None = None,
     plot_all_stations: bool = True,
     file_type: str = "pdf",
 ) -> None:
@@ -307,7 +309,7 @@ def event_summary_3d(
         Marginalised 3-D coalescence map, shape(nx, ny, nz).
     lut:
         Traveltime lookup table object describing the spatial grid and geometry.
-    xy_files:
+    overlay_manifest:
         Path to a map-overlay manifest file describing one or more overlays to draw on
         the XY map panel.
     plot_all_stations:
@@ -346,8 +348,8 @@ def event_summary_3d(
     for (_, ax, *_), gue in zip(axes.coalescence_map.items(), gues):
         ax.add_patch(gue)
 
-    if xy_files is not None:
-        plot_map_overlays(xy_files, axes.coalescence_map.xy)
+    if overlay_manifest is not None:
+        plot_map_overlays(overlay_manifest, axes.coalescence_map.xy)
 
     axes.coalescence_map.xy.legend(fontsize=14)
 
@@ -401,7 +403,9 @@ def event_summary_2d(
     event: Event,
     marginalised_coa_map: np.ndarray[np.double],
     lut: LUT,
-    xy_files: str | None = None,
+    slice_mode: Literal["surface", "maximum"] = "surface",
+    surface_depth: float = 0.0,
+    overlay_manifest: str | None = None,
     plot_all_stations: bool = True,
     file_type: str = "pdf",
 ):
@@ -426,7 +430,13 @@ def event_summary_2d(
         Marginalised 3-D coalescence map, shape(nx, ny, nz).
     lut:
         Traveltime lookup table object describing the spatial grid and geometry.
-    xy_files:
+    slice_mode:
+        Strategy used to select the XY slice. ``"surface"`` extracts the slice at
+        ``surface_depth``. ``"maximum"`` extracts the slice through the depth index of
+        the global 3-D coalescence maximum.
+    surface_depth:
+        Depth, in the LUT coordinate system, used when ``slice_mode="surface"``.
+    overlay_manifest:
         Path to a map-overlay manifest file describing one or more overlays to draw on
         the XY map panel.
     plot_all_stations:
@@ -446,7 +456,7 @@ def event_summary_2d(
 
     # Extract indices and grid coordinates of maximum coalescence
     idx_max, slices = _extract_2d_coalescence_slices(
-        marginalised_coa_map, lut, "maximum"
+        marginalised_coa_map, lut, slice_mode, surface_depth
     )
     _plot_coalescence_panels(axes.coalescence_map, slices)
 
@@ -467,8 +477,8 @@ def event_summary_2d(
     for (_, ax, *_), gue in zip(axes.coalescence_map.items(), gues):
         ax.add_patch(gue)
 
-    if xy_files is not None:
-        plot_map_overlays(xy_files, axes.coalescence_map.xy)
+    if overlay_manifest is not None:
+        plot_map_overlays(overlay_manifest, axes.coalescence_map.xy)
 
     axes.coalescence_map.xy.legend(fontsize=14)
 

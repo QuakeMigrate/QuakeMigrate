@@ -13,5 +13,8 @@ Feel free to contribute more Onset function options!
 
 """
 
-from .base import Onset, OnsetData  # NOQA
-from .stalta import STALTAOnset, ClassicSTALTAOnset, CentredSTALTAOnset  # NOQA
+from .base import Onset, OnsetData
+from .stalta import STALTAOnset
+
+
+__all__ = ["Onset", "OnsetData", "STALTAOnset"]

@@ -16,6 +16,9 @@ GitHub.
 
 """
 
-from .local_mag import LocalMag  # NOQA
-from .amplitude import Amplitude  # NOQA
-from .magnitude import Magnitude  # NOQA
+from .amplitude import Amplitude
+from .local_mag import LocalMag
+from .magnitude import Magnitude
+
+
+__all__ = ["Amplitude", "LocalMag", "Magnitude"]

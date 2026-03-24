@@ -16,11 +16,19 @@ figures in QuakeMigrate, including:
 
 import matplotlib as mpl
 
-from .event import event_summary  # NOQA
-from .phase_picks import pick_summary  # NOQA
-from .trigger import trigger_summary  # NOQA
-from .amplitudes import amplitudes_summary  # NOQA
+from .amplitudes import amplitudes_summary
+from .event import event_summary_2d, event_summary_3d
+from .phase_picks import pick_summary
+from .trigger import trigger_summary
 
 
 # Set the default colourmap
 mpl.rc("image", cmap="viridis")
+
+__all__ = [
+    "amplitudes_summary",
+    "event_summary_2d",
+    "event_summary_3d",
+    "pick_summary",
+    "trigger_summary",
+]

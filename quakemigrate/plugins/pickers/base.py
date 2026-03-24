@@ -35,9 +35,14 @@ class PhasePicker(ABC):
 
     """
 
-    def __init__(self, **kwargs: dict) -> None:
+    stage: str = "locate_event"
+    order: int = 250
+    name: str = "PhasePicker"
+    kind: str = "picker"
+
+    def __init__(self, plot_picks: bool = True) -> None:
         """Instantiate the PhasePicker object."""
-        self.plot_picks: bool = kwargs.get("plot_picks", True)
+        self.plot_picks = plot_picks
 
     def __str__(self) -> str:
         """Returns a short summary string of the PhasePicker object."""

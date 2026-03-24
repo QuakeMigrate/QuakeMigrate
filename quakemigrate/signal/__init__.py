@@ -16,5 +16,8 @@ This includes:
 
 """
 
-from .scan import QuakeScan  # NOQA
-from .trigger import Trigger  # NOQA
+from .scan import QuakeScan
+from .trigger import Trigger
+
+
+__all__ = ["QuakeScan", "Trigger"]

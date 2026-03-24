@@ -44,6 +44,7 @@ if TYPE_CHECKING:
 @dataclass
 class TriggerSummaryAxes:
     """Named axes container for a trigger summary plot."""
+
     text_summary: Axes
     lut_map: MapAxes3D
     coalescence: Axes

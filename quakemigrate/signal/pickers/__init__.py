@@ -34,7 +34,7 @@ _warned: set[str] = set()
 
 def __getattr__(name: str) -> Any:
     if name not in _MOVED:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+        raise AttributeError(f"module {__name__} has no attribute {name}")
 
     new_mod, new_name = _MOVED[name]
 

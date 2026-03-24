@@ -40,10 +40,7 @@ from quakemigrate.io import (
     write_coalescence,
 )
 from quakemigrate.plugins import call_by_signature
-from quakemigrate.plugins.magnitudes import LocalMag
-from quakemigrate.plugins.onsets import Onset
-from quakemigrate.plugins.pickers import PhasePicker
-from quakemigrate.plugins.visualisation import EventSummary3DPlugin
+from quakemigrate.plugins.onsets.base import Onset
 
 
 if TYPE_CHECKING:
@@ -234,61 +231,17 @@ class QuakeScan:
         )
         self.log: bool = kwargs.get("log", False)
 
-        self.plugins = kwargs.get("plugins", {})
-
-        # --- Deprecation handling ---
-        picker: PhasePicker | None = kwargs.get("picker")
-        if picker is not None:
-            print(
-                "Passing a PhasePicker directly into QuakeScan has been deprecated."
-                "\nPass an ordered plugins dict."
-            )
-            if isinstance(picker, PhasePicker):
-                self.plugins["picker"] = picker
-            else:
-                raise TypeError(
-                    "picker must be a PhasePicker instance or None "
-                    f"(got {type(picker).__name__})."
-                )
-
-        mags: LocalMag | None = kwargs.get("mags")
-        if mags is not None:
-            print(
-                "Passing a LocalMag directly into QuakeScan has been deprecated."
-                "\nPass an ordered plugins dict."
-            )
-            if isinstance(mags, LocalMag):
-                self.plugins["magnitudes"] = mags
-            else:
-                raise TypeError(
-                    "mags must be a LocalMag instance or None "
-                    f"(got {type(mags).__name__})."
-                )
-
-        # Plotting toggles and parameters
-        if kwargs.get("plot_event_summary"):
-            if kwargs.get("plot_all_stns") is not None:
-                plot_all_stations = kwargs.get("plot_all_stns")
-            else:
-                plot_all_stations = kwargs.get("plot_all_stations", True)
-            self.plugins["visualise-event-3d"] = EventSummary3DPlugin(
-                xy_files=kwargs.get("xy_files"),
-                plot_all_stations=plot_all_stations,
-            )
-        # ----------------------------
+        self.plugins = kwargs.get("plugins", [])
 
         # --- Grab QuakeScan parameters or set defaults ---
         # Parameters related specifically to Detect
         self.timestep: float = kwargs.get("timestep", 120.0)
-        self.time_step = kwargs.get("time_step")  # DEPRECATING
 
         # Parameters related specifically to Locate
         self.marginal_window: float = kwargs.get("marginal_window", 2.0)
 
         # General QuakeScan parameters
         self.threads: int = kwargs.get("threads", 1)
-        self.n_cores = kwargs.get("n_cores")  # DEPRECATING
-        self.sampling_rate = kwargs.get("sampling_rate")  # DEPRECATING
         self.scan_rate: int = self.onset.sampling_rate
 
         self.plot_event_video: bool = kwargs.get("plot_event_video", False)
@@ -448,7 +401,7 @@ class QuakeScan:
             logging.info(f"\n\tLocating events from {starttime} to {endtime}\n")
         logging.info(self)
         logging.info(self.onset)
-        for _, plugin in self.plugins.items():
+        for plugin in sorted(self.plugins, key=lambda p: p.order):
             logging.info(str(plugin))
         # logging.info(self.picker)
         # if self.mags is not None:
@@ -591,8 +544,7 @@ class QuakeScan:
                 "run": self.run,
                 "marginalised_coa_map": marginalised_coa_map,
             }
-
-            for plugin in self.plugins.values():
+            for plugin in sorted(self.plugins, key=lambda p: p.order):
                 out = call_by_signature(plugin.run, plugin_context)
                 if isinstance(out, dict):
                     plugin_context.update(out)
@@ -730,11 +682,17 @@ class QuakeScan:
         # Extra pre- and post-pad default to 0.
         pre_pad = post_pad = 0.0
 
-        # If calculating magnitudes, read in padding required for amplitude
-        # measurements.
-        if "magnitudes" in self.plugins.keys():
-            pre_pad, post_pad = self.plugins["magnitudes"].amp.pad(
-                self.marginal_window, self.lut.max_traveltime, self.lut.fraction_tt
+        # If calculating magnitudes, read in padding required for amplitude measurements
+        mag_plugin = next(
+            (p for p in self.plugins if p.kind == "magnitudes"),
+            None,
+        )
+
+        if mag_plugin is not None:
+            pre_pad, post_pad = mag_plugin.amp.pad(
+                self.marginal_window,
+                self.lut.max_traveltime,
+                self.lut.fraction_tt,
             )
 
         # If a specific pre / post cut has been requested by the user,

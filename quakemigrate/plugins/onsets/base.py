@@ -45,12 +45,10 @@ class Onset(ABC):
 
     """
 
-    def __init__(self, **kwargs: dict) -> None:
+    def __init__(self, sampling_rate: int) -> None:
         """Instantiate the Onset object."""
 
-        self.sampling_rate: int = kwargs.get("sampling_rate")
-        if self.sampling_rate is None:
-            raise ValueError("Must specify 'sampling_rate' for any Onset.")
+        self.sampling_rate = sampling_rate
 
         self._pre_pad: float = 0.0
         self._post_pad: float = 0.0

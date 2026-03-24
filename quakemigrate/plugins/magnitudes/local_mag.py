@@ -109,15 +109,20 @@ class LocalMag:
 
     Attributes
     ----------
-    amp : :class:`~quakemigrate.plugins.magnitudes.amplitude.Amplitude` object
+    amp:
         The Amplitude object for this instance of LocalMag. Contains functions
         to measure Wood-Anderson corrected displacement amplitudes for an event.
-    mag : :class:`~quakemigrate.plugins.magnitudes.magnitude.Magnitude` object
+    mag:
         The Magnitude object for this instance of LocalMag. Contains functions to
         calculate magnitudes from Wood-Anderson corrected displacement amplitudes, and
         to combine them into a single magnitude estimate for the event.
 
     """
+
+    stage: str = "locate_event"
+    order: int = 350
+    name: str = "LocalMagnitudes"
+    kind: str = "magnitudes"
 
     def __init__(
         self, amp_params: dict, mag_params: dict, plot_amplitudes: bool = True

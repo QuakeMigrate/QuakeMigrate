@@ -13,6 +13,7 @@ functions.
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from typing import Literal, TYPE_CHECKING
 
 import matplotlib.pyplot as plt
@@ -35,31 +36,85 @@ if TYPE_CHECKING:
     from quakemigrate.plugins.onsets import Onset, OnsetData
 
 
-class GaussianPicker(PhasePicker):
+def build_gaussian_picker(
+    onset: Onset,
+    threshold_method: str = "MAD",
+    mad_multiplier: float = 8.0,
+    percentile: float = 1.0,
+    plot_picks: bool = False,
+    write_seed_ids: bool = False,
+) -> GaussianPicker:
+    if threshold_method == "MAD":
+        threshold = MADThreshold(multiplier=mad_multiplier)
+    elif threshold_method == "percentile":
+        threshold = PercentileThreshold(percentile=percentile)
+    else:
+        raise ValueError(
+            f"Invalid threshold_method '{threshold_method}'. "
+            "Supported: 'MAD', 'percentile'."
+        )
+
+    return GaussianPicker(
+        onset=onset,
+        threshold=threshold,
+        plot_picks=plot_picks,
+        write_seed_ids=write_seed_ids,
+    )
+
+
+@dataclass
+class MADThreshold:
     """
-    This class details the default method of making phase picks shipped with
-    QuakeMigrate, namely fitting a 1-D Gaussian function to the onset function for each
-    station and phase.
+    Median Absolute Deviation (MAD)-based threshold for onset picking.
+
+    Threshold = median + multiplier * MAD
+
+    where the MAD is computed from the onset data outside the pick windows.
 
     Attributes
     ----------
-    phase_picks:
-            "GAU_P" : array-like
-                Numpy array stack of Gaussian pick info (each as a dict)
-                for P phase
-            "GAU_S" : array-like
-                Numpy array stack of Gaussian pick info (each as a dict)
-                for S phase
-    threshold_method:
+    multiplier:
+        Scaling factor applied to the MAD to define the detection threshold.
+
+    """
+
+    multiplier: float = 8.0
+
+
+@dataclass
+class PercentileThreshold:
+    """
+    Percentile-based threshold for onset picking.
+
+    Threshold = percentile(onset_noise)
+
+    where the percentile is computed from onset data outside the pick windows.
+
+    Attributes
+    ----------
+    percentile:
+        Fraction in range [0, 1] specifying the percentile of the noise distribution to
+        use (e.g., 0.99 = 99th percentile).
+
+    """
+
+    percentile: float = 1.0
+
+
+PickThreshold = MADThreshold | PercentileThreshold
+
+
+class GaussianPicker(PhasePicker):
+    """
+    Automatic phase picking based on the fitting of a 1-D Gaussian function to an onset
+    function.
+
+    Attributes
+    ----------
+    threshold:
         Which method to use to calculate the pick threshold; a percentile of the data
         outside the pick windows (e.g., 0.99 = 99th percentile) or a multiple of the
         Median Absolute Deviation of the signal outside the pick windows.
-    percentile_pick_threshold:
-        Picks will only be made if the onset function exceeds this percentile of the
-        noise level (amplitude of onset function outside pick windows).
-    mad_pick_threshold:
-        Picks will only be made if the onset function exceeds its median value plus this
-        multiple of the MAD (calculated from the onset data outside the pick windows).
     plot_picks:
         Toggle plotting of phase picks.
     write_seed_ids:
@@ -73,55 +128,41 @@ class GaussianPicker(PhasePicker):
 
     """
 
+    stage: str = "locate_event"
+    order: int = 250
+    name: str = "GaussianPicker"
+
     DEFAULT_GAUSSIAN_FIT = {"popt": 0, "xdata": 0, "xdata_dt": 0, "PickValue": -1}
 
-    def __init__(self, onset: Onset | None = None, **kwargs: dict) -> None:
+    def __init__(
+        self,
+        onset: Onset,
+        *,
+        threshold: PickThreshold | None = None,
+        plot_picks: bool = False,
+        write_seed_ids: bool = False,
+    ) -> None:
         """Instantiate the GaussianPicker object."""
-        super().__init__(**kwargs)
+        super().__init__(plot_picks=plot_picks)
 
         self.onset = onset
-
-        # --- Get pick method and threshold ---
-        self.threshold_method: Literal["MAD", "percentile"] = kwargs.get(
-            "threshold_method", "MAD"
-        )
-        if self.threshold_method == "percentile":
-            self.percentile_pick_threshold: float = kwargs.get(
-                "percentile_pick_threshold", 1.0
-            )
-        elif self.threshold_method == "MAD":
-            self.mad_pick_threshold: float = kwargs.get("mad_pick_threshold", 8.0)
-        else:
+        if threshold is not None and not isinstance(threshold, PickThreshold):
             raise ValueError(
-                f"Invalid pick threshold method '{self.threshold_method}'. "
+                f"Invalid pick threshold method. "
                 "Supported methods are: 'percentile', 'MAD'."
             )
-        # Handle deprecated `pick_threshold`
-        if kwargs.get("pick_threshold"):
-            self.pick_threshold = kwargs["pick_threshold"]
+        self.threshold = MADThreshold() if threshold is None else threshold
 
-        self.plot_picks: bool = kwargs.get("plot_picks", False)
-
-        self.write_seed_ids: bool = kwargs.get("write_seed_ids", False)
-
-        if "fraction_tt" in kwargs.keys():
-            print(
-                "FutureWarning: Fraction of traveltime argument moved to lookup tables."
-                "\nIt remains possible to override the fraction of traveltime here, if "
-                "required, to further\ntune the phase picker."
-            )
-        self._fraction_tt = kwargs.get("fraction_tt")
+        self.write_seed_ids = write_seed_ids
 
     def __str__(self) -> str:
         """Returns a short summary string of the GaussianPicker."""
 
         str_ = "\tPhase picking by fitting a 1-D Gaussian to onsets\n"
-        if self.threshold_method == "percentile":
-            str_ += f"\t\tPercentile threshold  = {self.percentile_pick_threshold}\n"
-        elif self.threshold_method == "MAD":
-            str_ += f"\t\tMAD multiplier  = {self.mad_pick_threshold}\n"
-        if self._fraction_tt is not None:
-            str_ += f"\t\tSearch window   = {self._fraction_tt * 100}% of traveltime\n"
+        if isinstance(self.threshold, PercentileThreshold):
+            str_ += f"\t\tPercentile threshold  = {self.threshold.percentile}\n"
+        elif isinstance(self.threshold, MADThreshold):
+            str_ += f"\t\tMAD multiplier  = {self.threshold.multiplier}\n"
 
         return str_
 
@@ -155,11 +196,6 @@ class GaussianPicker(PhasePicker):
             event.data, timespan=4 * event.marginal_window
         )
 
-        if self._fraction_tt is None:
-            fraction_tt = lut.fraction_tt
-        else:
-            fraction_tt = self._fraction_tt
-
         e_ijk = lut.index2coord(event.hypocentre, inverse=True)[0]
 
         # Pre-define pick DataFrame and fit params and pick windows dicts
@@ -186,7 +222,7 @@ class GaussianPicker(PhasePicker):
                 pick_windows.setdefault(station, {}).update(
                     {
                         phase: self._determine_window(
-                            event, onset_data, traveltime, fraction_tt
+                            event, onset_data, traveltime, lut.fraction_tt
                         )
                     }
                 )
@@ -198,9 +234,7 @@ class GaussianPicker(PhasePicker):
 
             for phase, onset in onsets.items():
                 # Find threshold from 'noise' part of onset
-                pick_threshold = self._find_pick_threshold(
-                    onset, pick_windows[station], self.threshold_method
-                )
+                pick_threshold = self._find_pick_threshold(onset, pick_windows[station])
 
                 logging.debug(f"\t\tPicking {phase} at {station}...")
                 fit, *pick = self._fit_gaussian(
@@ -336,7 +370,6 @@ class GaussianPicker(PhasePicker):
         self,
         onset: np.ndarray[np.double],
         windows: dict,
-        method: Literal["MAD", "percentile"],
     ) -> float:
         """
         Determine a pick threshold from the onset data outside the pick windows.
@@ -348,14 +381,11 @@ class GaussianPicker(PhasePicker):
         windows:
             Indexes of the lower window bound, the phase arrival, and the upper window
             bound.
-        method:
-            Method used to calculate the pick threshold from the noise data.
 
         Return
         ------
         pick_threshold:
-            The threshold calculated from the onset data outside the pick windows,
-            according to the specified `method`.
+            The threshold calculated from the onset data outside the pick windows.
 
         """
 
@@ -366,14 +396,12 @@ class GaussianPicker(PhasePicker):
         # pad windows)
         onset_noise = onset_noise[onset_noise > 1]
 
-        if method == "percentile":
-            pick_threshold = np.percentile(
-                onset_noise, self.percentile_pick_threshold * 100
-            )
-        elif method == "MAD":
+        if isinstance(self.threshold, PercentileThreshold):
+            pick_threshold = np.percentile(onset_noise, self.threshold.percentile * 100)
+        elif isinstance(self.threshold, MADThreshold):
             med = np.median(onset_noise)
             mad = util.calculate_mad(onset_noise)
-            pick_threshold = med + (mad * self.mad_pick_threshold)
+            pick_threshold = med + (mad * self.threshold.multiplier)
 
         return pick_threshold
 
@@ -645,30 +673,5 @@ class GaussianPicker(PhasePicker):
 
         fstem = f"{event.uid}_{station}"
         file = (fpath / fstem).with_suffix(".pdf")
-        plt.savefig(file)
+        fig.savefig(file)
         plt.close(fig)
-
-    @property
-    def fraction_tt(self):
-        """Handler for deprecated attribute 'fraction_tt'"""
-        return self._fraction_tt
-
-    @fraction_tt.setter
-    def fraction_tt(self, value):
-        print(
-            "FutureWarning: Fraction of traveltime attribute has moved to lookup table."
-            "\nOverriding..."
-        )
-        self._fraction_tt = value
-
-    @property
-    def pick_threshold(self):
-        """Handler for deprecated attribute 'pick_threshold'"""
-
-    @pick_threshold.setter
-    def pick_threshold(self, value):
-        raise AttributeError(
-            "The 'pick_threshold' attribute has been deprecated. Select a threshold "
-            "method from 'percentile' or 'MAD', and see the docs for the syntax for "
-            "the appropriate threshold."
-        )

@@ -181,21 +181,32 @@ We hope to link the package with the conda forge soon, after which you will be a
 
 Testing your installation
 -------------------------
-In order to test your installation, you will need to have cloned the GitHub repository (see :ref:`installation from source <From Source>`). This will ensure you have all of the required benchmarked data (which is not included in pip/conda installs). It is also recommended that you :ref:`install NonLinLoc <NonLinLoc>`, which is required for the ``Volcanotectonic_Iceland`` example.
 
-To run the tests, navigate to ``QuakeMigrate/tests`` and run the test scripts. First, test all packages have correctly installed and you can import QuakeMigrate:
+To test your installation, you will need to have both cloned the GitHub repository and downloaded the benchmark datasets, which are hosted separately on Zenodo. The ``fetch_benchmarks.py`` script uses the ``pooch`` utility, which must also be installed. We recommend installing the package with ``pip install quakemigrate[test]``, or similar, to ensure all requisite dependencies are installed.
+
+First, navigate to ``QuakeMigrate/tests`` and run the benchmark download script:
+
+.. code-block:: bash
+
+    python fetch_benchmarks.py
+
+This will download and extract the required benchmark data into your current working directory.
+
+.. note:: In order to run the Iceland volcano-tectonic example, you must first :ref:`install NonLinLoc <NonLinLoc>`.
+
+First, test that all packages have been correctly installed and that QuakeMigrate can be imported:
 
 .. code-block:: bash
 
     python test_import.py
 
-This may output some warning messages about deprecations - so long as the final output line says "OK" and not "FAILED", these aren't an issue.
+This may output some warning messages about deprecations—so long as the final output line says "OK" and not "FAILED", these are not an issue.
 
-.. note:: Check if there is a message about matplotlib backends - there ought to be a suitable backend (e.g. macOSX, Qt, or Tk), but there is a chance you might not have any. If this warning is present, see :ref:`matplotlib backends`.
-    
+.. note:: Check if there is a message about matplotlib backends. There ought to be a suitable backend (e.g., macOSX, Qt, or Tk), but there is a chance none are available. If this warning is present, see :ref:`matplotlib backends`.
+
 Next, run the examples.
 
-.. note:: This requires NonLinLoc to be installed. If you have not installed (or can not install) NonLinLoc, you may edit the ``run_test_examples.py`` script to only run the ``Icequake_Iceland`` example by commenting out the relevant section.
+.. note:: If you have not installed (or cannot install) NonLinLoc, you may edit the ``run_test_examples.py`` script to only run the ``Icequake_Iceland`` example by commenting out the relevant section.
 
 .. code-block:: bash
 
@@ -204,12 +215,12 @@ Next, run the examples.
 This script collates and runs the scripts for each stage in the ``Icequake_Iceland`` and ``Volcanotectonic_Iceland`` examples. This process will take a number of minutes. Once this has completed successfully, run:
 
 .. code-block:: bash
-    
+
     python test_benchmarks.py
 
 .. note:: If you edited the ``run_test_examples.py`` script to only run the ``Icequake_Iceland`` example, you will also need to edit the ``test_benchmarks.py`` script to reflect this, otherwise the test will report as failed!
 
-If your installation is working as intended, this should execute with no failures.
+If your installation is working as intended, all tests should complete with no failures.
 
 
 C compilers

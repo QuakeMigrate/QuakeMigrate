@@ -68,10 +68,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["ipython", "pre-commit", "ruff", "coverage"]
+dev = ["coverage", "ipython", "pooch", "pre-commit", "ruff"]
 docs = ["docutils<0.17", "Sphinx >= 4.3.0", "sphinx_rtd_theme>=0.5.1"]
 fmm = ["scikit-fmm"]
 manuscript = ["memray", "seaborn", "nllgrid"]
+test = ["pooch"]
 
 [project.urls]
 GitHub = "https://github.com/QuakeMigrate/QuakeMigrate"

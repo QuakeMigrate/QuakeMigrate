@@ -76,6 +76,7 @@ jobs:
       - name: Run benchmark tests and module specific unittests
         working-directory: ./tests
         run: |
+          python fetch_benchmarks.py
           coverage run --source=quakemigrate --data-file=../.coverage -a test_benchmarks.py
           coverage run --source=quakemigrate --data-file=../.coverage -a test_util.py
           coverage run --source=quakemigrate --data-file=../.coverage -a test_onsets.py

@@ -23,8 +23,8 @@ from quakemigrate.io import read_lut
 
 
 examples = ["Icequake_Iceland", "Volcanotectonic_Iceland"]
+b_path = pathlib.Path.cwd() / "benchmarks"
 e_path = pathlib.Path(__file__).resolve().parent.parent / "examples"
-b_path = e_path / "benchmarks"
 t_path = e_path / "{}" / "outputs" / "runs" / "example_run"
 
 

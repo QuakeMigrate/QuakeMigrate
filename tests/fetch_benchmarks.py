@@ -28,7 +28,7 @@ def fetch_benchmarks() -> pathlib.Path:
 
     Returns
     -------
-    pathlib.Path
+    extract_dir:
         Path to the extracted benchmark root directory.
 
     """

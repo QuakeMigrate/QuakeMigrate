@@ -66,7 +66,7 @@ def prepare(
     lut = read_lut(lut_file)
     lut.decimate(lut_config.get("decimation"), inplace=True)
 
-    client_config = pop_required_key(config, "client")
+    client_config = pop_required_key(config, "waveform_client")
     waveform_client = make_waveform_client(client_config)
 
     onset_config = pop_required_key(config, "onset")

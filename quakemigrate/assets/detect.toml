@@ -1,10 +1,13 @@
-station_file = "inputs/<station-file>"
+[stations]
+file = "inputs/<station-file>"
+file_type = "csv"  # Can be either csv or stationxml
 
 [lut]
 file = "luts/<lut-name>.lut"
 decimation = [X, Y, Z]  # [int, int, int] Select decimation factor in each dimension 
 
-[archive]
+[waveform_client]
+client = "local"  # Can be either local or fdsn
 path = "inputs/mSEED"  # path to archive root directory
 format = ""  # Format-able string, see docs for more info
 

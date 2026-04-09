@@ -15,6 +15,7 @@ import logging
 import sys
 import time
 import warnings
+from dataclasses import dataclass
 from datetime import datetime
 from functools import wraps
 from itertools import tee
@@ -743,3 +744,73 @@ def get_phase_component_strings(channel_maps: dict) -> tuple[str, str, str]:
     s_str_2 = f"[{s_str_2.rstrip(',')}]"
 
     return p_str, s_str_1, s_str_2
+
+
+@dataclass(frozen=True)
+class PhaseComponentGroup:
+    phase: str
+    selector: str
+
+
+def get_phase_component_groups(
+    channel_maps: dict[str, str]
+) -> list[PhaseComponentGroup]:
+    """
+    Get regex strings to select the correct waveform components to plot on each panel
+    of the pick summary plot, given the custom channel mapping specified by the user.
+
+    P phase components are assembled into a single list. S phase components labelled
+    with letters (e.g., "E", "N") are treated separately to those labelled numerically
+    (e.g., "1", "2"), to enable a data containing a mix of the above to be plotted.
+
+    Currently all P-phase components are retained; this means if more than one
+    component is specified for the P onset, the waveforms will be overlain.
+
+    Parameters
+    ----------
+    channel_maps:
+        Data component maps - keys are phases. (e.g., {"P": "Z"})
+
+    Returns
+    -------
+    component_groups:
+        Mappings from phase to component groupings.
+
+    """
+
+    component_groups = []
+    for phase, component_string in channel_maps.items():
+        cleaned = component_string.strip().strip("*").strip("[").strip("]")
+        components = [p.strip() for p in cleaned.split(",") if p.strip()]
+
+        alpha = sorted([c for c in components if not c.isnumeric()])
+        numeric = sorted([c for c in components if c.isnumeric()])
+
+        phase_groups = []
+        if alpha and numeric:
+            for a, n in zip(alpha, numeric):
+                phase_groups.append([a, n])
+
+            # add leftovers, if any
+            leftovers = alpha[len(numeric):] + numeric[len(alpha):]
+            for comp in leftovers:
+                phase_groups.append([comp])
+        else:
+            phase_groups = [[comp] for comp in (alpha or numeric)]
+
+        if len(phase_groups) > 2:
+            logging.info(
+                f"More than two component groups found for phase {phase}. "
+                "Only using first two for plotting."
+            )
+            phase_groups = phase_groups[:2]
+
+        for component_group in phase_groups:
+            component_groups.append(
+                PhaseComponentGroup(
+                    phase=phase,
+                    selector=f"[{','.join(component_group)}]",
+                )
+            )
+
+    return component_groups

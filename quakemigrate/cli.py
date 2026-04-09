@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from typing import Callable
 
 from quakemigrate.exceptions import CLIError, ProjectError
+from quakemigrate.io.station import read_stations, stations_from_inventory
 from quakemigrate.workflow.config import get_required_key
 from quakemigrate.workflow.project import init_project, require_project_root
 
@@ -147,10 +148,20 @@ def _run_detect(args: argparse.Namespace) -> None:
         args.run_name, threads=args.threads, debug=args.debug
     )
 
+    station_config = get_required_key(config, "stations")
+    if station_config["file_type"] == "stationxml":
+        stations = stations_from_inventory(station_config["file"])
+    elif station_config["file_type"] == "csv":
+        stations = read_stations(station_config["file"])
+    else:
+        raise ProjectError(
+            "invalid station file type. Must be either 'csv' or 'stationxml"
+        )
+
     starttime = args.starttime or get_required_key(config["scan"], "starttime")
     endtime = args.endtime or get_required_key(config["scan"], "endtime")
 
-    detector.detect(starttime, endtime)
+    detector.detect(stations, starttime, endtime)
 
 
 def _run_trigger(args: argparse.Namespace) -> None:
@@ -176,10 +187,20 @@ def _run_locate(args: argparse.Namespace) -> None:
         args.run_name, threads=args.threads, debug=args.debug
     )
 
+    station_config = get_required_key(config, "stations")
+    if station_config["file_type"] == "stationxml":
+        stations = stations_from_inventory(station_config["file"])
+    elif station_config["file_type"] == "csv":
+        stations = read_stations(station_config["file"])
+    else:
+        raise ProjectError(
+            "invalid station file type. Must be either 'csv' or 'stationxml"
+        )
+
     starttime = args.starttime or get_required_key(config["scan"], "starttime")
     endtime = args.endtime or get_required_key(config["scan"], "endtime")
 
-    locator.locate(starttime, endtime)
+    locator.locate(stations, starttime, endtime)
 
 
 def entry_point(argv: list[str] | None = None) -> None:

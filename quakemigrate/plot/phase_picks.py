@@ -147,9 +147,9 @@ def pick_summary(
         max_idx = len(times) - 1
 
     # --- Plot waveforms ---
-    p_str, s_str_1, s_str_2 = util.get_phase_component_strings(channel_maps)
-    for i, (ax, comp) in enumerate(zip(axes[:3], [p_str, s_str_1, s_str_2])):
-        st = waveforms.select(component=comp)
+    phase_groups = util.get_phase_component_groups(event.onset_data.channel_maps)
+    for i, (ax, phase_group) in enumerate(zip(axes[:3], phase_groups[:3])):
+        st = waveforms.select(component=phase_group.selector)
         if not bool(st):
             continue
         # If multiple traces for a given phase, plot both in the same colour - could

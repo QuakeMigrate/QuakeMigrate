@@ -640,8 +640,8 @@ def _plot_text_summary(ax: Axes, lut: LUT, event: Event) -> None:
     ax.set_axis_off()
 
 
-WAVEFORM_COLOURS1 = ["#FB9A99", "#7570b3", "#1b9e77"]
-WAVEFORM_COLOURS2 = ["#33a02c", "#b2df8a", "#1f78b4"]
+WAVEFORM_COLOURS1 = {"Z": "#FB9A99", "E": "#1b9e77", "N": "#7570b3"}
+WAVEFORM_COLOURS2 = {"Z": "#33a02c", "E": "#1f78b4", "N": "#b2df8a"}
 PICK_COLOURS = ["#F03B20", "#3182BD"]
 
 
@@ -706,9 +706,8 @@ def _plot_waveform_gather(
 
     # --- Waveforms ---
     waveforms = event.onset_data.filtered_waveforms
-    p_str, s_str_1, s_str_2 = util.get_phase_component_strings(
-        event.onset_data.channel_maps
-    )
+    phase_groups = util.get_phase_component_groups(event.onset_data.channel_maps)
+
     # Min and max times to plot
     mint = event.otime - 0.1
     maxt = min(event.otime + np.max(traveltimes) * 1.5, event.data.endtime)
@@ -717,28 +716,25 @@ def _plot_waveform_gather(
     mint_i, maxt_i = [np.argmin(abs(times_utc - t)) for t in (mint, maxt)]
     for i, station in enumerate(stations):
         stn_waveforms = waveforms.select(station=station.station)
-        for c, comp, phase in zip(
-            WAVEFORM_COLOURS1, [p_str, s_str_1, s_str_2], ["P", "S", "S"]
-        ):
-            st = stn_waveforms.select(component=comp)
+        for colour, phase_group in zip(WAVEFORM_COLOURS1.values(), phase_groups):
+            st = stn_waveforms.select(component=phase_group.selector)
             if not bool(st):
                 continue
             # If multiple traces for a given phase, plot both in the same colour
             for tr in st:
-                comp = tr.stats.component
-                data = tr.data
-
                 # Get station specific range for norm factor
                 stat_maxt = event.otime + max(traveltimes[:, i]) * 1.5
-                norm = max(abs(data[mint_i : np.argmin(abs(times_utc - stat_maxt))]))
+                norm = max(abs(tr.data[mint_i : np.argmin(abs(times_utc - stat_maxt))]))
 
-                # Generate times for plotting
-                times = tr.times("matplotlib")[mint_i:maxt_i]
-
-                # Trim to plot limits, normalise, shift by range, then plot
-                y = data[mint_i:maxt_i] / norm + range_order[i]
-                label = f"{comp} component ({phase})"
-                ax.plot(times, y, c=c, lw=0.3, label=label, alpha=0.85)
+                # Trim data to plot limits, normalise, shift by range, then plot
+                ax.plot(
+                    tr.times("matplotlib")[mint_i:maxt_i],
+                    tr.data[mint_i:maxt_i] / norm + range_order[i],
+                    c=colour,
+                    lw=0.3,
+                    label=f"{ tr.stats.component} component ({phase_group.phase})",
+                    alpha=0.85,
+                )
 
     # --- Limits, annotations, and axis formatting ---
     ax.set_xlim([mint.datetime, maxt.datetime])

@@ -12,8 +12,67 @@ QuakeMigrate project management utilities.
 from __future__ import annotations
 
 import pathlib
+import shutil
+from importlib.resources import files
 
 from quakemigrate.exceptions import ConfigError, ProjectError
+
+
+def init_project(
+    basedir: str | pathlib.Path,
+    name: str,
+) -> pathlib.Path:
+    """
+    Initialise a QuakeMigrate project directory and populate with placeholder
+    configuration files.
+
+    Project layout:
+      inputs/        - user-provided data (stations, velocity models, waveform data)
+      luts/          - project-wide traveltime lookup tables
+      configs/       - stage configuration files
+        templates/   - template TOML files (edited to set project defaults)
+        <run-name1>/
+          detect-<run-name1>.toml
+          trigger-<run-name1>.toml
+          locate-<run-name1>.toml
+        <run-name2>/
+        ...
+      runs/          - run outputs
+        <run-name1>/
+        <run-name2>/
+        ...
+
+    Parameters
+    ----------
+    basedir:
+        Root directory in which to create QuakeMigrate project.
+    name:
+        Name of QuakeMigrate project.
+
+    Returns
+    -------
+    project_dir:
+        Resolved project directory path.
+
+    """
+
+    project_dir = (pathlib.Path(basedir) / name).resolve()
+    if (project_dir / ".qm-project").exists():
+        raise ProjectError(
+            f"Project already exists (found .qm-project):\n  {project_dir}"
+        )
+    project_dir.mkdir(parents=True, exist_ok=True)
+    (project_dir / ".qm-project").touch()  # Mark project root
+
+    for dir_ in ["inputs", "luts", "configs/templates", "runs"]:
+        (project_dir / dir_).mkdir(parents=True, exist_ok=True)
+
+    # Copy default template config files
+    assets_dir = files("quakemigrate") / "assets"
+    for config_file in assets_dir.glob("*.toml"):
+        shutil.copy(config_file, project_dir / "configs/templates" / config_file.name)
+
+    return project_dir
 
 
 def require_project_root(start: pathlib.Path | None = None) -> pathlib.Path:

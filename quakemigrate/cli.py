@@ -16,14 +16,13 @@ This module provides a collection of functions for:
 
 import argparse
 import pathlib
-import shutil
 import sys
 from dataclasses import dataclass
 from typing import Callable
 
 from quakemigrate.exceptions import CLIError, ProjectError
 from quakemigrate.workflow.config import get_required_key
-from quakemigrate.workflow.project import require_project_root
+from quakemigrate.workflow.project import init_project, require_project_root
 
 
 @dataclass(frozen=True)
@@ -47,7 +46,6 @@ def _init_project(args: argparse.Namespace) -> None:
       luts/          - project-wide traveltime lookup tables
       configs/       - stage configuration files
         templates/   - template TOML files (edited to set project defaults)
-        luts/        - traveltime lookup table configurations
         <run-name1>/
           detect-<run-name1>.toml
           trigger-<run-name1>.toml
@@ -61,31 +59,7 @@ def _init_project(args: argparse.Namespace) -> None:
 
     """
 
-    project_dir = (pathlib.Path(args.basedir) / args.name).resolve()
-    if (project_dir / ".qm-project").exists():
-        raise ProjectError(
-            f"Project already exists (found .qm-project):\n  {project_dir}"
-        )
-    project_dir.mkdir(parents=True, exist_ok=True)
-    (project_dir / ".qm-project").touch()  # Mark project root
-
-    for dir_ in ["inputs", "luts", "configs/templates", "runs"]:
-        (project_dir / dir_).mkdir(parents=True, exist_ok=True)
-
-    # Copy default template config files
-    assets_dir = pathlib.Path(__file__).parent / "assets"
-    for config_file in assets_dir.glob("*.toml"):
-        shutil.copy(config_file, project_dir / "configs/templates" / config_file.name)
-
-    if args.station_file is not None:
-        station_file = pathlib.Path(args.station_file)
-        if station_file.exists():
-            shutil.copy(station_file, project_dir / "inputs" / station_file.name)
-
-    if args.velocity_model is not None:
-        velocity_model = pathlib.Path(args.velocity_model)
-        if velocity_model.exists():
-            shutil.copy(velocity_model, project_dir / "inputs" / velocity_model.name)
+    _ = init_project(basedir=args.basedir, name=args.name)
 
 
 def _new_run(args: argparse.Namespace) -> None:
@@ -236,20 +210,6 @@ def entry_point(argv: list[str] | None = None) -> None:
         help="Root directory for the project.",
         type=pathlib.Path,
         default=pathlib.Path.cwd(),
-    )
-    init_parser.add_argument(
-        "-s",
-        "--station-file",
-        dest="station_file",
-        help="Station file to copy into project.",
-        type=pathlib.Path,
-    )
-    init_parser.add_argument(
-        "-v",
-        "--velocity-model",
-        dest="velocity_model",
-        help="Velocity model file to copy project.",
-        type=pathlib.Path,
     )
     init_parser.set_defaults(func=_init_project)
 

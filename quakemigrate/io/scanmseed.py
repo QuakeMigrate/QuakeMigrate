@@ -15,11 +15,12 @@ import logging
 from typing import TYPE_CHECKING
 
 import numpy as np
+import pandas as pd
 from obspy import read, Stream, Trace, UTCDateTime
 from obspy.io.mseed import InternalMSEEDError
-import pandas as pd
 
 import quakemigrate.util as util
+from quakemigrate.exceptions import NoScanmSEEDData
 
 
 if TYPE_CHECKING:
@@ -285,6 +286,11 @@ def read_scanmseed(
         Contains keys: network, station, channel, starttime, endtime,
                        sampling_rate, delta, npts, calib, _format, mseed
 
+    Raises
+    ------
+    NoScanmSEEDData
+        If no .scanmseed files are found.
+
     """
 
     fpath = run.path / "detect" / "scanmseed"
@@ -308,7 +314,7 @@ def read_scanmseed(
         dy += 1
 
     if not bool(scanmseed):
-        raise util.NoScanMseedDataException
+        raise NoScanmSEEDData(fpath, readstart, readend)
 
     scanmseed.merge(method=-1)
     stats = scanmseed.select(station="COA")[0].stats

@@ -26,9 +26,10 @@ from obspy.core import AttribDict
 
 from quakemigrate import QuakeScan
 from quakemigrate.io import Archive, read_lut, read_response_inv, read_stations
-from quakemigrate.signal.onsets import STALTAOnset
-from quakemigrate.signal.pickers import GaussianPicker
-from quakemigrate.signal.local_mag import LocalMag
+from quakemigrate.plugins.onsets import STALTAOnset
+from quakemigrate.plugins.pickers import GaussianPicker
+from quakemigrate.plugins.magnitudes import LocalMag
+
 
 # --- i/o paths ---
 archive_path = "/path/to/archived/data"

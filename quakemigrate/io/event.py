@@ -306,7 +306,7 @@ class Event:
             Each row contains the phase pick from one station/phase.
 
         **kwargs
-            For :class:`~quakemigrate.signal.pickers.gaussian.GaussianPicker`:\n
+            For :class:`~quakemigrate.plugins.pickers.gaussian.GaussianPicker`:\n
                 gaussfits : dict of dicts
                     Keys "station"["phase"], each containing:\n
                         "popt" : popt

@@ -22,8 +22,9 @@ os.environ.update(
 
 from quakemigrate import QuakeScan
 from quakemigrate.io import Archive, read_lut, read_stations
-from quakemigrate.signal.onsets import STALTAOnset
-from quakemigrate.signal.pickers import GaussianPicker
+from quakemigrate.plugins.onsets import STALTAOnset
+from quakemigrate.plugins.pickers import GaussianPicker
+
 
 # --- i/o paths ---
 station_file = "./inputs/rutford_stations.txt"

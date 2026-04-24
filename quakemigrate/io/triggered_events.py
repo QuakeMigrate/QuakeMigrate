@@ -19,6 +19,7 @@ import pandas as pd
 from obspy import UTCDateTime
 
 import quakemigrate.util as util
+from quakemigrate.exceptions import NoTriggeredEventsData
 
 
 if TYPE_CHECKING:
@@ -63,6 +64,11 @@ def read_triggered_events(
         Triggered events information. Columns: ["EventID", "CoaTime", "TRIG_COA",
         "COA_X", "COA_Y", "COA_Z", "COA", "COA_NORM"].
 
+    Raises
+    ------
+    TriggerFilesNotFoundError
+        If no TriggeredEvents.csv files are found.
+
     """
 
     fpath = run.path / "trigger" / run.subname / "events"
@@ -81,7 +87,7 @@ def read_triggered_events(
                 logging.info(f"\n\t    Cannot find file: {fstem}")
             readstart += 86400
         if len(trigger_files) == 0:
-            raise util.NoTriggerFilesFound
+            raise NoTriggeredEventsData()
         events = pd.concat((pd.read_csv(f) for f in trigger_files), ignore_index=True)
 
     events["CoaTime"] = events["CoaTime"].apply(UTCDateTime)

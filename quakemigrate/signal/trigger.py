@@ -184,10 +184,10 @@ class Trigger:
     ------
     ValueError
         If `min_event_interval` < 2 * `marginal_window`.
-    InvalidTriggerThresholdMethodException
+    ValueError
         If an invalid threshold method is passed in by the user.
-    TimeSpanException
-        If the user supplies a starttime that is after the endtime.
+    ValueError
+        If `starttime` is later than `endtime`.
 
     """
 
@@ -297,14 +297,14 @@ class Trigger:
 
         Raises
         ------
-        TimeSpanException
-            If `starttime` is after `endtime`.
+        ValueError:
+            If `starttime` is later than `endtime`.
 
         """
 
         starttime, endtime = UTCDateTime(starttime), UTCDateTime(endtime)
         if starttime > endtime:
-            raise util.TimeSpanException
+            raise ValueError("starttime must be <= endtime")
 
         logging.info(util.log_spacer)
         logging.info("\tTRIGGER - Triggering events from .scanmseed")
@@ -741,7 +741,7 @@ class Trigger:
         return self._threshold_method
 
     @threshold_method.setter
-    def threshold_method(self, value: str) -> None:
+    def threshold_method(self, value: Literal["static", "mad", "median_ratio"]) -> None:
         if value in ["static", "mad", "median_ratio"]:
             self._threshold_method = value
         elif value == "dynamic":
@@ -752,7 +752,10 @@ class Trigger:
             )
             self._threshold_method = "mad"
         else:
-            raise util.InvalidTriggerThresholdMethodException
+            raise ValueError(
+                f"Invalid trigger threshold method '{value}'. "
+                "Supported methods are: 'static', 'mad', 'median_ratio'."
+            )
 
     # --- Deprecation/Future handling ---
     @property

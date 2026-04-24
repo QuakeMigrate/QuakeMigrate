@@ -16,6 +16,7 @@ from pyproj import Proj
 from quakemigrate.io import read_stations
 from quakemigrate.lut import compute_traveltimes
 
+
 station_file = "./inputs/rutford_stations.txt"
 lut_out = "./outputs/lut/icequake.LUT"
 

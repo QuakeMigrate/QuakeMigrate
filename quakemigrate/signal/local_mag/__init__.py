@@ -1,12 +1,11 @@
 """
-The :mod:`quakemigrate.local_mag` extension module handles the calculation of local
-magnitudes from Wood-Anderson simulated waveforms.
+Backward-compatible imports for moved local magnitude code.
 
-.. warning:: The local_mag modules are an ongoing work in progress. We hope to\
- continue to extend their functionality, which may result in some API changes.\
- If you have comments or suggestions, please contact the QuakeMigrate \
-developers at: quakemigrate.developers@gmail.com, or submit an issue on \
-GitHub.
+Deprecated:
+    quakemigrate.signal.local_mag
+
+New location:
+    quakemigrate.plugins.magnitudes
 
 :copyright:
     2020–2026, QuakeMigrate developers.
@@ -16,6 +15,46 @@ GitHub.
 
 """
 
-from .local_mag import LocalMag  # NOQA
-from .amplitude import Amplitude  # NOQA
-from .magnitude import Magnitude  # NOQA
+from __future__ import annotations
+
+import importlib
+import warnings
+from typing import Any
+
+
+__all__ = ["LocalMag", "Amplitude", "Magnitude"]
+
+_MOVED = {
+    "LocalMag": ("quakemigrate.plugins.magnitudes.local_mag", "LocalMag"),
+    "Amplitude": ("quakemigrate.plugins.magnitudes.amplitude", "Amplitude"),
+    "Magnitude": ("quakemigrate.plugins.magnitudes.magnitude", "Magnitude"),
+}
+
+_warned: set[str] = set()
+
+
+def __getattr__(name: str) -> Any:
+    if name not in _MOVED:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+    new_mod, new_name = _MOVED[name]
+
+    if name not in _warned:
+        warnings.warn(
+            f"`{__name__}.{name}` is deprecated and will be removed in a future release. "
+            f"Import from `{new_mod}` instead:\n"
+            f"    from {new_mod} import {new_name}",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        _warned.add(name)
+
+    mod = importlib.import_module(new_mod)
+    obj = getattr(mod, new_name)
+
+    globals()[name] = obj
+    return obj
+
+
+def __dir__() -> list[str]:
+    return sorted(list(globals().keys()) + list(_MOVED.keys()))

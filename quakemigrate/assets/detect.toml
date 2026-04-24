@@ -1,0 +1,28 @@
+station_file = "inputs/<station-file>"
+
+[lut]
+file = "luts/<lut-name>.lut"
+decimation = [X, Y, Z]  # [int, int, int] Select decimation factor in each dimension 
+
+[archive]
+path = "inputs/mSEED"  # path to archive root directory
+format = ""  # Format-able string, see docs for more info
+
+[scan]
+starttime = "YYYY-mm-ddTHH:MM:SS.0"  # Can be any format compatible with obspy.UTCDateTime
+endtime = "YYYY-mm-ddTHH:MM:SS.0"  # Can be any format compatible with obspy.UTCDateTime
+timestep = 300.0  # In seconds, see docs for more info
+threads = 4  # Can be overriden at runtime on the command line using -j/--threads flag
+
+[onset]
+name = "STALTA-classic"  # See docs for options
+sampling_rate = 100  # Sampling rate used for the migration and stacking
+phases = ["P", "S"]  # Must conform with names used for traveltime tables
+
+[onset.bandpass_filters]  # Must have an entry for each of the phases listed above
+P = [freqmin, freqmax, order/corners]  # [float, float, int] with units [Hz, Hz, -]
+S = [freqmin, freqmax, order/corners]  # [float, float, int] with units [Hz, Hz, -]
+
+[onset.sta_lta_windows]  # Must have an entry for each of the phases listed above
+P = [sta, lta]  # [float, float] with units [seconds, seconds]
+S = [sta, lta]  # [float, float] with units [seconds, seconds]

@@ -10,11 +10,11 @@ using waveform migration and stacking.
 
 """
 
+import logging
+import os
 from importlib.metadata import version
 
 import matplotlib
-import os
-import logging
 
 from quakemigrate.io.data import Archive  # NOQA
 from quakemigrate.lut import create_lut, read_nlloc, LUT  # NOQA

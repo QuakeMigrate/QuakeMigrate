@@ -22,8 +22,9 @@ os.environ.update(
 
 from quakemigrate import QuakeScan
 from quakemigrate.io import Archive, read_lut, read_stations
-from quakemigrate.signal.onsets import STALTAOnset
-from quakemigrate.signal.pickers import GaussianPicker
+from quakemigrate.plugins.onsets import STALTAOnset
+from quakemigrate.plugins.pickers import GaussianPicker
+
 
 # --- i/o paths ---
 station_file = "./inputs/iceland_stations.txt"
@@ -57,12 +58,16 @@ onset.sta_lta_windows = {"P": [0.01, 0.25], "S": [0.05, 0.5]}
 picker = GaussianPicker(onset=onset)
 picker.plot_picks = True
 
+plugins = {
+    "picker": picker,
+}
+
 # --- Create new QuakeScan ---
 scan = QuakeScan(
     archive,
     lut,
     onset=onset,
-    picker=picker,
+    plugins=plugins,
     run_path=run_path,
     run_name=run_name,
     log=True,

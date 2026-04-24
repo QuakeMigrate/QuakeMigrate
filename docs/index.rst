@@ -61,5 +61,6 @@ Contents:
    :maxdepth: 1
 
    installation
+   interfaces
    tutorials
    sourcecode

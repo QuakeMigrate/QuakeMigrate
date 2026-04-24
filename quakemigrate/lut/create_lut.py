@@ -12,10 +12,10 @@ Module to produce traveltime lookup tables defined on a Cartesian grid.
 from __future__ import annotations
 
 import logging
-import warnings
 import os
 import pathlib
 import struct
+import warnings
 from shutil import rmtree
 from typing import Literal, TYPE_CHECKING
 
@@ -24,6 +24,7 @@ from pyproj import Proj, Transformer
 from scipy.interpolate import interp1d
 
 import quakemigrate.util as util
+from quakemigrate.exceptions import InvalidVelocityModelHeader
 from .lut import LUT
 
 
@@ -179,7 +180,7 @@ def compute_traveltimes(
     ------
     ValueError
         If the specified `method` is not a valid option.
-    TypeError
+    ValueError
         If the velocity model, or constant phase velocity, is not specified.
     NotImplementedError
         If the `3dfmm` method is specified.
@@ -207,7 +208,7 @@ def compute_traveltimes(
         for phase in phases:
             velocity = kwargs.get(f"v{phase.lower()}")
             if velocity is None:
-                raise TypeError(f"Missing argument: 'v{phase.lower()}'")
+                raise ValueError(f"Missing argument: 'v{phase.lower()}'")
             lut.velocity_model += f"\n\tV{phase.lower()} = {velocity:5.2f} m/s"
 
             logging.info(f"\t...phase: {phase}...")
@@ -217,7 +218,7 @@ def compute_traveltimes(
         logging.info("Computing 1-D fast-marching traveltimes for...")
         lut.velocity_model = vmodel = kwargs.get("vmod")
         if vmodel is None:
-            raise TypeError("Missing argument: 'vmod'")
+            raise ValueError("Missing argument: 'vmod'")
 
         for phase in phases:
             logging.info(f"\t...phase: {phase}...")
@@ -232,7 +233,7 @@ def compute_traveltimes(
         logging.info("Computing 1-D nlloc traveltimes for...")
         lut.velocity_model = vmodel = kwargs.get("vmod")
         if vmodel is None:
-            raise TypeError("Missing argument: 'vmod'")
+            raise ValueError("Missing argument: 'vmod'")
 
         for phase in phases:
             logging.info(f"\t...phase: {phase}...")
@@ -299,13 +300,15 @@ def _compute_1d_fmm(lut: LUT, phase: str, vmodel: pd.DataFrame) -> None:
     InvalidVelocityModelHeader
         If the velocity model does not contain the key corresponding to the specified
         seismic `phase`. (E.g. "Vp" for "P" phase.)
+    ValueError
+        If stations are located outside of the search volume.
 
     """
 
     try:
         depths, vmodel = vmodel[["Depth", f"V{phase.lower()}"]].values.T
     except KeyError:
-        raise util.InvalidVelocityModelHeader(f"V{phase.lower()}")
+        raise InvalidVelocityModelHeader(f"V{phase.lower()}")
 
     finfo = np.finfo(float)
     depths = np.insert(np.append(depths, finfo.max), 0, finfo.min)

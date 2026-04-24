@@ -1,0 +1,38 @@
+station_file = "inputs/<station-file>"
+
+[grid_projection]
+# Note: The following parameters are for a Lambert-Conformal Conic projection
+# When using other projections, be sure to include entries for each of the
+# required keyword arguments
+proj = "lcc"  # Projection - see PROJ docs for more info
+units = "km"
+lon_0 =  # Central meridian
+lat_0 =  # Latitude of y=0 on central meridian
+lat_1 =  # Latitude of first standard parallel
+lat_2 =  # Latitude of second standard parallel
+datum = "WGS84"  # Reference frame used to define projection coordinates
+ellps = "WGS84"  # Approximation used for geoid
+no_defs = true
+
+[coordinate_projection]
+proj = "longlat"  # Projection - see PROJ docs for more info
+datum = "WGS84"  # Reference frame used to define projection coordinates
+ellps = "WGS84"  # Approximation used for geoid
+no_defs = true
+
+[grid_specification]
+ll_corner = [lon, lat, depth]  # [float, float, float]
+ur_corner = [lon, lat, depth]  # [float, float, float]
+node_spacing = [dx, dy, dz]  # [float, float, float] in units set by grid_projection
+
+[compute]
+# Homogeneous velocity model
+method = "homogeneous"
+phases = ["P", "S"]
+vp = 3.630  # Velocity in ice!
+vs = 1.833  # Velocity in ice!
+log = true
+
+# 1-D model: NonLinLoc
+
+# 1-D model: skfmm

@@ -23,6 +23,7 @@ from obspy.clients.fdsn.mass_downloader import (
 
 from quakemigrate.io import read_stations
 
+
 # --- i/o paths ---
 station_file = "./inputs/askja_stations.txt"
 data_path = pathlib.Path("./inputs/mSEED")

@@ -6,15 +6,6 @@ quakemigrate.signal
     :undoc-members:
     :show-inheritance:
 
-Subpackages
------------
-
-.. toctree::
-    
-    quakemigrate.signal.onsets
-    quakemigrate.signal.pickers
-    quakemigrate.signal.local_mag
-
 quakemigrate.signal.scan
 ------------------------
 

@@ -24,7 +24,8 @@ os.environ.update(
 
 from quakemigrate import QuakeScan
 from quakemigrate.io import Archive, read_lut, read_stations
-from quakemigrate.signal.onsets import STALTAOnset
+from quakemigrate.plugins.onsets import STALTAOnset
+
 
 # --- i/o paths ---
 archive_path = "/path/to/archived/data"

@@ -71,7 +71,7 @@ We currently impose fairly strict criteria on the data to be used in QuakeMigrat
 
 Gap tolerance
 #############
-It is possible to allow QuakeMigrate to use gappy data. We do not recommend using this without first assessing the waveform data and understanding the common causes of data gaps. This is currently set by toggling the ``allow_gaps`` parameter of the :class:`quakemigrate.signal.onsets.STALTAOnset` object to ``True``.
+It is possible to allow QuakeMigrate to use gappy data. We do not recommend using this without first assessing the waveform data and understanding the common causes of data gaps. This is currently set by toggling the ``allow_gaps`` parameter of the :class:`quakemigrate.plugins.onsets.STALTAOnset` object to ``True``.
 
 This also applies to data missing at the start/end of a ``timestep``.
 

@@ -25,7 +25,10 @@ from quakemigrate.exceptions import NoStationAvailabilityData
 from quakemigrate.io import read_availability
 from quakemigrate.plot.maps import (
     adjust_map_cross_sections,
+    build_2d_map_axes,
     build_3d_map_axes,
+    MapAxes2D,
+    MapAxes3D,
     plot_stations,
     plot_map_overlays,
 )
@@ -38,12 +41,11 @@ if TYPE_CHECKING:
 
     from quakemigrate.io.core import Run
     from quakemigrate.lut import LUT
-    from quakemigrate.plot.maps import MapAxes3D
 
 
 @dataclass
-class TriggerSummaryAxes:
-    """Named axes container for a trigger summary plot."""
+class TriggerSummaryAxes3D:
+    """Named axes container for a 3-D trigger summary figure."""
 
     text_summary: Axes
     lut_map: MapAxes3D
@@ -52,9 +54,9 @@ class TriggerSummaryAxes:
     availability: Axes
 
 
-def _setup_axes(fig: Figure, lut: LUT) -> TriggerSummaryAxes:
+def _setup_axes_3d(fig: Figure, lut: LUT) -> TriggerSummaryAxes3D:
     """
-    Build the axes layout for the standard trigger summary figure.
+    Build the axes layout for the 3-D trigger summary figure.
 
     Parameters
     ----------
@@ -84,7 +86,58 @@ def _setup_axes(fig: Figure, lut: LUT) -> TriggerSummaryAxes:
 
     lut_axes = build_3d_map_axes(fig, grid_dimensions, lut, "black")
 
-    return TriggerSummaryAxes(
+    return TriggerSummaryAxes3D(
+        text_summary=text_summary,
+        lut_map=lut_axes,
+        coalescence=coalescence,
+        norm_coalescence=norm_coalescence,
+        availability=availability,
+    )
+
+
+@dataclass
+class TriggerSummaryAxes2D:
+    """Named axes container for a 2-D trigger summary figure."""
+
+    text_summary: Axes
+    lut_map: MapAxes2D
+    coalescence: Axes
+    norm_coalescence: Axes
+    availability: Axes
+
+
+def _setup_axes_2d(fig: Figure, lut: LUT) -> TriggerSummaryAxes2D:
+    """
+    Build the axes layout for the 2-D trigger summary figure.
+
+    Parameters
+    ----------
+    fig:
+        Figure on which the axes are created.
+    lut:
+        Lookup table object providing the map geometry and bounds used for the map.
+
+    Returns
+    -------
+    axes:
+        Named collection of axes for the trigger summary, including panels for the text
+        summary, map, coalescence traces, and station availability.
+
+    """
+
+    grid_dimensions = (9, 18)
+    gs = GridSpec(*grid_dimensions)
+
+    text_summary = fig.add_subplot(gs[0:2, 0:8])
+    coalescence = fig.add_subplot(gs[0:3, 8:18])
+    norm_coalescence = fig.add_subplot(gs[3:6, 8:18])
+    availability = fig.add_subplot(gs[6:9, 8:18])
+    for ax in [coalescence, norm_coalescence]:
+        ax.sharex(availability)
+
+    lut_axes = build_2d_map_axes(fig, grid_dimensions, lut, "black")
+
+    return TriggerSummaryAxes2D(
         text_summary=text_summary,
         lut_map=lut_axes,
         coalescence=coalescence,
@@ -115,8 +168,8 @@ def trigger_summary(
 ) -> None:
     """
     Plots the data from a .scanmseed file with annotations illustrating the trigger
-    results: event triggers and marginal windows on the coalescence traces, and map and
-    cross section view of the gridded triggered earthquake locations.
+    results: event triggers and marginal windows on the coalescence traces, and map (and
+    cross-section view for 3-D case) of the gridded triggered earthquake locations.
 
     Parameters
     ----------
@@ -130,7 +183,7 @@ def trigger_summary(
     run:
         Light class encapsulating i/o path information for a given run.
     marginal_window:
-        Time window over which to marginalise the 4D coalescence function.
+        Time window over which to marginalise the 4-D coalescence function.
     min_event_interval:
         Minimum time interval between triggered events.
     detection_threshold:
@@ -138,8 +191,8 @@ def trigger_summary(
     threshold_string:
         String describing the threshold method and parameters used.
     normalise_coalescence:
-        If True, use coalescence normalised by the average coalescence value in the 3-D
-        grid at each timestep.
+        If True, use coalescence normalised by the average coalescence value in the grid
+        at each timestep.
     lut:
         Contains the traveltime lookup tables for the selected seismic phases, computed
         for some pre-defined velocity model.
@@ -176,7 +229,10 @@ def trigger_summary(
     dt = pd.to_datetime(data["DT"].astype(str)).values
 
     fig = plt.figure(figsize=(30, 15))
-    axes = _setup_axes(fig, lut)
+    if lut.node_count[2] == 1:
+        axes = _setup_axes_2d(fig, lut)
+    else:
+        axes = _setup_axes_3d(fig, lut)
 
     logging.debug(discarded_events)
 
@@ -256,7 +312,9 @@ def trigger_summary(
     fig.tight_layout(pad=1, h_pad=0)
     plt.subplots_adjust(wspace=0.3, hspace=0.3)
     fig.canvas.draw()
-    adjust_map_cross_sections(fig, axes.lut_map)
+
+    if isinstance(axes.lut_map, MapAxes3D):
+        adjust_map_cross_sections(fig, axes.lut_map)
 
     fpath = run.path / "trigger" / run.subname / "summaries"
     fpath.mkdir(exist_ok=True, parents=True)
@@ -404,7 +462,7 @@ def _add_plot_tag(ax: Axes, tag: str) -> None:
 
 
 def _plot_event_locations(
-    axes: MapAxes3D, events: pd.DataFrame, discarded: bool = False
+    axes: MapAxes2D | MapAxes3D, events: pd.DataFrame, discarded: bool = False
 ) -> None:
     """
     Plot triggered-event locations on the map and cross-section panels.
@@ -421,11 +479,13 @@ def _plot_event_locations(
 
     """
 
+    x, y, z = events[["COA_X", "COA_Y", "COA_Z"]].values.T
+
     if discarded:
-        x, y, z = events[["COA_X", "COA_Y", "COA_Z"]].values.T
         axes.xy.scatter(x, y, s=50, c="grey")
-        axes.xz.scatter(x, z, s=50, c="grey")
-        axes.yz.scatter(z, y, s=50, c="grey")
+        if isinstance(axes, MapAxes3D):
+            axes.xz.scatter(x, z, s=50, c="grey")
+            axes.yz.scatter(z, y, s=50, c="grey")
 
     else:
         # Get bounds for cmap - hack to prevent inconsistent color being
@@ -436,11 +496,12 @@ def _plot_event_locations(
         )
 
         # Plotting the scatter of the earthquake locations
-        x, y, z = events[["COA_X", "COA_Y", "COA_Z"]].values.T
         c = events["TRIG_COA"].values
         sc = axes.xy.scatter(x, y, s=50, c=c, vmin=vmin, vmax=vmax)
-        axes.xz.scatter(x, z, s=50, c=c, vmin=vmin, vmax=vmax)
-        axes.yz.scatter(z, y, s=50, c=c, vmin=vmin, vmax=vmax)
+
+        if isinstance(axes, MapAxes3D):
+            axes.xz.scatter(x, z, s=50, c=c, vmin=vmin, vmax=vmax)
+            axes.yz.scatter(z, y, s=50, c=c, vmin=vmin, vmax=vmax)
 
         cb = axes.cax.figure.colorbar(
             sc, ax=axes.cax, orientation="horizontal", fraction=0.8, aspect=8
@@ -560,7 +621,7 @@ def _plot_text_summary(
     ax.set_axis_off()
 
 
-def _plot_trigger_region(axes: MapAxes3D, region: list) -> None:
+def _plot_trigger_region(axes: MapAxes2D | MapAxes3D, region: list) -> None:
     """
     Plot the geographic bounding box used to filter triggered events.
 

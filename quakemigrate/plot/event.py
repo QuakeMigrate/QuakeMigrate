@@ -28,6 +28,7 @@ from quakemigrate.plot.maps import (
     plot_map_overlays,
     plot_stations,
 )
+from quakemigrate.signal.location_uncertainty import embed_matrix
 
 
 if TYPE_CHECKING:
@@ -473,9 +474,10 @@ def event_summary_2d(
 
     # Add hypocentre and Gaussian uncertainty ellipses
     _plot_hypocentre(axes.coalescence_map, hypocentre=event.hypocentre)
-    gues = _make_ellipses(lut, event, "gaussian", "k")
-    for (_, ax, *_), gue in zip(axes.coalescence_map.items(), gues):
-        ax.add_patch(gue)
+    gaussian_ellipses = _make_ellipses(lut, event, "gaussian", "k")
+    for (_, ax, *_), ellipse in zip(axes.coalescence_map.items(), gaussian_ellipses):
+        if ellipse is not None:
+            ax.add_patch(ellipse)
 
     if overlay_manifest is not None:
         plot_map_overlays(overlay_manifest, axes.coalescence_map.xy)
@@ -767,8 +769,11 @@ def _plot_coalescence_trace(ax: Axes, event: Event) -> None:
 
 
 def _make_ellipses(
-    lut: LUT, event: Event, uncertainty: Literal["covariance", "gaussian"], clr: str
-) -> tuple[Ellipse, Ellipse, Ellipse]:
+    lut: LUT,
+    event: Event,
+    uncertainty: Literal["covariance", "gaussian"],
+    clr: str,
+) -> tuple[Ellipse, Ellipse | None, Ellipse | None]:
     """
     Construct uncertainty ellipses for the map and cross-section panels.
 
@@ -791,25 +796,138 @@ def _make_ellipses(
 
     """
 
-    coord = event.get_hypocentre(method=uncertainty)
-    error = event.get_loc_uncertainty(method=uncertainty)
-    xyz = lut.coord2grid(coord)[0]
-    d = abs(coord - lut.coord2grid(xyz + error, inverse=True))[0]
+    coord = event.get_hypocentre(method="spline")
 
-    xy = Ellipse(
-        (coord[0], coord[1]),
-        2 * d[0],
-        2 * d[1],
+    if uncertainty == "gaussian":
+        gaussian = event.locations.get("gaussian", {})
+        covariance_grid = gaussian.get("covariance_matrix")
+
+        if covariance_grid is not None:
+            covariance_grid = np.asarray(covariance_grid, dtype=float)
+
+            fit_dims = gaussian.get("fit_dims", [0, 1, 2])
+
+            covariance_coord = _transform_covariance_to_coord_units(
+                lut,
+                coord,
+                covariance_grid,
+                fit_dims,
+            )
+
+            xy = _ellipse_from_covariance(
+                centre=(coord[0], coord[1]),
+                covariance_2d=covariance_coord[np.ix_([0, 1], [0, 1])],
+                clr=clr,
+                label="Gaussian uncertainty",
+            )
+
+            xz = _ellipse_from_covariance(
+                centre=(coord[0], coord[2]),
+                covariance_2d=covariance_coord[np.ix_([0, 2], [0, 2])],
+                clr=clr,
+            )
+
+            yz = _ellipse_from_covariance(
+                centre=(coord[2], coord[1]),
+                covariance_2d=covariance_coord[np.ix_([2, 1], [2, 1])],
+                clr=clr,
+            )
+
+            return xy, xz, yz
+
+
+def _transform_covariance_to_coord_units(
+    lut: LUT,
+    grid_idx: np.ndarray,
+    covariance_grid: np.ndarray,
+    fit_dims: list,
+) -> np.ndarray:
+    """
+    Transform a covariance matrix from grid-index units to LUT coordinate units.
+
+    Parameters
+    ----------
+    lut:
+        Traveltime lookup table object used to convert grid indices to coordinates.
+    grid_idx:
+        Grid-index location at which to evaluate the local coordinate transform.
+    covariance_grid:
+        Covariance matrix in grid-index units.
+    fit_dims:
+        Active dimensions included in the Gaussian fit.
+
+    Returns
+    -------
+    covariance_coord:
+        Covariance matrix transformed into LUT coordinate units.
+
+    """
+
+    covariance_fit = covariance_grid[np.ix_(fit_dims, fit_dims)]
+
+    jacobian = np.zeros((len(fit_dims), len(fit_dims)))
+    for col, dim in enumerate(fit_dims):
+        step = np.zeros(3)
+        step[dim] = 1.0
+
+        coord_plus = lut.index2coord([grid_idx + step])[0]
+        coord_minus = lut.index2coord([grid_idx - step])[0]
+
+        jacobian[:, col] = (coord_plus[fit_dims] - coord_minus[fit_dims]) / 2.0
+
+    return embed_matrix(jacobian @ covariance_fit @ jacobian.T, fit_dims)
+
+
+def _ellipse_from_covariance(
+    centre: tuple[float, float],
+    covariance_2d: np.ndarray,
+    clr: str,
+    label: str | None = None,
+    n_sigma: float = 1.0,
+) -> Ellipse | None:
+    """
+    Construct a matplotlib ellipse from a 2-D covariance matrix.
+
+    Parameters
+    ----------
+    centre:
+        Ellipse centre coordinates.
+    covariance_2d:
+        Two-dimensional covariance matrix defining the ellipse shape and orientation.
+    clr:
+        Ellipse edge colour.
+    label:
+        Optional label for the ellipse.
+    n_sigma:
+        Number of standard deviations represented by the ellipse radius.
+
+    Returns
+    -------
+    ellipse:
+        Ellipse patch representing the covariance, or None if the covariance is not
+        finite.
+
+    """
+
+    if not np.all(np.isfinite(covariance_2d)):
+        return None
+
+    eigvals, eigvecs = np.linalg.eigh(covariance_2d)
+
+    order = np.argsort(eigvals)[::-1]
+    eigvals = eigvals[order]
+    eigvecs = eigvecs[:, order]
+
+    width, height = 2.0 * n_sigma * np.sqrt(np.clip(eigvals, 0.0, np.inf))
+    angle = np.degrees(np.arctan2(eigvecs[1, 0], eigvecs[0, 0]))
+
+    return Ellipse(
+        centre,
+        width,
+        height,
+        angle=angle,
         lw=2,
         edgecolor=clr,
         fill=False,
-        label=f"{uncertainty.capitalize()} uncertainty",
+        label=label,
     )
-    yz = Ellipse(
-        (coord[2], coord[1]), 2 * d[2], 2 * d[1], lw=2, edgecolor=clr, fill=False
-    )
-    xz = Ellipse(
-        (coord[0], coord[2]), 2 * d[0], 2 * d[2], lw=2, edgecolor=clr, fill=False
-    )
-
-    return xy, xz, yz

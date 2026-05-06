@@ -102,9 +102,7 @@ def import_from_string(path: str) -> Any:
     try:
         return getattr(module, object_name)
     except AttributeError as e:
-        raise ConfigError(
-            f"Module {module_name} does not define {object_name}."
-        ) from e
+        raise ConfigError(f"Module {module_name} does not define {object_name}.") from e
 
 
 def construct_plugin(

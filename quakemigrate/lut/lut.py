@@ -363,38 +363,19 @@ class Grid3D:
 
         return "km" if unit_name == "kilometre" else "m"
 
-    # --- Deprecation handling ---
     @property
-    def cell_count(self):
-        """Handler for deprecated attribute name 'cell_count'"""
-        return self.node_count
+    def is_depth_constrained(self):
+        """Check for if the Grid3D is constrained to a single depth."""
 
-    @cell_count.setter
-    def cell_count(self, value):
-        if value is None:
-            return
-        print(
-            "FutureWarning: Parameter name has changed - continuing.\n"
-            "To remove this message, change:\n"
-            "\t'cell_count' -> 'node_count'"
-        )
-        self.node_count = value
+        return int(self.node_count[2]) == 1
 
     @property
-    def cell_size(self):
-        """Handler for deprecated attribute name 'cell_size'"""
-        return self.node_spacing
+    def fixed_depth(self):
+        """Utility for returning the fixed depth of a constrained Grid3D."""
 
-    @cell_size.setter
-    def cell_size(self, value):
-        if value is None:
-            return
-        print(
-            "FutureWarning: Parameter name has changed - continuing.\n"
-            "To remove this message, change:\n"
-            "\t'cell_size' -> 'node_spacing'"
-        )
-        self.node_spacing = value
+        if self.is_depth_constrained:
+            return float(self.ll_corner[2])
+        return None
 
 
 class LUT(Grid3D):

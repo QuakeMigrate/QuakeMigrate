@@ -56,7 +56,7 @@ def make_directories(run: Path, subdir: str | None = None) -> None:
 
 
 def gaussian_1d(
-    x: np.ndarray, a: float | int, b: float | int, c: float | int
+    x: np.ndarray, a: float | int, mu: float | int, sigma: float | int
 ) -> Callable:
     """
     Create a 1-dimensional Gaussian function.
@@ -67,9 +67,9 @@ def gaussian_1d(
         Array of x values.
     a:
         Amplitude (height of Gaussian).
-    b:
+    mu:
         Mean (centre of Gaussian).
-    c:
+    sigma:
         Sigma (width of Gaussian).
 
     Returns
@@ -79,52 +79,7 @@ def gaussian_1d(
 
     """
 
-    f = a * np.exp(-1.0 * ((x - b) ** 2) / (2 * (c**2)))
-
-    return f
-
-
-def gaussian_3d(
-    nx: np.ndarray, ny: np.ndarray, nz: np.ndarray, sgm: float | int
-) -> Callable:
-    """
-    Create a 3-dimensional Gaussian function.
-
-    Parameters
-    ----------
-    nx:
-        Array of x values.
-    ny:
-        Array of y values.
-    nz:
-        Array of z values.
-    sgm:
-        Sigma (width of gaussian in all directions).
-
-    Returns
-    -------
-    f:
-        3-dimensional Gaussian function
-
-    """
-
-    nx2 = (nx - 1) / 2
-    ny2 = (ny - 1) / 2
-    nz2 = (nz - 1) / 2
-    x = np.linspace(-nx2, nx2, nx)
-    y = np.linspace(-ny2, ny2, ny)
-    z = np.linspace(-nz2, nz2, nz)
-    ix, iy, iz = np.meshgrid(x, y, z, indexing="ij")
-
-    if np.isscalar(sgm):
-        sgm = np.repeat(sgm, 3)
-    sx, sy, sz = sgm
-
-    f = np.exp(
-        -(ix * ix) / (2 * sx * sx)
-        - (iy * iy) / (2 * sy * sy)
-        - (iz * iz) / (2 * sz * sz)
-    )
+    f = a * np.exp(-1.0 * ((x - mu) ** 2) / (2 * (sigma**2)))
 
     return f
 

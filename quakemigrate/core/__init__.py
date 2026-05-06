@@ -27,9 +27,9 @@ from .lib import (
 
 
 __all__ = [
-    migrate,
-    find_max_coa,
-    overlapping_sta_lta,
-    centred_sta_lta,
-    recursive_sta_lta,
+    "migrate",
+    "find_max_coa",
+    "overlapping_sta_lta",
+    "centred_sta_lta",
+    "recursive_sta_lta",
 ]

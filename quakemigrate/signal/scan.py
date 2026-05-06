@@ -19,8 +19,6 @@ from typing import Literal, TYPE_CHECKING
 import numpy as np
 import pandas as pd
 from obspy import UTCDateTime
-from scipy.interpolate import Rbf
-from scipy.signal import fftconvolve
 
 import quakemigrate.util as util
 from quakemigrate.core import find_max_coa, migrate
@@ -39,10 +37,14 @@ from quakemigrate.io import (
     write_cut_waveforms,
     write_coalescence,
 )
-from quakemigrate.plot.event import event_summary
-from quakemigrate.plugins.magnitudes import LocalMag
-from quakemigrate.plugins.onsets import Onset
-from quakemigrate.plugins.pickers import PhasePicker
+from quakemigrate.plugins import call_by_signature
+from quakemigrate.plugins.onsets.base import Onset
+from quakemigrate.signal.location_uncertainty import (
+    covariance_fit,
+    spline_location,
+    gaussian_filter,
+    gaussian_fit,
+)
 
 
 if TYPE_CHECKING:
@@ -106,7 +108,7 @@ class QuakeScan:
         uncertainty and uncertainty in the seismic velocity model used.
     picker:
         Provides callback methods for phase picking, performed during locate.
-    plot_all_stns:
+    plot_all_stations:
         If true, plot all stations in the LUT. Otherwise, only plot stations which were
         used for migration (i.e. omitting stations for which there was no data, or data
         did not pass the specified quality checks).
@@ -233,57 +235,20 @@ class QuakeScan:
         )
         self.log: bool = kwargs.get("log", False)
 
-        self.plugins = kwargs.get("plugins", {})
-
-        # --- Deprecation handling ---
-        picker: PhasePicker | None = kwargs.get("picker")
-        if picker is not None:
-            print(
-                "Passing a PhasePicker directly into QuakeScan has been deprecated."
-                "\nPass an ordered plugins dict."
-            )
-            if isinstance(picker, PhasePicker):
-                self.plugins["picker"] = picker
-            else:
-                raise TypeError(
-                    "picker must be a PhasePicker instance or None "
-                    f"(got {type(picker).__name__})."
-                )
-
-        mags: LocalMag | None = kwargs.get("mags")
-        if mags is not None:
-            print(
-                "Passing a LocalMag directly into QuakeScan has been deprecated."
-                "\nPass an ordered plugins dict."
-            )
-            if isinstance(mags, LocalMag):
-                self.plugins["magnitudes"] = mags
-            else:
-                raise TypeError(
-                    "mags must be a LocalMag instance or None "
-                    f"(got {type(mags).__name__})."
-                )
-        # ----------------------------
+        self.plugins = kwargs.get("plugins", [])
 
         # --- Grab QuakeScan parameters or set defaults ---
         # Parameters related specifically to Detect
         self.timestep: float = kwargs.get("timestep", 120.0)
-        self.time_step = kwargs.get("time_step")  # DEPRECATING
 
         # Parameters related specifically to Locate
         self.marginal_window: float = kwargs.get("marginal_window", 2.0)
 
         # General QuakeScan parameters
         self.threads: int = kwargs.get("threads", 1)
-        self.n_cores = kwargs.get("n_cores")  # DEPRECATING
-        self.sampling_rate = kwargs.get("sampling_rate")  # DEPRECATING
         self.scan_rate: int = self.onset.sampling_rate
 
-        # Plotting toggles and parameters
-        self.plot_event_summary: bool = kwargs.get("plot_event_summary", True)
-        self.plot_all_stns: bool = kwargs.get("plot_all_stns", True)
         self.plot_event_video: bool = kwargs.get("plot_event_video", False)
-        self.xy_files: str | None = kwargs.get("xy_files")
 
         # File writing toggles
         self.continuous_scanmseed_write: bool = kwargs.get(
@@ -440,7 +405,7 @@ class QuakeScan:
             logging.info(f"\n\tLocating events from {starttime} to {endtime}\n")
         logging.info(self)
         logging.info(self.onset)
-        for _, plugin in self.plugins.items():
+        for plugin in sorted(self.plugins, key=lambda p: p.order):
             logging.info(str(plugin))
         # logging.info(self.picker)
         # if self.mags is not None:
@@ -552,9 +517,7 @@ class QuakeScan:
                 logging.info("\tReading waveform data...")
                 event.add_waveform_data(self._read_event_waveform_data(w_beg, w_end))
                 logging.info("\tComputing 4-D coalescence function...")
-                event.add_compute_output(  # pylint: disable=E1120
-                    *self._compute(event.data, event)
-                )
+                event.add_compute_output(*self._compute(event.data, event))
             except (ArchiveEmpty, AllDataRejected, DataGap) as e:
                 logging.info(e.msg)
                 continue
@@ -579,25 +542,18 @@ class QuakeScan:
                     self.run, marginalised_coa_map, event, marginalised=True
                 )
 
-            for key, plugin in self.plugins.items():
-                if key == "picker":
-                    logging.info("\tMaking phase picks...")
-                    event = plugin.run(event, self.lut, self.run)
-                if key == "magnitudes":
-                    logging.info("\tCalculating magnitude...")
-                    event = plugin.run(event, self.lut, self.run)
+            plugin_context = {
+                "event": event,
+                "lut": self.lut,
+                "run": self.run,
+                "marginalised_coa_map": marginalised_coa_map,
+            }
+            for plugin in sorted(self.plugins, key=lambda p: p.order):
+                out = call_by_signature(plugin.run, plugin_context)
+                if isinstance(out, dict):
+                    plugin_context.update(out)
 
             event.write(self.run, self.lut)
-
-            if self.plot_event_summary:
-                event_summary(
-                    self.run,
-                    event,
-                    marginalised_coa_map,
-                    self.lut,
-                    xy_files=self.xy_files,
-                    plot_all_stns=self.plot_all_stns,
-                )
 
             if self.plot_event_video:
                 logging.info("Support for event videos coming soon.")
@@ -730,11 +686,17 @@ class QuakeScan:
         # Extra pre- and post-pad default to 0.
         pre_pad = post_pad = 0.0
 
-        # If calculating magnitudes, read in padding required for amplitude
-        # measurements.
-        if "magnitudes" in self.plugins.keys():
-            pre_pad, post_pad = self.plugins["magnitudes"].amp.pad(
-                self.marginal_window, self.lut.max_traveltime, self.lut.fraction_tt
+        # If calculating magnitudes, read in padding required for amplitude measurements
+        mag_plugin = next(
+            (p for p in self.plugins if p.kind == "magnitudes"),
+            None,
+        )
+
+        if mag_plugin is not None:
+            pre_pad, post_pad = mag_plugin.amp.pad(
+                self.marginal_window,
+                self.lut.max_traveltime,
+                self.lut.fraction_tt,
             )
 
         # If a specific pre / post cut has been requested by the user,
@@ -759,11 +721,11 @@ class QuakeScan:
         """
         Marginalise the 4-D coalescence grid and calculate a set of locations and
         associated uncertainties by:
-            (1) calculating the covariance of the entire coalescence map;
-            (2) smoothing and fitting a 3-D Gaussian function and ..
-            (3) fitting a 3-D spline function ..
-                to a region around the maximum coalescence location in the
-                marginalised 3-D coalescence map.
+            (1) fitting a spline function to a region around the maximum coalescence
+                location in the marginalised coalescence map;
+            (2) smoothing and fitting a Gaussian function to a region around the maximum
+                coalescence location in the marginalised coalescence map;
+            (3) calculating the covariance of the entire marginalised coalescence map.
 
         Parameters
         ----------
@@ -773,380 +735,31 @@ class QuakeScan:
 
         Returns
         -------
-        coa_map:
-            Marginalised 3-D coalescence map.
+        marginal_coalescence:
+            Spatial coalescence map, marginalised over time.
 
         """
 
         # --- Marginalise and normalise the coalescence grid ---
-        coa_map = np.sum(event.map4d, axis=-1)
-        coa_map = coa_map / np.nanmax(coa_map)
+        marginal_coalescence = np.sum(event.map4d, axis=-1)
+        marginal_coalescence /= np.nanmax(marginal_coalescence)
 
         # --- Determine best-fitting interpolated spline location ---
-        event.add_spline_location(self._splineloc(np.copy(coa_map)))
+        event.add_spline_location(
+            spline_location(self.lut, np.copy(marginal_coalescence))
+        )
 
         # --- Determine best-fitting Gaussian location and uncertainty ---
-        smoothed_coa_map = self._gaufilt3d(np.copy(coa_map))
-        event.add_gaussian_location(*self._gaufit3d(smoothed_coa_map))
+        event.add_gaussian_location(
+            *gaussian_fit(self.lut, gaussian_filter(np.copy(marginal_coalescence)))
+        )
 
         # --- Determine global covariance location and uncertainty ---
-        event.add_covariance_location(*self._covfit3d(np.copy(coa_map)))
-
-        return coa_map
-
-    @util.timeit()
-    def _splineloc(
-        self, coa_map: np.ndarray, win: int = 5, upscale: int = 10
-    ) -> list[float]:
-        """
-        Fit a 3-D spline function to a region around the maximum coalescence in the
-        marginalised coalescence map and interpolate by factor `upscale` to return a
-        sub-grid maximum coalescence location.
-
-        Parameters
-        ----------
-        coa_map:
-            Marginalised 3-D coalescence map.
-        win:
-            Window of grid nodes (+/-(win-1)//2 in x, y and z) around max value in
-            coa_map to perform the fit over.
-        upscale:
-            Upscaling factor to interpolate the fitted 3-D spline function by.
-
-        Returns
-        -------
-        location:
-            Max coalescence location from spline interpolation.
-
-        """
-
-        # Get shape of 3-D coalescence map
-        nx, ny, nz = coa_map.shape
-        n = np.array([nx, ny, nz])
-
-        # Find maximum coalescence location in grid
-        mx, my, mz = np.unravel_index(np.nanargmax(coa_map), coa_map.shape)
-        i = np.array([mx, my, mz])
-
-        # Determining window about maximum value and trimming coa grid
-        w2 = (win - 1) // 2
-        x1, y1, z1 = np.clip(i - w2, 0 * n, n)
-        x2, y2, z2 = np.clip(i + w2 + 1, 0 * n, n)
-
-        # If subgrid is not close to the edge
-        if (x2 - x1) == (y2 - y1) == (z2 - z1):
-            coa_map_trim = coa_map[x1:x2, y1:y2, z1:z2]
-
-            # Defining the original interpolation function
-            xo = np.linspace(0, coa_map_trim.shape[0] - 1, coa_map_trim.shape[0])
-            yo = np.linspace(0, coa_map_trim.shape[1] - 1, coa_map_trim.shape[1])
-            zo = np.linspace(0, coa_map_trim.shape[2] - 1, coa_map_trim.shape[2])
-            xog, yog, zog = np.meshgrid(xo, yo, zo)
-            interpgrid = Rbf(
-                xog.flatten(),
-                yog.flatten(),
-                zog.flatten(),
-                coa_map_trim.flatten(),
-                function="cubic",
-            )
-
-            # Creating the new interpolated grid
-            xx = np.linspace(
-                0, coa_map_trim.shape[0] - 1, (coa_map_trim.shape[0] - 1) * upscale + 1
-            )
-            yy = np.linspace(
-                0, coa_map_trim.shape[1] - 1, (coa_map_trim.shape[1] - 1) * upscale + 1
-            )
-            zz = np.linspace(
-                0, coa_map_trim.shape[2] - 1, (coa_map_trim.shape[2] - 1) * upscale + 1
-            )
-            xxg, yyg, zzg = np.meshgrid(xx, yy, zz)
-
-            # Interpolate spline function on new grid
-            coa_map_int = interpgrid(
-                xxg.flatten(), yyg.flatten(), zzg.flatten()
-            ).reshape(xxg.shape)
-
-            # Calculate max coalescence location on interpolated grid
-            mxi, myi, mzi = np.unravel_index(
-                np.nanargmax(coa_map_int), coa_map_int.shape
-            )
-            mxi = mxi / upscale + x1
-            myi = myi / upscale + y1
-            mzi = mzi / upscale + z1
-            logging.debug(f"\t\tGridded loc: {mx}   {my}   {mz}")
-            logging.debug(f"\t\tSpline  loc: {mxi} {myi} {mzi}")
-
-            # Run check that spline location is within grid-cell
-            if (abs(mx - mxi) > 1) or (abs(my - myi) > 1) or (abs(mz - mzi) > 1):
-                logging.debug(
-                    "\tSpline warning: spline location outside grid "
-                    "cell with maximum coalescence value"
-                )
-
-            location = self.lut.index2coord([[mxi, myi, mzi]])[0]
-
-            # Run check that spline location is within window
-            if (abs(mx - mxi) > w2) or (abs(my - myi) > w2) or (abs(mz - mzi) > w2):
-                logging.info(
-                    "\t !!!! Spline error: location outside interpolation window !!!!"
-                )
-                logging.info("\t\t\tGridded Location returned")
-
-                location = self.lut.index2coord([[mx, my, mz]])[0]
-        else:
-            logging.info(
-                "\t !!!! Spline error: interpolation window crosses edge of grid !!!!"
-            )
-            logging.info("\t\t\tGridded Location returned")
-
-            location = self.lut.index2coord([[mx, my, mz]])[0]
-
-        return location
-
-    @util.timeit()
-    def _gaufit3d(
-        self, coa_map: np.ndarray, thresh: float = 0.0, win: int = 7
-    ) -> tuple[list[float], list[float]]:
-        """
-        Fit a 3-D Gaussian function to a region around the maximum coalescence location
-        in the 3-D marginalised coalescence map: return expectation location and
-        associated uncertainty.
-
-        Parameters
-        ----------
-        coa_map:
-            Marginalised 3-D coalescence map.
-        thresh:
-            Cut-off threshold (percentile) to trim coa_map: only data above this
-            percentile will be retained.
-        win:
-            Window of grid nodes (+/-(win-1)//2 in x, y and z) around max value in
-            coa_map to perform the fit over.
-
-        Returns
-        -------
-        location:
-            Expectation location from 3-D Gaussian fit.
-        uncertainty:
-            One sigma uncertainties on expectation location from 3-D Gaussian fit.
-
-        """
-
-        # Get shape of 3-D coalescence map and max coalescence grid location
-        shape = coa_map.shape
-        ijk = np.unravel_index(np.nanargmax(coa_map), shape)
-
-        # Only use grid nodes above threshold value, and within the specified window
-        # around the coalescence peak
-        flag = np.logical_and(coa_map > thresh, self._mask3d(shape, ijk, win))
-        ix, iy, iz = np.where(flag)
-
-        # Subtract mean of entire 3-D coalescence map from the local grid window so it
-        # is better approximated by a Gaussian (which goes to zero at infinity)
-        coa_map = coa_map - np.nanmean(coa_map)
-
-        ls = [np.arange(n) for n in shape]
-
-        # Get ijk indices for points in the sub-grid
-        x, y, z = [L[idx] - i for L, idx, i in zip(ls, np.where(flag), ijk)]
-
-        X = np.c_[x * x, y * y, z * z, x * y, x * z, y * z, x, y, z, np.ones(len(ix))].T
-        Y = -np.log(np.clip(coa_map.astype(np.float64)[ix, iy, iz], 1e-300, np.inf))
-
-        X_inv = np.linalg.pinv(X)
-        P = np.matmul(Y, X_inv)
-        G = -np.array(
-            [2 * P[0], P[3], P[4], P[3], 2 * P[1], P[5], P[4], P[5], 2 * P[2]]
-        ).reshape((3, 3))
-        H = np.array([P[6], P[7], P[8]])
-        loc = np.matmul(np.linalg.inv(G), H)
-        cx, cy, cz = loc
-
-        K = (
-            P[9]
-            - P[0] * cx**2
-            - P[1] * cy**2
-            - P[2] * cz**2
-            - P[3] * cx * cy
-            - P[4] * cx * cz
-            - P[5] * cy * cz
+        event.add_covariance_location(
+            *covariance_fit(self.lut, np.copy(marginal_coalescence))
         )
-        M = np.array(
-            [
-                P[0],
-                P[3] / 2,
-                P[4] / 2,
-                P[3] / 2,
-                P[1],
-                P[5] / 2,
-                P[4] / 2,
-                P[5] / 2,
-                P[2],
-            ]
-        ).reshape(3, 3)
-        egv, vec = np.linalg.eig(M)
-        sgm = np.sqrt(0.5 / np.clip(np.abs(egv), 1e-10, np.inf)) / 2
-        val = np.exp(-K)
-        csgm = np.sqrt(0.5 / np.clip(np.abs(M.diagonal()), 1e-10, np.inf))
 
-        # Convert back to whole-grid coordinates
-        gau_3d = [loc + ijk, vec, sgm, csgm, val]
-
-        # Convert grid location to XYZ / coordinates
-        location = [[gau_3d[0][0], gau_3d[0][1], gau_3d[0][2]]]
-        location = self.lut.index2coord(location)[0]
-
-        uncertainty = sgm * self.lut.node_spacing
-
-        return location, uncertainty
-
-    @util.timeit()
-    def _covfit3d(
-        self, coa_map: np.ndarray, thresh: float = 0.90, win: int | None = None
-    ) -> tuple[list[float], list[float]]:
-        """
-        Calculate the 3-D covariance of the marginalised coalescence map, filtered above
-        a percentile threshold `thresh`. Optionally can also perform the fit on a
-        sub-window of the grid around the maximum coalescence location.
-
-        Parameters
-        ----------
-        coa_map:
-            Marginalised 3-D coalescence map.
-        thresh:
-            Cut-off threshold (fractional percentile) to trim coa_map; only data above
-            this percentile will be retained.
-        win:
-            Window of grid nodes (+/-(win-1)//2 in x, y and z) around max value in
-            coa_map to perform the fit over.
-
-        Returns
-        -------
-        location:
-            Expectation location from covariance fit.
-        uncertainty:
-            One sigma uncertainties on expectation location from covariance fit.
-
-        """
-
-        # Get shape of 3-D coalescence map and max coalesence grid location
-        shape = coa_map.shape
-        ijk = np.unravel_index(np.nanargmax(coa_map), coa_map.shape)
-
-        # If window is specified, clip the grid to only look here.
-        if win:
-            flag = np.logical_and(coa_map > thresh, self._mask3d(shape, ijk, win))
-        else:
-            flag = np.where(coa_map > thresh, True, False)
-
-        # Treat the coalescence values in the grid as the sample weights
-        sw = coa_map.flatten()
-        sw[~flag.flatten()] = np.nan
-        ssw = np.nansum(sw)
-
-        # Get the x, y and z samples on which to perform the fit
-        nc = self.lut.node_count
-        ns = self.lut.node_spacing
-        grid = np.meshgrid(*[np.arange(n) for n in nc], indexing="ij")
-        xs, ys, zs = [g.flatten() * size for g, size in zip(grid, ns)]
-
-        # Expectation values:
-        xe, ye, ze = [np.nansum(sw * s) / ssw for s in [xs, ys, zs]]
-
-        # Covariance matrix:
-        cov_matrix = np.zeros((3, 3))
-        cov_matrix[0, 0] = np.nansum(sw * (xs - xe) ** 2) / ssw
-        cov_matrix[1, 1] = np.nansum(sw * (ys - ye) ** 2) / ssw
-        cov_matrix[2, 2] = np.nansum(sw * (zs - ze) ** 2) / ssw
-        cov_matrix[0, 1] = np.nansum(sw * (xs - xe) * (ys - ye)) / ssw
-        cov_matrix[1, 0] = cov_matrix[0, 1]
-        cov_matrix[0, 2] = np.nansum(sw * (xs - xe) * (zs - ze)) / ssw
-        cov_matrix[2, 0] = cov_matrix[0, 2]
-        cov_matrix[1, 2] = np.nansum(sw * (ys - ye) * (zs - ze)) / ssw
-        cov_matrix[2, 1] = cov_matrix[1, 2]
-
-        location_xyz = self.lut.ll_corner + np.array([xe, ye, ze])
-        location = self.lut.coord2grid(location_xyz, inverse=True)[0]
-        uncertainty = np.diag(np.sqrt(abs(cov_matrix)))
-
-        return location, uncertainty
-
-    @util.timeit()
-    def _gaufilt3d(
-        self, map3d: np.ndarray, sgm: float = 0.8, shp: list | None = None
-    ) -> np.ndarray:
-        """
-        Smooth the 3-D marginalised coalescence map using a 3-D Gaussian function to
-        enable a better Gaussian fit to the data to be calculated.
-
-        Parameters
-        ----------
-        map3d:
-            Marginalised 3-D coalescence map.
-        sgm:
-            Sigma value (in grid nodes) for the 3-D Gaussian filter function; bigger
-            sigma leads to more aggressive (long wavelength) smoothing.
-        shp:
-            Shape of volume.
-
-        Returns
-        -------
-        smoothed_map:
-            Gaussian smoothed 3-D coalescence map.
-
-        """
-
-        if shp is None:
-            shp = map3d.shape
-
-        # Construct 3-D Gaussian filter
-        flt = util.gaussian_3d(*shp, sgm)
-        # Convolve map_3d and 3-D Gaussian filter
-        smoothed_map = fftconvolve(map3d, flt, mode="same")
-        # Mirror and convolve again (to avoid "phase-shift")
-        smoothed_map = smoothed_map[::-1, ::-1, ::-1] / np.nanmax(smoothed_map)
-        smoothed_map = fftconvolve(smoothed_map, flt, mode="same")
-        # Final mirror and normalise
-        smoothed_map = smoothed_map[::-1, ::-1, ::-1] / np.nanmax(smoothed_map)
-
-        return smoothed_map
-
-    def _mask3d(
-        self, n: np.ndarray[int], i: np.ndarray[int], window: int
-    ) -> np.ndarray:
-        """
-        Creates a mask that can be applied to a 3-D grid.
-
-        Parameters
-        ----------
-        n:
-            Shape of grid.
-        i:
-            Location of node around which to mask.
-        window:
-            Size of window around node to mask - window of grid nodes is
-            +/-(win-1)//2 in x, y and z.
-
-        Returns
-        -------
-        mask:
-            Masking array.
-
-        """
-
-        n = np.array(n)
-        i = np.array(i)
-
-        w2 = (window - 1) // 2
-
-        x1, y1, z1 = np.clip(i - w2, 0 * n, n)
-        x2, y2, z2 = np.clip(i + w2 + 1, 0 * n, n)
-
-        mask = np.zeros(n, dtype=bool)
-        mask[x1:x2, y1:y2, z1:z2] = True
-
-        return mask
+        return marginal_coalescence
 
     # --- Deprecation/Future handling ---
     @property

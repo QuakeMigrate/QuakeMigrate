@@ -111,6 +111,8 @@ scan = QuakeScan(
     run_name=run_name,
     log=True,
     loglevel="info",
+    plot_event_summary=True,
+    xy_files="./inputs/XY_FILES/dike_xyfiles.csv",
 )
 
 # --- Set locate parameters ---
@@ -118,10 +120,6 @@ scan = QuakeScan(
 # see the manual and read the docs.
 scan.marginal_window = 1.0
 scan.threads = 4  # NOTE: increase as your system allows to increase speed!
-
-# --- Toggle plotting options ---
-scan.plot_event_summary = True
-scan.xy_files = "./inputs/XY_FILES/dike_xyfiles.csv"
 
 # --- Toggle writing of waveforms ---
 scan.write_cut_waveforms = True

@@ -19,7 +19,6 @@ from quakemigrate.exceptions import ConfigError
 from quakemigrate.io import Archive, read_response_inv
 from quakemigrate.plugins.magnitudes import LocalMag
 from quakemigrate.plugins.onsets import STALTAOnset
-from quakemigrate.plugins.pickers import GaussianPicker
 from quakemigrate.workflow.config import get_required_key, pop_required_key
 
 
@@ -27,7 +26,6 @@ if TYPE_CHECKING:
     import pandas as pd
 
     from quakemigrate.plugins.onsets import Onset
-    from quakemigrate.plugins.pickers import PhasePicker
 
 
 def build_archive(archive_config: dict, stations: pd.DataFrame) -> Archive:
@@ -110,40 +108,6 @@ def build_onset(onset_config: dict) -> Onset:
     onset.sta_lta_windows = get_required_key(onset_config, "sta_lta_windows")
 
     return onset
-
-
-def build_picker(picker_config: dict, onset: Onset, **_: Any) -> PhasePicker:
-    """
-    Utility for building an PhasePicker object from config.
-
-    Parameters
-    ----------
-    picker_config:
-        Configuration used to build PhasePicker object.
-    onset:
-        Onset function used for picking.
-
-    Returns
-    -------
-    picker:
-        A configured PhasePicker object.
-
-    Raises
-    ------
-    ConfigError
-        If an invalid PhasePicker type is requested.
-
-    """
-
-    name = pop_required_key(picker_config, "name")
-
-    match name:
-        case "Gaussian":
-            picker = GaussianPicker(onset=onset, **picker_config)
-        case _:
-            raise ConfigError(f"picker.name must be one of: ['Gaussian']")
-
-    return picker
 
 
 def build_magnitudes(config: dict, **_: Any) -> LocalMag:

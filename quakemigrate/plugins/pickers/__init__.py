@@ -13,5 +13,8 @@ Feel free to contribute more phase picking methods!
 
 """
 
-from .gaussian import GaussianPicker  # NOQA
-from .base import PhasePicker  # NOQA
+from .base import PhasePicker
+from .gaussian import build_gaussian_picker, GaussianPicker
+
+
+__all__ = ["build_gaussian_picker", "GaussianPicker", "PhasePicker"]

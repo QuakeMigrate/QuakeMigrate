@@ -244,7 +244,12 @@ class Event:
         """
 
         # Compute geometric mean of the covariance uncertainties, for use when filtering
-        cov_err_xyz = np.power(xyz_unc[0] * xyz_unc[1] * xyz_unc[2], 1 / 3)
+        xyz_unc = np.asarray(xyz_unc, dtype=float)
+        valid = np.isfinite(xyz_unc) & (xyz_unc > 0)
+        n_valid = np.sum(valid)
+        cov_err_xyz = (
+            np.nan if n_valid == 0 else np.power(np.prod(xyz_unc[valid]), 1.0 / n_valid)
+        )
 
         self.locations["covariance"] = {
             "X": xyz[0],
@@ -256,7 +261,9 @@ class Event:
             "Err_XYZ": cov_err_xyz,
         }
 
-    def add_gaussian_location(self, xyz: np.ndarray, xyz_unc: np.ndarray) -> None:
+    def add_gaussian_location(
+        self, xyz: np.ndarray, xyz_unc: np.ndarray, gaussian: dict | None = None
+    ) -> None:
         """
         Add the location determined by fitting a 3-D Gaussian to a small window around
         the Gaussian smoothed maximum coalescence location.
@@ -268,6 +275,9 @@ class Event:
         xyz_unc:
             One sigma uncertainties on the Gaussian location (units determined by the
             LUT projection units).
+        gaussian:
+            Various useful intermediary stages used for the calculation of the Gaussian
+            location and associated uncertainty ellipsoid.
 
         """
 
@@ -279,6 +289,23 @@ class Event:
             "ErrY": xyz_unc[1],
             "ErrZ": xyz_unc[2],
         }
+
+        if gaussian is not None:
+            self.locations["gaussian"].update(
+                {
+                    "principal_uncertainty": gaussian["principal_uncertainty"],
+                    "principal_axes": gaussian["principal_axes"],
+                    "covariance_matrix": gaussian["covariance_matrix"],
+                    "covariance_matrix_physical": gaussian[
+                        "covariance_matrix_physical"
+                    ],
+                    "precision_matrix": gaussian["precision_matrix"],
+                    "amplitude": gaussian["amplitude"],
+                    "depth_constrained": gaussian["depth_constrained"],
+                    "fit_dims": gaussian["fit_dims"],
+                    "grid_location": gaussian["grid_location"],
+                }
+            )
 
     def add_spline_location(self, xyz: np.ndarray) -> None:
         """

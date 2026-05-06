@@ -20,20 +20,13 @@ import pathlib
 from quakemigrate import QuakeScan
 from quakemigrate.exceptions import ConfigError
 from quakemigrate.io import read_lut, read_stations
+from quakemigrate.plugins import construct_plugin
 from quakemigrate.workflow.builders import (
     build_archive,
-    build_magnitudes,
     build_onset,
-    build_picker,
 )
 from quakemigrate.workflow.config import get_required_key, load_toml, pop_required_key
 from quakemigrate.workflow.project import require_project_root
-
-
-_PLUGIN_BUILDERS = {
-    "picker": build_picker,
-    "magnitudes": build_magnitudes,
-}
 
 
 def prepare(
@@ -87,14 +80,11 @@ def prepare(
     onset_config = pop_required_key(config, "onset")
     onset = build_onset(onset_config)
 
-    plugin_configs = config.get("plugins") or {}
-    if not isinstance(plugin_configs, dict):
-        raise ConfigError("locate.plugins must be a table")
-
-    plugins = {}
-    for key, plugin_config in plugin_configs.items():
-        builder = _PLUGIN_BUILDERS[key]
-        plugins[key] = builder(plugin_config, onset=onset, lut=lut)
+    plugin_configs = config.get("plugins") or []
+    plugins = [
+        construct_plugin(plugin_config, onset=onset, lut=lut)
+        for plugin_config in plugin_configs
+    ]
 
     scan_config = get_required_key(config, "scan")
     locator = QuakeScan(

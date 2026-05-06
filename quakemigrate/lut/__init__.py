@@ -12,9 +12,11 @@ traveltime lookup tables used in QuakeMigrate.
 
 import pyproj
 
-from .create_lut import compute_traveltimes, read_nlloc  # NOQA
-from .lut import LUT  # NOQA
+from .create_lut import compute_traveltimes, read_nlloc
+from .lut import LUT
 
+
+__all__ = ["compute_traveltimes", "LUT", "read_nlloc"]
 
 # Handle bugged version of PROJ
 proj_major, proj_minor, proj_patch = pyproj.proj_version_str.split(".")

@@ -16,16 +16,13 @@ import pathlib
 import pickle
 from typing import TYPE_CHECKING
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from pyproj import Transformer
-from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 from scipy.interpolate import RegularGridInterpolator
 
 
 if TYPE_CHECKING:
-    from matplotlib.pyplot import Figure
     from pyproj import Proj
 
 
@@ -366,38 +363,19 @@ class Grid3D:
 
         return "km" if unit_name == "kilometre" else "m"
 
-    # --- Deprecation handling ---
     @property
-    def cell_count(self):
-        """Handler for deprecated attribute name 'cell_count'"""
-        return self.node_count
+    def is_depth_constrained(self):
+        """Check for if the Grid3D is constrained to a single depth."""
 
-    @cell_count.setter
-    def cell_count(self, value):
-        if value is None:
-            return
-        print(
-            "FutureWarning: Parameter name has changed - continuing.\n"
-            "To remove this message, change:\n"
-            "\t'cell_count' -> 'node_count'"
-        )
-        self.node_count = value
+        return int(self.node_count[2]) == 1
 
     @property
-    def cell_size(self):
-        """Handler for deprecated attribute name 'cell_size'"""
-        return self.node_spacing
+    def fixed_depth(self):
+        """Utility for returning the fixed depth of a constrained Grid3D."""
 
-    @cell_size.setter
-    def cell_size(self, value):
-        if value is None:
-            return
-        print(
-            "FutureWarning: Parameter name has changed - continuing.\n"
-            "To remove this message, change:\n"
-            "\t'cell_size' -> 'node_spacing'"
-        )
-        self.node_spacing = value
+        if self.is_depth_constrained:
+            return float(self.ll_corner[2])
+        return None
 
 
 class LUT(Grid3D):
@@ -424,8 +402,7 @@ class LUT(Grid3D):
     stations_xyz:
         Positions of the stations in the grid coordinate space.
     traveltimes:
-        A dictionary containing the traveltime lookup tables. The structure of
-        this dictionary is:
+        A dictionary containing the traveltime lookup tables, structured as:
             traveltimes
                 - "<Station1-ID>"
                     - "<PHASE>"
@@ -642,188 +619,6 @@ class LUT(Grid3D):
                 "remove this warning you will need to convert your lookup table to the "
                 "new-style\nusing `quakemigrate.lut.update_lut`."
             )
-
-    def plot(
-        self,
-        fig: Figure,
-        gs: tuple[int, int],
-        slices: np.ndarray | None = None,
-        hypocentre: np.ndarray | None = None,
-        station_clr: str = "k",
-        station_list: list[str] | None = None,
-    ) -> None:
-        """
-        Plot the lookup table for a particular station.
-
-        Parameters
-        ----------
-        fig : `matplotlib.Figure` object
-            Canvas on which LUT is plotted.
-        gs : tuple(int, int)
-            Grid specification for the plot.
-        slices : array of arrays, optional
-            Slices through a coalescence image to plot.
-        hypocentre : array of floats
-            Event hypocentre - will add cross-hair to plot.
-        station_clr : str, optional
-            Plot the stations with a particular colour.
-        station_list : list-like of str, optional
-            List of stations from the LUT to plot - useful if only a subset have been
-            selected to be used in e.g., locate.
-
-        """
-
-        xy = plt.subplot2grid(gs, (2, 0), colspan=5, rowspan=5, fig=fig)
-        xz = plt.subplot2grid(gs, (7, 0), colspan=5, rowspan=2, fig=fig)
-        yz = plt.subplot2grid(gs, (2, 5), colspan=2, rowspan=5, fig=fig)
-
-        xz.sharex(xy)
-        yz.sharey(xy)
-
-        # --- Set aspect ratio ---
-        # Aspect is defined such that a circle will be stretched so that its
-        # height is aspect times the width.
-        cells_extent = self.get_grid_extent(cells=True)
-        extent = abs(cells_extent[1] - cells_extent[0])
-        # NOTE: no fenceposts here, because we want the size of the grid as
-        # cells
-        grid_size = self.node_spacing * self.node_count
-        aspect = (extent[0] * grid_size[1]) / (extent[1] * grid_size[0])
-        xy.set_aspect(aspect=aspect)
-
-        bounds = np.stack(cells_extent, axis=-1)
-        for i, j, ax in [(0, 1, xy), (0, 2, xz), (2, 1, yz)]:
-            gminx, gmaxx = bounds[i]
-            gminy, gmaxy = bounds[j]
-
-            ax.set_xlim([gminx, gmaxx])
-            ax.set_ylim([gminy, gmaxy])
-
-            # --- Plot crosshair for event hypocentre ---
-            if hypocentre is not None:
-                ax.axvline(x=hypocentre[i], ls="--", lw=1.5, c="white")
-                ax.axhline(y=hypocentre[j], ls="--", lw=1.5, c="white")
-
-            # --- Plot slices through coalescence volume ---
-            if slices is None:
-                continue
-
-            slice_ = slices[i + j - 1]
-            nx, ny = [dim + 1 for dim in slice_.shape]
-            grid1, grid2 = np.mgrid[gminx : gmaxx : nx * 1j, gminy : gmaxy : ny * 1j]
-            sc = ax.pcolormesh(grid1, grid2, slice_, edgecolors="face")
-
-            if i + j - 1 != 0:
-                continue
-
-            # --- Add colourbar ---
-            cax = plt.subplot2grid(gs, (7, 5), colspan=2, rowspan=2, fig=fig)
-            cax.set_axis_off()
-            cb = fig.colorbar(
-                sc, ax=cax, orientation="horizontal", fraction=0.8, aspect=8
-            )
-            cb.ax.set_xlabel("Normalised coalescence\nvalue", rotation=0, fontsize=14)
-
-        # --- Plot stations ---
-        if station_list is not None:
-            station_data = self.station_data[
-                self.station_data["Name"].isin(station_list)
-            ]
-        else:
-            station_data = self.station_data
-        xy.scatter(
-            station_data.Longitude.values,
-            station_data.Latitude.values,
-            s=15,
-            marker="^",
-            zorder=20,
-            c=station_clr,
-        )
-        xz.scatter(
-            station_data.Longitude.values,
-            station_data.Elevation.values,
-            s=15,
-            marker="^",
-            zorder=20,
-            c=station_clr,
-        )
-        yz.scatter(
-            station_data.Elevation.values,
-            station_data.Latitude.values,
-            s=15,
-            marker="<",
-            zorder=20,
-            c=station_clr,
-        )
-        for i, row in station_data.iterrows():
-            xy.annotate(
-                row["Name"],
-                [row.Longitude, row.Latitude],
-                zorder=20,
-                c=station_clr,
-                clip_on=True,
-            )
-
-        # --- Add scalebar ---
-        num_cells = np.ceil(self.node_count[0] / 10)
-        length = num_cells * self.node_spacing[0]
-        size = extent[0] * length / grid_size[0]
-        scalebar = AnchoredSizeBar(
-            xy.transData,
-            size=size,
-            label=f"{length:.3g} {self.unit_name}",
-            loc="lower right",
-            pad=0.5,
-            sep=5,
-            frameon=False,
-            color=station_clr,
-        )
-        xy.add_artist(scalebar)
-
-        # --- Axes labelling ---
-        xy.tick_params(
-            which="both",
-            left=True,
-            right=True,
-            top=True,
-            bottom=True,
-            labelleft=True,
-            labeltop=True,
-            labelright=False,
-            labelbottom=False,
-        )
-        xy.set_ylabel("Latitude (deg)", fontsize=14)
-        xy.yaxis.set_label_position("left")
-
-        xz.invert_yaxis()
-        xz.tick_params(
-            which="both",
-            left=True,
-            right=True,
-            top=True,
-            bottom=True,
-            labelleft=True,
-            labeltop=False,
-            labelright=False,
-            labelbottom=True,
-        )
-        xz.set_xlabel("Longitude (deg)", fontsize=14)
-        xz.set_ylabel(f"Depth ({self.unit_name})", fontsize=14)
-        xz.yaxis.set_label_position("left")
-
-        yz.tick_params(
-            which="both",
-            left=True,
-            right=True,
-            top=True,
-            bottom=True,
-            labelleft=False,
-            labeltop=True,
-            labelright=True,
-            labelbottom=True,
-        )
-        yz.set_xlabel(f"Depth ({self.unit_name})", fontsize=14)
-        yz.xaxis.set_label_position("bottom")
 
     @property
     def max_extent(self) -> np.ndarray:

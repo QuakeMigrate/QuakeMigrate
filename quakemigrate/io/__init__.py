@@ -32,19 +32,20 @@ from .coalescence import read_coalescence, write_coalescence
 from .core import (
     read_lut,
     read_response_inv,
-    read_stations,
     read_vmodel,
     Run,
 )
 from .cut_waveforms import write_cut_waveforms
-from .data import Archive
+from .data import Archive, ARCHIVE_FORMATS
 from .event import Event
 from .scanmseed import ScanmSEED, read_scanmseed
+from .station import read_stations, Station, stations_from_inventory
 from .triggered_events import read_triggered_events, write_triggered_events
 
 
 __all__ = [
     "Archive",
+    "ARCHIVE_FORMATS",
     "Event",
     "read_availability",
     "read_coalescence",
@@ -56,6 +57,8 @@ __all__ = [
     "read_vmodel",
     "Run",
     "ScanmSEED",
+    "Station",
+    "stations_from_inventory",
     "write_amplitudes",
     "write_availability",
     "write_coalescence",

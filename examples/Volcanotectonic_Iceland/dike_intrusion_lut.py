@@ -16,6 +16,7 @@ from pyproj import Proj
 from quakemigrate.io import read_stations, read_vmodel
 from quakemigrate.lut import compute_traveltimes
 
+
 # --- i/o paths ---
 station_file = "./inputs/iceland_stations.txt"
 vmodel_file = "./inputs/iceland_vmodel.txt"

@@ -25,10 +25,12 @@ os.environ.update(
 from obspy.core import AttribDict
 
 from quakemigrate import QuakeScan
-from quakemigrate.io import Archive, read_lut, read_response_inv, read_stations
+from quakemigrate.clients import make_waveform_client
+from quakemigrate.io import ARCHIVE_FORMATS, read_lut, read_stations
 from quakemigrate.plugins.onsets import STALTAOnset
 from quakemigrate.plugins.pickers import GaussianPicker
 from quakemigrate.plugins.magnitudes import LocalMag
+from quakemigrate.plugins.visualisation import EventSummary3DPlugin
 
 
 # --- i/o paths ---
@@ -47,9 +49,6 @@ endtime = "2018-002T00:00:00.0"
 # --- Read in station file ---
 stations = read_stations(station_file)
 
-# --- Read in response inventory
-response_inv = read_response_inv(response_file)
-
 # --- Specify parameters for response removal ---
 # All parameters are optional, though one of `water_level` and `pre_filt` is
 # recommended - see the documentation for a complete guide.
@@ -58,16 +57,15 @@ response_params.pre_filt = (0.05, 0.06, 30, 35)
 response_params.water_level = 600
 response_params.remove_full_response = False
 
-# --- Create new Archive and set path structure ---
-archive = Archive(
-    archive_path=archive_path,
-    stations=stations,
-    archive_format="YEAR/JD/STATION",
-    response_inv=response_inv,
-    response_removal_params=response_params,
-)
-# For custom structures...
-# archive.format = "custom/archive_{year}_{jday}/{month:02d}-{day:02d}.{station}_structure"
+# --- Create new waveform client ---
+client_config = {
+    "client": "local",
+    "path": archive_path,
+    "format": ARCHIVE_FORMATS["YEAR/JD/STATION"],
+    "inventory_path": response_file,
+    "response_removal_params": response_params,
+}
+waveform_client = make_waveform_client(client_config)
 
 # --- Resample data with mismatched sampling rates ---
 # archive.resample = True
@@ -126,14 +124,23 @@ mag_params.dist_filter = False
 mags = LocalMag(amp_params=amp_params, mag_params=mag_params)
 mags.plot_amplitudes = True
 
+# It is possible to supply xy files to enhance and give context to the
+# event summary map plots. See the volcano-tectonic example from Iceland
+# for details.
+# scan.xy_files = "/path/to/xy_csv"
+event_summary = EventSummary3DPlugin(
+    # overlay_manifest="/path/to/overlay_manifest.csv"
+)
+
+plugins = [picker, mags, event_summary]
+
 # --- Create new QuakeScan ---
 # If you do not want to calculate local magnitudes, specify `mags=None`
 scan = QuakeScan(
-    archive,
+    waveform_client,
     lut,
     onset=onset,
-    picker=picker,
-    mags=mags,
+    plugins=plugins,
     run_path=run_path,
     run_name=run_name,
     log=True,
@@ -149,13 +156,6 @@ scan.marginal_window = 1
 # detect), will decrease roughly linearly with the number of threads used.
 scan.threads = 4
 
-# --- Toggle plotting options ---
-scan.plot_event_summary = True
-# It is possible to supply xy files to enhance and give context to the
-# event summary map plots. See the volcano-tectonic example from Iceland
-# for details.
-# scan.xy_files = "/path/to/xy_csv"
-
 # --- Toggle writing of cut waveforms ---
 scan.write_cut_waveforms = True
 scan.pre_cut = 20.0
@@ -163,6 +163,6 @@ scan.post_cut = 60.0
 
 # --- Run locate ---
 # Between two timestamps
-scan.locate(starttime=starttime, endtime=endtime)
+scan.locate(stations, starttime=starttime, endtime=endtime)
 # From a triggered events file.
-# scan.locate(trigger_file="filename_of_triggered_events")
+# scan.locate(stations, trigger_file="filename_of_triggered_events")

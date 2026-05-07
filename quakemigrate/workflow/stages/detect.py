@@ -18,9 +18,10 @@ from __future__ import annotations
 import pathlib
 
 from quakemigrate import QuakeScan
+from quakemigrate.clients import make_waveform_client
 from quakemigrate.exceptions import ConfigError
-from quakemigrate.io import read_lut, read_stations
-from quakemigrate.workflow.builders import build_archive, build_onset
+from quakemigrate.io import read_lut
+from quakemigrate.workflow.builders import build_onset
 from quakemigrate.workflow.config import get_required_key, load_toml, pop_required_key
 from quakemigrate.workflow.project import require_project_root
 
@@ -58,11 +59,6 @@ def prepare(
     if threads is not None and threads < 1:
         raise ConfigError("detect: threads override must be >= 1")
 
-    station_file = pathlib.Path(get_required_key(config, "station_file"))
-    if not station_file.exists():
-        raise ConfigError(f"detect: station_file not found:\n  {station_file}")
-    stations = read_stations(station_file)
-
     lut_config = pop_required_key(config, "lut")
     lut_file = pathlib.Path(get_required_key(lut_config, "file"))
     if not lut_file.exists():
@@ -70,15 +66,15 @@ def prepare(
     lut = read_lut(lut_file)
     lut.decimate(lut_config.get("decimation"), inplace=True)
 
-    archive_config = pop_required_key(config, "archive")
-    archive = build_archive(archive_config, stations=stations)
+    client_config = pop_required_key(config, "client")
+    waveform_client = make_waveform_client(client_config)
 
     onset_config = pop_required_key(config, "onset")
     onset = build_onset(onset_config)
 
     scan_config = get_required_key(config, "scan")
     detector = QuakeScan(
-        archive,
+        waveform_client,
         lut,
         onset=onset,
         run_path=run_path,

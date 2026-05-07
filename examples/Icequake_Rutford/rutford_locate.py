@@ -21,9 +21,11 @@ os.environ.update(
 )
 
 from quakemigrate import QuakeScan
-from quakemigrate.io import Archive, read_lut, read_stations
+from quakemigrate.clients import make_waveform_client
+from quakemigrate.io import ARCHIVE_FORMATS, read_lut, read_stations
 from quakemigrate.plugins.onsets import STALTAOnset
 from quakemigrate.plugins.pickers import GaussianPicker
+from quakemigrate.plugins.visualisation import EventSummary3DPlugin
 
 
 # --- i/o paths ---
@@ -40,10 +42,13 @@ endtime = "2009-01-21T04:00:10.0"
 # --- Read in station file ---
 stations = read_stations(station_file)
 
-# --- Create new Archive and set path structure ---
-archive = Archive(
-    archive_path=data_in, stations=stations, archive_format="YEAR/JD/STATION"
-)
+# --- Create new waveform client ---
+client_config = {
+    "client": "local",
+    "path": data_in,
+    "format": ARCHIVE_FORMATS["YEAR/JD/STATION"],
+}
+waveform_client = make_waveform_client(client_config)
 
 # --- Load the LUT ---
 lut = read_lut(lut_file=lut_out)
@@ -59,12 +64,14 @@ onset.channel_maps = {"P": "*[1]", "S": "*[2,3]"}
 picker = GaussianPicker(onset=onset)
 picker.plot_picks = True
 
+plugins = [picker, EventSummary3DPlugin()]
+
 # --- Create new QuakeScan ---
 scan = QuakeScan(
-    archive,
+    waveform_client,
     lut,
     onset=onset,
-    picker=picker,
+    plugins=plugins,
     run_path=run_path,
     run_name=run_name,
     log=True,
@@ -77,11 +84,8 @@ scan = QuakeScan(
 scan.marginal_window = 0.06
 scan.threads = 4  # NOTE: increase as your system allows to increase speed!
 
-# --- Toggle plotting options ---
-scan.plot_event_summary = True
-
 # --- Toggle writing of waveforms ---
 scan.write_cut_waveforms = True
 
 # --- Run locate ---
-scan.locate(starttime=starttime, endtime=endtime)
+scan.locate(stations, starttime=starttime, endtime=endtime)

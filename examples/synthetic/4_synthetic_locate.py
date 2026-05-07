@@ -1,9 +1,9 @@
 """
 This script runs the locate stage for the synthetic example described in the tutorial
-in the online documentation. 
+in the online documentation.
 
 :copyright:
-    2020–2024, QuakeMigrate developers.
+    2020–2026, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -22,9 +22,11 @@ os.environ.update(
 )
 
 from quakemigrate import QuakeScan
-from quakemigrate.io import Archive, read_lut, read_stations
+from quakemigrate.clients import make_waveform_client
+from quakemigrate.io import ARCHIVE_FORMATS, read_lut, read_stations
 from quakemigrate.plugins.onsets import STALTAOnset
 from quakemigrate.plugins.pickers import GaussianPicker
+from quakemigrate.plugins.visualisation import EventSummary3DPlugin
 
 
 # --- i/o paths ---
@@ -41,10 +43,13 @@ endtime = "2021-02-18T12:06:10.0"
 # --- Read in station file ---
 stations = read_stations(station_file)
 
-# --- Create new Archive and set path structure ---
-archive = Archive(
-    archive_path=data_in, stations=stations, archive_format="YEAR/JD/STATION"
-)
+# --- Create new waveform client ---
+client_config = {
+    "client": "local",
+    "path": data_in,
+    "format": ARCHIVE_FORMATS["YEAR/JD/STATION"],
+}
+waveform_client = make_waveform_client(client_config)
 
 # --- Load the LUT ---
 lut = read_lut(lut_file=lut_out)
@@ -59,12 +64,14 @@ onset.sta_lta_windows = {"P": [0.1, 1.5], "S": [0.1, 1.5]}
 picker = GaussianPicker(onset=onset)
 picker.plot_picks = True
 
+plugins = [picker, EventSummary3DPlugin()]
+
 # --- Create new QuakeScan ---
 scan = QuakeScan(
-    archive,
+    waveform_client,
     lut,
     onset=onset,
-    picker=picker,
+    plugins=plugins,
     run_path=run_path,
     run_name=run_name,
     log=True,
@@ -75,11 +82,8 @@ scan = QuakeScan(
 scan.marginal_window = 0.2
 scan.threads = 4  # NOTE: increase as your system allows to increase speed!
 
-# --- Toggle plotting options ---
-scan.plot_event_summary = True
-
 # --- Toggle writing of waveforms ---
 scan.write_cut_waveforms = False
 
 # --- Run locate ---
-scan.locate(starttime=starttime, endtime=endtime)
+scan.locate(stations, starttime=starttime, endtime=endtime)

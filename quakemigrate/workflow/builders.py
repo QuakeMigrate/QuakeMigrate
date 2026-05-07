@@ -16,50 +16,13 @@ from typing import Any, TYPE_CHECKING
 from obspy.core import AttribDict
 
 from quakemigrate.exceptions import ConfigError
-from quakemigrate.io import Archive, read_response_inv
 from quakemigrate.plugins.magnitudes import LocalMag
 from quakemigrate.plugins.onsets import STALTAOnset
 from quakemigrate.workflow.config import get_required_key, pop_required_key
 
 
 if TYPE_CHECKING:
-    import pandas as pd
-
     from quakemigrate.plugins.onsets import Onset
-
-
-def build_archive(archive_config: dict, stations: pd.DataFrame) -> Archive:
-    """
-    Utility for building an Archive object from config.
-
-    Parameters
-    ----------
-    archive_config:
-        Configuration used to build Archive object.
-
-    Returns
-    -------
-    archive:
-        A configured Archive object.
-
-    """
-
-    try:
-        response_inv = read_response_inv(archive_config.pop("response_inv"))
-    except (IsADirectoryError, FileNotFoundError, TypeError, KeyError):
-        response_inv = None
-    response_removal_params = archive_config.pop("response_removal_params", {})
-
-    archive = Archive(
-        archive_path=pop_required_key(archive_config, "path"),
-        stations=stations,
-        archive_format=pop_required_key(archive_config, "format"),
-        response_inv=response_inv,
-        response_removal_params=response_removal_params,
-        **archive_config,
-    )
-
-    return archive
 
 
 def build_onset(onset_config: dict) -> Onset:

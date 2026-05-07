@@ -26,7 +26,7 @@ __all__ = ["Onset", "OnsetData", "STALTAOnset"]
 
 _MOVED = {
     "PhasePicker": ("quakemigrate.plugins.pickers.base", "PhasePicker"),
-    "GaussianPicker": ("quakemigrate.plugins.picker.gaussian", "GaussianPicker"),
+    "GaussianPicker": ("quakemigrate.plugins.pickers.gaussian", "GaussianPicker"),
 }
 
 _warned: set[str] = set()

@@ -1,9 +1,9 @@
 """
 This script generates the traveltime lookup table for the synthetic example described in
-the tutorial in the online documentation. 
+the tutorial in the online documentation.
 
 :copyright:
-    2020–2024, QuakeMigrate developers.
+    2020–2026, QuakeMigrate developers.
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -22,10 +22,11 @@ os.environ.update(
 )
 
 import numpy as np
-from obspy.core import AttribDict
 import pandas as pd
+from obspy.core import AttribDict
 from pyproj import Proj
-from quakemigrate.io import read_vmodel
+
+from quakemigrate.io import read_stations, read_vmodel
 from quakemigrate.lut import compute_traveltimes
 
 
@@ -43,6 +44,7 @@ stations["Longitude"] = rng.uniform(low=-0.15, high=0.15, size=10)
 stations["Latitude"] = rng.uniform(low=-0.15, high=0.15, size=10)
 stations["Elevation"] = rng.uniform(low=-0.0, high=1.0, size=10)
 stations.to_csv(station_file, index=False)
+stations = read_stations(station_file)
 
 # --- Read in the velocity model file ---
 vmodel = read_vmodel(vmodel_file)

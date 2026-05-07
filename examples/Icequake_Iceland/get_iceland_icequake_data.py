@@ -1,7 +1,7 @@
 """
-This script will download the waveform data and an instrument response
-inventory from IRIS (in miniSEED and STATIONXML formats, respectively)
-for the Iceland icequake example.
+This script will download the waveform data and an instrument response inventory from
+IRIS (in miniSEED and STATIONXML formats, respectively) for the Iceland icequake
+example.
 
 :copyright:
     2020–2026, QuakeMigrate developers.
@@ -53,7 +53,7 @@ endtime = UTCDateTime("2014-06-29T18:42:20.0")
 
 # --- Read in station file ---
 stations = read_stations(station_file)
-stations_string = ",".join(stations["Name"])
+stations_string = ",".join(station.station for station in stations)
 
 # --- Set up request ---
 restrictions = Restrictions(

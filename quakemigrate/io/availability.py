@@ -140,6 +140,9 @@ def write_availability(run: Run, availability: pd.DataFrame) -> None:
     """
     Write out csv files (split by Julian day) containing station availability data.
 
+    If a file for the target year/Julian day already exists, append to it rather than
+    overwriting it. This supports runs split into multiple sub-day chunks.
+
     Parameters
     ----------
     run:
@@ -162,5 +165,11 @@ def write_availability(run: Run, availability: pd.DataFrame) -> None:
 
         fstem = f"{date.year}_{date.julday:03d}_StationAvailability"
         file = (fpath / fstem).with_suffix(".csv")
+
+        if file.exists():
+            existing = _handle_old_structure(file)
+            to_write = pd.concat([existing, to_write])
+            to_write = to_write[~to_write.index.duplicated(keep="last")]
+            to_write = to_write.sort_index()
 
         to_write.to_csv(file)

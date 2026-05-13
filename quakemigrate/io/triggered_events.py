@@ -125,6 +125,9 @@ def write_triggered_events(
     """
     Write triggered events to a .csv file.
 
+    If a file for the target year/Julian day already exists, append to it rather than
+    overwriting it. This supports runs split into multiple sub-day chunks.
+
     Parameters
     ----------
     run:
@@ -143,7 +146,7 @@ def write_triggered_events(
     fpath = run.path / "trigger" / run.subname / "events"
     fpath.mkdir(exist_ok=True, parents=True)
 
-    output_cols = OUTPUT_COLS
+    output_cols = OUTPUT_COLS.copy()
     if write_event_time_windows:
         output_cols.extend(["MinTime", "MaxTime"])
 
@@ -153,4 +156,12 @@ def write_triggered_events(
 
     fstem = f"{run.name}_{starttime.year}_{starttime.julday:03d}"
     file = (fpath / f"{fstem}_TriggeredEvents").with_suffix(".csv")
+
+    if file.exists():
+        existing = pd.read_csv(file)
+        events = pd.concat([existing, events], ignore_index=True)
+
+        events = events.drop_duplicates(subset=["EventID"], keep="last")
+        events = events.sort_values("CoaTime")
+
     events.to_csv(file, index=False)

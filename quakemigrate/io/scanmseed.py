@@ -220,6 +220,11 @@ class ScanmSEED:
         fstem = f"{starttime.year}_{starttime.julday:03d}"
         file = (fpath / fstem).with_suffix(".scanmseed")
 
+        if file.exists():
+            existing = read(str(file), format="MSEED")
+            st = existing + st
+            st.merge(method=-1)
+
         try:
             st.write(str(file), format="MSEED", encoding="STEIM2")
         except InternalMSEEDError as e:

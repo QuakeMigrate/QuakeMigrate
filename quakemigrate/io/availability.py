@@ -160,7 +160,6 @@ def write_availability(run: Run, availability: pd.DataFrame) -> None:
 
     for date in datelist:
         to_write = availability[availability.index.date == date]
-        to_write.index = [UTCDateTime(idx) for idx in to_write.index]
         date = UTCDateTime(date)
 
         fstem = f"{date.year}_{date.julday:03d}_StationAvailability"
@@ -168,8 +167,11 @@ def write_availability(run: Run, availability: pd.DataFrame) -> None:
 
         if file.exists():
             existing = _handle_old_structure(file)
+            existing.index = pd.to_datetime(existing.index)
             to_write = pd.concat([existing, to_write])
             to_write = to_write[~to_write.index.duplicated(keep="last")]
             to_write = to_write.sort_index()
+
+        to_write.index = [UTCDateTime(idx) for idx in to_write.index]
 
         to_write.to_csv(file)

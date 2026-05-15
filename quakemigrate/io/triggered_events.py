@@ -161,6 +161,7 @@ def write_triggered_events(
         existing = pd.read_csv(file)
         events = pd.concat([existing, events], ignore_index=True)
 
+        events["EventID"] = events["EventID"].astype(str)
         events = events.drop_duplicates(subset=["EventID"], keep="last")
         events = events.sort_values("CoaTime")
 

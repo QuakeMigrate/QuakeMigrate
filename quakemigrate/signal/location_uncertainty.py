@@ -599,20 +599,12 @@ def build_gaussian_design_matrix(
 
         -log(A) = x.T @ M @ x + h.T @ x + c
 
-    For 2-D, the fitted columns are:
-
-        x ** 2, y ** 2, xy, x, y, 1
-
-    For 3-D, the fitted columns are:
-
-        x ** 2, y ** 2, z ** 2, xy, xz, yz, x, y, z, 1
-
     Parameters
     ----------
     coords:
-        Coordinate offsets from the coalescence maximum, with shape
-        ``(n_dims, n_points)``. For example, in 3-D this contains the centred x, y, z
-        coordinates of all selected grid nodes.
+        Coordinate offsets from the coalescence maximum, with shape (n_dims, n_points).
+        For example, in 3-D this contains the centred x, y, z coordinates of all
+        selected grid nodes.
 
     Returns
     -------
@@ -657,13 +649,7 @@ def unpack_gaussian_quadratic_terms(
     n_dims: int,
 ) -> tuple[np.ndarray, np.ndarray, float]:
     """
-    Convert fitted polynomial coefficients into quadratic Gaussian terms.
-
-    The least-squares fit estimates coefficients for terms like:
-
-        x ** 2, y ** 2, xy, x, y, 1
-
-    This function converts those coefficients into the compact quadratic form:
+    Convert fitted polynomial coefficients into the compact quadratic Gaussian form:
 
         y(x) = x.T @ M @ x + h.T @ x + c
 
@@ -673,32 +659,23 @@ def unpack_gaussian_quadratic_terms(
         h is the linear coefficient vector,
         c is the constant offset.
 
-    Cross terms need special handling because the matrix form contains both
-    symmetric entries:
-
-        x.T @ M @ x includes M[i, j] x_i x_j + M[j, i] x_j x_i
-
-    so for a fitted cross coefficient ``a_ij``:
-
-        M[i, j] = M[j, i] = a_ij / 2
-
     Parameters
     ----------
     parameters:
-        Fitted least-squares coefficients, in the same order as ``terms``.
+        Fitted least-squares coefficients, in the same order as terms.
     terms:
-        Metadata returned by ``_gaussian_design_matrix``.
+        Metadata returned by _gaussian_design_matrix.
     n_dims:
         Number of active dimensions in the Gaussian fit.
 
     Returns
     -------
     quadratic_matrix:
-        Symmetric matrix ``M`` in ``q(x) = x.T @ M @ x + h.T @ x + c``.
+        Symmetric matrix, M.
     linear_vector:
-        Vector ``h``.
+        Vector, h.
     constant:
-        Scalar offset ``c``.
+        Scalar offset, c.
 
     """
 

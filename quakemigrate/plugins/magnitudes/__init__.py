@@ -16,9 +16,16 @@ GitHub.
 
 """
 
-from .amplitude import Amplitude
-from .local_mag import LocalMag
-from .magnitude import Magnitude
+from .amplitude import Amplitude, AmplitudeConfig
+from .local_mag import LocalMag, build_local_magnitude_plugin
+from .magnitude import Magnitude, MagnitudeConfig
 
 
-__all__ = ["Amplitude", "LocalMag", "Magnitude"]
+__all__ = [
+    "Amplitude",
+    "AmplitudeConfig",
+    "LocalMag",
+    "Magnitude",
+    "MagnitudeConfig",
+    "build_local_magnitude_plugin",
+]

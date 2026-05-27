@@ -13,7 +13,8 @@ used for local magnitude calculation.
 from __future__ import annotations
 
 import logging
-from typing import Literal, TYPE_CHECKING
+from dataclasses import dataclass, fields
+from typing import Any, Literal, Mapping, TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -40,43 +41,25 @@ if TYPE_CHECKING:
     from quakemigrate.lut import LUT
 
 
-class Amplitude:
+@dataclass
+class AmplitudeConfig:
     """
-    Part of the QuakeMigrate LocalMag class; measures Wood-Anderson corrected waveform
-    amplitudes to be used for local magnitude calculation.
-
-    Simulates the Wood-Anderson waveforms using a user-supplied set of response removal
-    parameters, then measures the maximum peak-to-trough amplitude in time windows
-    around the P and S phase arrivals. These windows are calculated from the phase pick
-    times from the autopicker, if available, or from the modelled pick times. The length
-    of the S-wave signal window is calculated according to a user-specified
-    `signal_window` parameter.
-
-    The user may optionally specify a filter to apply to the waveforms before amplitudes
-    are measured, in order (for example) to reduce the impact of high-amplitude noise
-    associated with the oceanic microseisms on the measurement of low-amplitude
-    wavetrains associated with microseismic events. Note this will generally result in
-    an underestimate of the true earthquake waveform amplitude, even when the filter
-    gain is corrected for.
-
-    A measurement of the signal amplitude in a window preceding the P-wave arrival is
-    used to characterise the "noise" amplitude. This can be used to filter out null
-    observations, and to provide an estimate of the uncertainty on the max amplitude
-    measurements contributed by extraneous noise.
+    Configuration for Wood-Anderson amplitude measurement.
 
     Attributes
     ----------
     signal_window:
-        Length of S-wave signal window, in addition to the time window associated with
-        the marginal_window and traveltime uncertainty.
+        Additional length, in seconds, of the S-wave signal window used for amplitude
+        measurement added to the window associated with the marginal_window and
+        traveltime uncertainty.
     noise_window:
-        Length of the time window before the P-wave signal window in which to measure
-        the noise amplitude.
+        Length, in seconds, of the noise window before the P-wave signal window.
     noise_measure:
-        Method by which to measure the noise amplitude; root-mean-quare, standard
-        deviation or average amplitude of the envelope of the signal.
+        Method by which to measure the noise amplitude; root-mean-square ("RMS"),
+        standard deviation ("STD"), or average amplitude of the envelope of the signal
+        ("ENV").
     loc_method:
-        Which event location estimate to use.
+        Event location estimate to use when measuring amplitudes.
     highpass_filter:
         Whether to apply a high-pass filter before measuring amplitudes.
     highpass_freq:
@@ -88,79 +71,190 @@ class Amplitude:
     bandpass_highcut:
         Band-pass filter high-cut frequency. Required if bandpass_filter is True.
     filter_corners:
-        number of corners for the chosen filter.
+        Number of corners for the selected Butterworth filter.
     prominence_multiplier:
         To set a prominence filter in the peak-finding algorithm. (Default 0. = off)
         NOTE: not recommended for use in combination with a filter; filter gain
         corrections can lead to spurious results. Please see the
         `scipy.signal.find_peaks` documentation for further guidance.
 
-    Raises
-    ------
-    AttributeError
-        If both `highpass_filter` and `bandpass_filter` are selected, or if the user
-        selects to apply a filter but does not provide the relevant frequencies.
-    AttributeError
-        If response removal parameters are provided here instead of to the
-        :class:`~quakemigrate.io.data.Archive` object.
+    """
+
+    signal_window: float = 0.0
+    noise_window: float = 5.0
+    noise_measure: Literal["RMS", "STD", "ENV"] = "RMS"
+    loc_method: Literal["spline", "gaussian", "covariance"] = "spline"
+
+    highpass_filter: bool = False
+    highpass_freq: float | None = None
+
+    bandpass_filter: bool = False
+    bandpass_lowcut: float | None = None
+    bandpass_highcut: float | None = None
+
+    filter_corners: int = 4
+    prominence_multiplier: float = 0.0
+
+    def __post_init__(self) -> None:
+        if self.signal_window < 0:
+            raise ValueError("signal_window must be non-negative.")
+
+        if self.noise_window <= 0:
+            raise ValueError("noise_window must be positive.")
+
+        if self.noise_measure not in {"RMS", "STD", "ENV"}:
+            raise ValueError("noise_measure must be one of: 'RMS', 'STD', 'ENV'.")
+
+        if self.loc_method not in {"spline", "gaussian", "covariance"}:
+            raise ValueError(
+                "loc_method must be one of: 'spline', 'gaussian', 'covariance'."
+            )
+
+        if self.highpass_filter and self.bandpass_filter:
+            raise ValueError(
+                "only one of highpass_filter and bandpass_filter may be enabled."
+            )
+
+        if self.highpass_filter and self.highpass_freq is None:
+            raise ValueError(
+                "highpass_freq is required when highpass_filter is enabled."
+            )
+
+        if self.bandpass_filter and (
+            self.bandpass_lowcut is None or self.bandpass_highcut is None
+        ):
+            raise ValueError(
+                "bandpass_lowcut and bandpass_highcut are required when "
+                "bandpass_filter is enabled."
+            )
+
+        if (
+            self.bandpass_lowcut is not None
+            and self.bandpass_highcut is not None
+            and self.bandpass_lowcut >= self.bandpass_highcut
+        ):
+            raise ValueError("bandpass_lowcut must be less than bandpass_highcut.")
+
+        if self.filter_corners <= 0:
+            raise ValueError("filter_corners must be positive.")
+
+        if self.prominence_multiplier < 0:
+            raise ValueError("prominence_multiplier must be non-negative.")
+
+    @classmethod
+    def from_mapping(cls, config: Mapping[str, Any] | None) -> "AmplitudeConfig":
+        """Create an amplitude configuration from a mapping."""
+
+        return cls(**({} if config is None else dict(config)))
+
+
+AMPLITUDE_MEASUREMENT_SCHEMA = {
+    "id": "Trace ID, corresponding to ``obspy.Trace.id``.",
+    "epi_dist": "Epicentral distance between the station and event hypocentre, in km.",
+    "z_dist": "Vertical distance between the station and event hypocentre, in km.",
+    "P_amp": (
+        "Half maximum peak-to-trough amplitude in the P signal window, in mm. "
+        "Corrected for filter gain, if applicable."
+    ),
+    "P_freq": (
+        "Approximate frequency of the maximum-amplitude P-wave signal, in Hz, "
+        "calculated from the peak-to-trough time interval."
+    ),
+    "P_time": (
+        "Approximate time of the P-wave amplitude observation, halfway between "
+        "peak and trough times."
+    ),
+    "P_avg_amp": (
+        "Average amplitude in the P signal window, in mm, measured using the same "
+        "method as ``Noise_amp`` and corrected for filter gain if applicable."
+    ),
+    "P_filter_gain": (
+        "Filter gain at ``P_freq`` if filtering was applied; otherwise NaN."
+    ),
+    "S_amp": (
+        "Half maximum peak-to-trough amplitude in the S signal window, in mm. "
+        "Corrected for filter gain, if applicable."
+    ),
+    "S_freq": (
+        "Approximate frequency of the maximum-amplitude S-wave signal, in Hz, "
+        "calculated from the peak-to-trough time interval."
+    ),
+    "S_time": (
+        "Approximate time of the S-wave amplitude observation, halfway between peak "
+        "and trough times."
+    ),
+    "S_avg_amp": (
+        "Average amplitude in the S signal window, in mm, measured using the same "
+        "method as ``Noise_amp`` and corrected for filter gain if applicable."
+    ),
+    "S_filter_gain": (
+        "Filter gain at ``S_freq`` if filtering was applied; otherwise NaN."
+    ),
+    "Noise_amp": (
+        "Average signal amplitude in the noise window, in mm, measured using "
+        "``AmplitudeConfig.noise_measure``."
+    ),
+    "is_picked": (
+        "Whether at least one phase arrival for this station was picked by the "
+        "autopicker."
+    ),
+}
+"""Schema for per-trace amplitude measurement DataFrames."""
+
+AMPLITUDE_MEASUREMENT_COLUMNS = tuple(AMPLITUDE_MEASUREMENT_SCHEMA)
+
+
+class Amplitude:
+    """
+    Measure Wood-Anderson corrected waveform amplitudes for local magnitude calculation.
+
+    This class simulates Wood-Anderson displacement waveforms and measures P- and S-wave
+    amplitudes in windows around the expected phase arrivals. Pick times from the
+    autopicker are used where available; otherwise, modelled arrival times from the
+    lookup table are used.
+
+    Signal amplitudes are measured as maximum half peak-to-trough amplitudes. A separate
+    noise amplitude is measured in a window before the P-wave arrival, which can be used
+    to filter out null observations, and to provide an estimate of the uncertainty on
+    the max amplitude measurements contributed by extraneous noise.
+
+    Optional highpass or bandpass filtering may be applied before amplitude measurement,
+    which can help (for example) to reduce the impact of high-amplitude noise associated
+    with the oceanic microseisms on the measurement of low-amplitude wavetrains
+    associated with microseismic events. Filter gain is estimated and used to correct
+    measured signal amplitudes, but filtering may still underestimate true earthquake
+    waveform amplitudes.
+
+    Parameters
+    ----------
+    config:
+        Amplitude measurement configuration. May be an :class:`AmplitudeConfig`, a
+        mapping accepted by :meth:`AmplitudeConfig.from_mapping`, or None to use
+        defaults.
+
+    See Also
+    --------
+    AmplitudeConfig
+        Defines all amplitude measurement options, defaults, and validation rules.
+    LocalMag
+        Plugin that combines amplitude measurement and magnitude calculation.
 
     """
 
-    def __init__(self, amplitude_params: dict = {}) -> None:
+    def __init__(
+        self, amplitude_params: AmplitudeConfig | Mapping[str, Any] | None = None
+    ) -> None:
         """Instantiate the Amplitude object."""
 
-        # Amplitude measurement parameters
-        if "signal_window" not in amplitude_params.keys():
-            logging.warning("Warning: 'signal_window' not specified. Set to default: 0")
-        self.signal_window: float = amplitude_params.get("signal_window", 0.0)
-
-        self.noise_window: float = amplitude_params.get("noise_window", 5.0)
-        self.noise_measure: Literal["RMS", "STD", "ENV"] = amplitude_params.get(
-            "noise_measure", "RMS"
+        config = (
+            amplitude_params
+            if isinstance(amplitude_params, AmplitudeConfig)
+            else AmplitudeConfig.from_mapping(amplitude_params)
         )
 
-        self.prominence_multiplier: float = amplitude_params.get(
-            "prominence_multiplier", 0.0
-        )
-        self.loc_method: Literal["spline", "gaussian", "covariance"] = (
-            amplitude_params.get("loc_method", "spline")
-        )
-
-        # Pre-processing parameters
-        self.highpass_filter: bool = amplitude_params.get("highpass_filter", False)
-        if self.highpass_filter:
-            try:
-                self.highpass_freq: float = amplitude_params["highpass_freq"]
-            except KeyError as e:
-                raise AttributeError(f"Highpass filter frequency not specified! {e}")
-
-        self.bandpass_filter: bool = amplitude_params.get("bandpass_filter", False)
-        if self.bandpass_filter:
-            try:
-                self.bandpass_lowcut: float = amplitude_params.get("bandpass_lowcut")
-                self.bandpass_highcut: float = amplitude_params.get("bandpass_highcut")
-            except KeyError as e:
-                raise AttributeError(f"Bandpass filter frequencies not specified! {e}")
-        self.filter_corners: int = amplitude_params.get("filter_corners", 4)
-
-        if self.highpass_filter and self.bandpass_filter:
-            raise AttributeError(
-                "Both bandpass filter *and* highpass filter selected! "
-                "Please choose one or the other."
-            )
-
-        # Handle deprecated response removal parameters
-        if any(
-            param in amplitude_params.keys()
-            for param in ["water_level", "pre_filt", "remove_full_response"]
-        ):
-            raise AttributeError(
-                "The response removal parameters ('water_level', 'pre_filt', "
-                "'remove_full_response') have been moved to the Archive object. Please "
-                "specify them there as e.g., 'archive.water_level = 60.' or by "
-                "providing a dictionary of response_removal parameters - see the "
-                "template locate script for guidance."
-            )
+        self.config = config
+        for field_ in fields(config):
+            setattr(self, field_.name, getattr(config, field_.name))
 
     def __str__(self) -> str:
         """Return short summary string of the Amplitude object."""
@@ -209,47 +303,8 @@ class Amplitude:
         -------
         amplitudes:
             P- and S-wave amplitude measurements for each component of each station in
-            the look-up table.
-            Columns:
-                epi_dist : float
-                    Epicentral distance between the station and the event hypocentre.
-                z_dist : float
-                    Vertical distance between the station and the event hypocentre.
-                P_amp : float
-                    Half maximum peak-to-trough amplitude in the P signal window. In
-                    *millimetres*. Corrected for filter gain, if applicable.
-                P_freq : float
-                    Approximate frequency of the maximum amplitude P-wave signal.
-                    Calculated from the peak-to-trough time interval of the max
-                    peak-to-trough amplitude.
-                P_time : `obspy.UTCDateTime` object
-                    Approximate time of amplitude observation (halfway between peak and
-                    trough times).
-                P_avg_amp : float
-                    Average amplitude in the P signal window, measured by the same
-                    method as the Noise_amp (see `noise_measure`) and corrected for the
-                    same filter gain as `P_amp`. In *millimetres*.
-                P_filter_gain : float or NaN
-                    Filter gain at `P_freq` - which has been corrected for in the P_amp
-                    measurements - if a filter was applied prior to amplitude
-                    measurement; Else NaN.
-                S_amp : float
-                    As for P, but in the S wave signal window.
-                S_freq : float
-                    As for P.
-                S_time : `obspy.UTCDateTime` object
-                    As for P.
-                S_avg_amp : float
-                    As for P.
-                S_filter_gain : float or NaN.
-                    As for P.
-                Noise_amp : float
-                    The average signal amplitude in the noise window. In *millimetres*.
-                    See `noise_measure` parameter.
-                is_picked : bool
-                    Whether at least one of the phase arrivals was picked by the
-                    autopicker.
-            Index = Trace ID (see `obspy.Trace` object property 'id')
+            the lookup table. Columns are defined by
+            :data:`AMPLITUDE_MEASUREMENT_SCHEMA`; the index is the trace ID.
 
         Raises
         ------
@@ -258,26 +313,7 @@ class Amplitude:
 
         """
 
-        # Initialise amplitudes DataFrame
-        amplitudes = pd.DataFrame(
-            columns=[
-                "id",
-                "epi_dist",
-                "z_dist",
-                "P_amp",
-                "P_freq",
-                "P_time",
-                "P_avg_amp",
-                "P_filter_gain",
-                "S_amp",
-                "S_freq",
-                "S_time",
-                "S_avg_amp",
-                "S_filter_gain",
-                "Noise_amp",
-                "is_picked",
-            ]
-        )
+        amplitudes = pd.DataFrame(columns=AMPLITUDE_MEASUREMENT_COLUMNS)
 
         # Get event hypocentre location
         ev_loc = event.get_hypocentre(self.loc_method)
@@ -307,10 +343,7 @@ class Amplitude:
             epi_dist, z_dist = self._get_distances(
                 ev_loc, station, lut.unit_conversion_factor
             )
-
-            # Columns: tr_id, epicentral distance, vertical distance, P_amp,
-            #          P_freq, P_time, P_noise_ratio, S_amp, S_freq, S_time,
-            #          S_noise_ratio, Noise_amp, picked
+            # Initialise row using column order defined by AMPLITUDE_MEASUREMENT_COLUMNS
             amps_template = [
                 "",
                 epi_dist,
@@ -742,10 +775,8 @@ class Amplitude:
         Parameters
         ----------
         amps:
-            Amplitude information for this trace.
-            Columns = ["epi_dist", "z_dist", "P_amp", "P_freq", "P_time", "P_avg_amp",
-                       "P_filter_gain", "S_amp", "S_freq", "S_time", "S_avg_amp",
-                       "S_filter_gain", "Noise_amp", "is_picked"]
+            Amplitude information for this trace. Elements correspond to the columns
+            defined by :data:`AMPLITUDE_MEASUREMENT_SCHEMA`.
         tr:
             Trace from which to measure amplitudes.
         windows:
@@ -761,39 +792,8 @@ class Amplitude:
         Returns
         -------
         amps:
-            Amplitude information for this trace.
-            Columns = ["epi_dist", "z_dist", "P_amp", "P_freq", "P_time", "P_avg_amp",
-                       "P_filter_gain", "S_amp", "S_freq", "S_time", "S_avg_amp",
-                       "S_filter_gain", "Noise_amp", "is_picked"]
-            With newly populated values:
-                P_amp : float
-                    Half maximum peak-to-trough amplitude in the P signal window. In
-                    *millimetres*. Corrected for filter gain, if applicable.
-                P_freq : float
-                    Approximate frequency of the maximum amplitude P-wave signal.
-                    Calculated from the peak-to-trough time interval of the max
-                    peak-to-trough amplitude.
-                P_time : `obspy.UTCDateTime` object
-                    Approximate time of amplitude observation (halfway between peak and
-                    trough times).
-                P_avg_amp : float
-                    Average amplitude in the P signal window, measured by the same
-                    method as the Noise_amp (see `noise_measure`) and corrected for the
-                    same filter gain as `P_amp`. In *millimetres*.
-                P_filter_gain : float
-                    Filter gain at `P_freq`, which has been corrected for in the P_amp
-                    measurements (if a filter was applied prior to amplitude
-                    measurement).
-                S_amp : float
-                    As for P, but in the S wave signal window.
-                S_freq : float
-                    As for P.
-                S_time : `obspy.UTCDateTime` object
-                    As for P.
-                S_avg_amp : float
-                    As for P.
-                S_filter_gain : float
-                    As for P.
+            Amplitude information for this trace. Elements correspond to the columns
+            defined by :data:`AMPLITUDE_MEASUREMENT_SCHEMA`.
 
         """
 

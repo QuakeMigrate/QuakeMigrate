@@ -732,7 +732,7 @@ def _plot_waveform_gather(
                     tr.data[mint_i:maxt_i] / norm + range_order[i],
                     c=colour,
                     lw=0.3,
-                    label=f"{ tr.stats.component} component ({phase_group.phase})",
+                    label=f"{tr.stats.component} component ({phase_group.phase})",
                     alpha=0.85,
                 )
 

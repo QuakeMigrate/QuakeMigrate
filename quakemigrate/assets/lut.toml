@@ -1,38 +1,128 @@
+# Station metadata file used to define the stations for which traveltime tables
+# should be calculated.
 station_file = "inputs/<station-file>"
 
+# Optional 1-D velocity model file.
+# Required when compute.method = "1dfmm" or compute.method = "1dnlloc".
+# Comment out when using compute.method = "homogeneous".
+# vmodel_file = "inputs/<velocity-model-file>"
+
+
 [grid_projection]
-# Note: The following parameters are for a Lambert-Conformal Conic projection
-# When using other projections, be sure to include entries for each of the
-# required keyword arguments
-proj = "lcc"  # Projection - see PROJ docs for more info
+# Coordinate reference system used for the lookup-table grid.
+#
+# This table is passed as keyword arguments to the projection/CRS constructor, so
+# entries may be changed to any valid PROJ/pyproj CRS parameters. The example below
+# defines a Lambert Conformal Conic projection. When using a different projection,
+# replace these keys with the parameters required by that projection.
+#
+# Common examples:
+#   proj = "lcc"       # Lambert Conformal Conic
+#   proj = "utm"       # Universal Transverse Mercator
+#   proj = "stere"     # Stereographic
+#   proj = "aeqd"      # Azimuthal Equidistant
+#
+# See PROJ/pyproj documentation for the full set of supported CRS parameters.
+proj = "lcc"
+
+# Units of the projected grid coordinates.
 units = "km"
-lon_0 =  # Central meridian
-lat_0 =  # Latitude of y=0 on central meridian
-lat_1 =  # Latitude of first standard parallel
-lat_2 =  # Latitude of second standard parallel
-datum = "WGS84"  # Reference frame used to define projection coordinates
-ellps = "WGS84"  # Approximation used for geoid
+
+# Central meridian of the projection.
+lon_0 = 0.0
+
+# Latitude of the projection origin.
+lat_0 = 0.0
+
+# First standard parallel.
+lat_1 = 30.0
+
+# Second standard parallel.
+lat_2 = 60.0
+
+# Geodetic datum.
+datum = "WGS84"
+
+# Reference ellipsoid.
+ellps = "WGS84"
+
+# Disable use of defaults from older PROJ initialisation strings.
 no_defs = true
+
 
 [coordinate_projection]
-proj = "longlat"  # Projection - see PROJ docs for more info
-datum = "WGS84"  # Reference frame used to define projection coordinates
-ellps = "WGS84"  # Approximation used for geoid
+# Coordinate reference system used for input/output geographic coordinates.
+#
+# This is usually longitude/latitude on WGS84. As with grid_projection, this table
+# is passed as CRS/projection keyword arguments.
+proj = "longlat"
+
+# Geodetic datum.
+datum = "WGS84"
+
+# Reference ellipsoid.
+ellps = "WGS84"
+
+# Disable use of defaults from older PROJ initialisation strings.
 no_defs = true
 
+
 [grid_specification]
-ll_corner = [lon, lat, depth]  # [float, float, float]
-ur_corner = [lon, lat, depth]  # [float, float, float]
-node_spacing = [dx, dy, dz]  # [float, float, float] in units set by grid_projection
+# Lower-left grid corner as [longitude, latitude, depth].
+# Longitude and latitude are in coordinate_projection units; depth is normally in
+# the vertical units expected by the LUT builder.
+ll_corner = [0.0, 0.0, 0.0]
+
+# Upper-right grid corner as [longitude, latitude, depth].
+ur_corner = [1.0, 1.0, 10.0]
+
+# Grid node spacing as [dx, dy, dz], in grid_projection units.
+node_spacing = [0.1, 0.1, 0.1]
+
 
 [compute]
-# Homogeneous velocity model
+# Traveltime calculation method.
+# Supported values:
+#   "homogeneous"  - straight-line traveltimes through a homogeneous model
+#   "1dfmm"        - 1-D fast-marching method using scikit-fmm
+#   "1dnlloc"      - 1-D NonLinLoc Grid2Time calculation swept over the 3-D grid
 method = "homogeneous"
+
+# Seismic phases for which to compute traveltime tables.
+# Phase names must match those used by the detect/locate configuration.
 phases = ["P", "S"]
-vp = 3.630  # Velocity in ice!
-vs = 1.833  # Velocity in ice!
+
+# Fractional traveltime uncertainty used elsewhere by QuakeMigrate when defining
+# phase windows. A value of 0.1 corresponds to 10%.
+fraction_tt = 0.1
+
+# Whether to write logging information during LUT construction.
 log = true
 
-# 1-D model: NonLinLoc
+# P-wave velocity for homogeneous models, in grid distance units per second.
+# For example, if grid_projection.units = "km", velocity is in km/s.
+# Required when method = "homogeneous" and "P" is listed in phases.
+vp = 3.630
 
-# 1-D model: skfmm
+# S-wave velocity for homogeneous models, in grid distance units per second.
+# For example, if grid_projection.units = "km", velocity is in km/s.
+# Required when method = "homogeneous" and "S" is listed in phases.
+vs = 1.833
+
+# NonLinLoc 2-D grid spacing, in km.
+# Used when method = "1dnlloc".
+nlloc_dx = 0.1
+
+# Optional path to NonLinLoc executables Vel2Grid and Grid2Time.
+# Leave empty to use executables found on PATH.
+# Used when method = "1dnlloc".
+nlloc_path = ""
+
+# Whether to interpret the velocity model as constant-velocity blocks instead of
+# linear gradients between layer depths.
+# Used when method = "1dnlloc".
+block_model = false
+
+# Whether to keep intermediate NonLinLoc model/time grids.
+# Used when method = "1dnlloc".
+retain_nll_grids = false

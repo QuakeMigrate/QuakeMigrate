@@ -13,14 +13,14 @@ Module containing methods to calculate the local magnitude for an event located 
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import Any, Mapping, TYPE_CHECKING
 
 import numpy as np
 
 import quakemigrate.util as util
 from quakemigrate.io import write_amplitudes
-from .amplitude import Amplitude
-from .magnitude import Magnitude
+from .amplitude import Amplitude, AmplitudeConfig
+from .magnitude import Magnitude, MagnitudeConfig
 
 
 if TYPE_CHECKING:
@@ -31,91 +31,39 @@ if TYPE_CHECKING:
 
 class LocalMag:
     """
-    QuakeMigrate extension class for calculating local magnitudes.
+    Plugin for calculating local magnitudes for located events.
 
-    Provides functions for measuring amplitudes of earthquake waveforms and using these
-    to calculate local magnitudes.
+    This plugin measures Wood-Anderson corrected waveform amplitudes, calculates
+    per-trace local magnitude estimates, combines those estimates into a
+    network-averaged local magnitude, and optionally writes an amplitude-vs-distance
+    summary plot.
 
     Parameters
     ----------
-    amp_params:
-        All keys are optional, including:
-        signal_window : float
-            Length of S-wave signal window, in addition to the time window associated
-            with the marginal_window and traveltime uncertainty.
-        noise_window : float
-            Length of the time window before the P-wave signal window in which to
-            measure the noise amplitude.
-        noise_measure : {"RMS", "STD", "ENV"}
-            Method by which to measure the noise amplitude; root-mean-quare, standard
-            deviation or average amplitude of the envelope of the signal.
-        loc_method : {"spline", "gaussian", "covariance"}
-            Which event location estimate to use.
-        highpass_filter : bool
-            Whether to apply a highpass filter to the data before measuring amplitudes.
-        highpass_freq : float
-            High-pass filter frequency. Required if highpass_filter is True.
-        bandpass_filter : bool
-            Whether to apply a band-pass filter before measuring amplitudes.
-        bandpass_lowcut : float
-            Band-pass filter low-cut frequency. Required if bandpass_filter is True.
-        bandpass_highcut : float
-            Band-pass filter high-cut frequency. Required if bandpass_filter is True.
-        filter_corners : int
-            Number of corners for the chosen filter.
-        prominence_multiplier : float
-            To set a prominence filter in the peak-finding algorithm.
-            NOTE: not recommended for use in combination with a filter; filter
-            gain corrections can lead to spurious results. Please see the
-            `scipy.signal.find_peaks` documentation for further guidance.
-    mag_params:
-        Required keys:
-        A0 : str or func
-            Name of the attenuation function to use. Available options include
-            {"Hutton-Boore", "keir2006", "UK", ...}. Alternatively specify a
-            function which returns the attenuation factor at a specified
-            (epicentral or hypocentral) distance.
-        All other keys are optional, including:
-        station_corrections : dict {str : float}
-            Dictionary of trace_id : magnitude-correction pairs.
-        amp_feature : {"S_amp", "P_amp"}
-            Which phase amplitude measurement to use to calculate local magnitude.
-        amp_multiplier : float
-            Factor by which to multiply all measured amplitudes.
-        use_hyp_dist : bool, optional
-            Whether to use the hypocentral distance instead of the epicentral distance
-            in the local magnitude calculation.
-        trace_filter : regex expression
-            Expression by which to select traces to use for the mean_magnitude
-            calculation. E.g. '.*H[NE]$'.
-        station_filter : list of str
-            List of stations to exclude from the mean_magnitude calculation.
-            E.g. ["KVE", "LIND"].
-        dist_filter : float or False
-            Whether to only use stations less than a specified (epicentral or
-            hypocentral) distance from an event in the mean_magnitude() calculation.
-            Distance in kilometres.
-        pick_filter : bool
-            Whether to only use stations where at least one phase was picked by the
-            autopicker in the mean_magnitude calculation.
-        noise_filter : float
-            Factor by which to multiply the measured noise amplitude before excluding
-            amplitude observations below the noise level.
-        weighted_mean : bool
-            Whether to do a weighted mean of the magnitudes when calculating the
-            mean_magnitude.
+    amplitude:
+        Amplitude measurement configuration. May be an :class:`AmplitudeConfig` or a
+        mapping accepted by :meth:`AmplitudeConfig.from_mapping`.
+    magnitude:
+        Magnitude calculation configuration. May be a :class:`MagnitudeConfig` or a
+        mapping accepted by :meth:`MagnitudeConfig.from_mapping`.
     plot_amplitudes:
-        Plot amplitudes vs. distance plot for each event.
+        Whether to write an amplitude-vs-distance summary plot for each event.
 
     Attributes
     ----------
     amp:
-        The Amplitude object for this instance of LocalMag. Contains functions
-        to measure Wood-Anderson corrected displacement amplitudes for an event.
+        Amplitude measurement helper.
     mag:
-        The Magnitude object for this instance of LocalMag. Contains functions to
-        calculate magnitudes from Wood-Anderson corrected displacement amplitudes, and
-        to combine them into a single magnitude estimate for the event.
+        Magnitude calculation helper.
+    plot:
+        Whether amplitude summary plots are written.
+
+    See Also
+    --------
+    AmplitudeConfig
+        Defines amplitude measurement options, defaults, and validation rules.
+    MagnitudeConfig
+        Defines magnitude calculation options, defaults, and validation rules.
 
     """
 
@@ -125,12 +73,15 @@ class LocalMag:
     kind: str = "magnitudes"
 
     def __init__(
-        self, amp_params: dict, mag_params: dict, plot_amplitudes: bool = True
+        self,
+        amplitude: AmplitudeConfig | Mapping[str, Any],
+        magnitude: MagnitudeConfig | Mapping[str, Any],
+        plot_amplitudes: bool = True,
     ) -> None:
         """Instantiate the LocalMag object."""
 
-        self.amp = Amplitude(amp_params)
-        self.mag = Magnitude(mag_params)
+        self.amp = Amplitude(amplitude)
+        self.mag = Magnitude(magnitude)
         self.plot = plot_amplitudes
 
     def __str__(self) -> str:
@@ -212,3 +163,37 @@ class LocalMag:
             )
 
         return event
+
+
+def build_local_magnitude_plugin(
+    amplitude: AmplitudeConfig | Mapping[str, Any],
+    magnitude: MagnitudeConfig | Mapping[str, Any],
+    plot_amplitudes: bool = True,
+) -> LocalMag:
+    """
+    Build a :class:`LocalMag` plugin from grouped configuration values.
+
+    This factory is intended for use by the plugin system. The amplitude and magnitude
+    arguments correspond to the grouped TOML tables for the LocalMagnitudes plugin.
+
+    Parameters
+    ----------
+    amplitude:
+        Amplitude measurement configuration.
+    magnitude:
+        Magnitude calculation configuration.
+    plot_amplitudes:
+        Whether to write an amplitude-vs-distance summary plot for each event.
+
+    Returns
+    -------
+    local_magnitude:
+        Configured local magnitude plugin.
+
+    """
+
+    return LocalMag(
+        amplitude=amplitude,
+        magnitude=magnitude,
+        plot_amplitudes=plot_amplitudes,
+    )

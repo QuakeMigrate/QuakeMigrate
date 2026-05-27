@@ -38,12 +38,46 @@ if TYPE_CHECKING:
 
 def build_gaussian_picker(
     onset: Onset,
-    threshold_method: str = "MAD",
+    threshold_method: Literal["MAD", "percentile"] = "MAD",
     mad_multiplier: float = 8.0,
     percentile: float = 1.0,
     plot_picks: bool = False,
     write_seed_ids: bool = False,
 ) -> GaussianPicker:
+    """
+    Build a :class:`GaussianPicker` from configuration values.
+
+    Parameters
+    ----------
+    onset:
+        Onset plugin used to calculate onset functions for picking.
+    threshold_method:
+        Thresholding method used to identify candidate picks. Supported values are
+        ``"MAD"`` and ``"percentile"``.
+    mad_multiplier:
+        Scaling factor applied to the Median Absolute Deviation when
+        ``threshold_method="MAD"``.
+    percentile:
+        Fraction in the range [0, 1] used to define the percentile threshold when
+        ``threshold_method="percentile"``. For example, ``0.99`` selects the 99th
+        percentile.
+    plot_picks:
+        Whether to generate phase-pick summary plots.
+    write_seed_ids:
+        Whether to write the SEED IDs of traces contributing to each phase pick.
+
+    Returns
+    -------
+    picker:
+        Configured Gaussian phase picker.
+
+    Raises
+    ------
+    ValueError
+        If ``threshold_method`` is not one of ``"MAD"`` or ``"percentile"``.
+
+    """
+
     if threshold_method == "MAD":
         threshold = MADThreshold(multiplier=mad_multiplier)
     elif threshold_method == "percentile":
@@ -80,6 +114,10 @@ class MADThreshold:
 
     multiplier: float = 8.0
 
+    def __post_init__(self) -> None:
+        if self.multiplier < 0:
+            raise ValueError("MAD threshold multiplier must be non-negative.")
+
 
 @dataclass
 class PercentileThreshold:
@@ -99,6 +137,10 @@ class PercentileThreshold:
     """
 
     percentile: float = 1.0
+
+    def __post_init__(self) -> None:
+        if not 0 <= self.percentile <= 1:
+            raise ValueError("percentile threshold must be in the range [0, 1].")
 
 
 PickThreshold = MADThreshold | PercentileThreshold
@@ -290,7 +332,7 @@ class GaussianPicker(PhasePicker):
 
     def _determine_window(
         self, event: Event, onset_data: OnsetData, tt: float, fraction_tt: float
-    ) -> tuple[int, int, int]:
+    ) -> list[int]:
         """
         Determine phase pick window upper and lower bounds based on the event marginal
         window and a set percentage of the phase travel time.
@@ -503,6 +545,7 @@ class GaussianPicker(PhasePicker):
                 "\t\t    Failed curve_fit - too few input data?"
                 f"{e}\n\t\t    Continuing..."
             )
+            return self._pick_failure(pick_threshold)
 
         # Unpack results:
         #  popt = [height, mean (seconds), sigma (seconds)]
@@ -538,11 +581,11 @@ class GaussianPicker(PhasePicker):
         -------
         gaussian_fit:
             The default Gaussian fit dictionary, with relevant pick threshold value.
-        max_onset:
+        mean:
             A default of -1 value to indicate failure.
         sigma:
             A default of -1 value to indicate failure.
-        mean:
+        max_onset:
             A default of -1 value to indicate failure.
 
         """

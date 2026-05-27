@@ -234,13 +234,18 @@ def pre_process(
 
 class STALTAOnset(Onset):
     """
-    QuakeMigrate default onset function class - uses the Short-Term Average to Long-Term
-    Average ratio of the signal energy amplitude.
+    STA/LTA onset plugin for QuakeMigrate.
 
-    Raw seismic data will be pre-processed, including re-sampling if necessary to reach
-    the specified uniform sampling raate, checked against a user- specified set of data
-    quality criteria, then used to calculate onset functions for each phase (using
-    seismic channels as specified in `channel_maps`) by computing the STA/LTA of s^2.
+    This onset function preprocesses raw seismic waveform data, including re-sampling if
+    necessary to reach the specified uniform sampling rate, checks station and phase
+    availability against a user-specified set of data quality criteria, transforms
+    waveform amplitudes into a non-negative characteristic signal, and calculates
+    phase-specific onset functions using short-term average / long-term average ratios.
+
+    The class is QuakeMigrate's canonical built-in onset implementation and demonstrates
+    the expected plugin contract: validated configuration, consistent station/phase
+    bookkeeping, robust availability handling, and standard
+    :class:`~quakemigrate.plugins.onsets.base.OnsetData` output.
 
     Attributes
     ----------
@@ -366,6 +371,24 @@ class STALTAOnset(Onset):
         self.allow_gaps = allow_gaps
         self.full_timespan = full_timespan
 
+        self._validate_config()
+
+    def _validate_config(self) -> None:
+        """Validate phase-specific STALTA configuration."""
+
+        for phase in self.phases:
+            if phase not in self.bandpass_filters:
+                raise ValueError(f"No bandpass filter specified for phase {phase}")
+
+            if phase not in self.sta_lta_windows:
+                raise ValueError(f"No STA/LTA window specified for phase {phase}")
+
+            if phase not in self.channel_maps:
+                raise ValueError(f"No channel map specified for phase {phase}")
+
+            if phase not in self.channel_counts:
+                raise ValueError(f"No channel count specified for phase {phase}")
+
     def __str__(self) -> str:
         """Return short summary string of the Onset object."""
 
@@ -399,7 +422,7 @@ class STALTAOnset(Onset):
         Parameters
         ----------
         data:
-            Light class encapsulating data returned by an archive query.
+            Waveform data returned by an archive query.
         timespan:
             If the timespan for which the onsets are being generated is provided, this
             will be used to calculate the tapered window of data at the start and end of

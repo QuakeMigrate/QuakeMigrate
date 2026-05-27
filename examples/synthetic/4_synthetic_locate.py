@@ -24,7 +24,7 @@ os.environ.update(
 from quakemigrate import QuakeScan
 from quakemigrate.clients import make_waveform_client
 from quakemigrate.io import ARCHIVE_FORMATS, read_lut, read_stations
-from quakemigrate.plugins.onsets import STALTAOnset
+from quakemigrate.plugins.onsets.stalta import STALTAOnset
 from quakemigrate.plugins.pickers import GaussianPicker
 from quakemigrate.plugins.visualisation import EventSummary3DPlugin
 

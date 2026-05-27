@@ -1,34 +1,158 @@
 [stations]
+# Station metadata file.
 file = "inputs/<station-file>"
-file_type = "csv"  # Can be either csv or stationxml
+
+# Station file format. Supported values: "csv", "stationxml".
+file_type = "csv"
+
 
 [lut]
+# Traveltime lookup table file.
 file = "luts/<lut-name>.lut"
-decimation = [X, Y, Z]  # [int, int, int] Select decimation factor in each dimension  
+
+# Decimation factor in each lookup-table dimension: [x, y, z].
+# Use [1, 1, 1] for no decimation.
+decimation = [1, 1, 1]
+
 
 [waveform_client]
-client = "local"  # Can be either local or fdsn
-path = "inputs/mSEED"  # path to archive root directory
-format = ""  # Format-able string, see docs for more info
+# Waveform data source.
+# Supported values: "local", "fdsn".
+client = "local"
+
+# Path to the local waveform archive root directory.
+# Required when client = "local".
+path = "inputs/mSEED"
+
+# Format string used to construct waveform file paths.
+# See documentation for supported placeholders.
+format = ""
+
+# Optional response inventory file used for instrument correction.
+# Leave empty if responses are unavailable or not required.
+inventory = ""
+
+# Instrument response-removal settings.
+# These are used when an inventory is provided.
+[waveform_client.response_removal_params]
+# Water level used during response removal.
+water_level = 60.0
+
+# Optional ObsPy pre-filter corners, in Hz: [f1, f2, f3, f4].
+# Set to [] or comment out to disable.
+pre_filt = [0.01, 0.02, 45.0, 50.0]
+
+# Whether to remove the full instrument response.
+remove_full_response = false
+
 
 [scan]
-starttime = "YYYY-mm-ddTHH:MM:SS.0"  # Can be any format compatible with obspy.UTCDateTime
-endtime = "YYYY-mm-ddTHH:MM:SS.0"  # Can be any format compatible with obspy.UTCDateTime
-marginal_window = 0.1  # In seconds, see docs for more info
-threads = 4  # Can be overriden at runtime on the command line using -j/--threads flag
+# Scan start time. Any format accepted by obspy.UTCDateTime may be used.
+starttime = "YYYY-mm-ddTHH:MM:SS.0"
+
+# Scan end time. Any format accepted by obspy.UTCDateTime may be used.
+endtime = "YYYY-mm-ddTHH:MM:SS.0"
+
+# Half-width, in seconds, of the time window used to marginalise the 4-D coalescence
+# function around each event origin time.
+marginal_window = 0.1
+
+# Number of worker threads. Can be overridden at runtime with -j/--threads.
+threads = 4
+
 
 [onset]
-name = "STALTA-centred"  # See docs for options
-sampling_rate = 100  # In Hz, see docs for more info
-phases = ["P", "S"]  # Must conform with names used for traveltime tables
+# Onset function to use.
+# See documentation for available onset plugins/options.
+name = "stalta"
+position = "centred"
 
-[onset.bandpass_filters]  # Must have an entry for each of the phases listed above
-P = [freqmin, freqmax, order/corners]  # [float, float, int] with units [Hz, Hz, -]
-S = [freqmin, freqmax, order/corners]  # [float, float, int] with units [Hz, Hz, -]
+# Sampling rate, in Hz, used for onset calculation.
+sampling_rate = 100
 
-[onset.sta_lta_windows]  # Must have an entry for each of the phases listed above
-P = [sta, lta]  # [float, float] with units [seconds, seconds]
-S = [sta, lta]  # [float, float] with units [seconds, seconds]
+# Seismic phases to process.
+# Names must match the traveltime tables in the LUT.
+phases = ["P", "S"]
 
-[plugins.picker]
-name = "Gaussian"  # See docs for options
+[onset.bandpass_filters]
+# Band-pass filters for each phase listed in onset.phases.
+# Format: [lowcut, highcut, corners], with units [Hz, Hz, -].
+P = [1.0, 20.0, 2]
+S = [1.0, 20.0, 2]
+
+[onset.sta_lta_windows]
+# STA/LTA windows for each phase listed in onset.phases.
+# Format: [sta, lta], with units [seconds, seconds].
+P = [0.1, 1.0]
+S = [0.1, 1.0]
+
+
+# The following section consists of a list of plugins and their corresponding configs
+[[plugins]]
+# Built-in Gaussian phase picker plugin.
+name = "GaussianPicker"
+
+# Thresholding method used to identify candidate picks.
+# Supported values: "MAD", "percentile".
+threshold_method = "MAD"
+
+# Scaling factor applied to the Median Absolute Deviation when
+# threshold_method = "MAD".
+mad_multiplier = 8.0
+
+# Whether to write phase-pick summary plots.
+plot_picks = true
+
+# Whether to include SEED IDs of contributing traces in the picks file.
+write_seed_ids = false
+
+
+[[plugins]]
+# Built-in local magnitude plugin.
+name = "LocalMagnitude"
+
+# Whether to write amplitude-vs-distance summary plots for each event.
+plot_amplitudes = true
+
+[plugins.amplitude]
+# Additional length, in seconds, of the S-wave signal window.
+signal_window = 1.0
+
+# Length, in seconds, of the pre-P-arrival noise window.
+noise_window = 5.0
+
+# Method used to measure noise amplitude.
+# Supported values: "RMS", "STD", "ENV".
+noise_measure = "ENV"
+
+# Whether to apply a band-pass filter before measuring amplitudes.
+bandpass_filter = true
+
+# Band-pass low-cut frequency, in Hz.
+bandpass_lowcut = 2.0
+
+# Band-pass high-cut frequency, in Hz.
+bandpass_highcut = 20.0
+
+# Number of corners for the Butterworth filter.
+filter_corners = 4
+
+[plugins.magnitude]
+# Local magnitude attenuation relation.
+# May be the name of a built-in relation.
+A0 = "Greenfield2018_bardarbunga"
+
+# Whether to use hypocentral distance instead of epicentral distance.
+use_hyp_dist = true
+
+# Amplitude measurement used to calculate local magnitude.
+# Supported values: "P_amp", "S_amp".
+amp_feature = "S_amp"
+
+# Regular expression used to select trace IDs for the network magnitude.
+# Example: ".*H[NE]$" selects horizontal HN/HE-style channels.
+trace_filter = ".*H[NE]$"
+
+# Minimum signal-to-noise requirement. Observations are excluded when the
+# selected signal amplitude is less than noise_filter * Noise_amp.
+noise_filter = 3.0

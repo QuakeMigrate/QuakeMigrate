@@ -753,7 +753,7 @@ class PhaseComponentGroup:
 
 
 def get_phase_component_groups(
-    channel_maps: dict[str, str]
+    channel_maps: dict[str, str],
 ) -> list[PhaseComponentGroup]:
     """
     Get regex strings to select the correct waveform components to plot on each panel
@@ -792,7 +792,7 @@ def get_phase_component_groups(
                 phase_groups.append([a, n])
 
             # add leftovers, if any
-            leftovers = alpha[len(numeric):] + numeric[len(alpha):]
+            leftovers = alpha[len(numeric) :] + numeric[len(alpha) :]
             for comp in leftovers:
                 phase_groups.append([comp])
         else:

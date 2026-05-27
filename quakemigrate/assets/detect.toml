@@ -1,31 +1,91 @@
 [stations]
+# Station metadata file.
 file = "inputs/<station-file>"
-file_type = "csv"  # Can be either csv or stationxml
+
+# Station file format.
+# Supported values: "csv", "stationxml".
+file_type = "csv"
+
 
 [lut]
+# Traveltime lookup table file.
 file = "luts/<lut-name>.lut"
-decimation = [X, Y, Z]  # [int, int, int] Select decimation factor in each dimension 
+
+# Decimation factor in each lookup-table dimension: [x, y, z].
+# Use [1, 1, 1] for no decimation.
+decimation = [1, 1, 1]
+
 
 [waveform_client]
-client = "local"  # Can be either local or fdsn
-path = "inputs/mSEED"  # path to archive root directory
-format = ""  # Format-able string, see docs for more info
+# Waveform data source.
+# Supported values: "local", "fdsn".
+client = "local"
+
+# Path to the local waveform archive root directory.
+# Required when client = "local".
+path = "inputs/mSEED"
+
+# Format string used to construct waveform file paths.
+# See documentation for supported placeholders.
+format = ""
+
+# Optional response inventory file used for instrument correction.
+# Leave empty if responses are unavailable or not required.
+inventory = ""
+
+# Instrument response-removal settings.
+# These are used when an inventory is provided.
+[waveform_client.response_removal_params]
+# Water level used during response removal.
+water_level = 60.0
+
+# Optional ObsPy pre-filter corners, in Hz: [f1, f2, f3, f4].
+# Set to [] or comment out to disable.
+pre_filt = [0.01, 0.02, 45.0, 50.0]
+
+# Whether to remove the full instrument response.
+remove_full_response = false
+
 
 [scan]
-starttime = "YYYY-mm-ddTHH:MM:SS.0"  # Can be any format compatible with obspy.UTCDateTime
-endtime = "YYYY-mm-ddTHH:MM:SS.0"  # Can be any format compatible with obspy.UTCDateTime
-timestep = 300.0  # In seconds, see docs for more info
-threads = 4  # Can be overriden at runtime on the command line using -j/--threads flag
+# Scan start time.
+# Any format accepted by obspy.UTCDateTime may be used.
+starttime = "YYYY-mm-ddTHH:MM:SS.0"
+
+# Scan end time.
+# Any format accepted by obspy.UTCDateTime may be used.
+endtime = "YYYY-mm-ddTHH:MM:SS.0"
+
+# Length, in seconds, of each continuous scan block.
+# Larger values reduce overhead but require more memory.
+timestep = 300.0
+
+# Number of worker threads.
+# Can be overridden at runtime with -j/--threads.
+threads = 4
+
 
 [onset]
-name = "STALTA-classic"  # See docs for options
-sampling_rate = 100  # Sampling rate used for the migration and stacking
-phases = ["P", "S"]  # Must conform with names used for traveltime tables
+# Onset function to use.
+# See documentation for available onset plugins/options.
+name = "stalta"
+position = "classic"
 
-[onset.bandpass_filters]  # Must have an entry for each of the phases listed above
-P = [freqmin, freqmax, order/corners]  # [float, float, int] with units [Hz, Hz, -]
-S = [freqmin, freqmax, order/corners]  # [float, float, int] with units [Hz, Hz, -]
+# Sampling rate, in Hz, used for onset calculation, migration, and stacking.
+sampling_rate = 100
 
-[onset.sta_lta_windows]  # Must have an entry for each of the phases listed above
-P = [sta, lta]  # [float, float] with units [seconds, seconds]
-S = [sta, lta]  # [float, float] with units [seconds, seconds]
+# Seismic phases to process.
+# Names must match the traveltime tables in the LUT.
+phases = ["P", "S"]
+
+[onset.bandpass_filters]
+# Band-pass filters for each phase listed in onset.phases.
+# Format: [lowcut, highcut, corners], with units [Hz, Hz, -].
+P = [2.0, 16.0, 4]
+S = [2.0, 16.0, 4]
+
+[onset.sta_lta_windows]
+# STA/LTA windows for each phase listed in onset.phases.
+# Format: [sta, lta], with units [seconds, seconds].
+P = [0.2, 1.0]
+S = [0.2, 1.0]

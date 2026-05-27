@@ -21,7 +21,7 @@ from quakemigrate import QuakeScan
 from quakemigrate.clients import make_waveform_client
 from quakemigrate.exceptions import ConfigError
 from quakemigrate.io import read_lut
-from quakemigrate.workflow.builders import build_onset
+from quakemigrate.plugins.onsets import make_onset_function
 from quakemigrate.workflow.config import get_required_key, load_toml, pop_required_key
 from quakemigrate.workflow.project import require_project_root
 
@@ -70,7 +70,7 @@ def prepare(
     waveform_client = make_waveform_client(client_config)
 
     onset_config = pop_required_key(config, "onset")
-    onset = build_onset(onset_config)
+    onset = make_onset_function(onset_config)
 
     scan_config = get_required_key(config, "scan")
     detector = QuakeScan(

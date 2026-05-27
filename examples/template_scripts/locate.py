@@ -27,9 +27,13 @@ from obspy.core import AttribDict
 from quakemigrate import QuakeScan
 from quakemigrate.clients import make_waveform_client
 from quakemigrate.io import ARCHIVE_FORMATS, read_lut, read_stations
-from quakemigrate.plugins.onsets import STALTAOnset
+from quakemigrate.plugins.onsets.stalta import STALTAOnset
 from quakemigrate.plugins.pickers import GaussianPicker
-from quakemigrate.plugins.magnitudes import LocalMag
+from quakemigrate.plugins.magnitudes import (
+    AmplitudeConfig,
+    MagnitudeConfig,
+    build_local_magnitude_plugin,
+)
 from quakemigrate.plugins.visualisation import EventSummary3DPlugin
 
 
@@ -102,27 +106,30 @@ picker.plot_picks = True
 
 # --- Create new LocalMag object ---
 # All parameters are optional: see the documentation for a complete guide.
-amp_params = AttribDict()
-amp_params.signal_window = 5.0
-amp_params.bandpass_filter = True
-amp_params.bandpass_lowcut = 2.0
-amp_params.bandpass_highcut = 20.0
+amp_params = AmplitudeConfig(
+    signal_window=5.0,
+    bandpass_filter=True,
+    bandpass_lowcut=2.0,
+    bandpass_highcut=20.0,
+)
 
 # A0 attenuation function is required: see the documentation for several
 # built-in options, or specify your own function. All other parameters are
 # optional - see the documentation for a complete guide.
-mag_params = AttribDict()
-mag_params.A0 = "Hutton-Boore"  # NOTE: REQUIRED PARAMETER!
-mag_params.use_hyp_dist = False
-mag_params.amp_feature = "S_amp"
-mag_params.station_corrections = {}
-mag_params.trace_filter = ".[BH]H[NE]$"
-mag_params.noise_filter = 3.0
-mag_params.station_filter = ["KVE", "LIND"]  # List of stations to exclude.
-mag_params.dist_filter = False
+mag_params = MagnitudeConfig(
+    A0="Hutton-",
+    use_hyp_dist=False,
+    amp_feature="S_amp",
+    station_corrections=dict(),
+    trace_filter=".[BH]H[NE]$",
+    noise_filter=3.0,
+    station_filter=["KVE", "LIND"],  # List of stations to exclude.
+    dist_filter=False,
+)
 
-mags = LocalMag(amp_params=amp_params, mag_params=mag_params)
-mags.plot_amplitudes = True
+mags = build_local_magnitude_plugin(
+    amp_params=amp_params, mag_params=mag_params, plot_amplitudes=True
+)
 
 # It is possible to supply xy files to enhance and give context to the
 # event summary map plots. See the volcano-tectonic example from Iceland

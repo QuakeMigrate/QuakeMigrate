@@ -13,8 +13,41 @@ Feel free to contribute more Onset function options!
 
 """
 
-from .base import Onset, OnsetData
-from .stalta import STALTAOnset
+from __future__ import annotations
+
+from typing import Any, Mapping
+
+from quakemigrate.plugins.onsets.base import Onset, OnsetData
+from quakemigrate.plugins.onsets.registry import get_onset_class
 
 
-__all__ = ["Onset", "OnsetData", "STALTAOnset"]
+def make_onset_function(config: Mapping[str, Any]) -> Onset:
+    """
+    Utility for building an Onset object from config.
+
+    Parameters
+    ----------
+    config:
+        Configuration used to build Onset object.
+
+    Returns
+    -------
+    onset:
+        A configured Onset object.
+
+    """
+
+    onset_config = dict(config)
+
+    onset_name = onset_config.pop("name")
+    sampling_rate = onset_config.pop("sampling_rate")
+
+    onset_class = get_onset_class(onset_name)
+
+    return onset_class(
+        sampling_rate=sampling_rate,
+        **onset_config,
+    )
+
+
+__all__ = ["Onset", "OnsetData", "make_onset_function"]

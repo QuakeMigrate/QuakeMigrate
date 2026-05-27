@@ -1,25 +1,57 @@
 [lut]
+# Traveltime lookup table file.
 file = "luts/<lut-name>.lut"
 
+
 [trigger]
-starttime = "YYYY-mm-ddTHH:MM:SS.0"  # Can be any format compatible with obspy.UTCDateTime
-endtime = "YYYY-mm-ddTHH:MM:SS.0"  # Can be any format compatible with obspy.UTCDateTime
-# region = [X1, Y1, Z1, X2, Y2, Z2]  # Optional spatial filtering
-marginal_window = 0.1  # In seconds, see docs for more info
-min_event_interval = 0.2  # In seconds, see docs for more info
+# Trigger start time.
+# Any format accepted by obspy.UTCDateTime may be used.
+starttime = "YYYY-mm-ddTHH:MM:SS.0"
+
+# Trigger end time.
+# Any format accepted by obspy.UTCDateTime may be used.
+endtime = "YYYY-mm-ddTHH:MM:SS.0"
+
+# Optional spatial filtering region.
+# Format: [x_min, y_min, z_min, x_max, y_max, z_max].
+# Uncomment and edit to restrict triggering to a sub-volume.
+# region = [0.0, 0.0, 0.0, 10.0, 10.0, 10.0]
+
+# Half-width, in seconds, of the time window used to marginalise the 4-D
+# coalescence function around each trigger candidate.
+marginal_window = 0.1
+
+# Minimum time separation, in seconds, between triggered events.
+# Candidate events closer than this are treated as the same event.
+min_event_interval = 0.2
+
+# Whether to normalise coalescence values before applying the trigger threshold.
 normalise_coalescence = true
 
+
 [threshold]
-# Static threshold
+# Thresholding method used to identify event candidates.
+# Supported values: "static", "mad", "median_ratio".
 method = "static"
-static_threshold = 2.0  # See docs for more info
 
-# Dynamic threshold - MAD
-# method = "mad"
-# mad_window_length = 3600.0  # In seconds, see docs for more info
-# mad_multiplier = 8.0  # See docs for more info
+# Static coalescence threshold.
+# Used when method = "static".
+static_threshold = 2.0
 
-# Dynamic threshold - median ratio
-# method = "median_ratio"
-# mad_window_length = 3600.0  # In seconds, see docs for more info
-# mad_multiplier = 1.2  # See docs for more info
+# Length, in seconds, of the rolling window used to estimate the background
+# coalescence level for MAD thresholding.
+# Required when method = "mad".
+mad_window_length = 3600.0
+
+# Scaling factor applied to the median absolute deviation.
+# Required when method = "mad".
+mad_multiplier = 8.0
+
+# Length, in seconds, of the rolling window used to estimate the background
+# coalescence median for median-ratio thresholding.
+# Required when method = "median_ratio".
+median_window_length = 3600.0
+
+# Ratio applied to the rolling median for median-ratio thresholding.
+# Required when method = "median_ratio".
+median_multiplier = 1.2

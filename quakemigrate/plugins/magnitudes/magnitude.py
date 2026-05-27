@@ -14,51 +14,36 @@ for the region of interest.
 from __future__ import annotations
 
 import logging
-from typing import Literal, TYPE_CHECKING
+import warnings
+from collections.abc import Callable
+from dataclasses import dataclass, field, fields
+from typing import Any, Literal, Mapping, TYPE_CHECKING
 
 import numpy as np
 from matplotlib import pyplot as plt
 
 from quakemigrate.plot.amplitudes import amplitudes_summary
+from .amplitude import AMPLITUDE_MEASUREMENT_SCHEMA
 
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     import pandas as pd
 
     from quakemigrate.io.core import Run
     from quakemigrate.io.event import Event
 
 
-class Magnitude:
+@dataclass
+class MagnitudeConfig:
     """
-    Part of the QuakeMigrate LocalMag class; calculates local magnitudes from
-    Wood-Anderson corrected waveform amplitude measurements.
-
-    Takes waveform amplitude measurements from the LocalMag Amplitude class, and from
-    these calculates local magnitude estimates using a local magnitude attenuation
-    function. Magnitude corrections for individual stations and channels thereof can be
-    applied, if provided.
-
-    Individual estimates are then combined to calculate a network-averaged (weighted)
-    mean local magnitude for the event. Also includes the function to measure the
-    r-squared statistic assessing the goodness of fit between the predicted amplitude
-    with distance from the nework-averaged local magnitude for the event and chosen
-    attenuation function, and the observed amplitudes. This, provides a tool to
-    distinguish between real microseismic events and artefacts.
-
-    A summary plot illustrating the amplitude observations, their uncertainties, and the
-    predicted amplitude with distance for the network-averaged local magnitude (and its
-    uncertainties) can optionally be output.
+    Configuration for local magnitude calculation.
 
     Attributes
     ----------
     A0:
-        Name of the attenuation function to use. Available options include
-        {"Hutton-Boore", "keir2006", "UK", ...}. Alternatively specify a function which
-        returns the attenuation factor at a specified (epicentral or hypocentral)
-        distance.
+        Attenuation function used to calculate local magnitudes. May be the name of a
+        built-in attenuation function or a callable that accepts distance and returns an
+        attenuation correction.
     use_hyp_dist:
         Whether to use the hypocentral distance instead of the epicentral distance in
         the local magnitude calculation.
@@ -67,19 +52,18 @@ class Magnitude:
     station_corrections:
         Dictionary of trace_id : magnitude-correction pairs.
     amp_multiplier:
-        Factor by which to multiply all measured amplitudes.
+        Factor by which to multiply measured amplitudes before magnitude calculation.
     weighted_mean:
         Whether to use a weighted mean to calculate the network-averaged local magnitude
         estimate for the event.
     trace_filter:
-        Expression by which to select traces to use for the mean_magnitude calculation.
-        E.g. ".*H[NE]$" .
+        Regular expression by which to select traces to use for the mean_magnitude
+        calculation, e.g., ".*H[NE]$".
     noise_filter:
         Factor by which to multiply the measured noise amplitude before excluding
         amplitude observations below the noise level.
     station_filter:
-        List of stations to exclude from the mean_magnitude calculation.
-        E.g. ["KVE", "LIND"].
+        Optional list of stations to exclude from the network magnitude.
     dist_filter:
         Whether to only use stations less than a specified (epicentral or hypocentral)
         distance from an event in the mean_magnitude() calculation. Distance in
@@ -90,40 +74,129 @@ class Magnitude:
     r2_only_used:
         Whether to only use amplitude observations which were used for the mean
         magnitude calculation when calculating the r-squared statistic for the goodness
-        of fit between the measured and predicted amplitudes. Default: True; False is an
-        experimental feature - use with caution.
-
-    Raises
-    ------
-    TypeError
-        If the user does not specify an A0 attenuation curve.
-    ValueError
-        If the user specifies an invalid A0 attenuation curve.
+        of fit between the measured and predicted amplitudes. False is an experimental
+        feature - use with caution.
 
     """
 
-    def __init__(self, magnitude_params: dict = {}) -> None:
+    A0: str | Callable[[Any], Any]
+    use_hyp_dist: bool = False
+    amp_feature: Literal["P_amp", "S_amp"] = "S_amp"
+    station_corrections: dict[str, float] = field(default_factory=dict)
+    amp_multiplier: float = 1.0
+
+    weighted_mean: bool = False
+    trace_filter: str | None = None
+    noise_filter: float = 1.0
+    station_filter: list[str] | None = None
+    dist_filter: float | bool = False
+    pick_filter: bool = False
+    r2_only_used: bool = True
+
+    def __post_init__(self) -> None:
+        if self.amp_feature not in {"P_amp", "S_amp"}:
+            raise ValueError("amp_feature must be one of: 'P_amp', 'S_amp'.")
+
+        if self.amp_multiplier <= 0:
+            raise ValueError("amp_multiplier must be positive.")
+
+        if self.noise_filter < 0:
+            raise ValueError("noise_filter must be non-negative.")
+
+        if isinstance(self.dist_filter, (int, float)) and self.dist_filter < 0:
+            raise ValueError("dist_filter must be non-negative or False.")
+
+        if not self.r2_only_used:
+            warnings.warn(
+                "Setting r2_only_used to False is an experimental feature. "
+                "Proceed with caution.",
+                stacklevel=2,
+            )
+
+    @classmethod
+    def from_mapping(cls, config: Mapping[str, Any]) -> "MagnitudeConfig":
+        """Create a magnitude configuration from a mapping."""
+
+        return cls(**dict(config))
+
+
+MAGNITUDE_ESTIMATE_SCHEMA = {
+    **AMPLITUDE_MEASUREMENT_SCHEMA,
+    "ML": (
+        "Magnitude calculated from the chosen amplitude measurement, using the "
+        "specified attenuation curve and station_corrections."
+    ),
+    "ML_Err": (
+        "Estimate of the error on the calculated magnitude, based on potential errors "
+        "in maximum amplitude measurement according to the measured noise amplitude."
+    ),
+}
+"""Schema for per-trace local magnitude estimate DataFrames."""
+
+MAGNITUDE_ESTIMATE_COLUMNS = tuple(MAGNITUDE_ESTIMATE_SCHEMA)
+
+FILTERED_MAGNITUDE_SCHEMA = {
+    **MAGNITUDE_ESTIMATE_SCHEMA,
+    "Station_Correction": "Station magnitude correction applied to this trace.",
+    "Noise_Filter": "Whether this observation meets the noise filter.",
+    "Trace_Filter": "Whether this observation matches the trace filter.",
+    "Station_Filter": "Whether this station is not excluded by the station filter.",
+    "Dist_Filter": "Whether this observation meets the distance filter.",
+    "Dist": "Epicentral or hypocentral source-station distance, in km.",
+    "Used": "Whether the observation meets all filter requirements.",
+}
+"""Schema for filtered local magnitude DataFrames."""
+
+FILTERED_MAGNITUDE_COLUMNS = tuple(FILTERED_MAGNITUDE_SCHEMA)
+
+
+class Magnitude:
+    """
+    Calculate local magnitudes from Wood-Anderson amplitude measurements.
+
+    Converts per-trace amplitude observations into local magnitude estimates using a
+    configured attenuation correction. It can apply station corrections, amplitude
+    scaling, distance filtering, trace/station filtering, pick filtering, and noise
+    filtering before combining individual observations into a network-averaged local
+    magnitude.
+
+    The class also calculates an r-squared statistic describing how well the predicted
+    amplitude-distance curve for the network magnitude fits the observed amplitudes.
+    This provides a tool to distinguish between real microseismic events and artefacts.
+
+    A summary plot illustrating the amplitude observations, their uncertainties, and the
+    predicted amplitude with distance for the network-averaged local magnitude (and its
+    uncertainties) can optionally be output.
+
+    Parameters
+    ----------
+    magnitude_params:
+        Magnitude calculation configuration. May be a :class:`MagnitudeConfig` or a
+        mapping accepted by :meth:`MagnitudeConfig.from_mapping`.
+
+    See Also
+    --------
+    MagnitudeConfig
+        Defines all magnitude calculation options, defaults, and validation rules.
+    Amplitude
+        Measures the waveform amplitudes used by this class.
+    LocalMag
+        Plugin that combines amplitude measurement and magnitude calculation.
+
+    """
+
+    def __init__(self, magnitude_params: MagnitudeConfig | Mapping[str, Any]) -> None:
         """Instantiate the Magnitude object."""
 
-        # Parameters for individual magnitude calculation
-        self.A0: str | Callable | None = magnitude_params.get("A0")
-        if not self.A0:
-            raise TypeError("A0 attenuation correction not specified in params!")
-        self.use_hyp_dist: bool = magnitude_params.get("use_hyp_dist", False)
-        self.amp_feature: Literal["P_amp", "S_amp"] = magnitude_params.get(
-            "amp_feature", "S_amp"
+        config = (
+            magnitude_params
+            if isinstance(magnitude_params, MagnitudeConfig)
+            else MagnitudeConfig.from_mapping(magnitude_params)
         )
-        self.station_corrections: dict = magnitude_params.get("station_corrections", {})
-        self.amp_multiplier: float = magnitude_params.get("amp_multiplier", 1.0)
 
-        # Parameters for mean magnitude calculation
-        self.weighted_mean: bool = magnitude_params.get("weighted_mean", False)
-        self.trace_filter: str | None = magnitude_params.get("trace_filter")
-        self.noise_filter: float = magnitude_params.get("noise_filter", 1.0)
-        self.station_filter: list[str] | None = magnitude_params.get("station_filter")
-        self.dist_filter: float | bool = magnitude_params.get("dist_filter", False)
-        self.pick_filter: bool = magnitude_params.get("pick_filter", False)
-        self.r2_only_used: bool = magnitude_params.get("r2_only_used", True)
+        self.config = config
+        for field_ in fields(config):
+            setattr(self, field_.name, getattr(config, field_.name))
 
     def __str__(self):
         """Return short summary string of the Magnitude object."""
@@ -161,66 +234,14 @@ class Magnitude:
         ----------
         amplitudes:
             P- and S-wave amplitude measurements for each component of each station in
-            the look-up table.
-            Columns:
-                epi_dist : float
-                    Epicentral distance between the station and the event hypocentre.
-                z_dist : float
-                    Vertical distance between the station and the event hypocentre.
-                P_amp : float
-                    Half maximum peak-to-trough amplitude in the P signal window. In
-                    *millimetres*. Corrected for filter gain, if applicable.
-                P_freq : float
-                    Approximate frequency of the maximum amplitude P-wave signal.
-                    Calculated from the peak-to-trough time interval of the max
-                    peak-to-trough amplitude.
-                P_time : `obspy.UTCDateTime` object
-                    Approximate time of amplitude observation (halfway between peak and
-                    trough times).
-                P_avg_amp : float
-                    Average amplitude in the P signal window, measured by the same
-                    method as the Noise_amp (see `noise_measure`) and corrected for the
-                    same filter gain as `P_amp`. In *millimetres*.
-                P_filter_gain : float or NaN
-                    Filter gain at `P_freq` - which has been corrected for in the P_amp
-                    measurements - if a filter was applied prior to amplitude
-                    measurement; Else NaN.
-                S_amp : float
-                    As for P, but in the S wave signal window.
-                S_freq : float
-                    As for P.
-                S_time : `obspy.UTCDateTime` object
-                    As for P.
-                S_avg_amp : float
-                    As for P.
-                S_filter_gain : float or NaN.
-                    As for P.
-                Noise_amp : float
-                    The average signal amplitude in the noise window. In *millimetres*.
-                    See `noise_measure` parameter.
-                is_picked : bool
-                    Whether at least one of the phase arrivals was picked by the
-                    autopicker.
-            Index = Trace ID (see `obspy.Trace` object property 'id')
+            the lookup table. Columns are defined by
+            :data:`AMPLITUDE_MEASUREMENT_SCHEMA`; the index is the trace ID.
 
         Returns
         -------
         magnitudes:
-            The original amplitudes DataFrame, with columns containing the calculated
-            magnitude and an associated error now added.
-            Columns = ["epi_dist", "z_dist", "P_amp", "P_freq", "P_time",
-                   "P_avg_amp", "P_filter_gain", "S_amp", "S_freq", "S_time",
-                   "S_avg_amp", "S_filter_gain", "Noise_amp", "is_picked",
-                   "ML", "ML_Err"]
-            Index = Trace ID (see `obspy.Trace.id`)
-            Additional fields:
-            ML : float
-                Magnitude calculated from the chosen amplitude measurement, using the
-                specified attenuation curve and station_corrections.
-            ML_Err : float
-                Estimate of the error on the calculated magnitude, based on potential
-                errors in the maximum amplitude measurement according to the measured
-                noise amplitude.
+            Copy of the amplitude measurement DataFrame with per-trace local magnitude
+            estimates added. Columns are defined by :data:`MAGNITUDE_ESTIMATE_SCHEMA`.
 
         Raises
         ------
@@ -278,57 +299,11 @@ class Magnitude:
         ----------
         magnitudes:
             Contains P- and S-wave amplitude measurements for each component of each
-            station in the look-up table, and local magnitude estimates calculated from
+            station in the lookup table, and local magnitude estimates calculated from
             them (output by calculate_magnitudes()). Note that the amplitude
             observations are raw, but the ML estimates derived from them include station
-            corrections, if provided.
-            Columns:
-                epi_dist : float
-                    Epicentral distance between the station and the event hypocentre.
-                z_dist : float
-                    Vertical distance between the station and the event hypocentre.
-                P_amp : float
-                    Half maximum peak-to-trough amplitude in the P signal window. In
-                    *millimetres*. Corrected for filter gain, if applicable.
-                P_freq : float
-                    Approximate frequency of the maximum amplitude P-wave signal.
-                    Calculated from the peak-to-trough time interval of the max
-                    peak-to-trough amplitude.
-                P_time : `obspy.UTCDateTime` object
-                    Approximate time of amplitude observation (halfway between peak and
-                    trough times).
-                P_avg_amp : float
-                    Average amplitude in the P signal window, measured by the same
-                    method as the Noise_amp (see `noise_measure`) and corrected for the
-                    same filter gain as `P_amp`. In *millimetres*.
-                P_filter_gain : float or NaN
-                    Filter gain at `P_freq` - which has been corrected for in the P_amp
-                    measurements - if a filter was applied prior to amplitude
-                    measurement; Else NaN.
-                S_amp : float
-                    As for P, but in the S wave signal window.
-                S_freq : float
-                    As for P.
-                S_time : `obspy.UTCDateTime` object
-                    As for P.
-                S_avg_amp : float
-                    As for P.
-                S_filter_gain : float or NaN.
-                    As for P.
-                Noise_amp : float
-                    The average signal amplitude in the noise window. In *millimetres*.
-                    See `noise_measure` parameter.
-                is_picked : bool
-                    Whether at least one of the phase arrivals was picked by the
-                    autopicker.
-                ML : float
-                    Magnitude calculated from the chosen amplitude measurement, using
-                    the specified attenuation curve and station_corrections.
-                ML_Err : float
-                    Estimate of the error on the calculated magnitude, based on
-                    potential errors in the maximum amplitude measurement according to
-                    the measured noise amplitude.
-            Index = Trace ID (see `obspy.Trace` object property 'id')
+            corrections, if provided. Columns are defined by
+            :data:`MAGNITUDE_ESTIMATE_SCHEMA`.
 
         Returns
         -------
@@ -354,29 +329,7 @@ class Magnitude:
             amplitudes are also corrected for the relevant filter gain, according to
             the phase (`amp_feature`) chosen for magnitude calculation. Additional
             columns are added for Station correction terms and filtering parameters.
-            Columns = ["epi_dist", "z_dist", "P_amp", "P_freq", "P_time", "P_avg_amp",
-                       "P_filter_gain", "S_amp", "S_freq", "S_time", "S_avg_amp",
-                       "S_filter_gain", "Noise_amp", "is_picked", "ML", "ML_Err",
-                       "Station_Correction", "Noise_Filter", "Trace_Filter",
-                       "Station_Filter", "Dist_Filter", "Dist", "Used"]
-            Index = Trace ID (see `obspy.Trace.id`)
-            Additional columns:
-            Station_Correction : float
-                Magnitude correction term to apply to observations for this station,
-                optionally supplied by the user (see
-                `~quakemigrate.plugins.magnitudes.local_mag.station_corrections`).
-            Noise_Filter : bool
-                Whether this observation meets the noise filter.
-            Trace_Filter : bool
-                Whether this observation matches the trace filter.
-            Station_Filter : bool
-                Whether this observation is not excluded by the station filter.
-            Dist_Filter : bool
-                Whether this observation meets the distance filter.
-            Dist : float
-                The (epicentral or hypocentral) distance between the station and event.
-            Used : bool (== True)
-                Whether the observation meets all filter requirements.
+            Columns are defined by :data:`FILTERED_MAGNITUDE_SCHEMA`.
 
         """
 
@@ -461,12 +414,8 @@ class Magnitude:
             station in the look-up table, and local magnitude estimates calculated from
             them (output by calculate_magnitudes()). Note that the amplitude
             observations are raw, but the ML estimates derived from them include station
-            corrections, if provided.
-            Columns = ["epi_dist", "z_dist", "P_amp", "P_freq", "P_time", "P_avg_amp",
-                       "P_filter_gain", "S_amp", "S_freq", "S_time", "S_avg_amp",
-                       "S_filter_gain", "Noise_amp", "is_picked", "ML", "ML_Err",
-                       "Station_Correction", "Noise_Filter", "Trace_Filter",
-                       "Station_Filter", "Dist_Filter", "Dist", "Used"]
+            corrections, if provided. Columns are defined by
+            :data:`FILTERED_MAGNITUDE_SCHEMA`.
         event:
             Light class encapsulating waveforms, coalescence information, picks and
             location information for a given event.
@@ -476,7 +425,7 @@ class Magnitude:
             A conversion factor based on the lookup table grid projection, used to
             ensure the location uncertainties have units of kilometres.
         noise_measure:
-            Method by which to measure the noise amplitude; root-mean-quare, standard
+            Method by which to measure the noise amplitude; root-mean-square, standard
             deviation or average amplitude of the envelope of the signal.
 
 
@@ -741,29 +690,15 @@ class Magnitude:
             station in the look-up table, and local magnitude estimates calculated from
             them (output by calculate_magnitudes()). Note that the amplitude
             observations are raw, but the ML estimates derived from them include station
-            corrections, if provided.
-            Columns = ["epi_dist", "z_dist", "P_amp", "P_freq", "P_time", "P_avg_amp",
-                       "P_filter_gain", "S_amp", "S_freq", "S_time", "S_avg_amp",
-                       "S_filter_gain", "Noise_amp", "is_picked", "ML", "ML_Err",
-                       "Station_Correction"]
+            corrections, if provided. Columns are defined by
+            :data:`MAGNITUDE_ESTIMATE_SCHEMA`.
 
         Returns
         -------
         magnitudes
             As input, but with amplitude measurements which feature null values for the
-            signal or noise amplitude removed. Now with additional columns:
-            Noise_Filter : bool
-                Whether this observation meets the noise filter.
-            Trace_Filter : bool
-                Whether this observation matches the trace filter.
-            Station_Filter : bool
-                Whether this observation is not excluded by the station filter.
-            Dist_Filter : bool
-                Whether this observation meets the distance filter.
-            Dist : float
-                The (epicentral or hypocentral) distance between the station and event.
-            Used : bool (== True)
-                Whether the observation meets all filter requirements.
+            signal or noise amplitude removed. Columns are defined by
+            :data:`FILTERED_MAGNITUDE_SCHEMA`.
 
         """
 
@@ -848,12 +783,8 @@ class Magnitude:
             station in the look-up table, and local magnitude estimates calculated from
             them (output by calculate_magnitudes()). Note that the amplitude
             observations are raw, but the ML estimates derived from them include station
-            corrections, if provided.
-            Columns = ["epi_dist", "z_dist", "P_amp", "P_freq", "P_time", "P_avg_amp",
-                       "P_filter_gain", "S_amp", "S_freq", "S_time", "S_avg_amp",
-                       "S_filter_gain", "Noise_amp", "is_picked", "ML", "ML_Err",
-                       "Station_Correction", "Noise_Filter", "Trace_Filter",
-                       "Station_Filter", "Dist_Filter", "Dist", "Used"]
+            corrections, if provided. Columns are defined by
+            :data:`FILTERED_MAGNITUDE_SCHEMA`.
         mean_mag:
             Network-averaged local magnitude estimate for the event. Mean (or weighted
             mean) of the magnitude estimates calculated from each individual channel
@@ -899,7 +830,7 @@ class Magnitude:
                 raise AttributeError(
                     "Noise filter must be greater than 1 to use custom mag "
                     "r-squared filtering. Change 'only_used' to True, or "
-                    f"set a noise filter (current = {self.noise_filter}"
+                    f"set a noise filter (current = {self.noise_filter})"
                 )
             for _, mag in magnitudes[~magnitudes["Noise_Filter"]].iterrows():
                 # Correct noise amp for station correction
@@ -914,7 +845,7 @@ class Magnitude:
                 # If predicted amp is more than 5x larger than noise amp, keep
                 # this observation for mag_r2 calculation
                 if predicted_amp / noise_amp < 5:
-                    magnitudes.drop(labels=mag.name)
+                    magnitudes = magnitudes.drop(labels=mag.name)
 
         # Calculate amplitudes -- including station corrections!
         amps = (

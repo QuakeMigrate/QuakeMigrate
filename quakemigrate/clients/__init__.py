@@ -23,11 +23,9 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+from quakemigrate.clients.base import BaseWaveformClient
+from quakemigrate.clients.registry import get_waveform_client_class
 from quakemigrate.io import read_response_inv
-from .base import BaseWaveformClient
-from .fdsn import FDSNWaveformClient
-from .local import LocalWaveformClient
-from .seismonpy import SeismonWaveformClient
 
 
 def make_waveform_client(config: Mapping[str, Any]) -> BaseWaveformClient:
@@ -38,11 +36,12 @@ def make_waveform_client(config: Mapping[str, Any]) -> BaseWaveformClient:
     ----------
     config:
         Configuration specifying the waveform client type and its options.
-        The ``client`` key selects the backend implementation. Supported values are
-        ``"local"``, ``"fdsn"``, and ``"seismon"``.
+        The client key selects the backend implementation. Supported values are
+        "local", "fdsn", and any custom plugin registered to the
+        quakemigrate.waveform_clients entrypoint.
 
-        If ``inventory_path`` is provided, the inventory is read with ObsPy and passed
-        to the constructed client as ``inventory``.
+        If inventory_path is provided, the inventory is read with ObsPy and passed
+        to the constructed client as inventory.
 
     Returns
     -------
@@ -52,7 +51,7 @@ def make_waveform_client(config: Mapping[str, Any]) -> BaseWaveformClient:
     Raises
     ------
     ValueError
-        Raised if ``config["client"]`` specifies an unknown client type.
+        Raised if config["client"] specifies an unknown client type.
     KeyError
         Raised if required configuration keys for the selected client are missing.
 
@@ -66,31 +65,15 @@ def make_waveform_client(config: Mapping[str, Any]) -> BaseWaveformClient:
         read_response_inv(inventory_path) if inventory_path is not None else None
     )
 
-    match client_type:
-        case "local":
-            return LocalWaveformClient(
-                path=client_config.pop("path"),
-                format=client_config.pop("format"),
-                inventory=inventory,
-                **client_config,
-            )
-        case "fdsn":
-            return FDSNWaveformClient(
-                base_url=client_config.pop("base_url"),
-                timeout=int(client_config.pop("timeout", 60)),
-                inventory=inventory,
-                **client_config,
-            )
-        case "seismon":
-            return SeismonWaveformClient(inventory=inventory, **client_config)
-        case _:
-            raise ValueError(f"Unknown client: {client_type}")
+    waveform_client_class = get_waveform_client_class(client_type)
+
+    return waveform_client_class(
+        inventory=inventory,
+        **client_config,
+    )
 
 
 __all__ = [
     "BaseWaveformClient",
-    "LocalWaveformClient",
-    "FDSNWaveformClient",
-    "SeismonWaveformClient",
     "make_waveform_client",
 ]

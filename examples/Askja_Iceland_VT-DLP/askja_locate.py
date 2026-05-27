@@ -26,9 +26,13 @@ from obspy.core import AttribDict
 from quakemigrate import QuakeScan
 from quakemigrate.clients import make_waveform_client
 from quakemigrate.io import ARCHIVE_FORMATS, read_lut, read_stations
-from quakemigrate.plugins.onsets import STALTAOnset
+from quakemigrate.plugins.onsets.stalta import STALTAOnset
 from quakemigrate.plugins.pickers import GaussianPicker
-from quakemigrate.plugins.magnitudes import LocalMag
+from quakemigrate.plugins.magnitudes import (
+    AmplitudeConfig,
+    MagnitudeConfig,
+    build_local_magnitude_plugin,
+)
 from quakemigrate.plugins.visualisation import EventSummary3DPlugin
 
 
@@ -64,24 +68,28 @@ client_config = {
 waveform_client = make_waveform_client(client_config)
 
 # --- Specify parameters for amplitude measurement ---
-amp_params = AttribDict()
-amp_params.signal_window = 1.0
-amp_params.noise_window = 5.0
-amp_params.noise_measure = "ENV"
-amp_params.bandpass_filter = True
-amp_params.bandpass_lowcut = 2.0
-amp_params.bandpass_highcut = 20.0
-amp_params.filter_corners = 4
+amp_params = AmplitudeConfig(
+    noise_window=5.0,
+    noise_measure="ENV",
+    signal_window=1.0,
+    bandpass_filter=True,
+    bandpass_lowcut=2.0,
+    bandpass_highcut=20.0,
+    filter_corners=4,
+)
 
 # --- Specify parameters for magnitude calculation ---
-mag_params = AttribDict()
-mag_params.A0 = "Greenfield2018_askja"
-mag_params.use_hyp_dist = True
-mag_params.amp_feature = "S_amp"
-mag_params.trace_filter = ".*H[NE]$"
-mag_params.noise_filter = 3.0
+mag_params = MagnitudeConfig(
+    A0="Greenfield2018_askja",
+    use_hyp_dist=True,
+    amp_feature="S_amp",
+    trace_filter=".*H[NE]$",
+    noise_filter=3.0,
+)
 
-mags = LocalMag(amp_params=amp_params, mag_params=mag_params, plot_amplitudes=True)
+mags = build_local_magnitude_plugin(
+    amplitude=amp_params, magnitude=mag_params, plot_amplitudes=True
+)
 
 # --- Load the LUT ---
 lut = read_lut(lut_file=lut_file)
@@ -98,11 +106,11 @@ onset.sta_lta_windows = {"P": [0.2, 1.0], "S": [0.2, 1.0]}
 picker = GaussianPicker(onset=onset)
 picker.plot_picks = False
 
-event_summary_plugin = EventSummary3DPlugin(
+event_summary = EventSummary3DPlugin(
     overlay_manifest="./inputs/XY_FILES/askja_xyfiles.csv"
 )
 
-plugins = [picker, mags, event_summary_plugin]
+plugins = [picker, mags, event_summary]
 
 # --- Create new QuakeScan ---
 scan = QuakeScan(

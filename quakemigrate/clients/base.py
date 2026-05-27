@@ -64,7 +64,7 @@ class BaseWaveformClient(ABC):
         timing offset. See :func:`~quakemigrate.util.shift_to_sample`.
     response_removal_params:
         Optional dictionary of response-removal settings. Recognized keys are
-        ``"water_level"``, ``"pre_filt"``, and ``"remove_full_response"``.
+        "water_level", "pre_filt", and "remove_full_response".
     water_level:
         Water level to use in instrument response removal.
     pre_filt:
@@ -95,8 +95,8 @@ class BaseWaveformClient(ABC):
         Initialise common response-removal settings.
 
         If an instrument response inventory is provided, response-removal parameters are
-        loaded from ``response_removal_params`` where present. Otherwise the default
-        values defined on the dataclass are retained.
+        loaded from response_removal_params where present. Otherwise the default values
+        defined on the dataclass are retained.
 
         """
 
@@ -104,11 +104,11 @@ class BaseWaveformClient(ABC):
             params = self.response_removal_params or {}
             if self.response_removal_params is None:
                 print(
-                    "Warning: 'water level' for instrument correction not "
-                    "specified. Set to default: 60"
+                    "Warning: 'water level' for instrument correction not specified. "
+                    "Set to default: 60"
                 )
             self.water_level = params.get("water_level", 60.0)
-            self.pre_filt = params.get("pre_filt")
+            self.pre_filt = _as_pre_filt(params.get("pre_filt"))
             self.remove_full_response = params.get("remove_full_response", False)
 
     @util.timeit("debug")
@@ -238,7 +238,7 @@ class BaseWaveformClient(ABC):
 
         - populate default network and location codes when none were supplied
         - merge traces channel-by-channel
-        - copy the merged stream as ``raw_waveforms``
+        - copy the merged stream as raw_waveforms
         - shift traces onto the sample grid if required
         - remove stations marked as read-only
         - trim padded data back to the requested time window
@@ -347,3 +347,45 @@ class BaseWaveformClient(ABC):
             out = "\tNo instrument response inventory provided!\n"
 
         return out
+
+
+def _as_pre_filt(value: list | tuple) -> tuple[float, float, float, float] | None:
+    """
+    Convert a response-removal pre-filter specification to a four-value tuple.
+
+    Parameters
+    ----------
+    value:
+        Pre-filter specification. Expected format is [f1, f2, f3, f4] with frequencies
+        in Hz. If None, no pre-filter is applied.
+
+    Returns
+    -------
+    pre_filt:
+        Four frequency corners as (f1, f2, f3, f4), or None if no pre-filter was
+        specified.
+
+    Raises
+    ------
+    TypeError
+        If value is not a list or tuple, or if any entry cannot be converted to a float.
+    ValueError
+        If value does not contain exactly four entries.
+
+    """
+
+    if value is None:
+        return None
+
+    if not isinstance(value, (list, tuple)):
+        raise TypeError("pre_filt must be an array of four numbers.")
+
+    if len(value) != 4:
+        raise ValueError("pre_filt must contain exactly four values.")
+
+    try:
+        a, b, c, d = (float(x) for x in value)
+    except (TypeError, ValueError) as e:
+        raise TypeError("pre_filt must contain only numbers.") from e
+
+    return a, b, c, d

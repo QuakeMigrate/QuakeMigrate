@@ -89,7 +89,8 @@ def read_stations(station_file, **kwargs):
 
     stn_data = pd.read_csv(station_file, **kwargs)
 
-    if ("Latitude" or "Longitude" or "Elevation" or "Name") not in stn_data.columns:
+    required_columns = ("Latitude", "Longitude", "Elevation", "Name")
+    if not all(column in stn_data.columns for column in required_columns):
         raise util.StationFileHeaderException
 
     stn_data["Elevation"] = stn_data["Elevation"].apply(lambda x: -1 * x)

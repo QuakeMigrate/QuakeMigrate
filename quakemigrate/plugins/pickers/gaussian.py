@@ -52,15 +52,14 @@ def build_gaussian_picker(
     onset:
         Onset plugin used to calculate onset functions for picking.
     threshold_method:
-        Thresholding method used to identify candidate picks. Supported values are
-        ``"MAD"`` and ``"percentile"``.
+        Thresholding method used to identify candidate picks. Supported values are "MAD"
+        and "percentile".
     mad_multiplier:
         Scaling factor applied to the Median Absolute Deviation when
-        ``threshold_method="MAD"``.
+        threshold_method="MAD".
     percentile:
         Fraction in the range [0, 1] used to define the percentile threshold when
-        ``threshold_method="percentile"``. For example, ``0.99`` selects the 99th
-        percentile.
+        threshold_method="percentile". For example, 0.99 selects the 99th percentile.
     plot_picks:
         Whether to generate phase-pick summary plots.
     write_seed_ids:
@@ -74,7 +73,7 @@ def build_gaussian_picker(
     Raises
     ------
     ValueError
-        If ``threshold_method`` is not one of ``"MAD"`` or ``"percentile"``.
+        If threshold_method is not one of "MAD" or "percentile".
 
     """
 

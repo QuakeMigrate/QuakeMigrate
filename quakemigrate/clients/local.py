@@ -77,15 +77,15 @@ def _validate_path_format(archive_format: str) -> str:
 
     Supported placeholders are:
 
-    - ``year``
-    - ``month``
-    - ``day``
-    - ``jday``
-    - ``network``
-    - ``station``
-    - ``location``
-    - ``channels``
-    - ``dtime``
+    - year
+    - month
+    - day
+    - jday
+    - network
+    - station
+    - location
+    - channels
+    - dtime
 
     Parameters
     ----------
@@ -137,9 +137,8 @@ class LocalWaveformClient(BaseWaveformClient):
     path:
         Root directory of the waveform archive.
     format:
-        Archive path template, relative to ``path``. The template may include any of
-        the supported placeholders: ``year``, ``month``, ``day``, ``jday``, ``network``,
-        ``station``, ``location``, ``channels``, and ``dtime``.
+        Archive path template, relative to path. Supported placeholders are specified in
+        :func:`_validate_path_format`.
 
     """
 
@@ -233,9 +232,9 @@ class LocalWaveformClient(BaseWaveformClient):
         """
         Yield archive files matching a station/time request.
 
-        The archive template is expanded once per station per day between ``starttime``
-        and ``endtime`` inclusive. Any matching filesystem paths are yielded in the
-        order they are discovered.
+        The archive template is expanded once per station per day between starttime and
+        endtime inclusive. Any matching filesystem paths are yielded in the order they
+        are discovered.
 
         Parameters
         ----------

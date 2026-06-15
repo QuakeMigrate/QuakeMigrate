@@ -2,7 +2,7 @@
 Collection of plugins for use with the core QuakeMigrate package.
 
 Plugins are resolved by name from either QuakeMigrate's built-in plugin registry or from
-installed third-party packages that expose entry points in the ``quakemigrate.plugins``
+installed third-party packages that expose entry points in the quakemigrate.plugins
 group.
 
 :copyright:
@@ -39,8 +39,7 @@ class Plugin(Protocol):
     Protocol for QuakeMigrate plugins.
 
     Plugins may be implemented as any object that provides the required metadata
-    attributes and a ``run`` method. They do not need to inherit from a common base
-    class.
+    attributes and a run method. They do not need to inherit from a common base class.
 
     Attributes
     ----------
@@ -89,7 +88,7 @@ def call_by_signature(fn: Callable, available: dict[str, Any]):
     Returns
     -------
     result:
-        Object returned by ``fn``.
+        Object returned by fn.
 
     Raises
     ------

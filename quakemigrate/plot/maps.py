@@ -284,8 +284,7 @@ def plot_stations(axes: MapAxes2D | MapAxes3D, stations: list[Station], c: str) 
     axes:
         Map and optional cross-section axes on which to plot stations.
     stations:
-        DataFrame containing station coordinates and names. Expected columns
-        include ``Name``, ``Longitude``, ``Latitude``, and ``Elevation``.
+        List of Station objects to be visualised on the map and cross-sections.
     c:
         Marker and annotation colour.
 
@@ -410,7 +409,7 @@ def _read_xy_points(file: str | pathlib.Path) -> pd.DataFrame:
     Returns
     -------
     points:
-        DataFrame containing ``Longitude`` and ``Latitude`` columns.
+        DataFrame containing Longitude and Latitude columns.
 
     Raises
     ------
@@ -439,14 +438,14 @@ def plot_map_overlays(overlay_manifest: str | pathlib.Path, ax: Axes) -> None:
     Plot user-supplied overlays on a map axes.
 
     The overlay manifest file contains one row per overlay and may specify the overlay
-    kind and plotting style. Supported overlay kinds are ``line`` and ``scatter``.
+    kind and plotting style. Supported overlay kinds are line and scatter.
 
     The manifest columns are interpreted as:
 
-    ``File, Kind, Color, Linewidth, Linestyle, Marker, Markersize, Alpha, Label``
+    File, Kind, Color, Linewidth, Linestyle, Marker, Markersize, Alpha, Label
 
     Each referenced coordinate file should contain longitude and latitude pairs,
-    one point per row. Lines beginning with ``#`` are treated as comments.
+    one point per row. Lines beginning with # are treated as comments.
 
     Parameters
     ----------

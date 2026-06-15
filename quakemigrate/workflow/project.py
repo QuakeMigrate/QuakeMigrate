@@ -14,6 +14,7 @@ from __future__ import annotations
 import pathlib
 import shutil
 from importlib.resources import files
+from typing import Literal
 
 from quakemigrate.exceptions import ConfigError, ProjectError
 
@@ -111,9 +112,12 @@ def require_project_root(start: pathlib.Path | None = None) -> pathlib.Path:
     )
 
 
+Stage = Literal["detect", "trigger", "locate", "lut"]
+
+
 def stage_config_path(
     *,
-    stage: str,
+    stage: Stage,
     run_name: str | None = None,
     lut_name: str | None = None,
     project_root: pathlib.Path | None = None,
@@ -123,6 +127,30 @@ def stage_config_path(
 
     - detect/trigger/locate: configs/<run_name>/<stage>-<run_name>.toml
     - lut config:            luts/<lut_name>.toml
+
+    Parameters
+    ----------
+    stage:
+        Name of the processing stage whose configuration path should be resolved.
+    run_name:
+        Name of the run. Required for detect, trigger, and locate stages.
+    lut_name:
+        Name of the lookup-table configuration. Required for the lut stage.
+    project_root:
+        Optional project root directory. If omitted, the project root is resolved using
+        :func:`require_project_root`.
+
+    Returns
+    -------
+    pathlib.Path
+        Absolute or project-root-relative path to the stage configuration file,
+        depending on the value returned by :func:`require_project_root`.
+
+    Raises
+    ------
+    ConfigError
+        Raised if the stage is unknown, or if the required run or LUT name is missing.
+
     """
 
     root = require_project_root(project_root)

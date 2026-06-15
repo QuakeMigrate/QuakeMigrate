@@ -149,7 +149,7 @@ class AmplitudeConfig:
 
 
 AMPLITUDE_MEASUREMENT_SCHEMA = {
-    "id": "Trace ID, corresponding to ``obspy.Trace.id``.",
+    "id": "Trace ID, corresponding to obspy.Trace.id.",
     "epi_dist": "Epicentral distance between the station and event hypocentre, in km.",
     "z_dist": "Vertical distance between the station and event hypocentre, in km.",
     "P_amp": (
@@ -166,11 +166,9 @@ AMPLITUDE_MEASUREMENT_SCHEMA = {
     ),
     "P_avg_amp": (
         "Average amplitude in the P signal window, in mm, measured using the same "
-        "method as ``Noise_amp`` and corrected for filter gain if applicable."
+        "method as Noise_amp and corrected for filter gain if applicable."
     ),
-    "P_filter_gain": (
-        "Filter gain at ``P_freq`` if filtering was applied; otherwise NaN."
-    ),
+    "P_filter_gain": ("Filter gain at P_freq if filtering was applied; otherwise NaN."),
     "S_amp": (
         "Half maximum peak-to-trough amplitude in the S signal window, in mm. "
         "Corrected for filter gain, if applicable."
@@ -185,14 +183,12 @@ AMPLITUDE_MEASUREMENT_SCHEMA = {
     ),
     "S_avg_amp": (
         "Average amplitude in the S signal window, in mm, measured using the same "
-        "method as ``Noise_amp`` and corrected for filter gain if applicable."
+        "method as Noise_amp and corrected for filter gain if applicable."
     ),
-    "S_filter_gain": (
-        "Filter gain at ``S_freq`` if filtering was applied; otherwise NaN."
-    ),
+    "S_filter_gain": ("Filter gain at S_freq if filtering was applied; otherwise NaN."),
     "Noise_amp": (
         "Average signal amplitude in the noise window, in mm, measured using "
-        "``AmplitudeConfig.noise_measure``."
+        "AmplitudeConfig.noise_measure."
     ),
     "is_picked": (
         "Whether at least one phase arrival for this station was picked by the "

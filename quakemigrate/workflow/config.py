@@ -61,10 +61,7 @@ def load_toml(config_file: pathlib.Path, basepath: pathlib.Path | None = None) -
 _PATH_KEYS = {"station_file", "vmodel_file", "file", "path", "response_file"}
 
 
-def resolve_config_paths(
-    config: dict,
-    basepath: pathlib.Path,
-) -> dict:
+def resolve_config_paths(config: dict, basepath: pathlib.Path) -> dict:
     """
     Resolve relative paths in config file against some base directory.
 

@@ -12,6 +12,7 @@ traveltime lookup table geometry.
 
 from __future__ import annotations
 
+import csv
 import pathlib
 from dataclasses import dataclass
 from typing import Literal, TYPE_CHECKING
@@ -331,6 +332,17 @@ def _read_xy_overlay_manifest(xy_files: str | pathlib.Path) -> list[XYOverlaySpe
     """
     Read a map-overlay manifest file into structured overlay specifications.
 
+    The manifest is a CSV file with one overlay per row. Only the first two columns are
+    required; trailing style columns may be omitted and are replaced with defaults. The
+    columns are:
+
+    File, Kind, Color, Size, Style, Alpha, Label
+
+    The meaning of Size and Style depends on Kind:
+
+    - for line overlays, Size is linewidth and Style is linestyle
+    - for scatter overlays, Size is markersize and Style is marker
+
     Parameters
     ----------
     xy_files:
@@ -344,57 +356,104 @@ def _read_xy_overlay_manifest(xy_files: str | pathlib.Path) -> list[XYOverlaySpe
     Raises
     ------
     ValueError
-        If an overlay kind is not recognised.
+        Raised if a row is empty, an overlay file is missing, an overlay kind is not
+        recognised, or a numeric style field cannot be parsed.
 
     """
 
-    cols = [
-        "File",
-        "Kind",
-        "Color",
-        "Linewidth",
-        "Linestyle",
-        "Marker",
-        "Markersize",
-        "Alpha",
-        "Label",
-    ]
-
-    df = pd.read_csv(
-        xy_files,
-        names=cols,
-        header=None,
-        comment="#",
-    ).fillna("")
+    manifest = pathlib.Path(xy_files)
 
     specs = []
-    for _, row in df.iterrows():
-        kind = str(row["Kind"]).strip() or "line"
-        if kind not in {"line", "scatter"}:
-            raise ValueError(
-                f"Invalid overlay kind {kind} in {xy_files}. "
-                "Expected 'line' or 'scatter'."
-            )
+    with manifest.open(newline="") as f:
+        reader = csv.reader(f)
 
-        specs.append(
-            XYOverlaySpec(
-                file=pathlib.Path(str(row["File"]).strip()),
-                kind=kind,
-                color=str(row["Color"]).strip() or "black",
-                linewidth=float(row["Linewidth"])
-                if str(row["Linewidth"]).strip()
-                else 1.0,
-                linestyle=str(row["Linestyle"]).strip() or "-",
-                marker=str(row["Marker"]).strip() or "o",
-                markersize=float(row["Markersize"])
-                if str(row["Markersize"]).strip()
-                else 20.0,
-                alpha=float(row["Alpha"]) if str(row["Alpha"]).strip() else 1.0,
-                label=str(row["Label"]).strip() or None,
-            )
-        )
+        for line_number, row in enumerate(reader, start=1):
+            row = [value.strip() for value in row]
+
+            if not row or not any(row):
+                continue
+
+            if row[0].startswith("#"):
+                continue
+
+            specs.append(_parse_xy_overlay_row(row, manifest, line_number))
 
     return specs
+
+
+def _parse_xy_overlay_row(
+    row: list[str],
+    manifest: pathlib.Path,
+    line_number: int,
+) -> XYOverlaySpec:
+    """
+    Parse a single compact overlay manifest row.
+
+    Parameters
+    ----------
+    row:
+        CSV row values with surrounding whitespace stripped.
+    manifest:
+        Path to the manifest file, used for relative overlay paths and error messages.
+    line_number:
+        Row number in the manifest file, counted from 1.
+
+    Returns
+    -------
+    spec:
+        Parsed overlay specification.
+
+    Raises
+    ------
+    ValueError
+        Raised if the row is invalid.
+
+    """
+
+    row += [""] * (7 - len(row))
+    file_, kind, color, size, style, alpha, label = row[:7]
+
+    if not file_:
+        raise ValueError(f"Missing overlay file in {manifest} on line {line_number}.")
+
+    kind = kind or "line"
+    if kind not in {"line", "scatter"}:
+        raise ValueError(
+            f"Invalid overlay kind {kind} in {manifest} on line {line_number}. "
+            "Expected 'line' or 'scatter'."
+        )
+
+    file_path = pathlib.Path(file_)
+    if not file_path.is_absolute():
+        file_path = manifest.parent / file_path
+
+    try:
+        if kind == "line":
+            return XYOverlaySpec(
+                file=file_path,
+                kind="line",
+                color=color or "black",
+                linewidth=float(size) if size else 1.0,
+                linestyle=style or "-",
+                alpha=float(alpha) if alpha else 1.0,
+                label=label or None,
+            )
+
+        return XYOverlaySpec(
+            file=file_path,
+            kind="scatter",
+            color=color or "black",
+            markersize=float(size) if size else 20.0,
+            marker=style or "o",
+            alpha=float(alpha) if alpha else 1.0,
+            label=label or None,
+        )
+
+    except ValueError as e:
+        raise ValueError(
+            f"Invalid numeric overlay style value in {manifest} on line "
+            f"{line_number}: {row[:7]}"
+        ) from e
 
 
 def _read_xy_points(file: str | pathlib.Path) -> pd.DataFrame:

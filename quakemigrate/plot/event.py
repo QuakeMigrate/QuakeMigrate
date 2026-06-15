@@ -104,11 +104,11 @@ def _extract_2d_coalescence_slices(
     lut:
         Lookup table object used to convert the requested surface depth to a grid index.
     slice_mode:
-        Strategy used to select the XY slice. ``"surface"`` extracts the slice at
-        ``surface_depth``. ``"maximum"`` extracts the slice through the depth index of
-        the global 3-D coalescence maximum.
+        Strategy used to select the XY slice. "surface" extracts the slice at
+        surface_depth. "maximum" extracts the slice through the depth index of the
+        global 3-D coalescence maximum.
     surface_depth:
-        Depth, in the LUT coordinate system, used when ``slice_mode="surface"``.
+        Depth, in the LUT coordinate system, used when slice_mode="surface".
 
     Returns
     -------
@@ -120,7 +120,7 @@ def _extract_2d_coalescence_slices(
     Raises
     ------
     ValueError
-        If an invalid ``slice_mode`` is supplied.
+        If an invalid slice_mode is supplied.
 
     """
 
@@ -237,7 +237,7 @@ def _merge_waveform_legend_labels(
     handles:
         Matplotlib legend handles.
     labels:
-        Legend labels corresponding to ``handles``.
+        Legend labels corresponding to handles.
     channel_maps:
         Mapping from phase name to the configured component string used for that phase.
 
@@ -435,11 +435,11 @@ def event_summary_2d(
     lut:
         Traveltime lookup table object describing the spatial grid and geometry.
     slice_mode:
-        Strategy used to select the XY slice. ``"surface"`` extracts the slice at
-        ``surface_depth``. ``"maximum"`` extracts the slice through the depth index of
-        the global 3-D coalescence maximum.
+        Strategy used to select the XY slice. "surface" extracts the slice at
+        surface_depth. "maximum" extracts the slice through the depth index of the
+        global 3-D coalescence maximum.
     surface_depth:
-        Depth, in the LUT coordinate system, used when ``slice_mode="surface"``.
+        Depth, in the LUT coordinate system, used when slice_mode="surface".
     overlay_manifest:
         Path to a map-overlay manifest file describing one or more overlays to draw on
         the XY map panel.
@@ -540,8 +540,8 @@ def _plot_coalescence_panels(
     axes:
         Map and cross-section axes on which to draw the coalescence map.
     slices:
-        Dictionary of coalescence slices keyed by panel name (for example
-        ``"xy"``, ``"xz"``, and ``"yz"``).
+        Dictionary of coalescence slices keyed by panel name (for example "xy", "xz",
+        and "yz").
 
     """
 

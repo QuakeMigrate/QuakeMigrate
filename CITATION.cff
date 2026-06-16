@@ -1,0 +1,67 @@
+cff-version: 1.2.0
+message: "If you use QuakeMigrate in your work, please cite the software and the accompanying paper."
+authors:
+  - family-names: Winder
+    given-names: Tom
+    orcid: "https://orcid.org/0000-0001-7047-8673"
+  - family-names: Bacon
+    given-names: Conor Andrew
+    orcid: "https://orcid.org/0000-0002-2558-8555"
+  - family-names: Smith
+    given-names: Jonathan D.
+    orcid: "https://orcid.org/0000-0002-1684-1344"
+  - family-names: Hudson
+    given-names: Thomas Samuel
+    orcid: "https://orcid.org/0000-0003-2944-883X"
+  - family-names: White
+    given-names: Robert S.
+    orcid: "https://orcid.org/0000-0002-2972-397X"
+title: "QuakeMigrate"
+version: "1.2.2"
+type: software
+license: GPL-3.0-only
+repository-code: "https://github.com/QuakeMigrate/QuakeMigrate"
+url: "https://quakemigrate.readthedocs.io/en/latest/"
+keywords:
+  - "Earthquake detection"
+  - "Earthquake location"
+  - "Cryoseismology"
+  - "Volcano seismology"
+  - "Seismology"
+  - "Open-source software"
+  - "Microseismicity"
+  - "Python"
+
+abstract: >-
+  A Python package for automatic earthquake detection and location using waveform migration and stacking.
+
+identifiers:
+  - type: doi
+    value: "10.5281/zenodo.4442748"
+    description: "Concept DOI for QuakeMigrate software releases"
+
+preferred-citation:
+  type: article
+  title: "QuakeMigrate: a Python Package for Automatic Earthquake Detection and Location Using Waveform Migration and Stacking"
+  authors:
+    - family-names: Winder
+      given-names: Tom
+      orcid: "https://orcid.org/0000-0001-7047-8673"
+    - family-names: Bacon
+      given-names: Conor Andrew
+      orcid: "https://orcid.org/0000-0002-2558-8555"
+    - family-names: Smith
+      given-names: Jonathan D.
+      orcid: "https://orcid.org/0000-0002-1684-1344"
+    - family-names: Hudson
+      given-names: Thomas Samuel
+      orcid: "https://orcid.org/0000-0003-2944-883X"
+    - family-names: White
+      given-names: Robert S.
+      orcid: "https://orcid.org/0000-0002-2972-397X"
+  journal: "Seismica"
+  year: 2026
+  volume: 5
+  issue: 1
+  doi: "10.26443/seismica.v5i1.1854"
+  url: "https://doi.org/10.26443/seismica.v5i1.1854"

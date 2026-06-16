@@ -3,7 +3,7 @@
 # see PEP518: https://www.python.org/dev/peps/pep-0518/
 requires = [
     "numpy",
-    "setuptools >= 61.0.0",
+    "setuptools >= 77.0.3",
     "wheel",
     ]
 build-backend = "setuptools.build_meta"
@@ -21,16 +21,17 @@ name = "quakemigrate"
 version = "1.2.2"
 description = "A Python package for automatic earthquake detection and location using waveform migration and stacking."
 readme = "README.md"
-license = {text = "GPLv3"}
-requires-python = ">=3.9"
+license = "GPL-3.0-only"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
 authors = [
     {name = "The QuakeMigrate Development Team", email = "quakemigrate.developers@gmail.com"},
     {name = "Tom Winder", email = "tom.winder@esc.cam.ac.uk"},
-    {name = "Conor Bacon", email = "cbacon@ldeo.columbia.edu"},
+    {name = "Conor A. Bacon", email = "conor.bacon@norsar.no"},
 ]
 maintainers = [
     {name = "Tom Winder", email = "tom.winder@esc.cam.ac.uk"},
-    {name = "Conor Bacon", email = "cbacon@ldeo.columbia.edu"},
+    {name = "Conor A. Bacon", email = "conor.bacon@norsar.no"},
 ]
 keywords = [
     "seismic event detection",
@@ -49,11 +50,9 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering",
     "Natural Language :: English",
-    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",

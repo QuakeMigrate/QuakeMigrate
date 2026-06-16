@@ -20,8 +20,8 @@
     <img src="https://codecov.io/gh/QuakeMigrate/QuakeMigrate/branch/master/graph/badge.svg">
   </a>
   <!-- Python version-->
-  <a href="https://www.python.org/downloads/release/python-390/">
-    <img src="https://img.shields.io/badge/python-3.9+-blue.svg" />
+  <a href="https://www.python.org/downloads/release/python-3100/">
+    <img src="https://img.shields.io/badge/python-3.10+-blue.svg" />
   </a>
   <!-- License -->
   <a href="https://www.gnu.org/licenses/gpl-3.0">
@@ -71,24 +71,46 @@ For a demonstration of the options available, and a starting point to write scri
 
 Citation
 --------
-If you use this package in your work, please cite the following conference presentation:
+If you use QuakeMigrate in your work, please cite the software and the accompanying paper.
 
-**Winder, T., Bacon, C.A., Smith, J.D., Hudson, T., Greenfield, T. and White, R.S., 2020.** QuakeMigrate: a Modular, Open-Source Python Package for Automatic Earthquake Detection and Location. *In AGU Fall Meeting 2020. AGU*.
+### Paper
 
+**Winder, T., Bacon, C.A., Smith, J.D., Hudson, T.S., and White, R.S. (2026).**
+QuakeMigrate: a Python Package for Automatic Earthquake Detection and Location Using Waveform Migration and Stacking.
+*Seismica*, 5(1).
 
-```console
-Winder, T., Bacon, C.A., Smith, J.D., Hudson, T., Greenfield, T. and White, R.S., 2020. QuakeMigrate: a Modular, Open-Source Python Package for Automatic Earthquake Detection and Location. In AGU Fall Meeting 2020. AGU.
+<p align="center">
+  <!-- DOI -->
+  <a href="https://doi.org/10.26443/seismica.v5i1.1854">
+    <img src="https://img.shields.io/badge/DOI-10.26443/seismica.v5i1.1854-blue.svg" alt="DOI" />
+  </a>
+</p>
+
+```bibtex
+@article{winder2026quakemigrate,
+  title = {QuakeMigrate: a Python Package for Automatic Earthquake Detection and Location Using Waveform Migration and Stacking},
+  author = {Winder, Tom and Bacon, Conor Andrew and Smith, Jonathan D. and Hudson, Thomas Samuel and White, Robert S.},
+  journal = {Seismica},
+  year = {2026},
+  volume = {5},
+  number = {1},
+  doi = {10.26443/seismica.v5i1.1854},
+  url = {https://doi.org/10.26443/seismica.v5i1.1854}
+}
 ```
 
-as well as the relevant version of the source code on [Zenodo](https://doi.org/10.5281/zenodo.4442748).
+### Software
 
-We hope to have a publication coming out soon:
+Please also cite the relevant QuakeMigrate software release on Zenodo:
 
-**Winder, T., Bacon, C.A., Smith, J.D., Hudson, T.S., and White, R.S.** QuakeMigrate: a Python Package for Automatic Earthquake Detection and Location Using Waveform Migration and Stacking. (*to be submitted to Seismica*).
+<p align="center">
+  <!-- DOI -->
+  <a href="https://doi.org/10.5281/zenodo.4442748">
+    <img src="https://zenodo.org/badge/DOI/10.5281/zenodo.4442748.svg" alt="DOI" />
+  </a>
+</p>
 
-```console
-Winder, T., Bacon, C.A., Smith, J.D., Hudson, T.S., and White, R.S. QuakeMigrate: a Python Package for Automatic Earthquake Detection and Location Using Waveform Migration and Stacking. (to be submitted to Seismica).
-```
+Full citation metadata is provided in [`CITATION.cff`](CITATION.cff).
 
 Contributing to QuakeMigrate
 ----------------------------
@@ -102,8 +124,8 @@ You can contact us directly at: quakemigrate.developers@gmail.com
 
 Any additional comments/questions can be directed to:
 * **Tom Winder** - tom.winder@esc.cam.ac.uk
-* **Conor Bacon** - conor.bacon@cantab.net
+* **Conor Bacon** - conor.bacon@norsar.no
 
 License
 -------
-This package is written and maintained by the QuakeMigrate developers, Copyright QuakeMigrate developers 2020–2025. It is distributed under the GPLv3 License. Please see the [LICENSE](LICENSE) file for a complete description of the rights and freedoms that this provides the user.
+This package is written and maintained by the QuakeMigrate developers, Copyright QuakeMigrate developers 2020–2026. It is distributed under the GPLv3 License. Please see the [LICENSE](LICENSE) file for a complete description of the rights and freedoms that this provides the user.

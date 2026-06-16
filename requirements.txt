@@ -1,6 +1,0 @@
-matplotlib
-numpy
-obspy>=1.3
-pandas
-pyproj>=2.5
-scipy

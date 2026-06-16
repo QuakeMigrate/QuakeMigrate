@@ -21,7 +21,7 @@ The package has been built with a modular architecture, providing the potential 
 The source code for the project is hosted on |github|.
 
 This package is written by the QuakeMigrate developers, and is distributed under
-the GPLv3 License, Copyright QuakeMigrate developers 2020–2025.
+the GPLv3 License, Copyright QuakeMigrate developers 2020–2026.
 
 
 .. |github| raw:: html
@@ -30,28 +30,37 @@ the GPLv3 License, Copyright QuakeMigrate developers 2020–2025.
 
 Citation
 --------
-If you use this package in your work, please cite the following conference presentation:
 
-Winder, T., Bacon, C.A., Smith, J.D., Hudson, T., Greenfield, T. and White, R.S., 2020. QuakeMigrate: a Modular, Open-Source Python Package for Automatic Earthquake Detection and Location. AGUFM, 2020. pp.S38-0013.
+If you use QuakeMigrate in your work, please cite the software and the accompanying paper.
 
-as well as the relevant version of the source code on `Zenodo <https://doi.org/10.5281/zenodo.4442749>`_.
+**Paper**
 
-We hope to have a publication coming out soon:
+Winder, T., Bacon, C.A., Smith, J.D., Hudson, T.S., and White, R.S. (2026).
+QuakeMigrate: a Python Package for Automatic Earthquake Detection and Location Using Waveform Migration and Stacking.
+*Seismica*, 5(1).
+`https://doi.org/10.26443/seismica.v5i1.1854 <https://doi.org/10.26443/seismica.v5i1.1854>`_
 
-Winder, T., Bacon, C.A., Smith, J.D., Hudson, T.S., Drew, J., and White, R.S. QuakeMigrate: a Python Package for Automatic Earthquake Detection and Location Using Waveform Migration and Stacking. (to be submitted to *Seismica*).
+**Software**
+
+Please also cite the relevant QuakeMigrate software release on Zenodo:
+
+`https://doi.org/10.5281/zenodo.4442748 <https://doi.org/10.5281/zenodo.4442748>`_
+
+Full citation metadata is provided in the repository's `CITATION.cff` file.
 
 Contact
 -------
-You can contact us directly at quakemigrate.developers@gmail.com
 
-Any additional comments/questions can be directed to:
+You can contact the QuakeMigrate developers directly at [quakemigrate.developers@gmail.com](mailto:quakemigrate.developers@gmail.com).
 
-* **Tom Winder** - tom.winder@esc.cam.ac.uk
-* **Conor Bacon** - conor.bacon@cantab.net
+Additional comments and questions can be directed to:
+
+* **Tom Winder** - [tom.winder@esc.cam.ac.uk](mailto:tom.winder@esc.cam.ac.uk)
+* **Conor Bacon** - [conor.bacon@norsar.no](mailto:conor.bacon@norsar.no)
 
 License
 -------
-This package is written and maintained by the QuakeMigrate developers, Copyright QuakeMigrate developers 2020–2025. It is distributed under the GPLv3 License. Please see the `LICENSE <https://www.gnu.org/licenses/gpl-3.0.html>`_ for a complete description of the rights and freedoms that this provides the user.
+This package is written and maintained by the QuakeMigrate developers, Copyright QuakeMigrate developers 2020–2026. It is distributed under the GPLv3 License. Please see the `LICENSE <https://www.gnu.org/licenses/gpl-3.0.html>`_ for a complete description of the rights and freedoms that this provides the user.
 
 Contents:
 ---------

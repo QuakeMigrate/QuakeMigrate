@@ -16,7 +16,7 @@ QuakeMigrate was developed and tested on Ubuntu 16.04/18.04, with the intention 
 
 Prerequisites
 -------------
-QuakeMigrate supports Python 3.9 or newer (3.9/3.10/3.11/3.12). We recommend using Anaconda as a package manager and environment management system to isolate and install the specific dependencies of QuakeMigrate.
+QuakeMigrate supports Python 10 or newer (3.10/3.11/3.12). We recommend using a virtual environment or conda environment to isolate the specific dependencies of QuakeMigrate.
 
 Instructions for downloading and installing Anaconda can be found `here <https://docs.anaconda.com/anaconda/install/>`_. If drive space is limited, consider using Miniconda instead, which ships with a minimal collection of useful packages.
 
@@ -24,7 +24,7 @@ Installation via `pip`
 ----------------------
 The simplest way to get a working copy of QuakeMigrate is to install it from the Python Package Index (PyPI) using ``pip`` (the Python package installer).
 
-To do this you first need to set up an enivironment. We recommend creating a minimal environment initially:
+To do this you first need to set up an environment. We recommend creating a minimal environment initially:
 
 .. code-block:: bash
     
@@ -458,6 +458,6 @@ If this returns ``'Agg'``, then you definitely need to install a backend capable
 
 .. code-block:: bash
 
-    conda intall pyqt
+    conda install pyqt
 
 Then re-do the steps above to verify that this was successful.

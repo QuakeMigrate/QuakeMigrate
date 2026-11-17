@@ -918,12 +918,20 @@ def _ellipse_from_covariance(
 
     eigvals, eigvecs = np.linalg.eigh(covariance_2d)
 
+    if np.any(eigvals <= 0.0):
+        return None
+
     order = np.argsort(eigvals)[::-1]
     eigvals = eigvals[order]
     eigvecs = eigvecs[:, order]
 
     width, height = 2.0 * n_sigma * np.sqrt(np.clip(eigvals, 0.0, np.inf))
-    angle = np.degrees(np.arctan2(eigvecs[1, 0], eigvecs[0, 0]))
+
+    if not np.all(np.isfinite((width, height))):
+        return None
+
+    major_axis = eigvecs[:, 0]
+    angle = np.degrees(np.arctan2(major_axis[1], major_axis[0]))
 
     return Ellipse(
         centre,

@@ -20,8 +20,7 @@ from quakemigrate.plugins.onsets.stalta import STALTAOnset
 
 ENTRY_POINT_GROUP = "quakemigrate.onsets"
 
-
-_BUILTIN_ONSETS: dict[str, type[Onset]] = {
+_BUILTIN_ONSETS = {
     "stalta": STALTAOnset,
 }
 
@@ -77,10 +76,10 @@ def get_onset_class(name: str) -> type[Onset]:
 
     try:
         onset_class = entry_point.load()
-    except Exception as exception:
+    except Exception as e:
         raise ConfigError(
             f"Failed to load onset plugin {name} from entry point {entry_point.value}."
-        ) from exception
+        ) from e
 
     if not isinstance(onset_class, type) or not issubclass(onset_class, Onset):
         raise ConfigError(

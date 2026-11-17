@@ -58,7 +58,7 @@ def load_toml(config_file: pathlib.Path, basepath: pathlib.Path | None = None) -
     return config
 
 
-_PATH_KEYS = {"station_file", "vmodel_file", "file", "path", "response_file"}
+_PATH_KEYS = {"station_file", "vmodel_file", "file", "path", "inventory_path"}
 
 
 def resolve_config_paths(config: dict, basepath: pathlib.Path) -> dict:

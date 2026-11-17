@@ -44,10 +44,7 @@ def make_onset_function(config: Mapping[str, Any]) -> Onset:
 
     onset_class = get_onset_class(onset_name)
 
-    return onset_class(
-        sampling_rate=sampling_rate,
-        **onset_config,
-    )
+    return onset_class(sampling_rate=sampling_rate, **onset_config)
 
 
 __all__ = ["Onset", "OnsetData", "make_onset_function"]

@@ -493,6 +493,22 @@ class Event:
         else:
             event_file_cols = EVENT_FILE_COLS
 
+        gaussian_covariance = np.asarray(
+            self.locations["gaussian"].get(
+                "covariance_matrix_physical",
+                np.full((3, 3), np.nan),
+            ),
+        )
+
+        gaussian_covariance_fields = {
+            f"GAU_Cov{'XYZ'[i]}{'XYZ'[j]}": float(gaussian_covariance[i, j])
+            for i in range(3)
+            for j in range(i, 3)
+        }
+
+        out.update(gaussian_covariance_fields)
+        event_file_cols = [*event_file_cols, *gaussian_covariance_fields]
+
         event_df = pd.DataFrame([out])[event_file_cols]
 
         # Set floating point precision for COA values

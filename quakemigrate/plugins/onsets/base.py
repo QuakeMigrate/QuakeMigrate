@@ -138,9 +138,7 @@ class Onset(ABC):
 
     @abstractmethod
     def calculate_onsets(
-        self,
-        data: WaveformData,
-        timespan: float | None = None,
+        self, data: WaveformData, timespan: float | None = None
     ) -> tuple[np.ndarray, OnsetData]:
         """
         Calculate onset functions for the requested stations and phases.

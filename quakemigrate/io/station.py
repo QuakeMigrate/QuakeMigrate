@@ -74,7 +74,7 @@ def stations_from_inventory(
     Returns
     -------
     stations:
-        List of Station objects populated with metadata from the Inventory.
+        Sorted list of Station objects.
 
     """
 

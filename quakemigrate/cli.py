@@ -197,10 +197,24 @@ def _run_locate(args: argparse.Namespace) -> None:
             "invalid station file type. Must be either 'csv' or 'stationxml"
         )
 
-    starttime = args.starttime or get_required_key(config["scan"], "starttime")
-    endtime = args.endtime or get_required_key(config["scan"], "endtime")
+    if args.trigger_file is not None:
+        if args.starttime is not None or args.endtime is not None:
+            raise CLIError(
+                "--trigger-file cannot be combined with --starttime or --endtime.",
+                exit_code=2,
+            )
 
-    locator.locate(stations, starttime, endtime)
+        if not args.trigger_file.is_file():
+            raise CLIError(
+                f"Trigger file does not exist or is not a file:\n  {args.trigger_file}",
+                exit_code=2,
+            )
+        locator.locate(stations, trigger_file=str(args.trigger_file.resolve()))
+    else:
+        starttime = args.starttime or get_required_key(config["scan"], "starttime")
+        endtime = args.endtime or get_required_key(config["scan"], "endtime")
+
+        locator.locate(stations, starttime, endtime)
 
 
 def entry_point(argv: list[str] | None = None) -> None:
@@ -297,6 +311,13 @@ def entry_point(argv: list[str] | None = None) -> None:
                 type=float,
                 default=None,
                 help="Override for spatial filtering of triggered events.",
+            )
+        if cmd == "locate":
+            p.add_argument(
+                "--trigger-file",
+                type=pathlib.Path,
+                default=None,
+                help="Locate events from a trigger file instead of a time range.",
             )
         p.set_defaults(func=RequiresProject(fn))
 
